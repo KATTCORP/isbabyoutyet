@@ -11,7 +11,8 @@
  *
  * This file is also a Vitest `setupFiles` entry so better-auth's broadcast
  * channel, focus manager, and online manager are replaced *before* that
- * package loads. Window stubs are not installed at import time.
+ * package loads (`./testFetch.ts` does the same for `fetch`). Window stubs are
+ * not installed at import time.
  */
 
 import { webcrypto } from "node:crypto";

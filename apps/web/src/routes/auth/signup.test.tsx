@@ -1,64 +1,76 @@
-import { fireEvent, screen } from "@testing-library/react";
+import type { RenderResult } from "@testing-library/react";
+import { fireEvent } from "@testing-library/react";
+import { toast } from "sonner";
 import { expect, test, vi } from "vitest";
-import { LocaleProvider } from "@/lib/i18n";
-import { SignupCard, SignupPage, Route } from "@/routes/auth/signup";
-import { renderWithTestRouter } from "@/test/renderWithTestRouter";
+import { api } from "@workspace/convex/convex/_generated/api";
+import { Route } from "@/routes/auth/signup";
+import type { ConvexTestHarness } from "@/test/convexTestHarness";
+import { createConvexTestHarness } from "@/test/convexTestHarness";
+import { signUpTestUser } from "@/test/convexTestSeed";
 import { htmlInput } from "@/test/htmlElement";
+import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
+import { untilCalled } from "@/test/untilCalled";
 
-type NewAccount = { email: string; name: string; password: string };
-
-const NEW_ACCOUNT: NewAccount = {
+const NEW_ACCOUNT = {
   email: "parent@example.com",
   name: "Test Parent",
   password: "password",
 };
 
-function renderSignup(onSignUp: (values: NewAccount) => Promise<void>) {
-  return renderWithTestRouter(
-    <LocaleProvider locale="en-GB">
-      <SignupCard onSignUp={onSignUp} signInLink={{ to: "/auth/login" }} />
-    </LocaleProvider>,
-    { path: "/auth/signup" },
-  );
+async function mountSignup(harness: ConvexTestHarness) {
+  return await renderMountedFileRoute({
+    harness,
+    initialEntry: "/auth/signup",
+    overlayHistory: null,
+    path: "/auth/signup",
+    route: Route,
+    wrap: null,
+  });
+}
+
+function signUpAs(view: RenderResult, account: { email: string; name: string; password: string }) {
+  fireEvent.change(view.getByLabelText("Name"), { target: { value: account.name } });
+  fireEvent.change(view.getByLabelText("Email"), { target: { value: account.email } });
+  fireEvent.change(view.getByLabelText("Password"), { target: { value: account.password } });
+  fireEvent.click(view.getByRole("button", { name: "Sign Up" }));
 }
 
 test("signup has no test-account picker and starts empty", async () => {
-  const onSignUp = vi.fn<(values: NewAccount) => Promise<void>>().mockResolvedValue(undefined);
-  await using _view = await renderSignup(onSignUp);
+  await using harness = await createConvexTestHarness({ identity: null });
+  await using ctx = await mountSignup(harness);
 
-  expect(screen.queryByLabelText("Test account")).toBeNull();
-  expect(htmlInput(screen.getByLabelText("Name")).value).toBe("");
-  expect(htmlInput(screen.getByLabelText("Email")).value).toBe("");
-  expect(htmlInput(screen.getByLabelText("Password")).value).toBe("");
-  expect(screen.getByRole("link", { name: "Sign in" }).getAttribute("href")).toBe("/auth/login");
+  expect(ctx.view.queryByLabelText("Test account")).toBeNull();
+  expect(htmlInput(ctx.view.getByLabelText("Name")).value).toBe("");
+  expect(htmlInput(ctx.view.getByLabelText("Email")).value).toBe("");
+  expect(htmlInput(ctx.view.getByLabelText("Password")).value).toBe("");
+  expect(ctx.view.getByRole("link", { name: "Sign in" }).getAttribute("href")).toBe("/auth/login");
 });
 
-test("submitting the form hands the new account to the signup flow", async () => {
-  const onSignUp = vi.fn<(values: NewAccount) => Promise<void>>().mockResolvedValue(undefined);
-  await using _view = await renderSignup(onSignUp);
+test("creating an account signs the new user in and lands on the dashboard", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+  await using ctx = await mountSignup(harness);
 
-  fireEvent.change(screen.getByLabelText("Name"), { target: { value: NEW_ACCOUNT.name } });
-  fireEvent.change(screen.getByLabelText("Email"), { target: { value: NEW_ACCOUNT.email } });
-  fireEvent.change(screen.getByLabelText("Password"), { target: { value: NEW_ACCOUNT.password } });
-  fireEvent.click(screen.getByRole("button", { name: "Sign Up" }));
+  signUpAs(ctx.view, NEW_ACCOUNT);
 
-  await vi.waitFor(() => {
-    expect(onSignUp).toHaveBeenCalledWith(NEW_ACCOUNT);
-  });
-});
-
-test("SignupPage wires the signup form", async () => {
-  await using _view = await renderWithTestRouter(
-    <LocaleProvider locale="en-GB">
-      <SignupPage />
-    </LocaleProvider>,
-    { path: "/auth/signup" },
+  await untilCalled(ctx.navigate);
+  expect(ctx.navigate).toHaveBeenCalledWith(expect.objectContaining({ to: "/dashboard" }));
+  expect(await harness.client.query(api.profile.get, {})).toEqual(
+    expect.objectContaining({ email: NEW_ACCOUNT.email, name: NEW_ACCOUNT.name }),
   );
+});
 
-  expect(screen.getByLabelText("Name")).toBeTruthy();
-  expect(screen.getByLabelText("Email")).toBeTruthy();
-  expect(screen.getByLabelText("Password")).toBeTruthy();
-  expect(screen.getByRole("button", { name: /sign up|create/i })).toBeTruthy();
+test("an email that is already registered shows Better Auth's error and stays signed out", async () => {
+  const toastError = vi.spyOn(toast, "error").mockImplementation(() => "");
+  await using harness = await createConvexTestHarness({ identity: null });
+  await signUpTestUser(harness, NEW_ACCOUNT);
+  await using ctx = await mountSignup(harness);
+
+  signUpAs(ctx.view, { ...NEW_ACCOUNT, name: "Someone Else" });
+
+  await untilCalled(toastError);
+  expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/already exists/i));
+  expect(ctx.navigate).not.toHaveBeenCalled();
+  expect(await harness.client.query(api.profile.get, {})).toBeNull();
 });
 
 test("signup route head sets the document title", () => {
