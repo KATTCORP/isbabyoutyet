@@ -521,12 +521,6 @@ async function runAdminLoader(
   handlers: AdminQueryHandlers,
   profile: { isAdmin: boolean; locale: string; timeZone: string },
 ) {
-  const { registerConvexInfiniteQueryClient } = await import("@workspace/convex-prefetch");
-  registerConvexInfiniteQueryClient({
-    // @ts-expect-error — fixture only implements query
-    convexClient: { query: () => Promise.resolve(ADMIN_EMPTY_PAGE) },
-    serverHttpClient: undefined,
-  });
   // @ts-expect-error — stub loader opts are the fields this route reads
   const route: {
     options: {

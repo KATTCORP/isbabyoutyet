@@ -358,13 +358,6 @@ async function setupBabyLoader(
   const mutation =
     options?.convexClient?.mutation ??
     vi.fn<() => Promise<{ locale: string }>>(() => Promise.resolve({ locale: "en-GB" }));
-  // The infinite timeline query fetches through the registered Convex client.
-  const { registerConvexInfiniteQueryClient } = await import("@workspace/convex-prefetch");
-  registerConvexInfiniteQueryClient({
-    // @ts-expect-error — fixture only implements query
-    convexClient: { query: () => Promise.resolve(EMPTY_PAGE) },
-    serverHttpClient: undefined,
-  });
   // @ts-expect-error — stub context is the subset the loader reads
   const loader: (opts: {
     context: {

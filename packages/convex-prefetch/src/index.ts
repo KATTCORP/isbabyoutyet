@@ -2,7 +2,6 @@ export {
   CONVEX_INFINITE_QUERY_KEY,
   convexInfiniteQuery,
   convexInfiniteQueryFn,
-  registerConvexInfiniteQueryClient,
   type PaginatedQueryReference,
   type PaginationArgs,
 } from "./convexInfiniteQuery.js";
