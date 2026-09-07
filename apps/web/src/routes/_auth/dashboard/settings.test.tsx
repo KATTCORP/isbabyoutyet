@@ -133,7 +133,15 @@ test("DashboardSettingsSheet wires the preloaded profile into the view", async (
 
   await using view = await renderWithConvexTest({
     harness,
-    ui: <DashboardSettingsSheet profile={profile} queryClient={harness.queryClient} />,
+    ui: (
+      <DashboardSettingsSheet
+        // @ts-expect-error — integration client is not ConvexReactClient
+        convexClient={harness.convexClient}
+        convexQueryClient={harness.convexQueryClient}
+        profile={profile}
+        queryClient={harness.queryClient}
+      />
+    ),
     wrap: null,
   });
 

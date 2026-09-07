@@ -1,17 +1,19 @@
-import { Button } from "@workspace/ui/components/button";
-import { authClient } from "@/lib/auth-client";
-import { createFileRoute, Link } from "@tanstack/react-router";
 import { BabyIcon } from "@phosphor-icons/react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { api } from "@workspace/convex/convex/_generated/api";
 import type { SupportedLocale } from "@workspace/convex/src/i18n";
 import { homepageDemoBabyFor } from "@workspace/convex/src/seedCredentials";
+import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
+import { allKeyed } from "@workspace/query-prefetch";
+import { Button } from "@workspace/ui/components/button";
 import { LanguagePicker } from "@/components/language-picker";
+import { homepageCacheHeaders } from "@/lib/cachePolicy";
 import { translate, useI18n } from "@/lib/i18n";
 import type { TranslationKey } from "@/lib/i18n";
-import { homepageOgImagePath, openGraphImageMeta } from "@/lib/seo";
-import { searchRobotsMeta } from "@/lib/robots";
-import { absoluteUrl, canonicalUrl } from "@/lib/site-url";
 import { setLocale } from "@/lib/paraglide-setup";
-import { homepageCacheHeaders } from "@/lib/cachePolicy";
+import { searchRobotsMeta } from "@/lib/robots";
+import { homepageOgImagePath, openGraphImageMeta } from "@/lib/seo";
+import { absoluteUrl, canonicalUrl } from "@/lib/site-url";
 import { useClientDate } from "@/lib/use-client-date";
 import { useRotatingIndex } from "@/lib/use-delayed-action";
 import { useMeasuredWidth } from "@/lib/use-measured-width";
@@ -23,6 +25,11 @@ const SERVER_DATE_SNAPSHOT = "2026-01-01T10:30:00.000Z";
 export const Route = createFileRoute("/")({
   component: HomePage,
   headers: homepageCacheHeaders,
+  loader: async (opts) => {
+    return await allKeyed({
+      me: opts.context.convexPreloader.ensureQueryData(api.profile.get, {}),
+    });
+  },
   head: (opts) => {
     const locale = opts.match.context.locale;
     const title = translate(locale, "Is Baby Out Yet? – Share Your Baby's Arrival");
@@ -233,10 +240,21 @@ const HOW_IT_WORKS = [
 }>;
 
 export function HomePage() {
+  const loaderData = Route.useLoaderData();
+  const meQuery = usePreloadedConvexQuery(api.profile.get, loaderData.me);
+  return <HomePageView isSignedIn={meQuery.data != null} />;
+}
+
+/**
+ * Presentational homepage. Signed-in CTAs follow the live `profile.get` query.
+ *
+ * @internal exported for tests
+ */
+export function HomePageView(props: { isSignedIn: boolean }) {
   const { locale, t } = useI18n();
   const demoBaby = homepageDemoBabyFor(locale);
   const headline = HERO_HEADLINES[locale];
-  const sessionData = authClient.useSession();
+  const isSignedIn = props.isSignedIn;
 
   const currentDate = useCurrentDate();
 
@@ -303,7 +321,7 @@ export function HomePage() {
             <span className="text-sm font-extrabold tracking-tight">isbabyoutyet</span>
           </span>
           <div className="flex items-center gap-2">
-            {sessionData.data ? (
+            {isSignedIn ? (
               <Button
                 className="rounded-full font-bold"
                 nativeButton={false}
@@ -358,7 +376,7 @@ export function HomePage() {
           </p>
           <div className="mt-8 flex flex-col items-center gap-3">
             <div className="flex flex-wrap justify-center gap-3">
-              {sessionData.data ? (
+              {isSignedIn ? (
                 <Button
                   className="h-auto rounded-full px-8 py-4 text-base font-extrabold pop-shadow-strong"
                   nativeButton={false}
@@ -522,14 +540,14 @@ export function HomePage() {
               {t("Ready to share the journey?")}
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-lg font-semibold text-muted-foreground">
-              {sessionData.data
+              {isSignedIn
                 ? t("Head back to your dashboard to keep everyone updated.")
                 : t(
                     "Join families who've already shared their special moments. Takes less than a minute.",
                   )}
             </p>
             <div className="mt-7">
-              {sessionData.data ? (
+              {isSignedIn ? (
                 <Button
                   className="rounded-full font-extrabold"
                   nativeButton={false}

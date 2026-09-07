@@ -9,7 +9,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { FormGuardProvider } from "@/components/Form";
 import { useI18n } from "@/lib/i18n";
 import { openOverlayLink, useBabySignupOverlay } from "@/lib/overlay-nav";
-import { SignupCard, signUpThenGo } from "@/routes/auth/signup";
+import { signUpThenGo } from "@/lib/auth-client";
+import { SignupCard } from "@/routes/auth/signup";
 
 export const Route = createFileRoute("/baby/$publicId/signup")({
   component: BabySignupOverlay,
@@ -34,6 +35,8 @@ export function BabySignupOverlay() {
           <SignupCard
             onSignUp={(values) =>
               signUpThenGo(values, {
+                convexClient: context.convexClient,
+                convexQueryClient: context.convexQueryClient,
                 navigate: () => signup.close(),
                 queryClient: context.queryClient,
                 t,

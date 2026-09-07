@@ -8,9 +8,7 @@ import {
   NavigationProgressBar,
   NotFoundComponent,
   contextLocale,
-  contextToken,
   localeFromMatches,
-  resolveRootBeforeLoad,
   RootDocument,
   RootErrorComponent,
 } from "@/routes/__root";
@@ -19,16 +17,6 @@ import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 
 function renderProgress(ui: ReactElement) {
   return renderResource(<LocaleProvider locale="en-GB">{ui}</LocaleProvider>);
-}
-
-function withoutBrowserWindow(run: () => Promise<void>) {
-  const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
-  Object.defineProperty(globalThis, "window", { configurable: true, value: undefined });
-  return run().finally(() => {
-    if (windowDescriptor) {
-      Object.defineProperty(globalThis, "window", windowDescriptor);
-    }
-  });
 }
 
 test("route context locales are narrowed to supported values", () => {
@@ -40,16 +28,6 @@ test("route context locales are narrowed to supported values", () => {
   expect(contextLocale({})).toBeUndefined();
   expect(contextLocale(null)).toBeUndefined();
   expect(contextLocale(["sv"])).toBeUndefined();
-});
-
-test("route context tokens accept strings or explicit null", () => {
-  expect(contextToken({ token: "abc" })).toBe("abc");
-  expect(contextToken({ token: null })).toBeNull();
-  expect(contextToken({ token: undefined })).toBeUndefined();
-  expect(contextToken({ token: true })).toBeUndefined();
-  expect(contextToken({ token: 1 })).toBeUndefined();
-  expect(contextToken({})).toBeUndefined();
-  expect(contextToken(null)).toBeUndefined();
 });
 
 test("document locale uses the last route that set one", () => {
@@ -69,45 +47,6 @@ test("document locale keeps the baby page when a later match has no locale", () 
       "en-GB",
     ),
   ).toBe("sv");
-});
-
-test("beforeLoad keeps shared document rendering anonymous", async () => {
-  const anonymous = await resolveRootBeforeLoad({
-    detectLocale: async () => "sv",
-    getClientLocale: () => "en-GB",
-  });
-  expect(anonymous.locale).toBe("en-GB");
-  expect(anonymous.isAuthenticated).toBe(false);
-  expect(anonymous.token).toBeNull();
-});
-
-test("client navigations resolve the locale without a server round-trip", async () => {
-  // Regression (PR #112 undid PR #108): the root beforeLoad blocks every
-  // client navigation, so calling the detect-locale server function made all
-  // cached navigations wait on an HTTP request and flash the progress bar.
-  const detectLocale = vi.fn<() => Promise<"sv">>(() => Promise.resolve("sv"));
-
-  const result = await resolveRootBeforeLoad({
-    detectLocale,
-    getClientLocale: () => "en-GB",
-  });
-
-  expect(result.locale).toBe("en-GB");
-  expect(detectLocale).not.toHaveBeenCalled();
-});
-
-test("server rendering resolves the locale from request headers", async () => {
-  const detectLocale = vi.fn<() => Promise<"sv">>(() => Promise.resolve("sv"));
-
-  await withoutBrowserWindow(async () => {
-    const result = await resolveRootBeforeLoad({
-      detectLocale,
-      getClientLocale: () => "en-GB",
-    });
-
-    expect(result.locale).toBe("sv");
-    expect(detectLocale).toHaveBeenCalledTimes(1);
-  });
 });
 
 test("the root document shell sets the html lang attribute", async () => {

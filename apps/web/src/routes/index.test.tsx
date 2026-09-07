@@ -4,15 +4,15 @@ import { makeResource } from "@workspace/convex/convex/test.resource";
 import { HOMEPAGE_DEMO_BABIES, HOMEPAGE_DEMO_BABY } from "@workspace/convex/src/seedCredentials";
 import { LocaleProvider } from "@/lib/i18n";
 import { cookieName } from "@/paraglide/runtime";
+import { createConvexTestHarness } from "@/test/convexTestHarness";
+import { signUpTestUser } from "@/test/convexTestSeed";
+import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
-import { HomePage } from "./index";
-
-// No auth cookie and no reachable auth server in jsdom, so the real
-// `authClient.useSession()` hook naturally resolves to a logged-out session —
-// no need to spy on it (it's a Proxy, so vi.spyOn can't attach).
+import { runRouteLoader } from "@/test/routeTestContext";
+import { HomePageView, Route } from "./index";
 
 test("homepage links visitors to the live Juniper Hale demo page", async () => {
-  await using _view = await renderWithTestRouter(<HomePage />);
+  await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
 
   const demoLinks = screen
     .getAllByRole("link")
@@ -28,10 +28,27 @@ test("homepage links visitors to the live Juniper Hale demo page", async () => {
   expect(livePage.parentElement).not.toBe(createPage.parentElement);
 });
 
+test("signed-out homepage shows sign-in CTAs", async () => {
+  await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
+
+  expect(screen.getAllByRole("button", { name: /^sign in$/i }).length).toBeGreaterThan(0);
+  expect(screen.getByRole("button", { name: /get started$/i })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /dashboard/i })).toBeNull();
+});
+
+test("signed-in homepage shows dashboard CTAs", async () => {
+  await using _view = await renderWithTestRouter(<HomePageView isSignedIn={true} />);
+
+  expect(screen.getByRole("button", { name: /^dashboard$/i })).toBeTruthy();
+  expect(screen.getAllByRole("button", { name: /go to dashboard/i }).length).toBeGreaterThan(0);
+  expect(screen.queryByRole("button", { name: /create your page/i })).toBeNull();
+  expect(screen.queryByRole("button", { name: /^sign in$/i })).toBeNull();
+});
+
 test("hero headline cycles through baby names", async () => {
   vi.useFakeTimers();
   await using _timers = makeResource({}, () => vi.useRealTimers());
-  await using _view = await renderWithTestRouter(<HomePage />);
+  await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
 
   expect(screen.getByRole("heading", { name: /is baby out yet/i })).toBeTruthy();
   expect(screen.queryByText("Juniper")).toBeNull();
@@ -44,7 +61,7 @@ test("Swedish homepage hero uses Swedish name pool", async () => {
   await using _timers = makeResource({}, () => vi.useRealTimers());
   await using _view = await renderWithTestRouter(
     <LocaleProvider locale="sv">
-      <HomePage />
+      <HomePageView isSignedIn={false} />
     </LocaleProvider>,
   );
 
@@ -55,7 +72,7 @@ test("Swedish homepage hero uses Swedish name pool", async () => {
 test("Swedish homepage links visitors to Ella Holm", async () => {
   await using _view = await renderWithTestRouter(
     <LocaleProvider locale="sv">
-      <HomePage />
+      <HomePageView isSignedIn={false} />
     </LocaleProvider>,
   );
 
@@ -73,7 +90,7 @@ test("homepage language picker saves an explicit language choice", async () => {
   await using _cookie = makeResource({}, () => {
     document.cookie = `${cookieName}=; path=/; max-age=0`;
   });
-  await using _view = await renderWithTestRouter(<HomePage />);
+  await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
 
   const picker = screen.getByRole("combobox", { name: "Language" });
   expect(picker.textContent).toContain("British English");
@@ -91,29 +108,35 @@ test("homepage language picker saves an explicit language choice", async () => {
   });
 });
 
-test("homepage session-refresh leftover cleanup does not require document", async () => {
-  vi.useFakeTimers();
-  await using _timers = makeResource({}, () => {
-    vi.useRealTimers();
+test("homepage loader prefetches profile.get", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+  const data = await runRouteLoader<{ me: { initialData: unknown } }>({
+    harness,
+    location: { pathname: "/" },
+    params: {},
+    route: Route,
   });
-  {
-    await using _view = await renderWithTestRouter(<HomePage />);
-  }
+  expect(data.me.initialData).toBeNull();
+});
 
-  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
-  if (!previousDocument) {
-    throw new Error("expected jsdom document");
-  }
-  await using _restoreDocument = makeResource({}, () => {
-    Object.defineProperty(globalThis, "document", previousDocument);
+test("signed-in profile.get flips homepage CTAs to the dashboard", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+  const userId = await signUpTestUser(harness, {
+    email: "ada@example.com",
+    name: "Ada",
+    password: "password123",
   });
-  // @ts-expect-error — simulate vitest tearing down jsdom before nanostores unmount
-  delete globalThis.document;
-  expect(Object.getOwnPropertyDescriptor(globalThis, "document")).toBeUndefined();
+  harness.withIdentity({ subject: userId });
 
-  expect(() => {
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-  }).not.toThrow();
+  await using ctx = await renderMountedFileRoute({
+    harness,
+    initialEntry: "/",
+    overlayHistory: null,
+    path: "/",
+    route: Route,
+    wrap: null,
+  });
+
+  expect(ctx.view.getByRole("button", { name: /^dashboard$/i })).toBeTruthy();
+  expect(ctx.view.queryByRole("button", { name: /create your page/i })).toBeNull();
 });

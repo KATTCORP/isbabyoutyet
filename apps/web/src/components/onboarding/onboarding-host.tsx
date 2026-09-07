@@ -3,7 +3,6 @@ import { api } from "@workspace/convex/convex/_generated/api";
 import { isFunction } from "@workspace/runtime/guards";
 import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
 import type { PreloadedConvexQuery } from "@workspace/convex-prefetch";
-import { authClient } from "@/lib/auth-client";
 import { useI18n } from "@/lib/i18n";
 import { useDelayedAction } from "@/lib/use-delayed-action";
 import { GettingStartedCard } from "./getting-started";
@@ -90,39 +89,30 @@ function useOnboardingMutations() {
 
 /**
  * Owns the first-run floating checklist + one active coachmark.
- * Mount on the dashboard index (not /dashboard/add) and any owner-managed baby page.
- *
- * Auth-gated: only mounts the suspense query once the session is known so
- * anonymous visitors never suspend on `onboarding.getMine`.
+ * Mount on the dashboard (behind `/_auth`) and owner-managed baby pages
+ * (`canManage`). Callers already know the viewer is signed in — do not
+ * re-check Better Auth's session here.
  */
 export function OnboardingHost(props: OnboardingHostProps) {
-  const session = authClient.useSession();
-  return (
-    <OnboardingHostWithSession
-      {...props}
-      session={{
-        data: session.data?.user ? { user: { id: session.data.user.id } } : null,
-        isPending: session.isPending,
-      }}
-    />
-  );
+  if (props.enabled === false) {
+    return null;
+  }
+  return <OnboardingHostAuthed {...props} />;
 }
 
 /**
- * Session-injected gate used by tests. Production goes through {@link OnboardingHost}.
+ * Test seam: inject signed-in vs anonymous without Better Auth's session hook.
+ * Production goes through {@link OnboardingHost} on routes that already know
+ * the viewer (`/_auth`, baby `canManage`).
  *
  * @internal exported for tests
  */
 export function OnboardingHostWithSession(
   props: OnboardingHostProps & { session: OnboardingSession },
 ) {
-  const enabled = props.enabled !== false;
-  const isAuthed = !!props.session.data?.user;
-
-  if (!enabled || !isAuthed || props.session.isPending) {
+  if (props.enabled === false || props.session.data === null || props.session.isPending) {
     return null;
   }
-
   return <OnboardingHostAuthed {...props} />;
 }
 

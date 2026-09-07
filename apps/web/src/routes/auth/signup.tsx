@@ -1,9 +1,7 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import type { LinkProps } from "@tanstack/react-router";
-import type { QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { authClient, getBrowserAuthHeaders } from "@/lib/auth-client";
-import { waitForMe } from "@/lib/convex-auth";
+import { signUpThenGo } from "@/lib/auth-client";
 import { Input } from "@workspace/ui/components/input";
 import {
   Card,
@@ -38,34 +36,6 @@ function signupSchema(t: TranslationFunction) {
 }
 
 type NewAccount = { email: string; name: string; password: string };
-
-/**
- * Create the account, then SPA-navigate. Callers own the destination
- * (dashboard, or overlay close).
- *
- * @internal Shared by the signup page and the baby-page overlay.
- */
-export async function signUpThenGo(
-  values: NewAccount,
-  opts: {
-    navigate: () => Promise<void> | void;
-    queryClient: QueryClient;
-    t: TranslationFunction;
-  },
-) {
-  const settled = waitForMe({ presence: "present", queryClient: opts.queryClient });
-  const result = await authClient.signUp.email(
-    { email: values.email, name: values.name, password: values.password },
-    { headers: getBrowserAuthHeaders() },
-  );
-
-  if (result.error) {
-    throw new Error(result.error.message || opts.t("Failed to sign up"));
-  }
-
-  await settled;
-  await opts.navigate();
-}
 
 export const Route = createFileRoute("/auth/signup")({
   component: SignupPage,
@@ -104,6 +74,8 @@ export function SignupPage() {
           <SignupCard
             onSignUp={(values) =>
               signUpThenGo(values, {
+                convexClient: context.convexClient,
+                convexQueryClient: context.convexQueryClient,
                 navigate: () => router.navigate({ to: "/dashboard" }),
                 queryClient: context.queryClient,
                 t,

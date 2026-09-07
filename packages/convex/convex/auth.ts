@@ -4,6 +4,7 @@ import { createClient } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { requireActionCtx } from "@convex-dev/better-auth/utils";
 import authConfig from "./auth.config";
+import { convexTokenInAuthResponse } from "./authConvexToken";
 import { sendPasswordResetEmail } from "./authEmail";
 import { components, internal } from "./_generated/api";
 import { env, query } from "./_generated/server";
@@ -183,6 +184,8 @@ export const createAuth = (convexCtx: GenericCtx<DataModel>) => {
     plugins: [
       // The Convex plugin is required for Convex compatibility
       convex({ authConfig }),
+      // Order matters: reads the `convex_jwt` cookie the plugin above sets.
+      convexTokenInAuthResponse(),
     ],
     rateLimit: {
       enabled: true,

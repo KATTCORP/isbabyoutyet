@@ -1,5 +1,18 @@
+import { rootRouteId } from "@tanstack/react-router";
 import { expect, test } from "vitest";
-import { routerPreloadOptions } from "@/router";
+import { rootAuthToken, routerPreloadOptions } from "@/router";
+
+test("rootAuthToken dehydrates the root cookie JWT and null for anonymous requests", () => {
+  const child = { context: { token: "child-token" }, routeId: "/_auth" };
+  expect(rootAuthToken([{ context: { token: "a.b.c" }, routeId: rootRouteId }, child])).toBe(
+    "a.b.c",
+  );
+  expect(
+    rootAuthToken([{ context: { token: undefined }, routeId: rootRouteId }, child]),
+  ).toBeNull();
+  expect(rootAuthToken([{ context: { token: 42 }, routeId: rootRouteId }])).toBeNull();
+  expect(rootAuthToken([])).toBeNull();
+});
 
 test("the router preloads on viewport and lets React Query own preload freshness", () => {
   expect(routerPreloadOptions).toMatchObject({

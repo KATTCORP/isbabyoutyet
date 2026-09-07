@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
-import { authClient } from "@/lib/auth-client";
+import { requestPasswordResetThenGo } from "@/lib/auth-client";
 import { Input } from "@workspace/ui/components/input";
 import {
   Card,
@@ -34,36 +34,6 @@ function forgotPasswordSchema(t: TranslationFunction) {
 
 type ForgotPasswordRequest = { email: string };
 
-/**
- * @internal Exported for tests.
- */
-export type RequestPasswordResetDeps = {
-  failedMessage: string;
-  markSent: () => Promise<void>;
-  requestReset: (body: {
-    email: string;
-    redirectTo: string;
-  }) => Promise<{ errorMessage: string | null }>;
-  resetRedirectTo: string;
-};
-
-/**
- * @internal Exported for tests; production wires it in `ForgotPasswordPage`.
- */
-export async function requestPasswordResetAndMarkSent(
-  values: ForgotPasswordRequest,
-  deps: RequestPasswordResetDeps,
-) {
-  const result = await deps.requestReset({
-    email: values.email,
-    redirectTo: deps.resetRedirectTo,
-  });
-  if (result.errorMessage !== null) {
-    throw new Error(result.errorMessage || deps.failedMessage);
-  }
-  await deps.markSent();
-}
-
 export const Route = createFileRoute("/auth/forgot-password")({
   component: ForgotPasswordPage,
   validateSearch: z.object({
@@ -86,17 +56,6 @@ export const Route = createFileRoute("/auth/forgot-password")({
 });
 
 /**
- * Mutable auth adapters so route smoke tests can swap the network-backed
- * better-auth client without `vi.mock`.
- *
- * @internal
- */
-export const forgotPasswordAuthAdapter = {
-  requestPasswordReset: (body: { email: string; redirectTo: string }) =>
-    authClient.requestPasswordReset(body),
-};
-
-/**
  * @internal Exported for smoke tests; production mounts it via `Route`.
  */
 export function ForgotPasswordPage() {
@@ -107,19 +66,14 @@ export function ForgotPasswordPage() {
   return (
     <ForgotPasswordCard
       onRequestReset={(values) =>
-        requestPasswordResetAndMarkSent(values, {
-          failedMessage: t("Unable to request a password reset"),
-          markSent: () =>
+        requestPasswordResetThenGo(values, {
+          navigate: () =>
             navigate({
               replace: true,
               search: { sent: "1" },
               to: "/auth/forgot-password",
             }),
-          requestReset: async (body) => {
-            const result = await forgotPasswordAuthAdapter.requestPasswordReset(body);
-            return { errorMessage: result.error ? (result.error.message ?? "") : null };
-          },
-          resetRedirectTo: `${import.meta.env.VITE_SITE_URL}/auth/reset-password`,
+          t,
         })
       }
       sent={search.sent === "1"}

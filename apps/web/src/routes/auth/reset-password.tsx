@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { z } from "zod";
-import { authClient } from "@/lib/auth-client";
+import { resetPasswordThenGo } from "@/lib/auth-client";
 import { Input } from "@workspace/ui/components/input";
 import {
   Card,
@@ -42,33 +42,6 @@ function resetPasswordSchema(t: TranslationFunction) {
 
 type NewPassword = { confirmPassword: string; password: string };
 
-/**
- * @internal Exported for tests.
- */
-export type ResetPasswordDeps = {
-  failedMessage: string;
-  navigateToLogin: () => Promise<void>;
-  resetPassword: (body: {
-    newPassword: string;
-    token: string;
-  }) => Promise<{ errorMessage: string | null }>;
-  token: string;
-};
-
-/**
- * @internal Exported for tests; production wires it in `ResetPasswordPage`.
- */
-export async function resetPasswordAndRedirect(values: NewPassword, deps: ResetPasswordDeps) {
-  const result = await deps.resetPassword({
-    newPassword: values.password,
-    token: deps.token,
-  });
-  if (result.errorMessage !== null) {
-    throw new Error(result.errorMessage || deps.failedMessage);
-  }
-  await deps.navigateToLogin();
-}
-
 export const Route = createFileRoute("/auth/reset-password")({
   component: ResetPasswordPage,
   validateSearch: searchSchema,
@@ -82,16 +55,6 @@ export const Route = createFileRoute("/auth/reset-password")({
     ],
   }),
 });
-
-/**
- * Mutable auth adapters so route smoke tests can swap the network-backed
- * better-auth client without `vi.mock`.
- *
- * @internal
- */
-export const resetPasswordAuthAdapter = {
-  resetPassword: (body: { newPassword: string; token: string }) => authClient.resetPassword(body),
-};
 
 /**
  * @internal Exported for smoke tests; production mounts it via `Route`.
@@ -109,15 +72,13 @@ export function ResetPasswordPage() {
       onResetPassword={
         token
           ? (values) =>
-              resetPasswordAndRedirect(values, {
-                failedMessage: t("Unable to reset your password"),
-                navigateToLogin: () => router.navigate({ to: "/auth/login" }),
-                resetPassword: async (body) => {
-                  const result = await resetPasswordAuthAdapter.resetPassword(body);
-                  return { errorMessage: result.error ? (result.error.message ?? "") : null };
+              resetPasswordThenGo(
+                { newPassword: values.password, token },
+                {
+                  navigate: () => router.navigate({ to: "/auth/login" }),
+                  t,
                 },
-                token,
-              })
+              )
           : null
       }
     />

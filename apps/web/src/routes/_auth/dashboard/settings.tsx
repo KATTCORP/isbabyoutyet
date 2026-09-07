@@ -1,10 +1,12 @@
 import { ShieldIcon, SignOutIcon } from "@phosphor-icons/react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import type { QueryClient } from "@tanstack/react-query";
+import type { ConvexQueryClient } from "@convex-dev/react-query";
+import type { ConvexReactClient } from "convex/react";
 import { useRef } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import type { QueryClient } from "@tanstack/react-query";
 import { api } from "@workspace/convex/convex/_generated/api";
 import type { PreloadedConvexQuery } from "@workspace/convex-prefetch";
 import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
@@ -20,8 +22,7 @@ import {
 import { AccountSettings } from "@/components/account-settings";
 import { Form, FormGuardProvider, SubmitButton, useZodForm } from "@/components/Form";
 import { LanguageSettings } from "@/components/language-settings";
-import { authClient } from "@/lib/auth-client";
-import { waitForMe } from "@/lib/convex-auth";
+import { signOutThenGo } from "@/lib/auth-client";
 import { useI18n } from "@/lib/i18n";
 import { useDashboardSettingsOverlay } from "@/lib/overlay-nav";
 import type { OverlayControl } from "@/lib/overlay-nav";
@@ -32,10 +33,16 @@ export const Route = createFileRoute("/_auth/dashboard/settings")({
 });
 
 export function DashboardSettingsRoute() {
-  // Accumulated context: `profile` from the `_auth` layout, `queryClient` from root.
   const context = Route.useRouteContext();
 
-  return <DashboardSettingsSheet profile={context.profile} queryClient={context.queryClient} />;
+  return (
+    <DashboardSettingsSheet
+      convexClient={context.convexClient}
+      convexQueryClient={context.convexQueryClient}
+      profile={context.profile}
+      queryClient={context.queryClient}
+    />
+  );
 }
 
 function SettingsSection(props: { children: ReactNode; title: string }) {
@@ -58,12 +65,15 @@ function SettingsSection(props: { children: ReactNode; title: string }) {
  * @internal exported for tests
  */
 export function DashboardSettingsSheet(props: {
+  convexClient: ConvexReactClient;
+  convexQueryClient: ConvexQueryClient;
   profile: PreloadedConvexQuery<typeof api.profile.get>;
   queryClient: QueryClient;
 }) {
   const profileQuery = usePreloadedConvexQuery(api.profile.get, props.profile);
-  const router = useRouter();
   const settings = useDashboardSettingsOverlay();
+  const { t } = useI18n();
+  const router = useRouter();
 
   return (
     <DashboardSettingsSheetView
@@ -71,23 +81,24 @@ export function DashboardSettingsSheet(props: {
       isAdmin={profileQuery.data?.isAdmin === true}
       languageSettings={<LanguageSettings profile={props.profile} />}
       onSignOut={async () => {
-        const settled = waitForMe({
-          presence: "absent",
-          queryClient: props.queryClient,
-        });
-        await authClient.signOut({
-          fetchOptions: {
-            onError: (error) => {
-              toast.error(error.error.message);
-            },
-            onSuccess: async () => {
-              await settled;
-              await router.navigate({
+        try {
+          await signOutThenGo({
+            convexClient: props.convexClient,
+            convexQueryClient: props.convexQueryClient,
+            navigate: () =>
+              router.navigate({
                 to: "/",
-              });
-            },
-          },
-        });
+              }),
+            queryClient: props.queryClient,
+            t,
+          });
+        } catch (error) {
+          if (error instanceof Error) {
+            toast.error(error.message);
+            return;
+          }
+          throw error;
+        }
       }}
       overlay={settings}
     />

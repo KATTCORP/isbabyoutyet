@@ -1,9 +1,7 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import type { LinkProps } from "@tanstack/react-router";
-import type { QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { authClient, getBrowserAuthHeaders } from "@/lib/auth-client";
-import { waitForMe } from "@/lib/convex-auth";
+import { signInThenGo } from "@/lib/auth-client";
 import { Input } from "@workspace/ui/components/input";
 import {
   Card,
@@ -42,34 +40,6 @@ function loginSchema(t: TranslationFunction) {
 
 type Credentials = { email: string; password: string };
 
-/**
- * Sign in, then SPA-navigate. Callers own the destination (dashboard, baby
- * page, or overlay close).
- *
- * @internal Shared by the login page and the baby-page overlay.
- */
-export async function signInThenGo(
-  values: Credentials,
-  opts: {
-    navigate: () => Promise<void> | void;
-    queryClient: QueryClient;
-    t: TranslationFunction;
-  },
-) {
-  const settled = waitForMe({ presence: "present", queryClient: opts.queryClient });
-  const result = await authClient.signIn.email(
-    { email: values.email, password: values.password, rememberMe: true },
-    { headers: getBrowserAuthHeaders() },
-  );
-
-  if (result.error) {
-    throw new Error(result.error.message || opts.t("Failed to sign in"));
-  }
-
-  await settled;
-  await opts.navigate();
-}
-
 export const Route = createFileRoute("/auth/login")({
   component: LoginPage,
   validateSearch: z.object({
@@ -92,11 +62,11 @@ export const Route = createFileRoute("/auth/login")({
 export function LoginPage() {
   const { t } = useI18n();
   const router = useRouter();
-  const context = Route.useRouteContext();
   const search = Route.useSearch();
   const redirect = search.redirect;
   const homeLink = babyLoginHomeLink(redirect);
   const successTarget = loginSuccessTarget(redirect);
+  const context = Route.useRouteContext();
 
   return (
     <div className="min-h-screen bg-background bg-dots flex items-center justify-center p-6">
@@ -115,6 +85,8 @@ export function LoginPage() {
             demoLoginEnabled={hasDemoLogin}
             onSignIn={(values) =>
               signInThenGo(values, {
+                convexClient: context.convexClient,
+                convexQueryClient: context.convexQueryClient,
                 navigate: () => router.navigate(successTarget),
                 queryClient: context.queryClient,
                 t,

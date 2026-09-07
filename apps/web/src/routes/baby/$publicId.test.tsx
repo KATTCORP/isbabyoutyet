@@ -312,6 +312,7 @@ type BabyLoaderResult = {
   browserPush: unknown;
   latestUpdate: unknown;
   managerBaby: unknown;
+  me: unknown;
   myAccess: unknown;
   onboarding: unknown;
   scheduledNotifications: unknown;

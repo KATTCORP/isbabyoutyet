@@ -32,7 +32,6 @@ import { babyRouteCacheHeaders } from "@/lib/cachePolicy";
 import { replaceBabyPublicId } from "@/lib/baby-public-id-href";
 import { babyPageRobotsHeaders, searchRobotsMeta } from "@/lib/robots";
 import { useI18n } from "@/lib/i18n";
-import { authClient } from "@/lib/auth-client";
 import { BABY_FEED_HASH } from "@workspace/convex/src/babyFeedUrl";
 import { useHashScroll } from "@/lib/use-hash-scroll";
 import { useDemoToast } from "@/lib/use-demo-toast";
@@ -85,6 +84,7 @@ export const Route = createFileRoute("/baby/$publicId")({
       latestUpdate: preloader.ensureQueryData(api.timeline.latestUpdate, {
         babyId: publicId,
       }),
+      me: preloader.ensureQueryData(api.profile.get, {}),
       managerBaby: preloader.ensureQueryData(api.baby.getManagerBaby, {
         babyId: publicId,
       }),
@@ -255,7 +255,6 @@ function BabyPageLayout() {
     publicId: params.publicId,
   });
   const matchRoute = useMatchRoute();
-  const session = authClient.useSession();
   useHashScroll();
   const shareOpen = !!matchRoute({ to: "/baby/$publicId/share" });
   const settingsOpen = !!matchRoute({ to: "/baby/$publicId/settings" });
@@ -281,6 +280,7 @@ function BabyPageLayout() {
     api.timeline.latestUpdate,
     loaderData.latestUpdate,
   );
+  const meQuery = usePreloadedConvexQuery(api.profile.get, loaderData.me);
   const managerBabyQuery = usePreloadedConvexQuery(api.baby.getManagerBaby, loaderData.managerBaby);
   const myAccessQuery = usePreloadedConvexQuery(api.coParents.myAccess, loaderData.myAccess);
 
@@ -292,11 +292,11 @@ function BabyPageLayout() {
   const signup = useBabySignupOverlayLinks(params.publicId);
 
   const latestUpdate = latestUpdateQuery.data;
+  const me = meQuery.data;
   const myAccess = myAccessQuery.data;
   const canManage = myAccess.canManage;
-  const sessionPending = session.isPending;
-  const signedIn = session.data !== null || canManage;
-  const signInButton = signedIn || sessionPending ? null : login.openLink;
+  const signedIn = me !== null || canManage;
+  const signInButton = signedIn ? null : login.openLink;
   const dashboardButton = signedIn ? { to: "/dashboard" as const } : null;
   const managerBabyDoc = managerBabyQuery.data === FORBIDDEN ? null : managerBabyQuery.data;
   const managerBaby = managerBabyDoc ? managerDocToBabyData(managerBabyDoc) : null;
@@ -417,7 +417,7 @@ function BabyPageLayout() {
               data-tour-id="learn_encouragements"
             >
               <EncouragementForm
-                accountName={session.data?.user.name ?? null}
+                accountName={me?.name ?? null}
                 babyId={babyDoc._id}
                 babyName={baby.name}
               />

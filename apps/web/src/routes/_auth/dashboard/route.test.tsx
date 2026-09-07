@@ -8,6 +8,7 @@ import {
   Outlet,
   RouterProvider,
 } from "@tanstack/react-router";
+import { ConvexProvider } from "convex/react";
 import { getFunctionName } from "convex/server";
 import type { FunctionReturnType } from "convex/server";
 import { expect, test, vi } from "vitest";
@@ -16,6 +17,7 @@ import { api } from "@workspace/convex/convex/_generated/api";
 import type { Id } from "@workspace/convex/convex/_generated/dataModel";
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { LocaleProvider } from "@/lib/i18n";
+import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { renderResource } from "@/test/renderResource";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import { DashboardBabyList, DashboardHeader, Route } from "@/routes/_auth/dashboard/route";
@@ -114,6 +116,7 @@ test("dashboard header groups add baby separately from theme and settings", asyn
 });
 
 test("parent dashboard stays mounted while child routes render through its outlet", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const preloader = stubPreloader([babySmith]);
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
@@ -124,11 +127,16 @@ test("parent dashboard stays mounted while child routes render through its outle
     component: function TestRoot() {
       return (
         <QueryClientProvider client={queryClient}>
-          <LocaleProvider locale="en-GB">
-            <TooltipProvider>
-              <Outlet />
-            </TooltipProvider>
-          </LocaleProvider>
+          <ConvexProvider
+            // @ts-expect-error — integration client is not ConvexReactClient
+            client={harness.convexClient}
+          >
+            <LocaleProvider locale="en-GB">
+              <TooltipProvider>
+                <Outlet />
+              </TooltipProvider>
+            </LocaleProvider>
+          </ConvexProvider>
         </QueryClientProvider>
       );
     },

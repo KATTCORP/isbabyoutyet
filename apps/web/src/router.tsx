@@ -1,5 +1,6 @@
-import { createRouter } from "@tanstack/react-router";
+import { createRouter, rootRouteId } from "@tanstack/react-router";
 import { QueryClient } from "@tanstack/react-query";
+import { isPlainObject, isString } from "@workspace/runtime/guards";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import { ConvexProvider } from "convex/react";
@@ -10,8 +11,8 @@ import {
   registerConvexInfiniteQueryClient,
 } from "@workspace/convex-prefetch";
 import { RootErrorComponent } from "./routes/__root";
-import { setupClientConvexAuth } from "./lib/convex-auth";
 import { getDetectedLocale } from "./lib/i18n";
+import { setClientToken } from "./lib/auth-client";
 
 /** Router preload policy — tested without constructing the full client graph. */
 export const routerPreloadOptions = {
@@ -24,6 +25,24 @@ export const routerPreloadOptions = {
   defaultPreloadStaleTime: 0,
   scrollRestoration: true,
 } as const;
+
+/**
+ * Cookie JWT the root `beforeLoad` resolved on the server, for the client
+ * `hydrate` hand-off. `null` (not `undefined`) so the dehydrated payload is
+ * explicit about "no signed-in cookie".
+ *
+ * @internal exported for tests
+ */
+export function rootAuthToken(matches: ReadonlyArray<{ context: unknown; routeId: string }>) {
+  const rootMatch = matches.find((match) => match.routeId === rootRouteId);
+  const context = rootMatch?.context;
+  if (!isPlainObject(context) || !isString(context.token)) {
+    return null;
+  }
+  return context.token;
+}
+
+type DehydratedAuth = { authToken: string | null };
 
 export function getRouter() {
   const convexUrl = import.meta.env.VITE_CONVEX_URL!;
@@ -50,12 +69,6 @@ export function getRouter() {
   convexQueryClient.connect(queryClient);
   const convexPreloader = getConvexQueryPreloader(queryClient);
 
-  // Resolve auth (signed-in or anonymous) before React mounts — see the
-  // function's doc comment for why the auth provider alone is not enough.
-  if (globalThis.window !== undefined) {
-    setupClientConvexAuth(convexQueryClient, queryClient);
-  }
-
   const router = createRouter({
     routeTree,
     // Viewport preload runs loaders when a Link scrolls into view (not just on
@@ -67,13 +80,20 @@ export function getRouter() {
       convexClient: convexQueryClient.convexClient,
       convexPreloader,
       convexQueryClient,
-      isAuthenticated: false,
       locale: getDetectedLocale(),
       queryClient,
-      token: null,
+      token: undefined,
     },
     defaultErrorComponent: RootErrorComponent,
     scrollRestoration: true,
+    // `setClientToken` is the only `setAuth` owner on the browser client.
+    // SSR ships the cookie JWT the root `beforeLoad` resolved; the client hands
+    // it to Convex before React mounts (`expectAuth` keeps the socket paused
+    // until then). Anonymous visitors resolve via one `/convex/token` 401.
+    dehydrate: (): DehydratedAuth => ({ authToken: rootAuthToken(router.state.matches) }),
+    hydrate: (dehydrated) => {
+      setClientToken(convexQueryClient.convexClient, dehydrated.authToken);
+    },
     Wrap: (props) => (
       <ConvexProvider client={convexQueryClient.convexClient}>{props.children}</ConvexProvider>
     ),

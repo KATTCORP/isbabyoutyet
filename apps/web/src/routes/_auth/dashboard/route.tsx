@@ -3,7 +3,6 @@ import { ButtonGroup } from "@workspace/ui/components/button-group";
 import { ModeToggle } from "@workspace/ui/components/mode-toggle";
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { allKeyed } from "@workspace/query-prefetch";
-import type { PreloadedConvexQuery } from "@workspace/convex-prefetch";
 import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
 import { BabyIcon, PlusIcon, UserIcon } from "@phosphor-icons/react";
 import { Avatar, AvatarFallback } from "@workspace/ui/components/avatar";
@@ -25,25 +24,20 @@ export const Route = createFileRoute("/_auth/dashboard")({
   },
 });
 
-export type DashboardLoaderData = {
-  babies: PreloadedConvexQuery<typeof api.baby.listByUser>;
-  onboarding: PreloadedConvexQuery<typeof api.onboarding.getMine>;
-};
-
 export function DashboardPageLayout() {
-  const loaderData = Route.useLoaderData();
   return (
     <>
-      <DashboardPage babies={loaderData.babies} onboarding={loaderData.onboarding} />
+      <DashboardPage />
       <Outlet />
     </>
   );
 }
 
-export function DashboardPage(props: DashboardLoaderData) {
+function DashboardPage() {
+  const loaderData = Route.useLoaderData();
   const { t } = useI18n();
-  const babiesQuery = usePreloadedConvexQuery(api.baby.listByUser, props.babies);
-  const onboardingQuery = usePreloadedConvexQuery(api.onboarding.getMine, props.onboarding);
+  const babiesQuery = usePreloadedConvexQuery(api.baby.listByUser, loaderData.babies);
+  const onboardingQuery = usePreloadedConvexQuery(api.onboarding.getMine, loaderData.onboarding);
   const babies = babiesQuery.data;
   const progress = onboardingQuery.data;
 
@@ -51,7 +45,7 @@ export function DashboardPage(props: DashboardLoaderData) {
     <div className="flex min-h-screen flex-col bg-background bg-dots">
       <OnboardingHost
         enabled={undefined}
-        onboarding={props.onboarding}
+        onboarding={loaderData.onboarding}
         spotlight={undefined}
         surface="dashboard"
       />
