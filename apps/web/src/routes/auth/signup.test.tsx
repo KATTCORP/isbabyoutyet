@@ -9,6 +9,7 @@ import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { signUpTestUser } from "@/test/convexTestSeed";
 import { htmlInput } from "@/test/htmlElement";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
+import { untilCalled } from "@/test/untilCalled";
 
 const NEW_ACCOUNT = {
   email: "parent@example.com",
@@ -51,9 +52,8 @@ test("creating an account signs the new user in and lands on the dashboard", asy
 
   signUpAs(ctx.view, NEW_ACCOUNT);
 
-  await vi.waitFor(() => {
-    expect(ctx.navigate).toHaveBeenCalledWith(expect.objectContaining({ to: "/dashboard" }));
-  });
+  await untilCalled(ctx.navigate);
+  expect(ctx.navigate).toHaveBeenCalledWith(expect.objectContaining({ to: "/dashboard" }));
   expect(await harness.client.query(api.profile.get, {})).toEqual(
     expect.objectContaining({ email: NEW_ACCOUNT.email, name: NEW_ACCOUNT.name }),
   );
@@ -67,9 +67,8 @@ test("an email that is already registered shows Better Auth's error and stays si
 
   signUpAs(ctx.view, { ...NEW_ACCOUNT, name: "Someone Else" });
 
-  await vi.waitFor(() => {
-    expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/already exists/i));
-  });
+  await untilCalled(toastError);
+  expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/already exists/i));
   expect(ctx.navigate).not.toHaveBeenCalled();
   expect(await harness.client.query(api.profile.get, {})).toBeNull();
 });

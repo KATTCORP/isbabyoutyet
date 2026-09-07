@@ -1,16 +1,16 @@
 import { fireEvent } from "@testing-library/react";
 import { toast } from "sonner";
 import { expect, test, vi } from "vitest";
-import { createAuth } from "@workspace/convex/convex/auth";
 import { makeResource } from "@workspace/convex/convex/test.resource";
 import { isString } from "@workspace/runtime/guards";
 import { Route as ForgotPasswordRoute } from "@/routes/auth/forgot-password";
 import { Route as ResetPasswordRoute } from "@/routes/auth/reset-password";
 import type { ConvexTestHarness } from "@/test/convexTestHarness";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
-import { signUpTestUser } from "@/test/convexTestSeed";
+import { canSignIn, signUpTestUser } from "@/test/convexTestSeed";
 import { htmlInput } from "@/test/htmlElement";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
+import { untilCalled } from "@/test/untilCalled";
 
 const ADA = { email: "ada@example.com", name: "Ada", password: "old-password" };
 
@@ -70,20 +70,6 @@ async function mountResetPassword(harness: ConvexTestHarness, url: string) {
   });
 }
 
-async function signInWorks(
-  harness: ConvexTestHarness,
-  credentials: { email: string; password: string },
-) {
-  try {
-    await harness.t.action(async (ctx) => {
-      await createAuth(ctx).api.signInEmail({ body: credentials });
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 test("requesting a reset emails a link that lets the user choose a new password", async () => {
   await using _env = withoutVercelEnv();
   await using resetEmail = capturePasswordResetLink();
@@ -94,11 +80,10 @@ test("requesting a reset emails a link that lets the user choose a new password"
     await using ctx = await mountForgotPassword(harness, "/auth/forgot-password");
     fireEvent.change(ctx.view.getByLabelText("Email"), { target: { value: ADA.email } });
     fireEvent.click(ctx.view.getByRole("button", { name: "Send reset link" }));
-    await vi.waitFor(() => {
-      expect(ctx.navigate).toHaveBeenCalledWith(
-        expect.objectContaining({ search: { sent: "1" }, to: "/auth/forgot-password" }),
-      );
-    });
+    await untilCalled(ctx.navigate);
+    expect(ctx.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({ search: { sent: "1" }, to: "/auth/forgot-password" }),
+    );
   }
 
   // The emailed link is a Better Auth endpoint that redirects into the app.
@@ -117,13 +102,12 @@ test("requesting a reset emails a link that lets the user choose a new password"
       target: { value: "new-password" },
     });
     fireEvent.click(ctx.view.getByRole("button", { name: "Update password" }));
-    await vi.waitFor(() => {
-      expect(ctx.navigate).toHaveBeenCalledWith(expect.objectContaining({ to: "/auth/login" }));
-    });
+    await untilCalled(ctx.navigate);
+    expect(ctx.navigate).toHaveBeenCalledWith(expect.objectContaining({ to: "/auth/login" }));
   }
 
-  expect(await signInWorks(harness, { email: ADA.email, password: "new-password" })).toBe(true);
-  expect(await signInWorks(harness, { email: ADA.email, password: ADA.password })).toBe(false);
+  expect(await canSignIn(harness, { email: ADA.email, password: "new-password" })).toBe(true);
+  expect(await canSignIn(harness, { email: ADA.email, password: ADA.password })).toBe(false);
 });
 
 test("a stale reset token is rejected without leaving the page", async () => {
@@ -140,11 +124,10 @@ test("a stale reset token is rejected without leaving the page", async () => {
   });
   fireEvent.click(ctx.view.getByRole("button", { name: "Update password" }));
 
-  await vi.waitFor(() => {
-    expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/invalid|expired/i));
-  });
+  await untilCalled(toastError);
+  expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/invalid|expired/i));
   expect(ctx.navigate).not.toHaveBeenCalled();
-  expect(await signInWorks(harness, { email: ADA.email, password: ADA.password })).toBe(true);
+  expect(await canSignIn(harness, { email: ADA.email, password: ADA.password })).toBe(true);
 });
 
 test("forgot password shows the sent confirmation from the URL", async () => {

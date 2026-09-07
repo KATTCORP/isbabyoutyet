@@ -5,6 +5,7 @@ import { Route } from "@/routes/baby/$publicId/signup";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { seedOwnedBaby } from "@/test/convexTestSeed";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
+import { untilCalled } from "@/test/untilCalled";
 
 test("the overlay shows the signup form on the baby page", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
@@ -55,9 +56,8 @@ test("signing up from the overlay closes it back onto the baby page as the new u
   fireEvent.change(ctx.view.getByLabelText("Password"), { target: { value: "password" } });
   fireEvent.click(ctx.view.getByRole("button", { name: /sign up/i }));
 
-  await vi.waitFor(() => {
-    expect(ctx.back).toHaveBeenCalledOnce();
-  });
+  await untilCalled(ctx.back);
+  expect(ctx.back).toHaveBeenCalledOnce();
   expect(await harness.client.query(api.profile.get, {})).toEqual(
     expect.objectContaining({ email: "grace@example.com", name: "Grace" }),
   );

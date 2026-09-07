@@ -8,6 +8,8 @@ export type RouteTestContext = {
   /** Root `beforeLoad` sets this in production; route `head()` reads it. */
   locale: "en-GB";
   queryClient: ConvexTestHarness["queryClient"];
+  /** Root `beforeLoad` only resolves this during SSR; client navigations see `undefined`. */
+  token: undefined;
 };
 
 export function routeContextFromHarness(harness: ConvexTestHarness): RouteTestContext {
@@ -17,14 +19,17 @@ export function routeContextFromHarness(harness: ConvexTestHarness): RouteTestCo
     convexQueryClient: harness.convexQueryClient,
     locale: "en-GB",
     queryClient: harness.queryClient,
+    token: undefined,
   };
 }
 
 /** beforeLoad may enrich context, return nothing, or throw (redirect/notFound). */
 type RouteBeforeLoadResult = object | void | null;
 
+/** Runs a route's `beforeLoad` as a client navigation against the harness. */
 export async function runRouteBeforeLoad(opts: {
   harness: ConvexTestHarness;
+  location: { pathname: string } | undefined;
   params: Record<string, string>;
   route: AnyRoute;
 }) {
@@ -32,6 +37,7 @@ export async function runRouteBeforeLoad(opts: {
   const beforeLoad = opts.route.options.beforeLoad as
     | ((routeOpts: {
         context: RouteTestContext;
+        location: { pathname: string };
         params: Record<string, string>;
       }) => Promise<RouteBeforeLoadResult>)
     | undefined;
@@ -40,6 +46,7 @@ export async function runRouteBeforeLoad(opts: {
   }
   return await beforeLoad({
     context: routeContextFromHarness(opts.harness),
+    location: opts.location ?? { pathname: "" },
     params: opts.params,
   });
 }

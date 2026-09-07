@@ -20,6 +20,7 @@ export default defineConfig({
         "**/test.resource.ts",
         // setupFiles / host-API test helper; same role as test.setup.ts.
         "**/stubJsdomWindow.ts",
+        "**/testFetch.ts",
       ],
       include: [
         "apps/web/src/**/*.{ts,tsx}",
