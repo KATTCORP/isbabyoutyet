@@ -40,8 +40,6 @@ function resetPasswordSchema(t: TranslationFunction) {
     });
 }
 
-type NewPassword = { confirmPassword: string; password: string };
-
 export const Route = createFileRoute("/auth/reset-password")({
   component: ResetPasswordPage,
   validateSearch: searchSchema,
@@ -56,46 +54,12 @@ export const Route = createFileRoute("/auth/reset-password")({
   }),
 });
 
-/**
- * @internal Exported for smoke tests; production mounts it via `Route`.
- */
-export function ResetPasswordPage() {
+function ResetPasswordPage() {
   const { t } = useI18n();
   const router = useRouter();
   const search = Route.useSearch();
   const token = search.token;
   const invalidLink = !token || search.error === "INVALID_TOKEN";
-
-  return (
-    <ResetPasswordCard
-      invalidLink={invalidLink}
-      onResetPassword={
-        token
-          ? (values) =>
-              resetPasswordThenGo(
-                { newPassword: values.password, token },
-                {
-                  navigate: () => router.navigate({ to: "/auth/login" }),
-                  t,
-                },
-              )
-          : null
-      }
-    />
-  );
-}
-
-/**
- * Reset-password form. Takes the reset flow as a prop so tests can render it
- * without an auth client.
- *
- * @internal Exported for tests; production uses `ResetPasswordPage`.
- */
-export function ResetPasswordCard(props: {
-  invalidLink: boolean;
-  onResetPassword: ((values: NewPassword) => Promise<void>) | null;
-}) {
-  const { t } = useI18n();
   const form = useZodForm({
     defaultValues: {
       confirmPassword: "",
@@ -123,13 +87,13 @@ export function ResetPasswordCard(props: {
             </p>
             <CardTitle className="text-2xl font-black">{t("Choose a new password")}</CardTitle>
             <CardDescription className="font-medium">
-              {props.invalidLink
+              {invalidLink
                 ? t("This reset link is invalid or has expired.")
                 : t("Use at least eight characters for your new password.")}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {props.invalidLink || props.onResetPassword === null ? (
+            {invalidLink || token === undefined ? (
               <Link
                 className="inline-flex w-full items-center justify-center rounded-full border-2 border-border bg-background px-4 py-2.5 text-sm font-extrabold text-foreground pop-shadow transition-transform hover:-rotate-1"
                 to="/auth/forgot-password"
@@ -137,7 +101,18 @@ export function ResetPasswordCard(props: {
                 {t("Request another link")}
               </Link>
             ) : (
-              <Form form={form} handleSubmit={props.onResetPassword}>
+              <Form
+                form={form}
+                handleSubmit={(values) =>
+                  resetPasswordThenGo(
+                    { newPassword: values.password, token },
+                    {
+                      navigate: () => router.navigate({ to: "/auth/login" }),
+                      t,
+                    },
+                  )
+                }
+              >
                 <div className="space-y-5">
                   <FormField
                     control={form.control}

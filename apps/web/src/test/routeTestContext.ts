@@ -5,6 +5,8 @@ export type RouteTestContext = {
   convexClient: ConvexTestHarness["convexClient"];
   convexPreloader: ConvexTestHarness["convexPreloader"];
   convexQueryClient: ConvexTestHarness["convexQueryClient"];
+  /** Root `beforeLoad` sets this in production; route `head()` reads it. */
+  locale: "en-GB";
   queryClient: ConvexTestHarness["queryClient"];
 };
 
@@ -13,6 +15,7 @@ export function routeContextFromHarness(harness: ConvexTestHarness): RouteTestCo
     convexClient: harness.convexClient,
     convexPreloader: harness.convexPreloader,
     convexQueryClient: harness.convexQueryClient,
+    locale: "en-GB",
     queryClient: harness.queryClient,
   };
 }

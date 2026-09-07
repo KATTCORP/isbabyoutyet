@@ -32,8 +32,6 @@ function forgotPasswordSchema(t: TranslationFunction) {
   });
 }
 
-type ForgotPasswordRequest = { email: string };
-
 export const Route = createFileRoute("/auth/forgot-password")({
   component: ForgotPasswordPage,
   validateSearch: z.object({
@@ -55,43 +53,12 @@ export const Route = createFileRoute("/auth/forgot-password")({
   }),
 });
 
-/**
- * @internal Exported for smoke tests; production mounts it via `Route`.
- */
-export function ForgotPasswordPage() {
+/** Success is URL-driven (`?sent=1`) — no local state. */
+function ForgotPasswordPage() {
   const { t } = useI18n();
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
-
-  return (
-    <ForgotPasswordCard
-      onRequestReset={(values) =>
-        requestPasswordResetThenGo(values, {
-          navigate: () =>
-            navigate({
-              replace: true,
-              search: { sent: "1" },
-              to: "/auth/forgot-password",
-            }),
-          t,
-        })
-      }
-      sent={search.sent === "1"}
-    />
-  );
-}
-
-/**
- * Forgot-password form. Takes the request flow as a prop so tests can render
- * it without an auth client. Success is URL-driven (`?sent=1`) — no local state.
- *
- * @internal Exported for tests; production uses `ForgotPasswordPage`.
- */
-export function ForgotPasswordCard(props: {
-  onRequestReset: (values: ForgotPasswordRequest) => Promise<void>;
-  sent: boolean;
-}) {
-  const { t } = useI18n();
+  const sent = search.sent === "1";
   const form = useZodForm({
     defaultValues: {
       email: "",
@@ -118,13 +85,13 @@ export function ForgotPasswordCard(props: {
             </p>
             <CardTitle className="text-2xl font-black">{t("Reset your password")}</CardTitle>
             <CardDescription className="font-medium">
-              {props.sent
+              {sent
                 ? t("Check your inbox for the next step.")
                 : t("Enter your email and we'll send you a secure reset link.")}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {props.sent ? (
+            {sent ? (
               <div className="space-y-5 text-sm text-muted-foreground">
                 <p>
                   {t(
@@ -140,7 +107,20 @@ export function ForgotPasswordCard(props: {
               </div>
             ) : (
               <>
-                <Form form={form} handleSubmit={(values) => props.onRequestReset(values)}>
+                <Form
+                  form={form}
+                  handleSubmit={(values) =>
+                    requestPasswordResetThenGo(values, {
+                      navigate: () =>
+                        navigate({
+                          replace: true,
+                          search: { sent: "1" },
+                          to: "/auth/forgot-password",
+                        }),
+                      t,
+                    })
+                  }
+                >
                   <div className="space-y-5">
                     <FormField
                       control={form.control}

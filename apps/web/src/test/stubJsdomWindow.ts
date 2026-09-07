@@ -10,8 +10,9 @@
  * test helpers so most tests never call this directly.
  *
  * This file is also a Vitest `setupFiles` entry so better-auth's broadcast
- * channel, focus manager, and online manager are replaced *before* that
- * package loads. Window stubs are not installed at import time.
+ * channel, focus manager, and online manager are replaced — and `fetch` is
+ * wrapped in a per-test dispatcher ({@link installFetchHandler}) — *before*
+ * that package loads. Window stubs are not installed at import time.
  */
 
 import { webcrypto } from "node:crypto";
@@ -72,6 +73,44 @@ Object.assign(globalThis, {
   [kAuthFocusManager]: new StubAuthFocusManager(),
   [kAuthOnlineManager]: new StubAuthOnlineManager(),
 });
+
+/**
+ * A test-registered HTTP handler. Return `null` to let the request fall
+ * through to the next handler (and finally the host `fetch`).
+ */
+export type FetchHandler = (request: Request) => Promise<Response | null>;
+
+const fetchHandlers = new Set<FetchHandler>();
+const hostFetch = globalThis.fetch;
+
+// better-auth's `createAuthClient` captures `globalThis.fetch` when the module
+// loads (`customFetchImpl: fetch`), so a `vi.stubGlobal("fetch")` inside a test
+// is never seen by the auth client. Install one dispatcher here — before
+// better-auth is imported — and let tests plug handlers in and out.
+async function dispatchingFetch(input: RequestInfo | URL, init: RequestInit | undefined) {
+  const request = new Request(input, init);
+  for (const handler of fetchHandlers) {
+    const response = await handler(request.clone());
+    if (response) {
+      return response;
+    }
+  }
+  return await hostFetch(request);
+}
+globalThis.fetch = dispatchingFetch;
+
+/**
+ * Serve matching requests from the test process for the lifetime of the
+ * returned resource. The Convex test harness uses this to answer
+ * `/api/auth/*` with the real Better Auth handler on its in-memory backend.
+ */
+export function installFetchHandler(handler: FetchHandler) {
+  fetchHandlers.add(handler);
+  const release = () => {
+    fetchHandlers.delete(handler);
+  };
+  return makeResource({ release }, release);
+}
 
 class StubObserver {
   observe() {}
