@@ -3,7 +3,12 @@ import { join } from "node:path";
 import { expect, test, vi } from "vitest";
 import { makeResource } from "@workspace/convex/convex/test.resource";
 import { isString } from "@workspace/runtime/guards";
-import { createHomepageOgImage, createBabyOgImage } from "@/lib/og-image";
+import {
+  FONT_CACHE_MAX_ENTRIES,
+  createHomepageOgImage,
+  createBabyOgImage,
+  loadNunitoFont,
+} from "@/lib/og-image";
 
 const TEST_FONT_URL = "https://fonts.gstatic.com/s/test.ttf";
 const MISSING_PHOTO_URL = "https://cdn.example/missing.jpg";
@@ -24,12 +29,14 @@ async function stubOgImageFonts() {
   // raised Vitest timeout).
   const fontBytes = await readFile(join(import.meta.dirname, "og-image.test.font.ttf"));
   const originalFetch = globalThis.fetch;
+  const fontFileRequests = vi.fn<() => void>();
   const fetchStub: typeof fetch = async (input, init) => {
     const url = requestUrl(input);
     if (url.includes("fonts.googleapis.com")) {
       return new Response(`@font-face { src: url(${TEST_FONT_URL}); }`);
     }
     if (url === TEST_FONT_URL) {
+      fontFileRequests();
       return new Response(fontBytes);
     }
     if (url === MISSING_PHOTO_URL) {
@@ -41,10 +48,40 @@ async function stubOgImageFonts() {
     return originalFetch(input, init);
   };
   vi.stubGlobal("fetch", fetchStub);
-  return makeResource({}, () => {
+  return makeResource({ fontFileRequests }, () => {
     vi.unstubAllGlobals();
   });
 }
+
+test("font cache is shared per glyph text but bounded and least-recently-used", async () => {
+  await using fonts = await stubOgImageFonts();
+  // Unique texts so this test never collides with entries other tests warmed.
+  const text = (index: number) => `lru-${Math.random()}-${index}`;
+  const first = text(0);
+
+  await loadNunitoFont({ text: first, weight: 700 });
+  await loadNunitoFont({ text: first, weight: 700 });
+  expect(fonts.fontFileRequests).toHaveBeenCalledTimes(1);
+
+  // Fill the cache with other entries, touching `first` midway to keep it hot.
+  for (let index = 1; index < FONT_CACHE_MAX_ENTRIES; index += 1) {
+    await loadNunitoFont({ text: text(index), weight: 700 });
+  }
+  await loadNunitoFont({ text: first, weight: 700 });
+  expect(fonts.fontFileRequests).toHaveBeenCalledTimes(FONT_CACHE_MAX_ENTRIES);
+
+  // One more distinct entry evicts the least recently used one — not `first`.
+  await loadNunitoFont({ text: text(FONT_CACHE_MAX_ENTRIES), weight: 700 });
+  await loadNunitoFont({ text: first, weight: 700 });
+  expect(fonts.fontFileRequests).toHaveBeenCalledTimes(FONT_CACHE_MAX_ENTRIES + 1);
+
+  // Push `first` out by filling the cache with fresh entries; it refetches.
+  for (let index = 0; index < FONT_CACHE_MAX_ENTRIES; index += 1) {
+    await loadNunitoFont({ text: text(1000 + index), weight: 700 });
+  }
+  await loadNunitoFont({ text: first, weight: 700 });
+  expect(fonts.fontFileRequests).toHaveBeenCalledTimes(FONT_CACHE_MAX_ENTRIES * 2 + 2);
+});
 
 test("homepage OG image returns a PNG response", async () => {
   await using _fonts = await stubOgImageFonts();

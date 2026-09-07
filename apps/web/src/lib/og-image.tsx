@@ -18,16 +18,41 @@ import { CANONICAL_ORIGIN } from "@/lib/site-url";
 
 const SITE_HOST = new URL(CANONICAL_ORIGIN).host;
 
+/** @internal exported for tests */
+export const FONT_CACHE_MAX_ENTRIES = 64;
+
+/**
+ * Process-wide memo of Google Fonts subsets. Safe to share across requests:
+ * entries are public font bytes keyed only by weight + the glyph text they
+ * were subset for. The key embeds each baby's name and status text, so the
+ * cache is bounded (LRU) to keep distinct renders from growing it without
+ * limit on a long-lived server.
+ */
 const fontCache = new Map<string, ArrayBuffer>();
+
+function rememberFont(cacheKey: string, buffer: ArrayBuffer) {
+  // Re-insert so Map iteration order doubles as least-recently-used order.
+  fontCache.delete(cacheKey);
+  fontCache.set(cacheKey, buffer);
+  if (fontCache.size > FONT_CACHE_MAX_ENTRIES) {
+    const oldestKey = fontCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      fontCache.delete(oldestKey);
+    }
+  }
+}
 
 /**
  * Load a Nunito weight as ArrayBuffer for Satori. Uses the Google Fonts CSS
  * API with a text subset so we only pull glyphs we need.
+ *
+ * @internal exported for tests
  */
-async function loadNunitoFont(opts: { text: string; weight: 700 | 900 }) {
+export async function loadNunitoFont(opts: { text: string; weight: 700 | 900 }) {
   const cacheKey = `${opts.weight}:${opts.text}`;
   const cached = fontCache.get(cacheKey);
   if (cached) {
+    rememberFont(cacheKey, cached);
     return cached;
   }
 
@@ -49,7 +74,7 @@ async function loadNunitoFont(opts: { text: string; weight: 700 | 900 }) {
     throw new Error("Nunito font URL missing from Google Fonts CSS");
   }
   const buffer = await fetch(fontUrl).then((response) => response.arrayBuffer());
-  fontCache.set(cacheKey, buffer);
+  rememberFont(cacheKey, buffer);
   return buffer;
 }
 
