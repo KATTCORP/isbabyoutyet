@@ -11,13 +11,9 @@ sync.
 
 ```ts
 import { ConvexQueryClient } from "@convex-dev/react-query";
-import {
-  convexInfiniteQueryFn,
-  registerConvexInfiniteQueryClient,
-} from "@workspace/convex-prefetch";
+import { convexInfiniteQueryFn } from "@workspace/convex-prefetch";
 
 const convexQueryClient = new ConvexQueryClient(convexUrl);
-registerConvexInfiniteQueryClient(convexQueryClient);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,6 +24,12 @@ const queryClient = new QueryClient({
   },
 });
 ```
+
+`convexInfiniteQueryFn` is the only place the Convex client is wired in: it
+handles plain `convexQuery` keys and paginated `convexInfiniteQuery` keys, on
+the client and during SSR (via `serverHttpClient`). Nothing is stored in module
+state, so a server that builds one router (and one QueryClient) per request
+keeps each request's authenticated client to itself.
 
 ## Loader
 
