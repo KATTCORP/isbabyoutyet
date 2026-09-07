@@ -23,7 +23,7 @@ async function stubOgImageFonts() {
   // Local TTF so these tests do not fetch Google Fonts (and do not need a
   // raised Vitest timeout).
   const fontBytes = await readFile(join(import.meta.dirname, "og-image.test.font.ttf"));
-  const googleFontUrls: string[] = [];
+  const googleFontUrls: Array<string> = [];
   const originalFetch = globalThis.fetch;
   const fetchStub: typeof fetch = async (input, init) => {
     const url = requestUrl(input);
@@ -156,7 +156,7 @@ test("baby OG image strips emoji from message-mode due date copy", async () => {
     locale: "en-GB",
     name: "Nova",
     photoUrl: null,
-    publicDueDateText: "Any day now 🎉",
+    publicDueDateText: "Due any moment 🎉",
     theme: "sunny-days",
     timeZone: undefined,
     wentToHospital: null,
@@ -165,7 +165,7 @@ test("baby OG image strips emoji from message-mode due date copy", async () => {
   expect(fonts.googleFontUrls.length).toBeGreaterThan(0);
   for (const url of fonts.googleFontUrls) {
     const textParam = new URL(url).searchParams.get("text") ?? "";
-    expect(textParam).toContain("Any day now");
+    expect(textParam).toContain("Due any moment");
     expect(textParam).not.toContain("🎉");
   }
 });

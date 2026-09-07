@@ -24,13 +24,15 @@ const fontCache = new Map<string, ArrayBuffer>();
  * Strip emoji / pictographs Satori cannot draw with Nunito (missing glyphs
  * render as tofu). Keeps letters, digits, and punctuation — including Latin
  * extended — and collapses leftover whitespace.
+ *
+ * @internal
  */
 export function textForOgImage(text: string) {
   return text
-    .replace(/\p{Extended_Pictographic}/gu, "")
-    .replace(/\p{Emoji_Modifier}/gu, "")
-    .replace(/[\uFE0E\uFE0F\u200D\u20E3]/g, "")
-    .replace(/\s+/g, " ")
+    .replaceAll(/\p{Extended_Pictographic}/gu, "")
+    .replaceAll(/\p{Emoji_Modifier}/gu, "")
+    .replaceAll(/\uFE0E|\uFE0F|\u200D|\u20E3/g, "")
+    .replaceAll(/\s+/g, " ")
     .trim();
 }
 
