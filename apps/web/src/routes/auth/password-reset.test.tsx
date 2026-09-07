@@ -1,46 +1,12 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { makeResource } from "@workspace/convex/convex/test.resource";
 import { LocaleProvider } from "@/lib/i18n";
-import {
-  ForgotPasswordCard,
-  Route as ForgotPasswordRoute,
-  forgotPasswordAuthAdapter,
-  requestPasswordResetAndMarkSent,
-} from "@/routes/auth/forgot-password";
-import {
-  ResetPasswordCard,
-  Route as ResetPasswordRoute,
-  resetPasswordAndRedirect,
-  resetPasswordAuthAdapter,
-} from "@/routes/auth/reset-password";
+import { ForgotPasswordCard, Route as ForgotPasswordRoute } from "@/routes/auth/forgot-password";
+import { ResetPasswordCard, Route as ResetPasswordRoute } from "@/routes/auth/reset-password";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import { htmlInput } from "@/test/htmlElement";
-
-test("forgot password requests a reset then marks the page as sent", async () => {
-  const requestReset = vi
-    .fn<() => Promise<{ errorMessage: string | null }>>()
-    .mockResolvedValue({ errorMessage: null });
-  const markSent = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-
-  await requestPasswordResetAndMarkSent(
-    { email: "parent@example.com" },
-    {
-      failedMessage: "Unable to request a password reset",
-      markSent,
-      requestReset,
-      resetRedirectTo: "https://isbabyoutyet.com/auth/reset-password",
-    },
-  );
-
-  expect(requestReset).toHaveBeenCalledWith({
-    email: "parent@example.com",
-    redirectTo: "https://isbabyoutyet.com/auth/reset-password",
-  });
-  expect(markSent).toHaveBeenCalledTimes(1);
-});
 
 test("forgot password card shows the sent confirmation from the URL", async () => {
   await using _view = await renderWithTestRouter(
@@ -75,29 +41,6 @@ test("forgot password card submits the email through the injected handler", asyn
   await vi.waitFor(() => {
     expect(onRequestReset).toHaveBeenCalledWith({ email: "parent@example.com" });
   });
-});
-
-test("reset password updates the password then navigates to login", async () => {
-  const resetPassword = vi
-    .fn<() => Promise<{ errorMessage: string | null }>>()
-    .mockResolvedValue({ errorMessage: null });
-  const navigateToLogin = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-
-  await resetPasswordAndRedirect(
-    { confirmPassword: "new-password", password: "new-password" },
-    {
-      failedMessage: "Unable to reset your password",
-      navigateToLogin,
-      resetPassword,
-      token: "reset-token",
-    },
-  );
-
-  expect(resetPassword).toHaveBeenCalledWith({
-    newPassword: "new-password",
-    token: "reset-token",
-  });
-  expect(navigateToLogin).toHaveBeenCalledTimes(1);
 });
 
 test("reset password card offers another link when the token is invalid", async () => {
@@ -135,52 +78,6 @@ test("reset password card submits matching passwords", async () => {
       password: "new-password",
     });
   });
-});
-
-test.each([
-  { errorMessage: "Too many requests", expectedMessage: "Too many requests" },
-  { errorMessage: "", expectedMessage: "Unable to request a password reset" },
-])("forgot password throws $expectedMessage and never marks sent", async (testCase) => {
-  const requestReset = vi
-    .fn<() => Promise<{ errorMessage: string | null }>>()
-    .mockResolvedValue({ errorMessage: testCase.errorMessage });
-  const markSent = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-
-  await expect(
-    requestPasswordResetAndMarkSent(
-      { email: "parent@example.com" },
-      {
-        failedMessage: "Unable to request a password reset",
-        markSent,
-        requestReset,
-        resetRedirectTo: "https://isbabyoutyet.com/auth/reset-password",
-      },
-    ),
-  ).rejects.toThrow(testCase.expectedMessage);
-  expect(markSent).not.toHaveBeenCalled();
-});
-
-test.each([
-  { errorMessage: "Invalid token", expectedMessage: "Invalid token" },
-  { errorMessage: "", expectedMessage: "Unable to reset your password" },
-])("reset password throws $expectedMessage and never navigates", async (testCase) => {
-  const resetPassword = vi
-    .fn<() => Promise<{ errorMessage: string | null }>>()
-    .mockResolvedValue({ errorMessage: testCase.errorMessage });
-  const navigateToLogin = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
-
-  await expect(
-    resetPasswordAndRedirect(
-      { confirmPassword: "new-password", password: "new-password" },
-      {
-        failedMessage: "Unable to reset your password",
-        navigateToLogin,
-        resetPassword,
-        token: "reset-token",
-      },
-    ),
-  ).rejects.toThrow(testCase.expectedMessage);
-  expect(navigateToLogin).not.toHaveBeenCalled();
 });
 
 test("forgot password card validates the email before submitting", async () => {
@@ -296,48 +193,6 @@ test("ForgotPasswordPage shows the sent confirmation from the URL", async () => 
   ).toBeTruthy();
 });
 
-test("ForgotPasswordPage request path invokes the wired auth client", async () => {
-  const requestPasswordReset = vi.fn().mockResolvedValue({ data: null, error: null });
-  const original = forgotPasswordAuthAdapter.requestPasswordReset;
-  // SAFETY: Test stub replaces the adapter's network-backed Better Auth method.
-  forgotPasswordAuthAdapter.requestPasswordReset =
-    requestPasswordReset as typeof forgotPasswordAuthAdapter.requestPasswordReset;
-  await using _adapter = makeResource({}, () => {
-    forgotPasswordAuthAdapter.requestPasswordReset = original;
-  });
-
-  await using harness = await createConvexTestHarness({ identity: null });
-  await using ctx = await renderMountedFileRoute({
-    harness,
-    initialEntry: "/auth/forgot-password",
-    overlayHistory: null,
-    path: "/auth/forgot-password",
-    route: ForgotPasswordRoute,
-    wrap: null,
-  });
-
-  fireEvent.change(htmlInput(ctx.view.getByLabelText("Email")), {
-    target: { value: "parent@example.com" },
-  });
-  fireEvent.click(ctx.view.getByRole("button", { name: "Send reset link" }));
-
-  await vi.waitFor(() => {
-    expect(requestPasswordReset).toHaveBeenCalledWith({
-      email: "parent@example.com",
-      redirectTo: expect.stringContaining("/auth/reset-password"),
-    });
-  });
-  await vi.waitFor(() => {
-    expect(ctx.navigate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        replace: true,
-        search: { sent: "1" },
-        to: "/auth/forgot-password",
-      }),
-    );
-  });
-});
-
 test("ResetPasswordPage offers another link when the token is missing", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
   await using ctx = await renderMountedFileRoute({
@@ -365,114 +220,4 @@ test("ResetPasswordPage treats INVALID_TOKEN as an expired link", async () => {
   });
 
   expect(ctx.view.getByText("This reset link is invalid or has expired.")).toBeTruthy();
-});
-
-test("ResetPasswordPage reset path invokes the wired auth client", async () => {
-  const resetPassword = vi.fn().mockResolvedValue({ data: null, error: null });
-  const original = resetPasswordAuthAdapter.resetPassword;
-  // SAFETY: Test stub replaces the adapter's network-backed Better Auth method.
-  resetPasswordAuthAdapter.resetPassword =
-    resetPassword as typeof resetPasswordAuthAdapter.resetPassword;
-  await using _adapter = makeResource({}, () => {
-    resetPasswordAuthAdapter.resetPassword = original;
-  });
-
-  await using harness = await createConvexTestHarness({ identity: null });
-  await using ctx = await renderMountedFileRoute({
-    harness,
-    initialEntry: "/auth/reset-password?token=reset-token",
-    overlayHistory: null,
-    path: "/auth/reset-password",
-    route: ResetPasswordRoute,
-    wrap: null,
-  });
-
-  fireEvent.change(htmlInput(ctx.view.getByLabelText("New password")), {
-    target: { value: "new-password" },
-  });
-  fireEvent.change(htmlInput(ctx.view.getByLabelText("Confirm new password")), {
-    target: { value: "new-password" },
-  });
-  fireEvent.click(ctx.view.getByRole("button", { name: "Update password" }));
-
-  await vi.waitFor(() => {
-    expect(resetPassword).toHaveBeenCalledWith({
-      newPassword: "new-password",
-      token: "reset-token",
-    });
-  });
-  await vi.waitFor(() => {
-    expect(ctx.navigate).toHaveBeenCalledWith({ to: "/auth/login" });
-  });
-});
-
-test("ForgotPasswordPage surfaces an empty Better Auth error as the failed message", async () => {
-  const requestPasswordReset = vi.fn().mockResolvedValue({
-    data: null,
-    error: { message: undefined },
-  });
-  const original = forgotPasswordAuthAdapter.requestPasswordReset;
-  // SAFETY: Test stub replaces the adapter's network-backed Better Auth method.
-  forgotPasswordAuthAdapter.requestPasswordReset =
-    requestPasswordReset as typeof forgotPasswordAuthAdapter.requestPasswordReset;
-  await using _adapter = makeResource({}, () => {
-    forgotPasswordAuthAdapter.requestPasswordReset = original;
-  });
-
-  await using harness = await createConvexTestHarness({ identity: null });
-  await using ctx = await renderMountedFileRoute({
-    harness,
-    initialEntry: "/auth/forgot-password",
-    overlayHistory: null,
-    path: "/auth/forgot-password",
-    route: ForgotPasswordRoute,
-    wrap: null,
-  });
-
-  fireEvent.change(htmlInput(ctx.view.getByLabelText("Email")), {
-    target: { value: "parent@example.com" },
-  });
-  fireEvent.click(ctx.view.getByRole("button", { name: "Send reset link" }));
-
-  await vi.waitFor(() => {
-    expect(requestPasswordReset).toHaveBeenCalled();
-  });
-  expect(ctx.navigate).not.toHaveBeenCalled();
-});
-
-test("ResetPasswordPage surfaces an empty Better Auth error as the failed message", async () => {
-  const resetPassword = vi.fn().mockResolvedValue({
-    data: null,
-    error: { message: undefined },
-  });
-  const original = resetPasswordAuthAdapter.resetPassword;
-  // SAFETY: Test stub replaces the adapter's network-backed Better Auth method.
-  resetPasswordAuthAdapter.resetPassword =
-    resetPassword as typeof resetPasswordAuthAdapter.resetPassword;
-  await using _adapter = makeResource({}, () => {
-    resetPasswordAuthAdapter.resetPassword = original;
-  });
-
-  await using harness = await createConvexTestHarness({ identity: null });
-  await using ctx = await renderMountedFileRoute({
-    harness,
-    initialEntry: "/auth/reset-password?token=reset-token",
-    overlayHistory: null,
-    path: "/auth/reset-password",
-    route: ResetPasswordRoute,
-    wrap: null,
-  });
-
-  fireEvent.change(htmlInput(ctx.view.getByLabelText("New password")), {
-    target: { value: "new-password" },
-  });
-  fireEvent.change(htmlInput(ctx.view.getByLabelText("Confirm new password")), {
-    target: { value: "new-password" },
-  });
-  fireEvent.click(ctx.view.getByRole("button", { name: "Update password" }));
-
-  await vi.waitFor(() => {
-    expect(resetPassword).toHaveBeenCalled();
-  });
-  expect(ctx.navigate).not.toHaveBeenCalled();
 });

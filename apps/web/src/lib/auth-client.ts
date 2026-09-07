@@ -233,6 +233,45 @@ export async function signUpThenGo(
   await opts.navigate();
 }
 
+type GoOpts = {
+  navigate: () => Promise<void> | void;
+  t: TranslationFunction;
+};
+
+/**
+ * Email a reset link, then SPA-navigate (the forgot-password page marks
+ * itself sent through the URL). No Convex identity changes here.
+ */
+export async function requestPasswordResetThenGo(values: { email: string }, opts: GoOpts) {
+  const result = await authClient.requestPasswordReset({
+    email: values.email,
+    redirectTo: `${import.meta.env.VITE_SITE_URL}/auth/reset-password`,
+  });
+  if (result.error) {
+    throw new Error(result.error.message || opts.t("Unable to request a password reset"));
+  }
+  await opts.navigate();
+}
+
+/**
+ * Set the new password from a reset link, then SPA-navigate. Better Auth does
+ * not open a session here (and revokes the old ones), so the destination is
+ * the login page and there is no Convex identity to wait for.
+ */
+export async function resetPasswordThenGo(
+  values: { newPassword: string; token: string },
+  opts: GoOpts,
+) {
+  const result = await authClient.resetPassword({
+    newPassword: values.newPassword,
+    token: values.token,
+  });
+  if (result.error) {
+    throw new Error(result.error.message || opts.t("Unable to reset your password"));
+  }
+  await opts.navigate();
+}
+
 /**
  * Sign out, then SPA-navigate. Callers own the destination (usually home).
  */
