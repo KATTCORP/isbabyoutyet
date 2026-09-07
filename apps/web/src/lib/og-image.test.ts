@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { expect, test, vi } from "vitest";
 import { makeResource } from "@workspace/convex/convex/test.resource";
 import { isString } from "@workspace/runtime/guards";
-import { createHomepageOgImage, createBabyOgImage } from "@/lib/og-image";
+import { createHomepageOgImage, createBabyOgImage, textForOgImage } from "@/lib/og-image";
 
 const TEST_FONT_URL = "https://fonts.gstatic.com/s/test.ttf";
 const MISSING_PHOTO_URL = "https://cdn.example/missing.jpg";
@@ -23,10 +23,12 @@ async function stubOgImageFonts() {
   // Local TTF so these tests do not fetch Google Fonts (and do not need a
   // raised Vitest timeout).
   const fontBytes = await readFile(join(import.meta.dirname, "og-image.test.font.ttf"));
+  const googleFontUrls: string[] = [];
   const originalFetch = globalThis.fetch;
   const fetchStub: typeof fetch = async (input, init) => {
     const url = requestUrl(input);
     if (url.includes("fonts.googleapis.com")) {
+      googleFontUrls.push(url);
       return new Response(`@font-face { src: url(${TEST_FONT_URL}); }`);
     }
     if (url === TEST_FONT_URL) {
@@ -41,10 +43,30 @@ async function stubOgImageFonts() {
     return originalFetch(input, init);
   };
   vi.stubGlobal("fetch", fetchStub);
-  return makeResource({}, () => {
+  return makeResource({ googleFontUrls }, () => {
     vi.unstubAllGlobals();
   });
 }
+
+test("textForOgImage strips emoji and normalizes whitespace", () => {
+  expect(textForOgImage("Baby Name 🌻")).toBe("Baby Name");
+  expect(textForOgImage("🌺Mia🌺")).toBe("Mia");
+  expect(textForOgImage("Baby 👨‍👩‍👧")).toBe("Baby");
+  expect(textForOgImage("Baby 👍🏽")).toBe("Baby");
+  expect(textForOgImage("Hello 1️⃣ world")).toBe("Hello 1 world");
+  expect(textForOgImage("  spaced   name  ")).toBe("spaced name");
+});
+
+test("textForOgImage keeps letters that Nunito can draw", () => {
+  expect(textForOgImage("José")).toBe("José");
+  expect(textForOgImage("Är bäbisen")).toBe("Är bäbisen");
+  expect(textForOgImage("Maria")).toBe("Maria");
+});
+
+test("textForOgImage returns empty when only emoji remain", () => {
+  expect(textForOgImage("👶")).toBe("");
+  expect(textForOgImage("🌻🌺")).toBe("");
+});
 
 test("homepage OG image returns a PNG response", async () => {
   await using _fonts = await stubOgImageFonts();
@@ -79,6 +101,31 @@ test("baby OG image includes status-aware card as PNG", async () => {
   expect(bytes.byteLength).toBeGreaterThan(5000);
 });
 
+test("baby OG image strips emoji from the name before rendering", async () => {
+  await using fonts = await stubOgImageFonts();
+  const response = await createBabyOgImage({
+    babyBorn: null,
+    dueDate: "2026-09-01",
+    dueDateDisplayMode: "exact",
+    laborStarted: null,
+    locale: "en-GB",
+    name: "River 🌻",
+    photoUrl: null,
+    theme: "sunny-days",
+    timeZone: undefined,
+    wentToHospital: null,
+  });
+  expect(response.status).toBe(200);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  expect(Array.from(bytes.slice(0, 8))).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+  expect(fonts.googleFontUrls.length).toBeGreaterThan(0);
+  for (const url of fonts.googleFontUrls) {
+    const textParam = new URL(url).searchParams.get("text") ?? "";
+    expect(textParam).toContain("River");
+    expect(textParam).not.toContain("🌻");
+  }
+});
+
 test("baby OG image renders message-mode due date copy as PNG", async () => {
   await using _fonts = await stubOgImageFonts();
   const response = await createBabyOgImage({
@@ -98,6 +145,29 @@ test("baby OG image renders message-mode due date copy as PNG", async () => {
   const bytes = new Uint8Array(await response.arrayBuffer());
   expect(Array.from(bytes.slice(0, 8))).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
   expect(bytes.byteLength).toBeGreaterThan(5000);
+});
+
+test("baby OG image strips emoji from message-mode due date copy", async () => {
+  await using fonts = await stubOgImageFonts();
+  const response = await createBabyOgImage({
+    babyBorn: null,
+    dueDateDisplayMode: "message",
+    laborStarted: null,
+    locale: "en-GB",
+    name: "Nova",
+    photoUrl: null,
+    publicDueDateText: "Any day now 🎉",
+    theme: "sunny-days",
+    timeZone: undefined,
+    wentToHospital: null,
+  });
+  expect(response.status).toBe(200);
+  expect(fonts.googleFontUrls.length).toBeGreaterThan(0);
+  for (const url of fonts.googleFontUrls) {
+    const textParam = new URL(url).searchParams.get("text") ?? "";
+    expect(textParam).toContain("Any day now");
+    expect(textParam).not.toContain("🎉");
+  }
 });
 
 test("baby OG image still renders when the photo cannot be fetched", async () => {

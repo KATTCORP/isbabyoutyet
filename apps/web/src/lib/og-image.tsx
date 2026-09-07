@@ -21,6 +21,20 @@ const SITE_HOST = new URL(CANONICAL_ORIGIN).host;
 const fontCache = new Map<string, ArrayBuffer>();
 
 /**
+ * Strip emoji / pictographs Satori cannot draw with Nunito (missing glyphs
+ * render as tofu). Keeps letters, digits, and punctuation — including Latin
+ * extended — and collapses leftover whitespace.
+ */
+export function textForOgImage(text: string) {
+  return text
+    .replace(/\p{Extended_Pictographic}/gu, "")
+    .replace(/\p{Emoji_Modifier}/gu, "")
+    .replace(/[\uFE0E\uFE0F\u200D\u20E3]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
  * Load a Nunito weight as ArrayBuffer for Satori. Uses the Google Fonts CSS
  * API with a text subset so we only pull glyphs we need.
  */
@@ -106,25 +120,36 @@ async function resolvePhotoDataUrl(photoUrl: string | null) {
 }
 
 export async function createBabyOgImage(baby: BabyOgImageInput) {
-  const colors = getThemeColors(baby.theme);
+  const name = textForOgImage(baby.name) || "?";
+  const ogBaby =
+    baby.dueDateDisplayMode === "message"
+      ? {
+          ...baby,
+          name,
+          publicDueDateText: textForOgImage(baby.publicDueDateText),
+        }
+      : { ...baby, name };
+  const colors = getThemeColors(ogBaby.theme);
   const primary = colors[0];
   const background = colors[1];
   const accent = colors[2];
-  const status = getCurrentStatus(baby);
-  const headline = translate(baby.locale, "Is {{name}} out yet?", { name: baby.name });
-  const statusText = babyStatusLabel({ locale: baby.locale, status });
+  const status = getCurrentStatus(ogBaby);
+  const headline = translate(ogBaby.locale, "Is {{name}} out yet?", { name: ogBaby.name });
+  const statusText = babyStatusLabel({ locale: ogBaby.locale, status });
   const detail =
-    status.type === "not_yet" ? babyStatusDetail({ baby, status }) : babyPageDescription(baby);
-  const brand = translate(baby.locale, "Is Baby Out Yet?");
+    status.type === "not_yet"
+      ? babyStatusDetail({ baby: ogBaby, status })
+      : babyPageDescription(ogBaby);
+  const brand = translate(ogBaby.locale, "Is Baby Out Yet?");
   const fontText = `${headline}${statusText}${detail}${brand}${SITE_HOST}`;
-  const photoDataUrl = await resolvePhotoDataUrl(baby.photoUrl);
+  const photoDataUrl = await resolvePhotoDataUrl(ogBaby.photoUrl);
 
   const [bold, black] = await Promise.all([
     loadNunitoFont({ text: fontText, weight: 700 }),
     loadNunitoFont({ text: fontText, weight: 900 }),
   ]);
 
-  const initial = baby.name.trim().slice(0, 1).toUpperCase() || baby.name;
+  const initial = ogBaby.name.slice(0, 1).toUpperCase() || ogBaby.name;
 
   return pngResponse({
     element: (
