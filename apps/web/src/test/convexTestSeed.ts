@@ -1,7 +1,10 @@
 import { api } from "@workspace/convex/convex/_generated/api";
 import type { Id } from "@workspace/convex/convex/_generated/dataModel";
 import { createAuth } from "@workspace/convex/convex/auth";
+import { tokenIdentifierForAuthUserId } from "@workspace/convex/convex/authIdentity";
+import { DEFAULT_TIME_ZONE } from "@workspace/convex/src/timeZone";
 import type { FunctionArgs } from "convex/server";
+import { isPlainObject, isString } from "@workspace/runtime/guards";
 import type { ConvexTestHarness } from "@/test/convexTestHarness";
 
 /** Creates a baby owned by the harness identity (must already be set). */
@@ -25,6 +28,70 @@ export async function seedOwnedBaby(
     babyId: created.babyId as Id<"baby">,
     publicId: created.publicId,
   };
+}
+
+type Credentials = { email: string; password: string };
+
+/**
+ * Signs in the way the browser does — a real `POST /api/auth/sign-in/email`
+ * through the harness's auth bridge — so the harness cookie jar holds a
+ * Better Auth session for later `updateUser` / `changePassword` / `signOut`
+ * calls, and the Convex identity is that user. Sign up first
+ * ({@link signUpTestUser}).
+ */
+export async function signInTestUser(harness: ConvexTestHarness, credentials: Credentials) {
+  const response = await fetch(`${import.meta.env.VITE_SITE_URL}/api/auth/sign-in/email`, {
+    body: JSON.stringify({ email: credentials.email, password: credentials.password }),
+    headers: { "content-type": "application/json" },
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error(`sign-in failed (${response.status}): ${await response.text()}`);
+  }
+  const body: unknown = await response.json();
+  const userId =
+    isPlainObject(body) && isPlainObject(body.user) && isString(body.user.id) ? body.user.id : null;
+  if (userId === null) {
+    throw new Error("sign-in response had no user id");
+  }
+  harness.withIdentity({ subject: userId });
+  return userId;
+}
+
+/**
+ * Whether Better Auth accepts these credentials right now — for asserting that
+ * a password change / reset really took (old rejected, new accepted).
+ */
+export async function canSignIn(harness: ConvexTestHarness, credentials: Credentials) {
+  try {
+    await harness.t.action(async (ctx) => {
+      await createAuth(ctx).api.signInEmail({ body: credentials });
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Flag a signed-up user as staff so `/dashboard/admin` is offered to them. */
+export async function promoteToAdmin(harness: ConvexTestHarness, userId: string) {
+  await harness.t.run(async (ctx) => {
+    const existing = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (existing) {
+      await ctx.db.patch(existing._id, { isAdmin: true });
+      return;
+    }
+    await ctx.db.insert("userProfiles", {
+      isAdmin: true,
+      locale: "en-GB",
+      timeZone: DEFAULT_TIME_ZONE,
+      tokenIdentifier: tokenIdentifierForAuthUserId(userId),
+      userId,
+    });
+  });
 }
 
 /** Signs up a Better Auth user through the in-memory Convex backend. */

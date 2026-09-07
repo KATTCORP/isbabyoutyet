@@ -10,6 +10,7 @@ import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { signUpTestUser } from "@/test/convexTestSeed";
 import { htmlInput } from "@/test/htmlElement";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
+import { untilCalled } from "@/test/untilCalled";
 
 const ADA = { email: "ada@example.com", name: "Ada", password: "correct-horse" };
 
@@ -37,9 +38,8 @@ test("signing in with a seeded account lands on the dashboard as that user", asy
 
   signInAs(ctx.view, ADA);
 
-  await vi.waitFor(() => {
-    expect(ctx.navigate).toHaveBeenCalledWith(expect.objectContaining({ href: "/dashboard" }));
-  });
+  await untilCalled(ctx.navigate);
+  expect(ctx.navigate).toHaveBeenCalledWith(expect.objectContaining({ href: "/dashboard" }));
   expect(await harness.client.query(api.profile.get, {})).toEqual(
     expect.objectContaining({ email: ADA.email, name: ADA.name }),
   );
@@ -53,9 +53,8 @@ test("a wrong password shows Better Auth's error and stays signed out", async ()
 
   signInAs(ctx.view, { email: ADA.email, password: "nope-nope" });
 
-  await vi.waitFor(() => {
-    expect(toastError).toHaveBeenCalledWith("Invalid email or password");
-  });
+  await untilCalled(toastError);
+  expect(toastError).toHaveBeenCalledWith("Invalid email or password");
   expect(ctx.navigate).not.toHaveBeenCalled();
   expect(await harness.client.query(api.profile.get, {})).toBeNull();
 });
@@ -73,9 +72,8 @@ test("picking a test account prefills the form and signs in as that account", as
 
   expect(htmlInput(ctx.view.getByLabelText("Email")).value).toBe(DEMO_EMPTY_USER.email);
   expect(htmlInput(ctx.view.getByLabelText("Password")).value).toBe(DEMO_EMPTY_USER.password);
-  await vi.waitFor(() => {
-    expect(ctx.navigate).toHaveBeenCalledWith(expect.objectContaining({ href: "/dashboard" }));
-  });
+  await untilCalled(ctx.navigate);
+  expect(ctx.navigate).toHaveBeenCalledWith(expect.objectContaining({ href: "/dashboard" }));
   expect(await harness.client.query(api.profile.get, {})).toEqual(
     expect.objectContaining({ email: DEMO_EMPTY_USER.email }),
   );
@@ -102,11 +100,10 @@ test("an allowlisted redirect drives both the home link and the post-login desti
 
   signInAs(ctx.view, ADA);
 
-  await vi.waitFor(() => {
-    expect(ctx.navigate).toHaveBeenCalledWith(
-      expect.objectContaining({ href: "/baby/baby-waiting" }),
-    );
-  });
+  await untilCalled(ctx.navigate);
+  expect(ctx.navigate).toHaveBeenCalledWith(
+    expect.objectContaining({ href: "/baby/baby-waiting" }),
+  );
 });
 
 test("an open redirect is ignored for both the home link and the post-login destination", async () => {
@@ -118,9 +115,8 @@ test("an open redirect is ignored for both the home link and the post-login dest
 
   signInAs(ctx.view, ADA);
 
-  await vi.waitFor(() => {
-    expect(ctx.navigate).toHaveBeenCalledWith(expect.objectContaining({ href: "/dashboard" }));
-  });
+  await untilCalled(ctx.navigate);
+  expect(ctx.navigate).toHaveBeenCalledWith(expect.objectContaining({ href: "/dashboard" }));
 });
 
 test("login route head sets the document title", () => {

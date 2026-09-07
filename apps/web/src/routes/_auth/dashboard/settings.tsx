@@ -1,14 +1,9 @@
 import { ShieldIcon, SignOutIcon } from "@phosphor-icons/react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import type { QueryClient } from "@tanstack/react-query";
-import type { ConvexQueryClient } from "@convex-dev/react-query";
-import type { ConvexReactClient } from "convex/react";
 import { useRef } from "react";
 import type { ReactNode } from "react";
-import { toast } from "sonner";
 import { z } from "zod";
 import { api } from "@workspace/convex/convex/_generated/api";
-import type { PreloadedConvexQuery } from "@workspace/convex-prefetch";
 import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
 import { Item, ItemContent, ItemGroup, ItemMedia, ItemTitle } from "@workspace/ui/components/item";
 import {
@@ -25,25 +20,11 @@ import { LanguageSettings } from "@/components/language-settings";
 import { signOutThenGo } from "@/lib/auth-client";
 import { useI18n } from "@/lib/i18n";
 import { useDashboardSettingsOverlay } from "@/lib/overlay-nav";
-import type { OverlayControl } from "@/lib/overlay-nav";
 import { ADMIN_DEFAULT_SEARCH } from "@/routes/_auth/dashboard_.admin";
 
 export const Route = createFileRoute("/_auth/dashboard/settings")({
   component: DashboardSettingsRoute,
 });
-
-export function DashboardSettingsRoute() {
-  const context = Route.useRouteContext();
-
-  return (
-    <DashboardSettingsSheet
-      convexClient={context.convexClient}
-      convexQueryClient={context.convexQueryClient}
-      profile={context.profile}
-      queryClient={context.queryClient}
-    />
-  );
-}
 
 function SettingsSection(props: { children: ReactNode; title: string }) {
   return (
@@ -58,78 +39,23 @@ function SettingsSection(props: { children: ReactNode; title: string }) {
   );
 }
 
-/**
- * Convex-wired sheet: resolves the admin flag from the preloaded profile and
- * owns sign-out.
- *
- * @internal exported for tests
- */
-export function DashboardSettingsSheet(props: {
-  convexClient: ConvexReactClient;
-  convexQueryClient: ConvexQueryClient;
-  profile: PreloadedConvexQuery<typeof api.profile.get>;
-  queryClient: QueryClient;
-}) {
-  const profileQuery = usePreloadedConvexQuery(api.profile.get, props.profile);
+/** Route-backed settings sheet over the dashboard; admin link from the live profile. */
+function DashboardSettingsRoute() {
+  const context = Route.useRouteContext();
+  const profileQuery = usePreloadedConvexQuery(api.profile.get, context.profile);
   const settings = useDashboardSettingsOverlay();
-  const { t } = useI18n();
-  const router = useRouter();
-
-  return (
-    <DashboardSettingsSheetView
-      accountSettings={<AccountSettings profile={props.profile} />}
-      isAdmin={profileQuery.data?.isAdmin === true}
-      languageSettings={<LanguageSettings profile={props.profile} />}
-      onSignOut={async () => {
-        try {
-          await signOutThenGo({
-            convexClient: props.convexClient,
-            convexQueryClient: props.convexQueryClient,
-            navigate: () =>
-              router.navigate({
-                to: "/",
-              }),
-            queryClient: props.queryClient,
-            t,
-          });
-        } catch (error) {
-          if (error instanceof Error) {
-            toast.error(error.message);
-            return;
-          }
-          throw error;
-        }
-      }}
-      overlay={settings}
-    />
-  );
-}
-
-/**
- * Presentational sheet — no Convex, no auth client, no route context — so the
- * layout, admin gating, and log-out wiring are testable in isolation.
- *
- * @internal exported for tests
- */
-export function DashboardSettingsSheetView(props: {
-  accountSettings: ReactNode;
-  isAdmin: boolean;
-  languageSettings: ReactNode;
-  onSignOut: () => void | Promise<void>;
-  overlay: OverlayControl;
-}) {
   const { t } = useI18n();
   const contentRef = useRef<HTMLDivElement | null>(null);
 
   return (
-    <Sheet {...props.overlay.rootProps}>
+    <Sheet {...settings.rootProps}>
       <SheetContent
         className="w-full sm:max-w-sm"
         initialFocus={contentRef}
         ref={contentRef}
         side="right"
       >
-        <FormGuardProvider guard={props.overlay.guard}>
+        <FormGuardProvider guard={settings.guard}>
           <SheetHeader>
             <SheetTitle>{t("Settings")}</SheetTitle>
             <SheetDescription>{t("Manage your profile and app preferences.")}</SheetDescription>
@@ -137,11 +63,11 @@ export function DashboardSettingsSheetView(props: {
 
           <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 pb-4">
             <SettingsSection title={t("Account")}>
-              {props.accountSettings}
-              {props.languageSettings}
+              <AccountSettings profile={context.profile} />
+              <LanguageSettings profile={context.profile} />
             </SettingsSection>
 
-            {props.isAdmin ? (
+            {profileQuery.data?.isAdmin === true ? (
               <SettingsSection title={t("Admin")}>
                 <Item
                   render={
@@ -160,7 +86,7 @@ export function DashboardSettingsSheetView(props: {
           </div>
 
           <SheetFooter>
-            <SignOutForm onSignOut={props.onSignOut} />
+            <SignOutForm />
           </SheetFooter>
         </FormGuardProvider>
       </SheetContent>
@@ -168,7 +94,9 @@ export function DashboardSettingsSheetView(props: {
   );
 }
 
-function SignOutForm(props: { onSignOut: () => void | Promise<void> }) {
+function SignOutForm() {
+  const context = Route.useRouteContext();
+  const router = useRouter();
   const { t } = useI18n();
   const form = useZodForm({
     defaultValues: {},
@@ -179,7 +107,13 @@ function SignOutForm(props: { onSignOut: () => void | Promise<void> }) {
     <Form
       form={form}
       handleSubmit={async () => {
-        await props.onSignOut();
+        await signOutThenGo({
+          convexClient: context.convexClient,
+          convexQueryClient: context.convexQueryClient,
+          navigate: () => router.navigate({ to: "/" }),
+          queryClient: context.queryClient,
+          t,
+        });
       }}
     >
       <SubmitButton form="context" IconComponent={SignOutIcon} iconPosition="start">

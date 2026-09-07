@@ -12,12 +12,13 @@ import {
   getConvexQueryPreloader,
   registerConvexInfiniteQueryClient,
 } from "@workspace/convex-prefetch";
-import { createAuth } from "@workspace/convex/convex/auth";
+import { CookieJar } from "tough-cookie";
 import schema from "@workspace/convex/convex/schema";
 import { makeAsyncResource } from "@workspace/convex/convex/test.resource";
 import { modules, registerComponents } from "@workspace/convex/convex/test.setup";
 import { isPlainObject, isString } from "@workspace/runtime/guards";
-import { installFetchHandler, stubJsdomWindow } from "@/test/stubJsdomWindow";
+import { stubJsdomWindow } from "@/test/stubJsdomWindow";
+import { installFetchHandler } from "@/test/testFetch";
 
 type SchemaTables =
   typeof schema extends SchemaDefinition<infer TTables, boolean> ? TTables : never;
@@ -55,18 +56,27 @@ export type IntegrationConvexClient = {
 
 const AUTH_ROUTE_PREFIX = "/api/auth/";
 
-/** `sub` of an unverified JWT — the Better Auth user id the Convex plugin minted it for. */
+/**
+ * `sub` of a JWT the real Better Auth handler just minted. Deliberately
+ * unverified: convex-test's `withIdentity` cannot reproduce Convex's JWKS
+ * check anyway, so this is identity plumbing, not security coverage.
+ */
 function jwtSubject(token: string) {
   const payload = token.split(".")[1];
   if (!payload) {
     return null;
   }
   try {
-    const parsed: unknown = JSON.parse(atob(payload.replaceAll("-", "+").replaceAll("_", "/")));
+    const json = Buffer.from(payload, "base64url").toString("utf8");
+    const parsed: unknown = JSON.parse(json);
     return isPlainObject(parsed) && isString(parsed.sub) ? parsed.sub : null;
   } catch {
     return null;
   }
+}
+
+function hasRequestBody(method: string) {
+  return method !== "GET" && method !== "HEAD";
 }
 
 export type ConvexTestHarness = {
@@ -74,6 +84,8 @@ export type ConvexTestHarness = {
   convexClient: IntegrationConvexClient;
   convexPreloader: ReturnType<typeof getConvexQueryPreloader>;
   convexQueryClient: ConvexQueryClient;
+  /** The "browser's" cookies for `/api/auth/*` — Better Auth's session lives here. */
+  cookieJar: CookieJar;
   queryClient: QueryClient;
   t: ConvexTestRoot;
   /** Switch the active caller on the shared in-memory backend. */
@@ -85,11 +97,15 @@ export type ConvexTestHarness = {
  * same React Query + prefetch stack production uses — no `vi.mock("convex/*")`,
  * no hand-built query results.
  *
- * `/api/auth/*` is served by the real Better Auth handler (`createAuth`) on the
- * same backend, and a successful sign-in / sign-up flips the backend identity
- * exactly the way production does: the client hands the Convex JWT from the
- * response to `setAuth`, and the harness reads its `sub`. Tests can therefore
- * mount a route "as is" and submit its real form.
+ * `/api/auth/*` requests from the real auth client are routed into the
+ * backend's HTTP router (`t.fetch` → `http.ts` → Better Auth), with the
+ * harness playing the browser: it keeps the session cookies in
+ * {@link ConvexTestHarness.cookieJar} and, after a successful write, refetches
+ * live queries the way production's Convex subscription would push them.
+ * A sign-in / sign-up flips the backend identity exactly as in production —
+ * the client hands the Convex JWT from the response to `setAuth`, and the
+ * harness reads its `sub`. Tests can therefore mount a route "as is" and
+ * submit its real form.
  */
 export async function createConvexTestHarness(opts: { identity: Partial<UserIdentity> | null }) {
   const jsdomWindow = stubJsdomWindow();
@@ -97,25 +113,35 @@ export async function createConvexTestHarness(opts: { identity: Partial<UserIden
   await registerComponents(t);
   let activeClient: ConvexTestCaller = opts.identity ? t.withIdentity(opts.identity) : t;
 
-  const authRoutes = installFetchHandler(async (request) => {
-    if (!new URL(request.url).pathname.startsWith(AUTH_ROUTE_PREFIX)) {
-      return null;
-    }
-    // Production serves these from a Convex HTTP action, so run the handler in
-    // an action ctx (password-reset mail delivery insists on one).
-    const served = await t.action(async (ctx) => {
-      const response = await createAuth(ctx).handler(request);
-      return {
-        body: await response.text(),
-        headers: [...response.headers.entries()],
-        status: response.status,
-      };
-    });
-    return new Response(served.body, { headers: served.headers, status: served.status });
-  });
-
   const watchCache = new Map<object, Map<string, Value>>();
   let queryClientForInvalidation: QueryClient | null = null;
+
+  const cookieJar = new CookieJar();
+  const authRoutes = installFetchHandler(async (request) => {
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith(AUTH_ROUTE_PREFIX)) {
+      return null;
+    }
+    const headers = new Headers(request.headers);
+    const cookie = await cookieJar.getCookieString(request.url);
+    if (cookie) {
+      headers.set("cookie", cookie);
+    }
+    const response = await t.fetch(`${url.pathname}${url.search}`, {
+      body: hasRequestBody(request.method) ? await request.arrayBuffer() : undefined,
+      headers,
+      method: request.method,
+    });
+    for (const setCookie of response.headers.getSetCookie()) {
+      await cookieJar.setCookie(setCookie, request.url, { ignoreError: true });
+    }
+    if (response.ok && hasRequestBody(request.method)) {
+      // Reactivity emulation: convex-test has no websocket push, so refetch
+      // what a Better Auth write (name change, sign-out, …) would have updated.
+      invalidateConvexQueries();
+    }
+    return response;
+  });
 
   function runQuery<TArgs>(query: ConvexQueryRef, args: TArgs) {
     // SAFETY: convex-test caller methods are generic over FunctionReference.
@@ -230,6 +256,7 @@ export async function createConvexTestHarness(opts: { identity: Partial<UserIden
     convexClient,
     convexPreloader: getConvexQueryPreloader(queryClient),
     convexQueryClient,
+    cookieJar,
     queryClient,
     get t() {
       return t;
