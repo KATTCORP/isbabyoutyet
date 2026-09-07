@@ -21,17 +21,23 @@ const SITE_HOST = new URL(CANONICAL_ORIGIN).host;
 const fontCache = new Map<string, ArrayBuffer>();
 
 /**
- * Strip emoji / pictographs Satori cannot draw with Nunito (missing glyphs
- * render as tofu). Keeps letters, digits, and punctuation — including Latin
- * extended — and collapses leftover whitespace.
+ * Sanitize user text for Satori + Nunito OG images. Missing glyphs render as
+ * tofu, so keep only what that Latin/Cyrillic webfont can draw:
+ * NFKC-normalize (fullwidth → ASCII, circled digits → digits), strip emoji /
+ * variation selectors / controls / format / private-use, then allowlist Latin +
+ * Cyrillic letters, marks, decimal digits, punctuation, currency, and spaces.
  *
  * @internal
  */
 export function textForOgImage(text: string) {
   return text
+    .normalize("NFKC")
     .replaceAll(/\p{Extended_Pictographic}/gu, "")
     .replaceAll(/\p{Emoji_Modifier}/gu, "")
-    .replaceAll(/\uFE0E|\uFE0F|\u200D|\u20E3/g, "")
+    .replaceAll(/\p{Variation_Selector}/gu, "")
+    .replaceAll('⃣', "")
+    .replaceAll(/\p{Cc}|\p{Cf}|\p{Co}|\p{Cs}|\p{Cn}/gu, "")
+    .replaceAll(/[^\p{Script=Latin}\p{Script=Cyrillic}\p{Nd}\p{P}\p{Sc}\p{Zs}\p{M}]+/gu, "")
     .replaceAll(/\s+/g, " ")
     .trim();
 }

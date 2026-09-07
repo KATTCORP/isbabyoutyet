@@ -57,15 +57,37 @@ test("textForOgImage strips emoji and normalizes whitespace", () => {
   expect(textForOgImage("  spaced   name  ")).toBe("spaced name");
 });
 
-test("textForOgImage keeps letters that Nunito can draw", () => {
+test("textForOgImage keeps letters Nunito can draw", () => {
   expect(textForOgImage("José")).toBe("José");
   expect(textForOgImage("Är bäbisen")).toBe("Är bäbisen");
   expect(textForOgImage("Maria")).toBe("Maria");
+  expect(textForOgImage("Tiếng Việt")).toBe("Tiếng Việt");
+  expect(textForOgImage("Малыш")).toBe("Малыш");
+  expect(textForOgImage("Baby €100")).toBe("Baby €100");
+  expect(textForOgImage("O’Connor")).toBe("O’Connor");
+  expect(textForOgImage("Smith-Jones")).toBe("Smith-Jones");
 });
 
-test("textForOgImage returns empty when only emoji remain", () => {
+test("textForOgImage strips symbols, controls, and unsupported scripts", () => {
+  expect(textForOgImage("Baby ★ ♪ → ∑ ✿")).toBe("Baby");
+  expect(textForOgImage("宝宝")).toBe("");
+  expect(textForOgImage("طفل")).toBe("");
+  expect(textForOgImage("Μωρό")).toBe("");
+  expect(textForOgImage("Baby\u0000Name")).toBe("BabyName");
+  expect(textForOgImage("Baby\u200BName")).toBe("BabyName");
+  expect(textForOgImage("Baby\u00ADName")).toBe("BabyName");
+});
+
+test("textForOgImage NFKC-folds compatibility characters", () => {
+  expect(textForOgImage("Ｂａｂｙ")).toBe("Baby");
+  expect(textForOgImage("①②③")).toBe("123");
+  expect(textForOgImage("cafe\u0301")).toBe("café");
+});
+
+test("textForOgImage returns empty when only unsupported characters remain", () => {
   expect(textForOgImage("👶")).toBe("");
   expect(textForOgImage("🌻🌺")).toBe("");
+  expect(textForOgImage("★★★")).toBe("");
 });
 
 test("homepage OG image returns a PNG response", async () => {
@@ -123,6 +145,30 @@ test("baby OG image strips emoji from the name before rendering", async () => {
     const textParam = new URL(url).searchParams.get("text") ?? "";
     expect(textParam).toContain("River");
     expect(textParam).not.toContain("🌻");
+  }
+});
+
+test("baby OG image strips unsupported symbols from the name before rendering", async () => {
+  await using fonts = await stubOgImageFonts();
+  const response = await createBabyOgImage({
+    babyBorn: null,
+    dueDate: "2026-09-01",
+    dueDateDisplayMode: "exact",
+    laborStarted: null,
+    locale: "en-GB",
+    name: "Sage ★ ♪",
+    photoUrl: null,
+    theme: "sunny-days",
+    timeZone: undefined,
+    wentToHospital: null,
+  });
+  expect(response.status).toBe(200);
+  expect(fonts.googleFontUrls.length).toBeGreaterThan(0);
+  for (const url of fonts.googleFontUrls) {
+    const textParam = new URL(url).searchParams.get("text") ?? "";
+    expect(textParam).toContain("Sage");
+    expect(textParam).not.toContain("★");
+    expect(textParam).not.toContain("♪");
   }
 });
 
