@@ -48,13 +48,6 @@ type ResolvedPaginatedQuery<TQuery extends PaginatedQueryReference> = [TQuery] e
   ? PaginatedQueryReference
   : TQuery;
 
-let registeredClient: ConvexQueryClient | null = null;
-
-/** Wire the app's ConvexQueryClient so infinite factories can fetch pages. */
-export function registerConvexInfiniteQueryClient(client: ConvexQueryClient) {
-  registeredClient = client;
-}
-
 function isConvexInfiniteQueryKey(
   queryKey: ReadonlyArray<unknown>,
 ): queryKey is RuntimeConvexInfiniteQueryKey {
@@ -119,6 +112,11 @@ async function fetchConvexInfinitePage(
 /**
  * Default `queryFn` that understands both regular `convexQuery` keys and
  * {@link convexInfiniteQuery} keys (merging `pageParam` into `paginationOpts`).
+ *
+ * Install it on each `QueryClient` (`defaultOptions.queries.queryFn`). The
+ * Convex client is captured per QueryClient — never in module state — so
+ * concurrent SSR requests, each with its own authenticated
+ * `serverHttpClient`, cannot fetch pages through one another's client.
  */
 export function convexInfiniteQueryFn(convexQueryClient: ConvexQueryClient) {
   const fallback = convexQueryClient.queryFn();
@@ -139,8 +137,9 @@ export function convexInfiniteQueryFn(convexQueryClient: ConvexQueryClient) {
 /**
  * Infinite-query options factory for Convex paginated queries.
  *
- * Call {@link registerConvexInfiniteQueryClient} from the router so `queryFn`
- * can reach the Convex client during SSR and on the client.
+ * Like `convexQuery`, this sets no `queryFn`: pages are fetched by the
+ * QueryClient's default `queryFn`, which must be {@link convexInfiniteQueryFn}
+ * bound to that QueryClient's own ConvexQueryClient.
  */
 export function convexInfiniteQuery<TQuery extends PaginatedQueryReference>(
   funcRef: TQuery,
@@ -182,15 +181,6 @@ export function convexInfiniteQuery<TQuery extends PaginatedQueryReference>(
       };
     },
     initialPageParam,
-    queryFn: async (context): Promise<Page> => {
-      if (!registeredClient) {
-        throw new Error("registerConvexInfiniteQueryClient() was not called");
-      }
-      return await fetchConvexInfinitePage(registeredClient, {
-        pageParam: context.pageParam,
-        queryKey: context.queryKey,
-      });
-    },
     queryKey,
     staleTime: Infinity,
   });

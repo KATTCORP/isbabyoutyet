@@ -9,7 +9,6 @@ import {
   CONVEX_INFINITE_QUERY_KEY,
   convexInfiniteQueryFn,
   getConvexQueryPreloader,
-  registerConvexInfiniteQueryClient,
 } from "@workspace/convex-prefetch";
 import schema from "@workspace/convex/convex/schema";
 import { makeAsyncResource } from "@workspace/convex/convex/test.resource";
@@ -148,8 +147,6 @@ export async function createConvexTestHarness(opts: { identity: Partial<UserIden
   // @ts-expect-error — stand-in only implements the members this harness reads
   const convexQueryClient: ConvexQueryClient = convexQueryClientFields;
 
-  registerConvexInfiniteQueryClient(convexQueryClient);
-
   const queryClient = new QueryClientImpl({
     defaultOptions: {
       queries: {
@@ -181,8 +178,6 @@ export async function createConvexTestHarness(opts: { identity: Partial<UserIden
   };
 
   return makeAsyncResource(harness, async () => {
-    // @ts-expect-error — teardown clears the registered client
-    registerConvexInfiniteQueryClient(null);
     queryClient.clear();
     jsdomWindow.restore();
   });

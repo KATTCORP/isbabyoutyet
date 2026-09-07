@@ -1,3 +1,4 @@
+import type { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { ConvexProvider, type ConvexReactClient } from "convex/react";
@@ -10,7 +11,7 @@ import {
 import { createElement, type ReactNode } from "react";
 import { expect, test, vi } from "vitest";
 
-import { registerConvexInfiniteQueryClient } from "./convexInfiniteQuery";
+import { convexInfiniteQueryFn } from "./convexInfiniteQuery";
 import { testPreloadedConvexInfiniteQuery } from "./test-helpers";
 import { usePreloadedConvexInfiniteQuery } from "./usePreloadedConvexInfiniteQuery";
 
@@ -22,6 +23,24 @@ type WatchHandle = {
 type WatchQuery = (funcRef: FunctionReference<"query">, args: DefaultFunctionArgs) => WatchHandle;
 
 type TestInfinitePage = PaginationResult<{ id: string }>;
+
+/** QueryClient whose default queryFn pages through the given Convex `query` stub. */
+function infiniteQueryClient(query: () => Promise<TestInfinitePage>) {
+  const stub = {
+    convexClient: { query },
+    queryFn: () => async () => {
+      throw new Error("fallback should not run");
+    },
+    serverHttpClient: undefined,
+  };
+  // @ts-expect-error — stand-in only implements the members convexInfiniteQueryFn reads
+  const convexQueryClient: ConvexQueryClient = stub;
+  return new QueryClient({
+    defaultOptions: {
+      queries: { queryFn: convexInfiniteQueryFn(convexQueryClient), retry: false },
+    },
+  });
+}
 
 function idleWatchQuery() {
   return vi.fn<WatchQuery>(() => ({
@@ -47,12 +66,7 @@ function createWrapper(queryClient: QueryClient, watchQuery: WatchQuery) {
 }
 
 test("usePreloadedConvexInfiniteQuery reads preloaded pages and watches them", async () => {
-  registerConvexInfiniteQueryClient({
-    // @ts-expect-error — fixture only implements query
-    convexClient: { query: vi.fn<() => Promise<TestInfinitePage>>() },
-    serverHttpClient: undefined,
-  });
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const queryClient = infiniteQueryClient(vi.fn<() => Promise<TestInfinitePage>>());
 
   const handle = testPreloadedConvexInfiniteQuery({
     initialData: {
@@ -95,12 +109,7 @@ test("usePreloadedConvexInfiniteQuery fetches when the handle has no initialData
     isDone: true,
     page: [{ id: "fetched" }],
   }));
-  registerConvexInfiniteQueryClient({
-    // @ts-expect-error — fixture only implements query
-    convexClient: { query },
-    serverHttpClient: undefined,
-  });
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const queryClient = infiniteQueryClient(query);
 
   const initiatedHandle = { input: { tag: "news" }, numItems: 20 };
   const { result } = renderHook(
@@ -127,12 +136,7 @@ test("usePreloadedConvexInfiniteQuery fetches when the handle has no initialData
 });
 
 test("usePreloadedConvexInfiniteQuery remixes args from local state", async () => {
-  registerConvexInfiniteQueryClient({
-    // @ts-expect-error — fixture only implements query
-    convexClient: { query: vi.fn<() => Promise<TestInfinitePage>>() },
-    serverHttpClient: undefined,
-  });
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const queryClient = infiniteQueryClient(vi.fn<() => Promise<TestInfinitePage>>());
 
   const handle = testPreloadedConvexInfiniteQuery({
     initialData: {

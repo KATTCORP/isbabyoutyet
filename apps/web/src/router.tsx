@@ -5,11 +5,7 @@ import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import { ConvexProvider } from "convex/react";
 import { routeTree } from "./routeTree.gen";
-import {
-  convexInfiniteQueryFn,
-  getConvexQueryPreloader,
-  registerConvexInfiniteQueryClient,
-} from "@workspace/convex-prefetch";
+import { convexInfiniteQueryFn, getConvexQueryPreloader } from "@workspace/convex-prefetch";
 import { RootErrorComponent } from "./routes/__root";
 import { getDetectedLocale } from "./lib/i18n";
 import { setClientToken } from "./lib/auth-client";
@@ -55,13 +51,14 @@ export function getRouter() {
   const convexQueryClient = new ConvexQueryClient(convexUrl, {
     expectAuth: true,
   });
-  registerConvexInfiniteQueryClient(convexQueryClient);
 
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
         queryKeyHashFn: convexQueryClient.hashFn(),
-        // Handles both regular Convex queries and infinite/paginated keys.
+        // Handles both regular Convex queries and infinite/paginated keys. This
+        // is the only binding between this request's QueryClient and its
+        // (per-request, per-user authenticated) Convex client.
         queryFn: convexInfiniteQueryFn(convexQueryClient),
       },
     },
