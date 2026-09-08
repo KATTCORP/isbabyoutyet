@@ -18,8 +18,6 @@ import { searchRobotsMeta } from "@/lib/robots";
 import { homepageOgImagePath, openGraphImageMeta } from "@/lib/seo";
 import { absoluteUrl, canonicalUrl } from "@/lib/site-url";
 
-type HomepageLoaderRsc = Awaited<ReturnType<typeof getHomepageRsc>>;
-
 export const Route = createFileRoute("/")({
   component: HomePage,
   headers: homepageCacheHeaders,
@@ -79,17 +77,11 @@ export const Route = createFileRoute("/")({
   },
 });
 
-export function HomePage() {
+function HomePage() {
   const loaderData = Route.useLoaderData();
   const meQuery = usePreloadedConvexQuery(api.profile.get, loaderData.me);
   const isSignedIn = meQuery.data != null;
-
-  return <HomepageRscPage isSignedIn={isSignedIn} src={loaderData.homepage.src} />;
-}
-
-function HomepageRscPage(props: { isSignedIn: boolean; src: HomepageLoaderRsc["src"] }) {
   const { t } = useI18n();
-  const isSignedIn = props.isSignedIn;
 
   return (
     <CompositeComponent
@@ -132,7 +124,7 @@ function HomepageRscPage(props: { isSignedIn: boolean; src: HomepageLoaderRsc["s
         <HomepageHeroHeadline after={data.after} before={data.before} words={data.words} />
       )}
       renderSeeItInAction={(data) => <HomepageSeeItInAction {...data} />}
-      src={props.src}
+      src={loaderData.homepage.src}
     />
   );
 }
