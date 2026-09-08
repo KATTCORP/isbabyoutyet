@@ -40,15 +40,13 @@ function withoutSchema(messages: MessageCatalogFile) {
 }
 
 const enGB = withoutSchema(enGBMessages);
-const catalogs: {
-  readonly [TLocale in SupportedLocale]: Readonly<Record<string, string>>;
-} = {
+const catalogs = {
   "en-GB": enGB,
   "en-US": withoutSchema(enUSMessages),
   es: withoutSchema(esMessages),
   "pt-BR": withoutSchema(ptBRMessages),
   sv: withoutSchema(svMessages),
-};
+} satisfies Record<SupportedLocale, Readonly<Record<string, string>>>;
 
 type SchemaKey = "$schema";
 export type TranslationKey = Exclude<keyof typeof enGBMessages, SchemaKey>;
