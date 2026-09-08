@@ -48,9 +48,15 @@ type HomepageFooterLocaleData = {
 };
 
 type HomepageRscSlots = {
-  bottomCta: ReactNode;
-  headerActions: ReactNode;
+  /**
+   * Named slots are functions on the server proxy — call them
+   * (`props.renderHeaderActions()`) so Flight records a ClientSlot
+   * placeholder. Passing the function through as JSX children throws
+   * "Functions cannot be passed directly to Client Components".
+   */
+  renderBottomCta: () => ReactNode;
   renderFooterLocale: (data: HomepageFooterLocaleData) => ReactNode;
+  renderHeaderActions: () => ReactNode;
   renderHeroCtas: (data: HomepageHeroCtasData) => ReactNode;
   renderHeroHeadline: (data: HomepageHeroHeadlineData) => ReactNode;
   renderSeeItInAction: (data: HomepageSeeItInActionData) => ReactNode;
@@ -126,7 +132,7 @@ export const getHomepageRsc = createServerFn({ method: "GET" })
           <header className="sticky top-0 z-20 px-4 pt-3 pb-1">
             <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
               <HomepageBrandMark />
-              <div className="flex items-center gap-2">{props.headerActions}</div>
+              <div className="flex items-center gap-2">{props.renderHeaderActions()}</div>
             </div>
           </header>
 
@@ -160,7 +166,7 @@ export const getHomepageRsc = createServerFn({ method: "GET" })
               title={copy.howTitle}
             />
 
-            {props.bottomCta}
+            {props.renderBottomCta()}
           </main>
 
           <footer className="border-t-2 border-border/60 bg-background/60 px-4 py-8 text-center">

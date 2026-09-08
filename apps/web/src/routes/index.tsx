@@ -116,7 +116,7 @@ function HomepageRscPage(props: {
 
   return (
     <CompositeComponent
-      bottomCta={
+      renderBottomCta={() => (
         <HomepageBottomCta
           body={
             isSignedIn
@@ -129,17 +129,17 @@ function HomepageRscPage(props: {
           isSignedIn={isSignedIn}
           title={t("Ready to share the journey?")}
         />
-      }
-      headerActions={
+      )}
+      renderFooterLocale={(data) => (
+        <HomepageLocalePicker label={data.languageLabel} locale={data.locale} />
+      )}
+      renderHeaderActions={() => (
         <HomepageAuthHeaderActions
           dashboardLabel={t("Dashboard")}
           getStartedLabel={t("Get started")}
           isSignedIn={isSignedIn}
           signInLabel={t("Sign in")}
         />
-      }
-      renderFooterLocale={(data) => (
-        <HomepageLocalePicker label={data.languageLabel} locale={data.locale} />
       )}
       renderHeroCtas={(data) => (
         <HomepageHeroCtas
