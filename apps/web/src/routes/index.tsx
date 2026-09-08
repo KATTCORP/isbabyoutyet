@@ -338,7 +338,12 @@ export function HomePageView(props: { isSignedIn: boolean }) {
           <span className="inline-block -rotate-2 rounded-full border-2 border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-extrabold text-primary pop-shadow">
             ✨ {t("Free forever, no ads")}
           </span>
-          <h1 className="mx-auto mt-8 flex max-w-3xl flex-col items-center gap-y-1 text-5xl font-black tracking-tight text-foreground md:block md:text-balance md:text-7xl">
+          <h1
+            aria-label={[headline.before, headline.words[0], headline.after]
+              .filter((part) => part !== "")
+              .join(" ")}
+            className="mx-auto mt-8 flex max-w-3xl flex-col items-center gap-y-1 text-5xl font-black tracking-tight text-foreground md:block md:text-balance md:text-7xl"
+          >
             <span className="inline-flex max-w-full flex-wrap items-baseline justify-center gap-x-[0.25em] whitespace-nowrap">
               {headline.before === "" ? null : <span>{headline.before}</span>}
               <span className="inline-block -rotate-1 rounded-3xl bg-primary/15 px-4 text-primary">
