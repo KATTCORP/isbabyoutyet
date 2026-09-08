@@ -109,27 +109,34 @@ function RotatingBabyName(props: { words: ReadonlyArray<string> }) {
     itemCount: props.words.length,
   });
   const [measureCurrentWord, width] = useMeasuredWidth();
+  const currentWord = props.words[indices.current] ?? "";
 
   return (
     <span
       aria-hidden="true"
-      className="relative inline-block overflow-hidden whitespace-nowrap transition-[width] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none"
+      className="relative inline-block whitespace-nowrap transition-[width] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none"
       style={width === null ? undefined : { width }}
     >
-      {indices.previous !== null ? (
-        <span
-          className="hero-word-out absolute left-0 top-0"
-          key={`out-${indices.previous}-${indices.current}`}
-        >
-          {props.words[indices.previous]}
+      {/*
+        In-flow strut keeps the alphabetic baseline aligned with "Är" / "ute än?".
+        `overflow: hidden` on an inline-block would pin the baseline to the bottom
+        edge and lift the name inside the pill.
+      */}
+      <span className="invisible inline-block" ref={measureCurrentWord}>
+        {currentWord}
+      </span>
+      <span className="absolute inset-0 overflow-hidden">
+        {indices.previous !== null ? (
+          <span
+            className="hero-word-out absolute left-0 top-0"
+            key={`out-${indices.previous}-${indices.current}`}
+          >
+            {props.words[indices.previous]}
+          </span>
+        ) : null}
+        <span className="hero-word-in absolute left-0 top-0" key={`in-${indices.current}`}>
+          {currentWord}
         </span>
-      ) : null}
-      <span
-        className="hero-word-in inline-block"
-        key={`in-${indices.current}`}
-        ref={measureCurrentWord}
-      >
-        {props.words[indices.current]}
       </span>
     </span>
   );
