@@ -56,6 +56,23 @@ test("hero headline cycles through baby names", async () => {
   expect(screen.getByText("Juniper").classList.contains("hero-word-in")).toBe(true);
 });
 
+test("hero headline keeps before+name and after as inline-block phrases", async () => {
+  await using _view = await renderWithTestRouter(
+    <LocaleProvider locale="sv">
+      <HomePageView isSignedIn={false} />
+    </LocaleProvider>,
+  );
+
+  const heading = screen.getByRole("heading", { level: 1 });
+  const phrases = [...heading.children].filter(
+    (node) => node instanceof HTMLElement && node.classList.contains("inline-block"),
+  );
+  expect(phrases).toHaveLength(2);
+  expect(phrases[0]?.textContent).toMatch(/Är/);
+  expect(phrases[0]?.textContent).toMatch(/bäbisen/);
+  expect(phrases[1]?.textContent).toBe("ute än?");
+});
+
 test("Swedish homepage hero uses Swedish name pool", async () => {
   vi.useFakeTimers();
   await using _timers = makeResource({}, () => vi.useRealTimers());
