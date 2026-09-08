@@ -298,9 +298,9 @@ jobs:
             fi
           else
             {
-              echo "::error title=No coverage baseline::Could not restore or remasure base \`${CI_BASE_SHA}\` (\`${BASE_REF}\`), and no last-successful branch baseline exists either."
+              echo "::error title=No coverage baseline (base tip broken — not this PR)::Could not restore or remasure base \`${CI_BASE_SHA}\` (\`${BASE_REF}\`), and no last-successful branch baseline exists either."
               echo ""
-              echo "The remasure step runs **the PR base tip**, not this branch. If tests failed there, fix or bypass on the base branch — this PR may be fine."
+              echo "The remasure step runs **the PR base tip**, not this branch. The Vitest failures above are on \`${BASE_REF}\` @ \`${CI_BASE_SHA}\` — fix or bypass on the base branch; this PR may be fine."
               echo ""
               echo "- Base SHA: \`${CI_BASE_SHA}\`"
               echo "- Base ref: \`${BASE_REF}\`"
