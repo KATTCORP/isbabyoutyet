@@ -18,7 +18,7 @@ test("homepage links visitors to the live Juniper Hale demo page", async () => {
     .getAllByRole("link")
     .filter((link) => link.getAttribute("href")?.includes(`/baby/${HOMEPAGE_DEMO_BABY.publicId}`));
   expect(demoLinks.length).toBeGreaterThan(0);
-  expect(screen.getByRole("heading", { name: /is baby out yet/i })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: /is\s+baby\s+out\s+yet/i })).toBeTruthy();
   expect(screen.getByText(`Follow ${HOMEPAGE_DEMO_BABY.name}'s arrival`)).toBeTruthy();
 
   // These CTAs render as Base UI Buttons backed by a Link (not native
@@ -50,10 +50,22 @@ test("hero headline cycles through baby names", async () => {
   await using _timers = makeResource({}, () => vi.useRealTimers());
   await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
 
-  expect(screen.getByRole("heading", { name: /is baby out yet/i })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: /is\s+baby\s+out\s+yet/i })).toBeTruthy();
   expect(screen.queryByText("Juniper")).toBeNull();
   act(() => vi.advanceTimersByTime(2400));
   expect(screen.getByText("Juniper").classList.contains("hero-word-in")).toBe(true);
+});
+
+test("hero after copy uses non-breaking spaces so phrases stay intact", async () => {
+  await using _view = await renderWithTestRouter(
+    <LocaleProvider locale="sv">
+      <HomePageView isSignedIn={false} />
+    </LocaleProvider>,
+  );
+
+  const heading = screen.getByRole("heading", { level: 1 });
+  expect(heading.textContent).toContain("ute\u00A0än?");
+  expect(heading.textContent).toMatch(/Är\u00A0bäbisen/);
 });
 
 test("Swedish homepage hero uses Swedish name pool", async () => {

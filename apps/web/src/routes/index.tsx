@@ -339,7 +339,16 @@ export function HomePageView(props: { isSignedIn: boolean }) {
             ✨ {t("Free forever, no ads")}
           </span>
           <h1 className="mx-auto mt-8 max-w-3xl text-5xl font-black tracking-tight text-foreground text-balance md:text-7xl">
-            {headline.before === "" ? null : <>{headline.before} </>}
+            {/*
+              Join before→name with NBSP; after strings use NBSP in the catalog
+              (e.g. "ute än?") so mobile wraps between the two phrases only.
+            */}
+            {headline.before === "" ? null : (
+              <>
+                {headline.before}
+                {"\u00A0"}
+              </>
+            )}
             <span className="inline-block -rotate-1 rounded-3xl bg-primary/15 px-4 text-primary">
               <span className="sr-only">{headline.words[0]}</span>
               <RotatingBabyName words={headline.words} />
