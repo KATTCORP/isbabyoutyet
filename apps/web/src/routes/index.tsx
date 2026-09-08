@@ -338,9 +338,9 @@ export function HomePageView(props: { isSignedIn: boolean }) {
           <span className="inline-block -rotate-2 rounded-full border-2 border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-extrabold text-primary pop-shadow">
             ✨ {t("Free forever, no ads")}
           </span>
-          <h1 className="mx-auto mt-8 max-w-3xl text-5xl font-black tracking-tight text-foreground text-balance md:text-7xl">
+          <h1 className="mx-auto mt-8 max-w-3xl whitespace-nowrap text-[clamp(1.5rem,4.5vw+0.6rem,3rem)] font-black tracking-tight text-foreground md:whitespace-normal md:text-balance md:text-7xl">
             {headline.before === "" ? null : <>{headline.before} </>}
-            <span className="inline-block -rotate-1 rounded-3xl bg-primary/15 px-4 text-primary">
+            <span className="inline-block -rotate-1 rounded-3xl bg-primary/15 px-2.5 text-primary md:px-4">
               <span className="sr-only">{headline.words[0]}</span>
               <RotatingBabyName words={headline.words} />
             </span>{" "}
