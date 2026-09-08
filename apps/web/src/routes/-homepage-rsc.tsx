@@ -17,7 +17,7 @@ import {
   HomepageGithubLink,
   HomepageHowItWorksSection,
 } from "@/routes/-homepage-static";
-import { translate } from "@/lib/i18n";
+import { translate } from "@/lib/i18n-catalog";
 
 type HomepageHeroHeadlineData = {
   after: string;
