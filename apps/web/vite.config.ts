@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
+import rsc from "@vitejs/plugin-rsc";
 import viteTsConfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
@@ -204,10 +205,16 @@ const config = defineConfig({
     }),
     tailwindcss(),
     tanstackStart({
+      rsc: {
+        enabled: true,
+      },
       server: {
         entry: "./src/server.ts",
       },
     }),
+    // Required peer of TanStack Start RSC (experimental):
+    // https://tanstack.com/start/latest/docs/framework/react/guide/server-components
+    rsc(),
     viteReact({ compiler: true }),
   ],
   ssr: {

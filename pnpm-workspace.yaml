@@ -40,6 +40,7 @@ catalog:
   "@vercel/analytics": ^2.0.1
   "@vercel/functions": ^3.9.3
   "@vitejs/plugin-react": ^6.1.0
+  "@vitejs/plugin-rsc": ^0.5.34
   "@vitest/browser-playwright": ^4.1.11
   "@vitest/coverage-v8": ^4.1.11
   better-auth: ~1.6.30
@@ -70,6 +71,7 @@ catalog:
   react-day-picker: ^10.0.1
   react-email: ^6.9.3
   react-dom: ^19.2.8
+  react-server-dom-webpack: ^19.2.8
   react-hook-form: ^7.85.0
   react-resizable-panels: ^4.12.3
   recharts: ^3.10.1

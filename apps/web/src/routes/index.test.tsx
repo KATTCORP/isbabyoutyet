@@ -2,7 +2,16 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { makeResource } from "@workspace/convex/convex/test.resource";
 import { HOMEPAGE_DEMO_BABIES, HOMEPAGE_DEMO_BABY } from "@workspace/convex/src/seedCredentials";
-import { LocaleProvider } from "@/lib/i18n";
+import {
+  FEATURES,
+  HERO_HEADLINES,
+  HOW_IT_WORKS,
+} from "@/components/homepage/homepage-copy";
+import {
+  HomepageFeaturesSection,
+  HomepageHowItWorksSection,
+} from "@/components/homepage/homepage-static";
+import { LocaleProvider, translate } from "@/lib/i18n";
 import { cookieName } from "@/paraglide/runtime";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { signUpTestUser } from "@/test/convexTestSeed";
@@ -10,6 +19,45 @@ import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import { runRouteLoader } from "@/test/routeTestContext";
 import { HomePageView, Route } from "./index";
+
+test("static features section renders translated cards", async () => {
+  const locale = "en-GB" as const;
+  const title = translate(locale, "Everything the family needs");
+  await using _view = await renderWithTestRouter(
+    <HomepageFeaturesSection
+      features={FEATURES.map((feature) => ({
+        description: translate(locale, feature.description),
+        emoji: feature.emoji,
+        title: translate(locale, feature.title),
+      }))}
+      subtitle={translate(locale, "For you, and for everyone waiting by the phone")}
+      title={title}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: title })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: translate(locale, "Update your status") })).toBeTruthy();
+  expect(HOW_IT_WORKS.length).toBe(3);
+});
+
+test("static how-it-works section renders steps", async () => {
+  const locale = "en-GB" as const;
+  const title = translate(locale, "How it works");
+  await using _view = await renderWithTestRouter(
+    <HomepageHowItWorksSection
+      steps={HOW_IT_WORKS.map((item) => ({
+        description: translate(locale, item.description),
+        step: item.step,
+        title: translate(locale, item.title),
+      }))}
+      subtitle={translate(locale, "Up and running in under a minute")}
+      title={title}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: title })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: translate(locale, "Create your page") })).toBeTruthy();
+});
 
 test("homepage links visitors to the live Juniper Hale demo page", async () => {
   await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
@@ -21,8 +69,6 @@ test("homepage links visitors to the live Juniper Hale demo page", async () => {
   expect(screen.getByRole("heading", { name: /is baby out yet/i })).toBeTruthy();
   expect(screen.getByText(`Follow ${HOMEPAGE_DEMO_BABY.name}'s arrival`)).toBeTruthy();
 
-  // These CTAs render as Base UI Buttons backed by a Link (not native
-  // anchors), so Base UI assigns them an accessible role of "button".
   const livePage = screen.getByRole("button", { name: /see a live page/i });
   const createPage = screen.getByRole("button", { name: /create your page/i });
   expect(livePage.parentElement).not.toBe(createPage.parentElement);
@@ -54,6 +100,7 @@ test("hero headline cycles through baby names", async () => {
   expect(screen.queryByText("Juniper")).toBeNull();
   act(() => vi.advanceTimersByTime(2400));
   expect(screen.getByText("Juniper").classList.contains("hero-word-in")).toBe(true);
+  expect(HERO_HEADLINES["en-GB"].words[1]).toBe("Juniper");
 });
 
 test("Swedish homepage hero uses Swedish name pool", async () => {
@@ -108,15 +155,19 @@ test("homepage language picker saves an explicit language choice", async () => {
   });
 });
 
-test("homepage loader prefetches profile.get", async () => {
+test("homepage loader prefetches profile.get and skips RSC in test mode", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
-  const data = await runRouteLoader<{ me: { initialData: unknown } }>({
+  const data = await runRouteLoader<{
+    homepage: { src: null };
+    me: { initialData: unknown };
+  }>({
     harness,
     location: { pathname: "/" },
     params: {},
     route: Route,
   });
   expect(data.me.initialData).toBeNull();
+  expect(data.homepage.src).toBeNull();
 });
 
 test("signed-in profile.get flips homepage CTAs to the dashboard", async () => {
