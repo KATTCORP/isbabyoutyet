@@ -7,10 +7,7 @@ import { LanguagePicker } from "@/components/language-picker";
 import { setLocale } from "@/lib/paraglide-setup";
 import { useRotatingIndex } from "@/lib/use-delayed-action";
 import { useMeasuredWidth } from "@/lib/use-measured-width";
-import {
-  NAME_ROTATE_INTERVAL_MS,
-  type HomepagePreviewStage,
-} from "@/components/homepage/homepage-copy";
+import { NAME_ROTATE_INTERVAL_MS, type HomepagePreviewStage } from "@/routes/-homepage-copy";
 
 export function HomepageHeroHeadline(props: {
   after: string;

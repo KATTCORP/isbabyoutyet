@@ -10,13 +10,13 @@ import {
   HOW_IT_WORKS,
   buildHomepagePreviewStages,
   type HomepagePreviewStage,
-} from "@/components/homepage/homepage-copy";
+} from "@/routes/-homepage-copy";
 import {
   HomepageBrandMark,
   HomepageFeaturesSection,
   HomepageGithubLink,
   HomepageHowItWorksSection,
-} from "@/components/homepage/homepage-static";
+} from "@/routes/-homepage-static";
 import { translate } from "@/lib/i18n";
 
 type HomepageHeroHeadlineData = {

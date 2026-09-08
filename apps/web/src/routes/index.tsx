@@ -3,7 +3,7 @@ import { CompositeComponent } from "@tanstack/react-start/rsc";
 import { api } from "@workspace/convex/convex/_generated/api";
 import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
 import { allKeyed } from "@workspace/query-prefetch";
-import { getHomepageRsc } from "@/components/homepage/get-homepage-rsc";
+import { getHomepageRsc } from "@/routes/-homepage-rsc";
 import {
   HomepageAuthHeaderActions,
   HomepageBottomCta,
@@ -11,8 +11,8 @@ import {
   HomepageHeroHeadline,
   HomepageLocalePicker,
   HomepageSeeItInAction,
-} from "@/components/homepage/homepage-islands";
-import { HomePageView } from "@/components/homepage/homepage-view";
+} from "@/routes/-homepage-islands";
+import { HomePageView } from "@/routes/-homepage-view";
 import { homepageCacheHeaders } from "@/lib/cachePolicy";
 import { translate, useI18n } from "@/lib/i18n";
 import { searchRobotsMeta } from "@/lib/robots";

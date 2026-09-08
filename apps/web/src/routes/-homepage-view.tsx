@@ -6,7 +6,7 @@ import {
   HERO_HEADLINES,
   HOW_IT_WORKS,
   buildHomepagePreviewStages,
-} from "@/components/homepage/homepage-copy";
+} from "@/routes/-homepage-copy";
 import {
   HomepageAuthHeaderActions,
   HomepageBottomCta,
@@ -14,13 +14,13 @@ import {
   HomepageHeroHeadline,
   HomepageLocalePicker,
   HomepageSeeItInAction,
-} from "@/components/homepage/homepage-islands";
+} from "@/routes/-homepage-islands";
 import {
   HomepageBrandMark,
   HomepageFeaturesSection,
   HomepageGithubLink,
   HomepageHowItWorksSection,
-} from "@/components/homepage/homepage-static";
+} from "@/routes/-homepage-static";
 import { useClientDate } from "@/lib/use-client-date";
 import { useI18n } from "@/lib/i18n";
 

@@ -2,11 +2,8 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { makeResource } from "@workspace/convex/convex/test.resource";
 import { HOMEPAGE_DEMO_BABIES, HOMEPAGE_DEMO_BABY } from "@workspace/convex/src/seedCredentials";
-import { FEATURES, HERO_HEADLINES, HOW_IT_WORKS } from "@/components/homepage/homepage-copy";
-import {
-  HomepageFeaturesSection,
-  HomepageHowItWorksSection,
-} from "@/components/homepage/homepage-static";
+import { FEATURES, HERO_HEADLINES, HOW_IT_WORKS } from "@/routes/-homepage-copy";
+import { HomepageFeaturesSection, HomepageHowItWorksSection } from "@/routes/-homepage-static";
 import { LocaleProvider, translate } from "@/lib/i18n";
 import { cookieName } from "@/paraglide/runtime";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
