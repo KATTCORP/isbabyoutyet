@@ -55,6 +55,7 @@ catalog:
   eslint-plugin-no-only-tests: ^3.4.0
   eslint-plugin-perfectionist: ^5.11.0
   input-otp: ^1.5.0
+  jose: ^6.2.10
   jsdom: ^30.0.1
   knip: ^6.32.2
   lucide-react: ^1.32.0
@@ -79,6 +80,7 @@ catalog:
   streamdown: ^2.5.0
   tailwind-merge: ^3.6.0
   tailwindcss: ^4.3.3
+  tough-cookie: ^6.0.2
   tsdown: ^0.22.14
   tsx: ^4.23.12
   turbo: ^2.10.11
