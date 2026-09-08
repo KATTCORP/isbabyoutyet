@@ -237,6 +237,9 @@ export function HomePageView(props: { isSignedIn: boolean }) {
   const { locale, t } = useI18n();
   const demoBaby = homepageDemoBabyFor(locale);
   const headline = heroHeadlineFromCatalog(t);
+  const heroAccessibleName = [headline.before, headline.words[0], headline.after]
+    .filter((part) => part !== "" && part !== undefined)
+    .join(" ");
   const isSignedIn = props.isSignedIn;
 
   const currentDate = useCurrentDate();
@@ -354,19 +357,26 @@ export function HomePageView(props: { isSignedIn: boolean }) {
           <span className="inline-block -rotate-2 rounded-full border-2 border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-extrabold text-primary pop-shadow">
             ✨ {t("Free forever, no ads")}
           </span>
-          <h1 className="mx-auto mt-8 flex max-w-3xl flex-col items-center gap-y-1 text-5xl font-black tracking-tight text-foreground md:block md:text-balance md:text-7xl">
-            <span className="inline-flex max-w-full flex-wrap items-baseline justify-center gap-x-[0.25em] whitespace-nowrap">
+          <h1
+            aria-label={heroAccessibleName}
+            className="mx-auto mt-8 flex max-w-3xl flex-col items-center gap-y-1 text-5xl font-black tracking-tight text-foreground md:block md:text-balance md:text-7xl"
+          >
+            <span
+              aria-hidden="true"
+              className="inline-flex max-w-full flex-wrap items-baseline justify-center gap-x-[0.25em] whitespace-nowrap"
+            >
               {headline.before === "" ? null : <span>{headline.before}</span>}
               <span className="relative inline-flex items-baseline px-4 text-primary">
                 <span
                   aria-hidden="true"
                   className="absolute inset-0 -rotate-1 rounded-3xl bg-primary/15"
                 />
-                <span className="sr-only">{headline.words[0]}</span>
                 <RotatingBabyName words={headline.words} />
               </span>
             </span>
-            <span className="whitespace-nowrap md:ml-[0.25em]">{headline.after}</span>
+            <span aria-hidden="true" className="whitespace-nowrap md:ml-[0.25em]">
+              {headline.after}
+            </span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg font-semibold leading-relaxed text-muted-foreground md:text-xl">
             {t(

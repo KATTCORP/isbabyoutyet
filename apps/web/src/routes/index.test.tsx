@@ -51,6 +51,8 @@ test("hero headline cycles through baby names", async () => {
   await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
 
   expect(screen.getByRole("heading", { name: /is baby out yet/i })).toBeTruthy();
+  const initialName = screen.getByText("baby");
+  expect(initialName.classList.contains("hero-word-in")).toBe(false);
   expect(screen.queryByText("Juniper")).toBeNull();
   act(() => vi.advanceTimersByTime(2400));
   expect(screen.getByText("Juniper").classList.contains("hero-word-in")).toBe(true);
