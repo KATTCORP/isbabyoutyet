@@ -1,5 +1,5 @@
 import type { SupportedLocale } from "@workspace/convex/src/i18n";
-import type { TranslationFunction, TranslationKey } from "@/lib/i18n-catalog";
+import type { TranslationKey } from "@/lib/i18n-catalog";
 import { splitMessageList, translate } from "@/lib/i18n-catalog";
 
 /**
@@ -10,11 +10,10 @@ import { splitMessageList, translate } from "@/lib/i18n-catalog";
  * name.
  */
 export function heroHeadlineFromCatalog(locale: SupportedLocale) {
-  const t = ((key: TranslationKey) => translate(locale, key)) as TranslationFunction;
   return {
-    after: t("Hero after"),
-    before: t("Hero before"),
-    words: splitMessageList(t("Hero names")),
+    after: translate(locale, "Hero after"),
+    before: translate(locale, "Hero before"),
+    words: splitMessageList(translate(locale, "Hero names")),
   };
 }
 

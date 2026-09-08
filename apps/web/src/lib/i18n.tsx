@@ -15,7 +15,7 @@ import {
 } from "@/lib/i18n-catalog";
 
 export type { TranslationFunction, TranslationKey } from "@/lib/i18n-catalog";
-export { getLanguageName, splitMessageList, translate } from "@/lib/i18n-catalog";
+export { getLanguageName, translate } from "@/lib/i18n-catalog";
 
 /**
  * Paraglide owns request-safe locale detection. Cookie persistence is only for
