@@ -94,6 +94,10 @@ function routeGeneratedImagesThroughSsr(): Plugin {
  * `solid-js/web/dist/server.js` and fails (`MISSING_EXPORT`, tanstack/devtools#187).
  * Replace our host module on server environments so preview can keep Devtools
  * in the client bundle without pulling Solid into the serverless graph.
+ *
+ * The stub returns `null`. `TanStackAppDevtools` must also return `null` on the
+ * client's hydration pass (`useClientHydration`) so preview does not hit React
+ * #418 from a server/client tree mismatch.
  */
 function stubTanstackDevtoolsOnServer(): Plugin {
   const stubId = "\0stub-tanstack-devtools-ssr";
