@@ -35,7 +35,7 @@ export function textForOgImage(text: string) {
     .replaceAll(/\p{Extended_Pictographic}/gu, "")
     .replaceAll(/\p{Emoji_Modifier}/gu, "")
     .replaceAll(/\p{Variation_Selector}/gu, "")
-    .replaceAll("⃣", "")
+    .replaceAll('⃣', "")
     .replaceAll(/\p{Cc}|\p{Cf}|\p{Co}|\p{Cs}|\p{Cn}/gu, "")
     .replaceAll(/[^\p{Script=Latin}\p{Script=Cyrillic}\p{Nd}\p{P}\p{Sc}\p{Zs}\p{M}]+/gu, "")
     .replaceAll(/\s+/g, " ")
