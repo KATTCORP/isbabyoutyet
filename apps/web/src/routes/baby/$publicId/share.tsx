@@ -88,8 +88,9 @@ export function BabyShareOverlay() {
       }
     } catch (error) {
       toast.error(
-        "Failed to copy to clipboard: " +
-          (error instanceof Error ? error.message : "Unknown error"),
+        t("Failed to copy to clipboard: {{detail}}", {
+          detail: error instanceof Error ? error.message : t("Unknown error"),
+        }),
       );
     }
   }

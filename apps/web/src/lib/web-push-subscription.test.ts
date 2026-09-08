@@ -1,6 +1,10 @@
 import { expect, test } from "vitest";
 import { makeResource } from "@workspace/convex/convex/test.resource";
+import type { TranslationFunction } from "./i18n";
 import { ensureWebPushSubscription, readWebPushSubscription } from "./web-push-subscription";
+
+// SAFETY: Tests assert on the English catalog keys used as Error messages.
+const identityT = ((key: string) => key) as TranslationFunction;
 
 const VAPID_PUBLIC_KEY = btoa("test-vapid-public-key");
 const ENDPOINT = "https://push.example/owner";
@@ -124,7 +128,7 @@ test("ensureWebPushSubscription reuses a valid existing subscription", async () 
     requestPermissionResult: null,
   });
 
-  expect(await ensureWebPushSubscription(VAPID_PUBLIC_KEY)).toEqual({
+  expect(await ensureWebPushSubscription(VAPID_PUBLIC_KEY, { t: identityT })).toEqual({
     auth: "auth",
     endpoint: ENDPOINT,
     p256dh: "p256",
@@ -139,7 +143,7 @@ test("ensureWebPushSubscription subscribes when permission is already granted", 
     requestPermissionResult: null,
   });
 
-  expect(await ensureWebPushSubscription(VAPID_PUBLIC_KEY)).toEqual({
+  expect(await ensureWebPushSubscription(VAPID_PUBLIC_KEY, { t: identityT })).toEqual({
     auth: "auth",
     endpoint: ENDPOINT,
     p256dh: "p256",
@@ -154,7 +158,7 @@ test("ensureWebPushSubscription requests permission when it is still default", a
     requestPermissionResult: "granted",
   });
 
-  expect(await ensureWebPushSubscription(VAPID_PUBLIC_KEY)).toEqual({
+  expect(await ensureWebPushSubscription(VAPID_PUBLIC_KEY, { t: identityT })).toEqual({
     auth: "auth",
     endpoint: ENDPOINT,
     p256dh: "p256",
@@ -169,7 +173,7 @@ test("ensureWebPushSubscription throws when the permission prompt is denied", as
     requestPermissionResult: "denied",
   });
 
-  await expect(ensureWebPushSubscription(VAPID_PUBLIC_KEY)).rejects.toThrow(
+  await expect(ensureWebPushSubscription(VAPID_PUBLIC_KEY, { t: identityT })).rejects.toThrow(
     "Notification permission denied",
   );
 });
@@ -182,7 +186,7 @@ test("ensureWebPushSubscription throws when notifications are already blocked", 
     requestPermissionResult: null,
   });
 
-  await expect(ensureWebPushSubscription(VAPID_PUBLIC_KEY)).rejects.toThrow(
+  await expect(ensureWebPushSubscription(VAPID_PUBLIC_KEY, { t: identityT })).rejects.toThrow(
     "Notification permission is required",
   );
 });
@@ -195,7 +199,7 @@ test("ensureWebPushSubscription resubscribes when the existing subscription lack
     requestPermissionResult: null,
   });
 
-  expect(await ensureWebPushSubscription(VAPID_PUBLIC_KEY)).toEqual({
+  expect(await ensureWebPushSubscription(VAPID_PUBLIC_KEY, { t: identityT })).toEqual({
     auth: "fresh-auth",
     endpoint: ENDPOINT,
     p256dh: "fresh",
@@ -210,7 +214,7 @@ test("ensureWebPushSubscription throws when the new subscription lacks keys", as
     requestPermissionResult: null,
   });
 
-  await expect(ensureWebPushSubscription(VAPID_PUBLIC_KEY)).rejects.toThrow(
+  await expect(ensureWebPushSubscription(VAPID_PUBLIC_KEY, { t: identityT })).rejects.toThrow(
     "Failed to get subscription data",
   );
 });

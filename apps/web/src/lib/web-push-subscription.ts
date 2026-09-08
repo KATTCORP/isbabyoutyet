@@ -3,6 +3,8 @@
  * worker PushManager, and VAPID key encoding so feature UI does not.
  */
 
+import type { TranslationFunction } from "@/lib/i18n";
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replaceAll("-", "+").replaceAll("_", "/");
@@ -37,14 +39,17 @@ export async function readWebPushSubscription() {
   return keysFromPushSubscription(subscription);
 }
 
-export async function ensureWebPushSubscription(vapidPublicKey: string) {
+export async function ensureWebPushSubscription(
+  vapidPublicKey: string,
+  opts: { t: TranslationFunction },
+) {
   if (Notification.permission === "default") {
     const permissionResult = await Notification.requestPermission();
     if (permissionResult !== "granted") {
-      throw new Error("Notification permission denied");
+      throw new Error(opts.t("Notification permission denied"));
     }
   } else if (Notification.permission !== "granted") {
-    throw new Error("Notification permission is required");
+    throw new Error(opts.t("Notification permission is required"));
   }
 
   const registration = await navigator.serviceWorker.ready;
@@ -62,7 +67,7 @@ export async function ensureWebPushSubscription(vapidPublicKey: string) {
   });
   const keys = keysFromPushSubscription(pushSubscription);
   if (!keys) {
-    throw new Error("Failed to get subscription data");
+    throw new Error(opts.t("Failed to get subscription data"));
   }
   return keys;
 }

@@ -1,51 +1,22 @@
 import type { SupportedLocale } from "@workspace/convex/src/i18n";
-import type { TranslationKey } from "@/lib/i18n";
+import type { TranslationFunction, TranslationKey } from "@/lib/i18n-catalog";
+import { splitMessageList, translate } from "@/lib/i18n-catalog";
 
 /**
- * Hero headline per locale. The highlighted slot cycles through the generic
- * "baby" word followed by popular local baby names. Words carry their own
- * article where the language needs one (pt-BR), so the sentence stays
- * grammatical for every name.
+ * Hero headline from the translation catalog (`Hero before` / `Hero names` /
+ * `Hero after`). `Hero names` is a comma-separated list: the generic "baby"
+ * word first, then popular local names. Words carry their own article where
+ * the language needs one (pt-BR), so the sentence stays grammatical for every
+ * name.
  */
-export const HERO_HEADLINES = {
-  "en-GB": {
-    after: "out yet?",
-    before: "Is",
-    words: ["baby", "Juniper", "Alfie", "Poppy", "Noah", "Ivy", "Oscar", "Freya"],
-  },
-  "en-US": {
-    after: "out yet?",
-    before: "Is",
-    words: ["baby", "Willow", "Liam", "Olivia", "Wyatt", "Luna", "Ezra", "Hazel"],
-  },
-  es: {
-    after: "o todavía no?",
-    before: "¿Ya nació",
-    words: ["bebé", "Lucía", "Mateo", "Sofía", "Leo", "Valentina", "Martín", "Emma"],
-  },
-  "pt-BR": {
-    after: "já nasceu?",
-    before: "",
-    words: [
-      "O bebê",
-      "A Helena",
-      "O Miguel",
-      "A Alice",
-      "O Arthur",
-      "A Laura",
-      "O Theo",
-      "A Cecília",
-    ],
-  },
-  sv: {
-    after: "ute än?",
-    before: "Är",
-    words: ["bäbisen", "Ella", "Hugo", "Astrid", "Nils", "Maja", "Sixten", "Vera"],
-  },
-} as const satisfies Record<
-  SupportedLocale,
-  { after: string; before: string; words: ReadonlyArray<string> }
->;
+export function heroHeadlineFromCatalog(locale: SupportedLocale) {
+  const t = ((key: TranslationKey) => translate(locale, key)) as TranslationFunction;
+  return {
+    after: t("Hero after"),
+    before: t("Hero before"),
+    words: splitMessageList(t("Hero names")),
+  };
+}
 
 export const NAME_ROTATE_INTERVAL_MS = 2400;
 
@@ -140,12 +111,21 @@ export type HomepagePreviewStage = {
 };
 
 /** Build preview stage search params from a fixed "now" (server request time). */
-export function buildHomepagePreviewStages(nowMs: number): ReadonlyArray<HomepagePreviewStage> {
+export function buildHomepagePreviewStages(
+  nowMs: number,
+  locale: SupportedLocale,
+): ReadonlyArray<HomepagePreviewStage> {
   const hoursAgo = (hours: number) => {
     const date = new Date(nowMs);
     date.setTime(date.getTime() - hours * 60 * 60 * 1000);
     return date.toISOString();
   };
+
+  const previewNames = splitMessageList(translate(locale, "Preview stage names"));
+  const previewWaitingName = previewNames[0] ?? "Emma";
+  const previewLabourName = previewNames[1] ?? "Oliver";
+  const previewHospitalName = previewNames[2] ?? "Sophia";
+  const previewBornName = previewNames[3] ?? "Liam";
 
   return [
     {
@@ -158,7 +138,7 @@ export function buildHomepagePreviewStages(nowMs: number): ReadonlyArray<Homepag
         dueDate: undefined,
         hospitalMessage: undefined,
         laborStarted: undefined,
-        name: "Emma",
+        name: previewWaitingName,
         theme: undefined,
         wentToHospital: undefined,
       },
@@ -174,7 +154,7 @@ export function buildHomepagePreviewStages(nowMs: number): ReadonlyArray<Homepag
         dueDate: hoursAgo(0),
         hospitalMessage: undefined,
         laborStarted: hoursAgo(2),
-        name: "Oliver",
+        name: previewLabourName,
         theme: undefined,
         wentToHospital: undefined,
       },
@@ -188,9 +168,9 @@ export function buildHomepagePreviewStages(nowMs: number): ReadonlyArray<Homepag
         babyBorn: undefined,
         babyBornMessage: undefined,
         dueDate: undefined,
-        hospitalMessage: "We've made it in! More news when we have it 💕",
+        hospitalMessage: translate(locale, "We've made it in! More news when we have it 💕"),
         laborStarted: hoursAgo(4),
-        name: "Sophia",
+        name: previewHospitalName,
         theme: "bubblegum",
         wentToHospital: hoursAgo(1),
       },
@@ -202,11 +182,11 @@ export function buildHomepagePreviewStages(nowMs: number): ReadonlyArray<Homepag
       rotate: "group-hover:rotate-1",
       search: {
         babyBorn: hoursAgo(0.5),
-        babyBornMessage: "Welcome to the world, little one! 🎉",
+        babyBornMessage: translate(locale, "Welcome to the world, little one! 🎉"),
         dueDate: undefined,
         hospitalMessage: undefined,
         laborStarted: hoursAgo(6),
-        name: "Liam",
+        name: previewBornName,
         theme: "sunny-days",
         wentToHospital: hoursAgo(3),
       },

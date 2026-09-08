@@ -15,14 +15,16 @@ import {
 } from "@/lib/i18n-catalog";
 
 export type { TranslationFunction, TranslationKey } from "@/lib/i18n-catalog";
-export { getLanguageName, translate } from "@/lib/i18n-catalog";
+export { getLanguageName, splitMessageList, translate } from "@/lib/i18n-catalog";
 
 /**
  * Paraglide owns request-safe locale detection. Cookie persistence is only for
  * an explicit profile language choice (see paraglide-setup) — not the first
- * browser sniff — so Accept-Language / Locale Switcher keep working. This
- * provider accepts an explicit locale because a public baby page can override
- * the visitor's cookie without changing that visitor's own preference.
+ * browser sniff — so Accept-Language / Locale Switcher keep working. Product UI
+ * copy lives in `apps/web/messages/{locale}.json` (same files Paraglide
+ * compiles). This provider accepts an explicit locale because a public baby
+ * page can override the visitor's cookie without changing that visitor's own
+ * preference.
  */
 const LocaleContext = createContext<SupportedLocale>(DEFAULT_LOCALE);
 

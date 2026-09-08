@@ -65,7 +65,7 @@ function InviteCoParentForm(props: {
           render={({ field }) => (
             <FormItem className="flex-1">
               <FormControl>
-                <Input placeholder="partner@example.com" type="email" {...field} />
+                <Input placeholder={t("partner@example.com")} type="email" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

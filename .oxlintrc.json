@@ -20,6 +20,9 @@
   // Generated code is not ours to lint
   "ignorePatterns": ["**/_generated/**", "**/routeTree.gen.ts", "packages/oxlint-plugins/**/*.ts"],
   "jsPlugins": [
+    // Off-the-shelf JSX copy guard: flags user-visible string/template literals
+    // that are not passed through `t` / `translate` (and i18next-style aliases).
+    // Scoped to apps/web below; tests/dev-only routes opt out.
     {
       "name": "i18n-literal",
       "specifier": "@rrazvan.dev/oxlint-plugin-i18n-literal"
@@ -46,6 +49,8 @@
     }
   ],
   "settings": {
+    // `t` / `i18n.t` / `i18next.t` are built-in; `translate` is this app's
+    // non-hook catalog API (`translate(locale, key, …)`).
     "i18n-literal": {
       "presets": ["react"],
       "translationFunctionNames": ["translate"],

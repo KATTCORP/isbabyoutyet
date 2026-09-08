@@ -6,9 +6,9 @@ import { homepageDemoBabyFor } from "@workspace/convex/src/seedCredentials";
 import { z } from "zod";
 import {
   FEATURES,
-  HERO_HEADLINES,
   HOW_IT_WORKS,
   buildHomepagePreviewStages,
+  heroHeadlineFromCatalog,
   type HomepagePreviewStage,
 } from "@/routes/-homepage-copy";
 import {
@@ -77,8 +77,8 @@ export const getHomepageRsc = createServerFn({ method: "GET" })
   .handler(async (ctx) => {
     const locale = ctx.data.locale;
     const demoBaby = homepageDemoBabyFor(locale);
-    const headline = HERO_HEADLINES[locale];
-    const previewStages = buildHomepagePreviewStages(Date.now());
+    const headline = heroHeadlineFromCatalog(locale);
+    const previewStages = buildHomepagePreviewStages(Date.now(), locale);
 
     const features = FEATURES.map((feature) => ({
       description: translate(locale, feature.description),
