@@ -339,12 +339,18 @@ export function HomePageView(props: { isSignedIn: boolean }) {
             ✨ {t("Free forever, no ads")}
           </span>
           <h1 className="mx-auto mt-8 max-w-3xl text-5xl font-black tracking-tight text-foreground text-balance md:text-7xl">
-            {headline.before === "" ? null : <>{headline.before} </>}
-            <span className="inline-block -rotate-1 rounded-3xl bg-primary/15 px-4 text-primary">
-              <span className="sr-only">{headline.words[0]}</span>
-              <RotatingBabyName words={headline.words} />
+            {/*
+              Keep "Is {name}" and "out yet?" as separate unbreakable phrases so
+              mobile only wraps between them — never inside "Är Ella" or "ute än?".
+            */}
+            <span className="whitespace-nowrap">
+              {headline.before === "" ? null : <>{headline.before} </>}
+              <span className="inline-block -rotate-1 rounded-3xl bg-primary/15 px-4 text-primary">
+                <span className="sr-only">{headline.words[0]}</span>
+                <RotatingBabyName words={headline.words} />
+              </span>
             </span>{" "}
-            {headline.after}
+            <span className="whitespace-nowrap">{headline.after}</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg font-semibold leading-relaxed text-muted-foreground md:text-xl">
             {t(
