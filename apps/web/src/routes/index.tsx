@@ -15,7 +15,7 @@ import { homepageOgImagePath, openGraphImageMeta } from "@/lib/seo";
 import { absoluteUrl, canonicalUrl } from "@/lib/site-url";
 import { useClientDate } from "@/lib/use-client-date";
 import { useRotatingIndex } from "@/lib/use-delayed-action";
-import { useMeasuredWidth } from "@/lib/use-measured-width";
+import { useMaxMeasuredWidth } from "@/lib/use-measured-width";
 
 // Static date snapshot for SSR/hydration
 // This ensures the same date is used on both server and client during hydration
@@ -108,17 +108,19 @@ function RotatingBabyName(props: { words: ReadonlyArray<string> }) {
     intervalMs: NAME_ROTATE_INTERVAL_MS,
     itemCount: props.words.length,
   });
-  const [measureCurrentWord, width] = useMeasuredWidth();
+  // Pill width follows the longest catalog name so short names (Ella) and
+  // long ones (bäbisen) keep the same headline width / wrap.
+  const [measureSample, width] = useMaxMeasuredWidth({ words: props.words });
 
   return (
     <span
       aria-hidden="true"
-      className="relative inline-block overflow-hidden whitespace-nowrap transition-[width] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none"
+      className="relative inline-block overflow-hidden whitespace-nowrap text-center"
       style={width === null ? undefined : { width }}
     >
       {indices.previous !== null ? (
         <span
-          className="hero-word-out absolute left-0 top-0"
+          className="hero-word-out absolute inset-x-0 top-0"
           key={`out-${indices.previous}-${indices.current}`}
         >
           {props.words[indices.previous]}
@@ -127,7 +129,7 @@ function RotatingBabyName(props: { words: ReadonlyArray<string> }) {
       <span
         className="hero-word-in inline-block"
         key={`in-${indices.current}`}
-        ref={measureCurrentWord}
+        ref={measureSample}
       >
         {props.words[indices.current]}
       </span>
