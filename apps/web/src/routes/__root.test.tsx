@@ -88,6 +88,8 @@ test("TanStack Devtools stay on preview builds", async () => {
     </RootDocument>,
   );
 
+  // jsdom is client-only, so useClientHydration is already true here. The SSR
+  // stub still returns null; the hydration pass matches that via getServerSnapshot.
   expect(document.querySelector("[data-slot=tanstack-devtools]")).not.toBeNull();
 });
 
