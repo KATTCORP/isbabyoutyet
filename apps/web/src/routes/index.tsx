@@ -134,7 +134,9 @@ function RotatingBabyName(props: { words: ReadonlyArray<string> }) {
         </span>
       ) : null}
       <span
-        className="hero-word-in inline-block"
+        className={
+          indices.previous === null ? "inline-block" : "hero-word-in inline-block"
+        }
         key={`in-${indices.current}`}
         ref={measureCurrentWord}
       >
