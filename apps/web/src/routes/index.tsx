@@ -133,8 +133,15 @@ function RotatingBabyName(props: { words: ReadonlyArray<string> }) {
           </span>
         </span>
       ) : null}
+      {/*
+        Skip `hero-word-in` on the first paint. That animation starts at
+        opacity 0, so a slow hydration would flash the name away and back.
+        Rotations still animate once `previous` is set.
+      */}
       <span
-        className="hero-word-in inline-block"
+        className={
+          indices.previous === null ? "inline-block" : "hero-word-in inline-block"
+        }
         key={`in-${indices.current}`}
         ref={measureCurrentWord}
       >
