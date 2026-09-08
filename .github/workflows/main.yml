@@ -143,6 +143,9 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      # List Actions caches so remasure failure can fall back to the newest
+      # ancestor of CI_BASE_SHA that already has coverage-summary-<sha>.
+      actions: read
 
     steps:
       - name: Checkout code
@@ -188,8 +191,10 @@ jobs:
           team: ${{ vars.TURBO_TEAM }}
 
       # Prefer exact coverage for CI_BASE_SHA. On miss, remasure that SHA.
-      # If remasure fails (base tip red — often not this PR), fall back to the
-      # latest successful tip saved under coverage-summary-branch-<ref>-*.
+      # If remasure fails (base tip red — often not this PR), fall back to:
+      # 1) last green tip saved under coverage-summary-branch-<ref>-*
+      # 2) newest ancestor of CI_BASE_SHA with an exact coverage-summary-<sha>
+      #    cache (covers historical greens before the branch key existed).
       - name: Resolve base branch cache alias
         id: baseline-ref
         if: github.event_name == 'pull_request' || github.event_name == 'push'
@@ -270,6 +275,57 @@ jobs:
           restore-keys: |
             coverage-summary-branch-${{ steps.baseline-ref.outputs.alias }}-
 
+      # Historical greens (e.g. last main tip that passed codecov) still live
+      # under coverage-summary-<sha>. Walk first-parent ancestry of the base tip
+      # and restore the newest ancestor that has a cache entry.
+      - name: Find ancestor coverage baseline SHA
+        id: baseline-ancestor
+        if: >-
+          github.event_name == 'pull_request' &&
+          steps.baseline.outputs.cache-hit != 'true' &&
+          steps.measure-base.outcome == 'failure' &&
+          hashFiles('.coverage-baseline/coverage-summary.json') == ''
+        run: |
+          set -euo pipefail
+          TMP="$(mktemp)"
+          # Paginate Actions cache list; keep exact SHA keys only (not branch-*).
+          gh api --paginate \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/actions/caches?per_page=100" \
+            --jq '.actions_caches[].key' \
+            | grep -E '^coverage-summary-[0-9a-f]{40}$' \
+            | sed 's/^coverage-summary-//' \
+            | sort -u > "$TMP"
+
+          FOUND=""
+          while IFS= read -r sha; do
+            if grep -Fxq "$sha" "$TMP"; then
+              FOUND="$sha"
+              break
+            fi
+          done < <(git rev-list --first-parent "$CI_BASE_SHA")
+
+          if [ -z "$FOUND" ]; then
+            echo "hit=false" >> "$GITHUB_OUTPUT"
+            echo "No coverage-summary-<sha> cache among first-parent ancestors of ${CI_BASE_SHA}" >&2
+            exit 0
+          fi
+
+          echo "hit=true" >> "$GITHUB_OUTPUT"
+          echo "sha=${FOUND}" >> "$GITHUB_OUTPUT"
+          echo "Using ancestor coverage baseline ${FOUND} (exact base ${CI_BASE_SHA} unavailable)" >&2
+
+      - name: Restore ancestor coverage baseline
+        id: baseline-ancestor-restore
+        if: >-
+          github.event_name == 'pull_request' &&
+          steps.baseline-ancestor.outputs.hit == 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: .coverage-baseline
+          key: coverage-summary-${{ steps.baseline-ancestor.outputs.sha }}
+          fail-on-cache-miss: false
+
       - name: Report coverage baseline source
         if: github.event_name == 'pull_request'
         run: |
@@ -289,16 +345,21 @@ jobs:
             KIND="exact-remasure"
             SOURCE_SHA="$CI_BASE_SHA"
           elif [ -f .coverage-baseline/coverage-summary.json ]; then
-            # restore-keys hits set cache-hit=false; trust the restored files.
-            KIND="branch-fallback"
-            if [ -f .coverage-baseline/source-sha.txt ]; then
-              SOURCE_SHA="$(tr -d '[:space:]' < .coverage-baseline/source-sha.txt)"
+            if [ "${{ steps.baseline-ancestor.outputs.hit }}" = "true" ]; then
+              KIND="ancestor-fallback"
+              SOURCE_SHA="${{ steps.baseline-ancestor.outputs.sha }}"
             else
-              SOURCE_SHA="unknown (missing source-sha.txt)"
+              # restore-keys hits set cache-hit=false; trust the restored files.
+              KIND="branch-fallback"
+              if [ -f .coverage-baseline/source-sha.txt ]; then
+                SOURCE_SHA="$(tr -d '[:space:]' < .coverage-baseline/source-sha.txt)"
+              else
+                SOURCE_SHA="unknown (missing source-sha.txt)"
+              fi
             fi
           else
             {
-              echo "::error title=No coverage baseline (base tip broken — not this PR)::Could not restore or remasure base \`${CI_BASE_SHA}\` (\`${BASE_REF}\`), and no last-successful branch baseline exists either."
+              echo "::error title=No coverage baseline (base tip broken — not this PR)::Could not restore or remasure base \`${CI_BASE_SHA}\` (\`${BASE_REF}\`), and no last-successful branch/ancestor baseline exists either."
               echo ""
               echo "The remasure step runs **the PR base tip**, not this branch. The Vitest failures above are on \`${BASE_REF}\` @ \`${CI_BASE_SHA}\` — fix or bypass on the base branch; this PR may be fine."
               echo ""
@@ -307,6 +368,7 @@ jobs:
               echo "- Exact cache: miss"
               echo "- Exact remasure: ${{ steps.measure-base.outcome }}"
               echo "- Branch fallback prefix: \`coverage-summary-branch-${ALIAS}-\`: miss"
+              echo "- Ancestor SHA fallback: miss"
             } | tee -a "$SUMMARY"
             exit 1
           fi
@@ -317,9 +379,7 @@ jobs:
           fi
 
           printf '%s\n' "$KIND" > .coverage-baseline/source-kind.txt
-          if [ ! -f .coverage-baseline/source-sha.txt ]; then
-            printf '%s\n' "$SOURCE_SHA" > .coverage-baseline/source-sha.txt
-          fi
+          printf '%s\n' "$SOURCE_SHA" > .coverage-baseline/source-sha.txt
           {
             echo "- Kind: \`${KIND}\`"
             echo "- Baseline SHA: \`${SOURCE_SHA}\`"
@@ -328,12 +388,15 @@ jobs:
             if [ "$KIND" = "branch-fallback" ]; then
               echo "- Matched cache key: \`${{ steps.baseline-fallback.outputs.cache-matched-key }}\`"
             fi
+            if [ "$KIND" = "ancestor-fallback" ]; then
+              echo "- Ancestor cache key: \`coverage-summary-${SOURCE_SHA}\`"
+            fi
             echo ""
           } | tee -a "$SUMMARY"
 
-          if [ "$KIND" = "branch-fallback" ]; then
-            MSG="Exact base \`${CI_BASE_SHA}\` on \`${BASE_REF}\` could not be measured (tests failing on the **base tip**, not necessarily this PR). Using last successful \`${BASE_REF}\` coverage (\`${SOURCE_SHA}\`). Ratchet may reflect base-tip drift."
-            echo "::warning title=Coverage baseline fell back to last green base branch tip::${MSG}"
+          if [ "$KIND" = "branch-fallback" ] || [ "$KIND" = "ancestor-fallback" ]; then
+            MSG="Exact base \`${CI_BASE_SHA}\` on \`${BASE_REF}\` could not be measured (tests failing on the **base tip**, not necessarily this PR). Using ${KIND} coverage from \`${SOURCE_SHA}\`. Ratchet may reflect base-tip drift."
+            echo "::warning title=Coverage baseline fell back (base tip unavailable)::${MSG}"
             {
               echo "> [!WARNING]"
               echo "> ${MSG}"
