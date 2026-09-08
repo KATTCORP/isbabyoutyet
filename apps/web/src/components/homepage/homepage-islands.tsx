@@ -12,7 +12,24 @@ import {
   type HomepagePreviewStage,
 } from "@/components/homepage/homepage-copy";
 
-export function RotatingBabyName(props: { words: ReadonlyArray<string> }) {
+export function HomepageHeroHeadline(props: {
+  after: string;
+  before: string;
+  words: ReadonlyArray<string>;
+}) {
+  return (
+    <h1 className="mx-auto mt-8 max-w-3xl text-5xl font-black tracking-tight text-foreground text-balance md:text-7xl">
+      {props.before === "" ? null : <>{props.before} </>}
+      <span className="inline-block -rotate-1 rounded-3xl bg-primary/15 px-4 text-primary">
+        <span className="sr-only">{props.words[0]}</span>
+        <RotatingBabyName words={props.words} />
+      </span>{" "}
+      {props.after}
+    </h1>
+  );
+}
+
+function RotatingBabyName(props: { words: ReadonlyArray<string> }) {
   const indices = useRotatingIndex({
     intervalMs: NAME_ROTATE_INTERVAL_MS,
     itemCount: props.words.length,
@@ -41,23 +58,6 @@ export function RotatingBabyName(props: { words: ReadonlyArray<string> }) {
         {props.words[indices.current]}
       </span>
     </span>
-  );
-}
-
-export function HomepageHeroHeadline(props: {
-  after: string;
-  before: string;
-  words: ReadonlyArray<string>;
-}) {
-  return (
-    <h1 className="mx-auto mt-8 max-w-3xl text-5xl font-black tracking-tight text-foreground text-balance md:text-7xl">
-      {props.before === "" ? null : <>{props.before} </>}
-      <span className="inline-block -rotate-1 rounded-3xl bg-primary/15 px-4 text-primary">
-        <span className="sr-only">{props.words[0]}</span>
-        <RotatingBabyName words={props.words} />
-      </span>{" "}
-      {props.after}
-    </h1>
   );
 }
 
@@ -194,7 +194,9 @@ export function HomepageSeeItInAction(props: {
           <p className="mt-4 text-sm font-extrabold text-primary">{props.openLivePageLabel}</p>
         </div>
       </Link>
-      <p className="mt-10 text-center font-semibold text-muted-foreground">{props.orPreviewLabel}</p>
+      <p className="mt-10 text-center font-semibold text-muted-foreground">
+        {props.orPreviewLabel}
+      </p>
       <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {props.previewStages.map((stage, index) => (
           <Link className="group" key={stage.title} search={stage.search} to="/preview">
@@ -204,9 +206,7 @@ export function HomepageSeeItInAction(props: {
               <span aria-hidden="true" className="text-4xl">
                 {stage.emoji}
               </span>
-              <h3 className="mt-3 font-extrabold text-foreground">
-                {props.stageTitles[index]}
-              </h3>
+              <h3 className="mt-3 font-extrabold text-foreground">{props.stageTitles[index]}</h3>
               <p className="mt-0.5 text-sm font-medium text-muted-foreground">
                 {props.stageDescriptions[index]}
               </p>
@@ -262,10 +262,7 @@ export function HomepageBottomCta(props: {
   );
 }
 
-export function HomepageLocalePicker(props: {
-  label: string;
-  locale: SupportedLocale;
-}) {
+export function HomepageLocalePicker(props: { label: string; locale: SupportedLocale }) {
   return (
     <LanguagePicker
       disabled={false}

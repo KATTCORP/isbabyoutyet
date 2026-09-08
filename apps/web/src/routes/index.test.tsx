@@ -2,11 +2,7 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { makeResource } from "@workspace/convex/convex/test.resource";
 import { HOMEPAGE_DEMO_BABIES, HOMEPAGE_DEMO_BABY } from "@workspace/convex/src/seedCredentials";
-import {
-  FEATURES,
-  HERO_HEADLINES,
-  HOW_IT_WORKS,
-} from "@/components/homepage/homepage-copy";
+import { FEATURES, HERO_HEADLINES, HOW_IT_WORKS } from "@/components/homepage/homepage-copy";
 import {
   HomepageFeaturesSection,
   HomepageHowItWorksSection,
@@ -36,7 +32,9 @@ test("static features section renders translated cards", async () => {
   );
 
   expect(screen.getByRole("heading", { name: title })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: translate(locale, "Update your status") })).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { name: translate(locale, "Update your status") }),
+  ).toBeTruthy();
   expect(HOW_IT_WORKS.length).toBe(3);
 });
 

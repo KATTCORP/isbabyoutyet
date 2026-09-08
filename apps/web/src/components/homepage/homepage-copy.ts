@@ -116,7 +116,7 @@ export const HOW_IT_WORKS = [
   title: TranslationKey;
 }>;
 
-export type HomepagePreviewStageSearch = {
+type HomepagePreviewStageSearch = {
   babyBorn: string | undefined;
   babyBornMessage: string | undefined;
   dueDate: string | undefined;

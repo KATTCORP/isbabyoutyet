@@ -19,17 +19,17 @@ import {
 } from "@/components/homepage/homepage-static";
 import { translate } from "@/lib/i18n";
 
-export type HomepageHeroHeadlineData = {
+type HomepageHeroHeadlineData = {
   after: string;
   before: string;
   words: ReadonlyArray<string>;
 };
 
-export type HomepageHeroCtasData = {
+type HomepageHeroCtasData = {
   demoPublicId: string;
 };
 
-export type HomepageSeeItInActionData = {
+type HomepageSeeItInActionData = {
   demoDescription: string;
   demoPublicId: string;
   demoTitle: string;
@@ -42,14 +42,14 @@ export type HomepageSeeItInActionData = {
   title: string;
 };
 
-export type HomepageFooterLocaleData = {
+type HomepageFooterLocaleData = {
   languageLabel: string;
   locale: (typeof SUPPORTED_LOCALES)[number];
 };
 
-export type HomepageRscSlots = {
-  headerActions: ReactNode;
+type HomepageRscSlots = {
   bottomCta: ReactNode;
+  headerActions: ReactNode;
   renderFooterLocale: (data: HomepageFooterLocaleData) => ReactNode;
   renderHeroCtas: (data: HomepageHeroCtasData) => ReactNode;
   renderHeroHeadline: (data: HomepageHeroHeadlineData) => ReactNode;
@@ -120,59 +120,63 @@ export const getHomepageRsc = createServerFn({ method: "GET" })
       title: translate(locale, "See it in action"),
     } satisfies HomepageSeeItInActionData;
 
-    const src = await createCompositeComponent((props: HomepageRscSlots) => (
-      <div className="min-h-screen bg-background bg-dots">
-        <header className="sticky top-0 z-20 px-4 pt-3 pb-1">
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
-            <HomepageBrandMark />
-            <div className="flex items-center gap-2">{props.headerActions}</div>
-          </div>
-        </header>
+    function HomepageShell(props: HomepageRscSlots) {
+      return (
+        <div className="min-h-screen bg-background bg-dots">
+          <header className="sticky top-0 z-20 px-4 pt-3 pb-1">
+            <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
+              <HomepageBrandMark />
+              <div className="flex items-center gap-2">{props.headerActions}</div>
+            </div>
+          </header>
 
-        <main className="mx-auto max-w-5xl px-6">
-          <section className="py-16 text-center md:py-24">
-            <span className="inline-block -rotate-2 rounded-full border-2 border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-extrabold text-primary pop-shadow">
-              ✨ {copy.badge}
-            </span>
-            {props.renderHeroHeadline({
-              after: headline.after,
-              before: headline.before,
-              words: headline.words,
-            })}
-            <p className="mx-auto mt-6 max-w-2xl text-lg font-semibold leading-relaxed text-muted-foreground md:text-xl">
-              {copy.heroSubcopy}
-            </p>
-            {props.renderHeroCtas({ demoPublicId: demoBaby.publicId })}
-          </section>
+          <main className="mx-auto max-w-5xl px-6">
+            <section className="py-16 text-center md:py-24">
+              <span className="inline-block -rotate-2 rounded-full border-2 border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-extrabold text-primary pop-shadow">
+                ✨ {copy.badge}
+              </span>
+              {props.renderHeroHeadline({
+                after: headline.after,
+                before: headline.before,
+                words: headline.words,
+              })}
+              <p className="mx-auto mt-6 max-w-2xl text-lg font-semibold leading-relaxed text-muted-foreground md:text-xl">
+                {copy.heroSubcopy}
+              </p>
+              {props.renderHeroCtas({ demoPublicId: demoBaby.publicId })}
+            </section>
 
-          <HomepageFeaturesSection
-            features={features}
-            subtitle={copy.featuresSubtitle}
-            title={copy.featuresTitle}
-          />
+            <HomepageFeaturesSection
+              features={features}
+              subtitle={copy.featuresSubtitle}
+              title={copy.featuresTitle}
+            />
 
-          {props.renderSeeItInAction(seeItInActionData)}
+            {props.renderSeeItInAction(seeItInActionData)}
 
-          <HomepageHowItWorksSection
-            steps={steps}
-            subtitle={copy.howSubtitle}
-            title={copy.howTitle}
-          />
+            <HomepageHowItWorksSection
+              steps={steps}
+              subtitle={copy.howSubtitle}
+              title={copy.howTitle}
+            />
 
-          {props.bottomCta}
-        </main>
+            {props.bottomCta}
+          </main>
 
-        <footer className="border-t-2 border-border/60 bg-background/60 px-4 py-8 text-center">
-          <div className="mx-auto flex max-w-5xl flex-col items-center gap-4">
-            {props.renderFooterLocale({
-              languageLabel: copy.languageLabel,
-              locale,
-            })}
-            <HomepageGithubLink label={copy.githubLabel} />
-          </div>
-        </footer>
-      </div>
-    ));
+          <footer className="border-t-2 border-border/60 bg-background/60 px-4 py-8 text-center">
+            <div className="mx-auto flex max-w-5xl flex-col items-center gap-4">
+              {props.renderFooterLocale({
+                languageLabel: copy.languageLabel,
+                locale,
+              })}
+              <HomepageGithubLink label={copy.githubLabel} />
+            </div>
+          </footer>
+        </div>
+      );
+    }
+
+    const src = await createCompositeComponent(HomepageShell);
 
     return { src };
   });

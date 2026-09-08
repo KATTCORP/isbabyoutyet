@@ -21,19 +21,19 @@ import {
   HomepageGithubLink,
   HomepageHowItWorksSection,
 } from "@/components/homepage/homepage-static";
+import { useClientDate } from "@/lib/use-client-date";
 import { useI18n } from "@/lib/i18n";
 
 /**
  * Client-composed homepage used by Vitest (no TanStack Start ALS for RSC) and
  * as a fallback when the loader cannot return a composite source.
- *
- * @internal exported for tests
  */
 export function HomePageView(props: { isSignedIn: boolean }) {
   const { locale, t } = useI18n();
   const demoBaby = homepageDemoBabyFor(locale);
   const headline = HERO_HEADLINES[locale];
-  const previewStages = buildHomepagePreviewStages(Date.now());
+  const currentDate = useClientDate({ serverSnapshot: "2026-01-01T10:30:00.000Z" });
+  const previewStages = buildHomepagePreviewStages(Date.parse(currentDate));
   const isSignedIn = props.isSignedIn;
 
   return (

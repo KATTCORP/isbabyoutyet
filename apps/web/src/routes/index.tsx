@@ -21,6 +21,10 @@ import { absoluteUrl, canonicalUrl } from "@/lib/site-url";
 
 type HomepageLoaderRsc = Awaited<ReturnType<typeof getHomepageRsc>>;
 
+type HomepageLoaderPayload = {
+  src: HomepageLoaderRsc["src"] | null;
+};
+
 export const Route = createFileRoute("/")({
   component: HomePage,
   headers: homepageCacheHeaders,
@@ -30,7 +34,7 @@ export const Route = createFileRoute("/")({
     // Vitest / jsdom has no Start request ALS; keep marketing tests on the
     // client HomePageView. Production SSR and `vite preview` fetch the RSC.
     if (import.meta.env.MODE === "test") {
-      const homepage: { src: HomepageLoaderRsc["src"] | null } = { src: null };
+      const homepage = { src: null } satisfies HomepageLoaderPayload;
       return await allKeyed({
         homepage: Promise.resolve(homepage),
         me,
@@ -156,4 +160,7 @@ function HomepageRscPage(props: {
   );
 }
 
+/**
+ * @internal exported for tests
+ */
 export { HomePageView };
