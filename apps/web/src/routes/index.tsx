@@ -114,29 +114,31 @@ function RotatingBabyName(props: { words: ReadonlyArray<string> }) {
   return (
     <span
       aria-hidden="true"
-      className="relative inline-block whitespace-nowrap transition-[width] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none"
+      className="relative inline-block whitespace-nowrap [clip-path:inset(0)] transition-[width] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none"
       style={width === null ? undefined : { width }}
     >
       {/*
-        In-flow strut keeps the alphabetic baseline aligned with "Är" / "ute än?".
-        `overflow: hidden` on an inline-block would pin the baseline to the bottom
-        edge and lift the name inside the pill.
+        Keep the current word in normal flow so it shares the alphabetic
+        baseline with "Är" / "ute än?". `overflow: hidden` on this inline-block
+        would pin the baseline to the bottom edge and lift the name. Clip only
+        the outgoing word on an absolute overlay.
       */}
-      <span className="invisible inline-block" ref={measureCurrentWord}>
-        {currentWord}
-      </span>
-      <span className="absolute inset-0 overflow-hidden">
-        {indices.previous !== null ? (
+      {indices.previous !== null ? (
+        <span className="pointer-events-none absolute inset-0 overflow-hidden">
           <span
             className="hero-word-out absolute left-0 top-0"
             key={`out-${indices.previous}-${indices.current}`}
           >
             {props.words[indices.previous]}
           </span>
-        ) : null}
-        <span className="hero-word-in absolute left-0 top-0" key={`in-${indices.current}`}>
-          {currentWord}
         </span>
+      ) : null}
+      <span
+        className="hero-word-in inline-block"
+        key={`in-${indices.current}`}
+        ref={measureCurrentWord}
+      >
+        {currentWord}
       </span>
     </span>
   );
@@ -348,7 +350,11 @@ export function HomePageView(props: { isSignedIn: boolean }) {
           <h1 className="mx-auto mt-8 flex max-w-3xl flex-col items-center gap-y-1 text-5xl font-black tracking-tight text-foreground md:block md:text-balance md:text-7xl">
             <span className="inline-flex max-w-full flex-wrap items-baseline justify-center gap-x-[0.25em] whitespace-nowrap">
               {headline.before === "" ? null : <span>{headline.before}</span>}
-              <span className="inline-block -rotate-1 rounded-3xl bg-primary/15 px-4 text-primary">
+              <span className="relative inline-flex items-baseline px-4 text-primary">
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 -rotate-1 rounded-3xl bg-primary/15"
+                />
                 <span className="sr-only">{headline.words[0]}</span>
                 <RotatingBabyName words={headline.words} />
               </span>
