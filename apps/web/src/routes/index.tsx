@@ -12,7 +12,6 @@ import {
   HomepageLocalePicker,
   HomepageSeeItInAction,
 } from "@/routes/-homepage-islands";
-import { HomePageView } from "@/routes/-homepage-view";
 import { homepageCacheHeaders } from "@/lib/cachePolicy";
 import { translate, useI18n } from "@/lib/i18n";
 import { searchRobotsMeta } from "@/lib/robots";
@@ -21,28 +20,14 @@ import { absoluteUrl, canonicalUrl } from "@/lib/site-url";
 
 type HomepageLoaderRsc = Awaited<ReturnType<typeof getHomepageRsc>>;
 
-type HomepageLoaderPayload = {
-  src: HomepageLoaderRsc["src"] | null;
-};
-
 export const Route = createFileRoute("/")({
   component: HomePage,
   headers: homepageCacheHeaders,
   loader: async (opts) => {
     const locale = opts.context.locale;
-    const me = opts.context.convexPreloader.ensureQueryData(api.profile.get, {});
-    // Vitest / jsdom has no Start request ALS; keep marketing tests on the
-    // client HomePageView. Production SSR and `vite preview` fetch the RSC.
-    if (import.meta.env.MODE === "test") {
-      const homepage = { src: null } satisfies HomepageLoaderPayload;
-      return await allKeyed({
-        homepage: Promise.resolve(homepage),
-        me,
-      });
-    }
     return await allKeyed({
       homepage: getHomepageRsc({ data: { locale } }),
-      me,
+      me: opts.context.convexPreloader.ensureQueryData(api.profile.get, {}),
     });
   },
   head: (opts) => {
@@ -98,19 +83,11 @@ export function HomePage() {
   const loaderData = Route.useLoaderData();
   const meQuery = usePreloadedConvexQuery(api.profile.get, loaderData.me);
   const isSignedIn = meQuery.data != null;
-  const homepageSrc = loaderData.homepage.src;
 
-  if (homepageSrc === null) {
-    return <HomePageView isSignedIn={isSignedIn} />;
-  }
-
-  return <HomepageRscPage isSignedIn={isSignedIn} src={homepageSrc} />;
+  return <HomepageRscPage isSignedIn={isSignedIn} src={loaderData.homepage.src} />;
 }
 
-function HomepageRscPage(props: {
-  isSignedIn: boolean;
-  src: NonNullable<HomepageLoaderRsc["src"]>;
-}) {
+function HomepageRscPage(props: { isSignedIn: boolean; src: HomepageLoaderRsc["src"] }) {
   const { t } = useI18n();
   const isSignedIn = props.isSignedIn;
 
@@ -159,8 +136,3 @@ function HomepageRscPage(props: {
     />
   );
 }
-
-/**
- * @internal exported for tests
- */
-export { HomePageView };
