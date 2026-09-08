@@ -1,14 +1,13 @@
 import { BabyIcon } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { api } from "@workspace/convex/convex/_generated/api";
-import type { SupportedLocale } from "@workspace/convex/src/i18n";
 import { homepageDemoBabyFor } from "@workspace/convex/src/seedCredentials";
 import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
 import { allKeyed } from "@workspace/query-prefetch";
 import { Button } from "@workspace/ui/components/button";
 import { LanguagePicker } from "@/components/language-picker";
 import { homepageCacheHeaders } from "@/lib/cachePolicy";
-import { translate, useI18n } from "@/lib/i18n";
+import { splitMessageList, translate, useI18n } from "@/lib/i18n";
 import type { TranslationKey } from "@/lib/i18n";
 import { setLocale } from "@/lib/paraglide-setup";
 import { searchRobotsMeta } from "@/lib/robots";
@@ -89,53 +88,21 @@ function GithubIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 /**
- * Hero headline per locale. The highlighted slot cycles through the generic
- * "baby" word followed by popular local baby names. Words carry their own
- * article where the language needs one (pt-BR), so the sentence stays
- * grammatical for every name.
+ * Hero headline from the translation catalog (`Hero before` / `Hero names` /
+ * `Hero after`). `Hero names` is a comma-separated list: the generic "baby"
+ * word first, then popular local names. Words carry their own article where
+ * the language needs one (pt-BR), so the sentence stays grammatical for every
+ * name.
  */
-const HERO_HEADLINES = {
-  "en-GB": {
-    after: "out yet?",
-    before: "Is",
-    words: ["baby", "Juniper", "Alfie", "Poppy", "Noah", "Ivy", "Oscar", "Freya"],
-  },
-  "en-US": {
-    after: "out yet?",
-    before: "Is",
-    words: ["baby", "Willow", "Liam", "Olivia", "Wyatt", "Luna", "Ezra", "Hazel"],
-  },
-  es: {
-    after: "o todavía no?",
-    before: "¿Ya nació",
-    words: ["bebé", "Lucía", "Mateo", "Sofía", "Leo", "Valentina", "Martín", "Emma"],
-  },
-  "pt-BR": {
-    after: "já nasceu?",
-    before: "",
-    words: [
-      "O bebê",
-      "A Helena",
-      "O Miguel",
-      "A Alice",
-      "O Arthur",
-      "A Laura",
-      "O Theo",
-      "A Cecília",
-    ],
-  },
-  sv: {
-    after: "ute än?",
-    before: "Är",
-    words: ["bäbisen", "Ella", "Hugo", "Astrid", "Nils", "Maja", "Sixten", "Vera"],
-  },
-} as const satisfies Record<
-  SupportedLocale,
-  { after: string; before: string; words: ReadonlyArray<string> }
->;
+function heroHeadlineFromCatalog(t: (key: TranslationKey) => string) {
+  return {
+    after: t("Hero after"),
+    before: t("Hero before"),
+    words: splitMessageList(t("Hero names")),
+  };
+}
 
 const NAME_ROTATE_INTERVAL_MS = 2400;
-
 function RotatingBabyName(props: { words: ReadonlyArray<string> }) {
   const indices = useRotatingIndex({
     intervalMs: NAME_ROTATE_INTERVAL_MS,
@@ -253,7 +220,7 @@ export function HomePage() {
 export function HomePageView(props: { isSignedIn: boolean }) {
   const { locale, t } = useI18n();
   const demoBaby = homepageDemoBabyFor(locale);
-  const headline = HERO_HEADLINES[locale];
+  const headline = heroHeadlineFromCatalog(t);
   const isSignedIn = props.isSignedIn;
 
   const currentDate = useCurrentDate();
@@ -265,19 +232,29 @@ export function HomePageView(props: { isSignedIn: boolean }) {
     return date.toISOString();
   };
 
+  const previewNames = splitMessageList(t("Preview stage names"));
+  const previewWaitingName = previewNames[0] ?? "Emma";
+  const previewLabourName = previewNames[1] ?? "Oliver";
+  const previewHospitalName = previewNames[2] ?? "Sophia";
+  const previewBornName = previewNames[3] ?? "Liam";
+
   const previewStages = [
     {
       description: "Before labour starts",
       emoji: "👶",
       rotate: "group-hover:-rotate-1",
-      search: { name: "Emma" },
+      search: { name: previewWaitingName },
       title: "Waiting",
     },
     {
       description: "Things are happening!",
       emoji: "💫",
       rotate: "group-hover:rotate-1",
-      search: { dueDate: hoursAgo(0), laborStarted: hoursAgo(2), name: "Oliver" },
+      search: {
+        dueDate: hoursAgo(0),
+        laborStarted: hoursAgo(2),
+        name: previewLabourName,
+      },
       title: "Labour started",
     },
     {
@@ -285,9 +262,9 @@ export function HomePageView(props: { isSignedIn: boolean }) {
       emoji: "🏥",
       rotate: "group-hover:-rotate-1",
       search: {
-        hospitalMessage: "We've made it in! More news when we have it 💕",
+        hospitalMessage: t("We've made it in! More news when we have it 💕"),
         laborStarted: hoursAgo(4),
-        name: "Sophia",
+        name: previewHospitalName,
         theme: "bubblegum",
         wentToHospital: hoursAgo(1),
       },
@@ -299,9 +276,9 @@ export function HomePageView(props: { isSignedIn: boolean }) {
       rotate: "group-hover:rotate-1",
       search: {
         babyBorn: hoursAgo(0.5),
-        babyBornMessage: "Welcome to the world, little one! 🎉",
+        babyBornMessage: t("Welcome to the world, little one! 🎉"),
         laborStarted: hoursAgo(6),
-        name: "Liam",
+        name: previewBornName,
         theme: "sunny-days",
         wentToHospital: hoursAgo(3),
       },
@@ -414,7 +391,7 @@ export function HomePageView(props: { isSignedIn: boolean }) {
               size="lg"
               variant="secondary"
             >
-              {t("See a live page")} 👀
+              {t("See a live page 👀")}
             </Button>
           </div>
         </section>

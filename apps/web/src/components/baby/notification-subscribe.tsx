@@ -163,7 +163,7 @@ export function NotificationSubscribe(props: NotificationSubscribeProps) {
       return;
     }
 
-    const keys = await ensureWebPushSubscription(vapidPublicKey);
+    const keys = await ensureWebPushSubscription(vapidPublicKey, { t });
     const pushKeys = {
       auth: keys.auth,
       babyId: props.babyId,
@@ -195,7 +195,7 @@ export function NotificationSubscribe(props: NotificationSubscribeProps) {
       if (!vapidPublicKey) {
         throw new Error(t("Push notifications are not supported in this browser."));
       }
-      const keys = await ensureWebPushSubscription(vapidPublicKey);
+      const keys = await ensureWebPushSubscription(vapidPublicKey, { t });
       await subscribeMutationFn({
         auth: keys.auth,
         babyId: props.babyId,

@@ -74,6 +74,7 @@ export const Route = createFileRoute("/_auth/dashboard_/add")({
 export type CreateBaby = ReactMutation<typeof api.baby.create>;
 
 export function AddBabyPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const convex = useConvex();
   const createBaby = useMutation(api.baby.create);
@@ -88,7 +89,7 @@ export function AddBabyPage() {
           return;
         }
         const vapidPublicKey = await convex.query(api.pushSubscriptions.getPublicKey, {});
-        const keys = await ensureWebPushSubscription(vapidPublicKey);
+        const keys = await ensureWebPushSubscription(vapidPublicKey, { t });
         await subscribeAsOwner({
           auth: keys.auth,
           babyId,
