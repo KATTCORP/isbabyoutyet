@@ -206,7 +206,7 @@ export function OwnerMessageNotifyLiveSwitch(props: OwnerMessageNotifyLiveSwitch
       if (!vapidPublicKey) {
         throw new Error(t("Push notifications are not supported in this browser."));
       }
-      const keys = await ensureWebPushSubscription(vapidPublicKey);
+      const keys = await ensureWebPushSubscription(vapidPublicKey, { t });
       await subscribeAsOwnerMutationFn({
         auth: keys.auth,
         babyId: props.babyId,

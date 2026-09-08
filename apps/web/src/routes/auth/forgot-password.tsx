@@ -151,7 +151,7 @@ export function ForgotPasswordCard(props: {
                           <FormControl>
                             <Input
                               autoComplete="email"
-                              placeholder="you@example.com"
+                              placeholder={t("you@example.com")}
                               type="email"
                               {...field}
                             />

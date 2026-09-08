@@ -25,6 +25,7 @@ function getDefaultBabyData(): PreviewBabyData {
   dueDate.setDate(dueDate.getDate() + 7);
   const laborStarted = new Date(now);
   laborStarted.setHours(laborStarted.getHours() - 2);
+  const locale = getDetectedLocale();
 
   return {
     babyBorn: null,
@@ -35,7 +36,7 @@ function getDefaultBabyData(): PreviewBabyData {
     laborStarted: null,
     laborStartedMessage: null,
     milestoneVisibility: milestoneVisibilityForPreset("labor"),
-    name: "Baby",
+    name: translate(locale, "Baby"),
     photoId: null,
     publicDueDateText: null,
     theme: null,

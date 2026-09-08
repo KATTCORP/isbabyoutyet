@@ -155,7 +155,7 @@ export function LoginCard(props: {
                 <FormItem>
                   <FormLabel>{t("Email")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="you@example.com" type="email" {...field} />
+                    <Input placeholder={t("you@example.com")} type="email" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
