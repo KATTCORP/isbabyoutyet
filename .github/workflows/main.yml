@@ -285,6 +285,8 @@ jobs:
           steps.baseline.outputs.cache-hit != 'true' &&
           steps.measure-base.outcome == 'failure' &&
           hashFiles('.coverage-baseline/coverage-summary.json') == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           TMP="$(mktemp)"
