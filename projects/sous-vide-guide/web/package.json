@@ -1,0 +1,50 @@
+{
+  "name": "@sous-vide-guide/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "lsof -ti:3002 | xargs kill -9 2>/dev/null || true",
+    "dev": "vite dev --port 3002",
+    "build": "vite build",
+    "preview": "vite preview --port 3002",
+    "i18n:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy cookie custom-acceptLanguage baseLocale --output-structure message-modules --emit-ts-declarations --silent",
+    "pretypecheck": "pnpm i18n:compile",
+    "test": "vitest run",
+    "lint": "oxlint",
+    "lint-fix": "oxlint --fix",
+    "format": "oxfmt && oxlint --fix",
+    "typecheck": "tsc --noEmit",
+    "format:check": "oxfmt --check"
+  },
+  "dependencies": {
+    "@fontsource-variable/source-sans-3": "^5.2.9",
+    "@fontsource-variable/source-serif-4": "^5.2.9",
+    "@phosphor-icons/react": "catalog:",
+    "@tanstack/react-router": "^1.170.30",
+    "@tanstack/react-start": "^1.168.47",
+    "@workspace/ui": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "sonner": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@inlang/paraglide-js": "^2.24.1",
+    "@tailwindcss/vite": "catalog:",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "^6.0.5",
+    "jsdom": "^30.0.1",
+    "nitro": "latest",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "^8.2.1",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.11"
+  }
+}

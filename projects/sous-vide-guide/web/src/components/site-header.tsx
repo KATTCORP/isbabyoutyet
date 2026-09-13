@@ -1,0 +1,29 @@
+import { Link, useRouterState } from "@tanstack/react-router";
+
+import { LocaleSwitcher } from "@/components/locale-switcher";
+import { TemperatureUnitToggle } from "@/components/temperature-unit-toggle";
+import { defaultTemperatureUnit } from "@/lib/temperature";
+import { m } from "@/paraglide/messages";
+import { getLocale } from "@/paraglide/runtime";
+
+export function SiteHeader() {
+  const search = useRouterState({ select: (state) => state.location.search });
+  const unit = search.unit ?? defaultTemperatureUnit(getLocale());
+
+  return (
+    <header className="sticky top-0 z-20 border-b border-border/70 bg-[color-mix(in_oklab,var(--background)_82%,transparent)] pt-[env(safe-area-inset-top)] backdrop-blur-md">
+      <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-2 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-3">
+        <Link
+          className="min-w-0 truncate font-display text-lg font-semibold tracking-tight text-[var(--guide-ink)] sm:text-xl"
+          to="/"
+        >
+          {m.app_name()}
+        </Link>
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+          <TemperatureUnitToggle unit={unit} />
+          <LocaleSwitcher unit={unit} />
+        </div>
+      </div>
+    </header>
+  );
+}
