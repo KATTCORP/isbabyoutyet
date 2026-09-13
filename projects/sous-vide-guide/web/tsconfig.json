@@ -1,0 +1,25 @@
+{
+  "include": ["**/*.ts", "**/*.tsx"],
+  "compilerOptions": {
+    "target": "ES2024",
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "lib": ["ES2024", "DOM", "DOM.Iterable", "ESNext.Disposable"],
+    "types": ["vite/client"],
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "noUncheckedIndexedAccess": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@workspace/ui/*": ["../../../packages/ui/src/*"]
+    }
+  }
+}

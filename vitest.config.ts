@@ -25,6 +25,7 @@ export default defineConfig({
         "projects/isbabyoutyet/web/src/**/*.{ts,tsx}",
         "projects/isbabyoutyet/backend/convex/**/*.ts",
         "projects/isbabyoutyet/backend/src/**/*.ts",
+        "projects/sous-vide-guide/web/src/**/*.{ts,tsx}",
         "packages/runtime/src/**/*.ts",
         "packages/query-prefetch/src/**/*.ts",
         "packages/convex-prefetch/src/**/*.ts",
@@ -43,6 +44,7 @@ export default defineConfig({
     },
     projects: [
       "projects/isbabyoutyet/backend",
+      "projects/sous-vide-guide/web",
       "packages/runtime",
       "packages/oxlint-plugins",
       "packages/query-prefetch",
