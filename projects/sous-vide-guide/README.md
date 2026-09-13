@@ -47,7 +47,7 @@ project’s Root Directory to point here.
 
 | Setting | Value |
 | --- | --- |
-| Framework Preset | Other |
+| Framework Preset | TanStack Start |
 | Root Directory | `projects/sous-vide-guide/web` |
 | Include source files outside of the Root Directory | **On** |
 | Install Command | `cd ../../.. && pnpm install` (or Project Settings / `vercel.json`) |
