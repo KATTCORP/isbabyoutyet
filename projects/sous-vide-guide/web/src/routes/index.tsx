@@ -70,7 +70,7 @@ function SousVideGuidePage() {
       </div>
 
       <SousVideToolbar q={search.q} unit={unit} />
-      <SousVideResults entries={entries} query={deferredQuery} unit={unit} />
+      <SousVideResults entries={entries} unit={unit} />
 
       <footer className="border-t border-border/70 pt-6 text-sm text-muted-foreground">
         <p>{m.source_attribution()}</p>

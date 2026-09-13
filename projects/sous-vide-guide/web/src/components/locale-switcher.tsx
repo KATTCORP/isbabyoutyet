@@ -1,11 +1,11 @@
 import "@/lib/paraglide-setup";
 import { TranslateIcon } from "@phosphor-icons/react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { toast } from "sonner";
 
-import { setLocale } from "@/lib/paraglide-setup";
+import { setLocaleInPlace } from "@/lib/paraglide-setup";
 import type { TemperatureUnit } from "@/lib/temperature";
 import { defaultTemperatureUnit } from "@/lib/temperature";
-import { UNIT_CHANGE_TOAST_KEY } from "@/lib/use-unit-change-toast";
 import { m } from "@/paraglide/messages";
 import { getLocale, locales } from "@/paraglide/runtime";
 import type { Locale } from "@/paraglide/runtime";
@@ -37,8 +37,7 @@ type LocaleSwitcherProps = {
 
 /**
  * Compact language menu in the top nav. Switching language also applies that
- * locale’s default temperature unit; a post-reload toast fires when the unit
- * actually changes (Paraglide reloads the document on locale change).
+ * locale’s default temperature unit; toast immediately when the unit flips.
  */
 export function LocaleSwitcher(props: LocaleSwitcherProps) {
   const current = getLocale();
@@ -70,13 +69,18 @@ export function LocaleSwitcher(props: LocaleSwitcherProps) {
             }
             const nextUnit = defaultTemperatureUnit(value);
             if (nextUnit !== props.unit) {
-              sessionStorage.setItem(UNIT_CHANGE_TOAST_KEY, nextUnit === "f" ? "f" : "c");
-              void navigate({
+              toast.message(
+                nextUnit === "f"
+                  ? m.toast_switched_to_fahrenheit()
+                  : m.toast_switched_to_celsius(),
+              );
+            }
+            void setLocaleInPlace(value).then(() =>
+              navigate({
                 replace: true,
                 search: { ...search, unit: nextUnit },
-              });
-            }
-            void setLocale(value);
+              }),
+            );
           }}
           value={current}
         >
