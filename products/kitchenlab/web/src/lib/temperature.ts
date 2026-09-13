@@ -4,7 +4,7 @@ export function isTemperatureUnit(value: string): value is TemperatureUnit {
   return value === "c" || value === "f";
 }
 
-export function celsiusToFahrenheit(temperatureC: number) {
+function celsiusToFahrenheit(temperatureC: number) {
   return (temperatureC * 9) / 5 + 32;
 }
 

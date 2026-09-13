@@ -1,5 +1,5 @@
 /** Content locale keys used by the static guide database. */
-export type ContentLocale = "sv" | "en-GB" | "en-US";
+type ContentLocale = "sv" | "en-GB" | "en-US";
 
 export type LocalizedText = Record<ContentLocale, string>;
 

@@ -1,5 +1,5 @@
 /** Case-fold and strip combining marks for loose matching. */
-export function normalizeSearchText(value: string) {
+function normalizeSearchText(value: string) {
   return value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("en-US");
 }
 
@@ -40,6 +40,3 @@ export function fuzzyScore(query: string, candidate: string) {
   return score;
 }
 
-export function fuzzyMatch(query: string, candidate: string) {
-  return fuzzyScore(query, candidate) > 0;
-}
