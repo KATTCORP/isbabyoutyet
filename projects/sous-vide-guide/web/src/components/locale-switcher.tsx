@@ -70,9 +70,7 @@ export function LocaleSwitcher(props: LocaleSwitcherProps) {
             const nextUnit = defaultTemperatureUnit(value);
             if (nextUnit !== props.unit) {
               toast.message(
-                nextUnit === "f"
-                  ? m.toast_switched_to_fahrenheit()
-                  : m.toast_switched_to_celsius(),
+                nextUnit === "f" ? m.toast_switched_to_fahrenheit() : m.toast_switched_to_celsius(),
               );
             }
             void setLocaleInPlace(value).then(() =>
