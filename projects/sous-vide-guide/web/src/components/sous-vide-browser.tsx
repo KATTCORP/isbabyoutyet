@@ -1,6 +1,5 @@
 import { ArrowUpIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import type { ReactNode } from "react";
 
 import type { SousVideCategory, SousVideEntry } from "@/data/sousVide";
 import { SOUS_VIDE_CATEGORIES } from "@/data/sousVide";
@@ -12,9 +11,9 @@ import { groupSousVideEntriesByCut } from "@/lib/group-cuts";
 import { isSearchQuery } from "@/lib/search";
 import type { TemperatureUnit } from "@/lib/temperature";
 import { formatTemperature } from "@/lib/temperature";
+import { THERMAL_RANGE_C, temperatureSwatch, thermalGradient } from "@/lib/temperature-color";
 import { m } from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
-import { cn } from "@workspace/ui/lib/utils";
 
 const categoryMessage = {
   beef: () => m.category_beef(),
@@ -27,7 +26,6 @@ const categoryMessage = {
   vegetables: () => m.category_vegetables(),
 } as const satisfies Record<SousVideCategory, () => string>;
 
-const SEARCH_FIELD_ID = "guide-search";
 const RESULTS_ID = "results";
 
 type BrowserProps = {
@@ -38,10 +36,10 @@ type BrowserProps = {
 };
 
 /**
- * "Ledger" layout: one dense reference table per category, a sticky live
- * search field, and category quick links (a horizontal strip on phones, a
- * sticky table of contents on wide screens). The °C/°F switch lives in the
- * site header.
+ * "Heat map" layout: every row is a card whose colour comes from its bath
+ * temperature (blue = cold fish, orange = hot vegetables). Categories are
+ * tiles at the top that jump to their section; the search field stays pinned
+ * under the header (the °C/°F switch lives in the header itself).
  */
 export function SousVideBrowser(props: BrowserProps) {
   const locale = getLocale();
@@ -49,51 +47,27 @@ export function SousVideBrowser(props: BrowserProps) {
   const sections = groupEntriesByCategory(props.allEntries);
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6">
-      <GuideIntro rows={props.allEntries.length} />
+    <main className="mx-auto w-full max-w-6xl px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6">
+      <GuideIntro locale={locale} rows={props.allEntries.length} unit={props.unit} />
 
-      <div className="lg:grid lg:grid-cols-[12.5rem_minmax(0,1fr)] lg:gap-12">
-        <aside className="hidden lg:block">
-          <nav
-            aria-label={m.jump_to_category()}
-            className="sticky top-[calc(var(--site-header-h)+1.5rem)]"
-          >
-            <p className="mb-2 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-              {m.jump_to_category()}
-            </p>
-            <ul className="space-y-0.5">
-              {sections.map((section) => (
-                <li key={section.category}>
-                  <QuickLink section={section} variant="list" />
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </aside>
+      <Toolbar q={props.q} />
 
-        <div className="min-w-0">
-          <Toolbar q={props.q} searching={searching} sections={sections} />
-
-          <div className="scroll-mt-[calc(var(--site-header-h)+5.5rem)]" id={RESULTS_ID}>
-            {searching ? (
-              <SearchResults
-                entries={props.entries}
+      <div className="scroll-mt-[calc(var(--site-header-h)+4.25rem)]" id={RESULTS_ID}>
+        {searching ? (
+          <SearchResults entries={props.entries} locale={locale} q={props.q} unit={props.unit} />
+        ) : (
+          <>
+            <CategoryTiles locale={locale} sections={sections} unit={props.unit} />
+            {sections.map((section) => (
+              <CategorySectionView
+                key={section.category}
                 locale={locale}
-                q={props.q}
+                section={section}
                 unit={props.unit}
               />
-            ) : (
-              sections.map((section) => (
-                <CategorySectionView
-                  key={section.category}
-                  locale={locale}
-                  section={section}
-                  unit={props.unit}
-                />
-              ))
-            )}
-          </div>
-        </div>
+            ))}
+          </>
+        )}
       </div>
 
       <GuideFooter rows={props.allEntries.length} />
@@ -101,51 +75,54 @@ export function SousVideBrowser(props: BrowserProps) {
   );
 }
 
-function GuideIntro(props: { rows: number }) {
+function GuideIntro(props: { locale: string; rows: number; unit: TemperatureUnit }) {
   return (
-    <header className="py-6 sm:py-10" id="sous-vide">
-      <p className="text-xs font-semibold tracking-[0.14em] text-[var(--guide-copper)] uppercase">
-        {m.stats_line({ categories: SOUS_VIDE_CATEGORIES.length, rows: props.rows })}
-      </p>
-      <h1 className="mt-2 font-display text-[1.75rem] leading-[1.1] font-semibold tracking-tight text-[var(--guide-ink)] sm:text-5xl">
+    <header className="pt-6 pb-4 sm:pt-10 sm:pb-6" id="sous-vide">
+      <h1 className="font-display text-[1.75rem] leading-[1.1] font-semibold tracking-tight text-[var(--guide-ink)] sm:text-5xl">
         {m.sous_vide_title()}
       </h1>
       <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
         {m.sous_vide_summary()}
       </p>
-      <details className="group mt-3 max-w-2xl text-sm text-muted-foreground">
+      <ThermalLegend locale={props.locale} unit={props.unit} />
+      <details className="mt-3 max-w-2xl text-sm text-muted-foreground">
         <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 font-medium text-[var(--guide-ink)] underline-offset-4 select-none hover:underline sm:min-h-0">
           {m.notes_summary()}
         </summary>
         <div className="mt-1 space-y-2 border-l-2 border-[var(--guide-copper)]/40 pl-3">
           <p>{m.sous_vide_thickness_note()}</p>
           <p>{m.food_safety_disclaimer()}</p>
+          <p>{m.stats_line({ categories: SOUS_VIDE_CATEGORIES.length, rows: props.rows })}</p>
         </div>
       </details>
     </header>
   );
 }
 
-function Toolbar(props: {
-  q: string;
-  searching: boolean;
-  sections: ReadonlyArray<CategorySection>;
-}) {
+function ThermalLegend(props: { locale: string; unit: TemperatureUnit }) {
+  const format = (temperatureC: number) =>
+    formatTemperature(temperatureC, { locale: props.locale, unit: props.unit });
   return (
-    <div className="sticky top-[var(--site-header-h)] z-10 -mx-4 border-b border-border/70 bg-[color-mix(in_oklab,var(--background)_90%,transparent)] px-4 pt-2 pb-2 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-4 lg:px-4 lg:pb-3">
-      <SearchField q={props.q} />
-      <nav
-        aria-label={m.jump_to_category()}
-        className={cn("mt-2 lg:hidden", props.searching && "hidden")}
-      >
-        <ul className="quick-strip -mx-4 flex snap-x gap-1.5 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6">
-          {props.sections.map((section) => (
-            <li className="snap-start" key={section.category}>
-              <QuickLink section={section} variant="chip" />
-            </li>
-          ))}
-        </ul>
-      </nav>
+    <figure aria-label={m.temperature_scale()} className="mt-4 max-w-md">
+      <div
+        className="h-2 rounded-full"
+        style={{ backgroundImage: thermalGradient(THERMAL_RANGE_C) }}
+      />
+      <figcaption className="mt-1 flex justify-between text-xs text-muted-foreground tabular-nums">
+        <span>{format(THERMAL_RANGE_C.min)}</span>
+        <span>{m.temperature_scale()}</span>
+        <span>{format(THERMAL_RANGE_C.max)}</span>
+      </figcaption>
+    </figure>
+  );
+}
+
+function Toolbar(props: { q: string }) {
+  return (
+    <div className="sticky top-[var(--site-header-h)] z-10 -mx-4 bg-[color-mix(in_oklab,var(--background)_88%,transparent)] px-4 py-2 backdrop-blur-md sm:-mx-6 sm:px-6">
+      <div className="mx-auto max-w-3xl">
+        <SearchField q={props.q} />
+      </div>
     </div>
   );
 }
@@ -156,7 +133,7 @@ function SearchField(props: { q: string }) {
   return (
     <form
       action="/"
-      className="relative flex-1"
+      className="relative"
       method="get"
       onSubmit={(event) => {
         // Enter just dismisses the keyboard; results already follow the field.
@@ -167,15 +144,14 @@ function SearchField(props: { q: string }) {
     >
       <MagnifyingGlassIcon
         aria-hidden
-        className="pointer-events-none absolute top-1/2 left-3.5 size-4.5 -translate-y-1/2 text-muted-foreground"
+        className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[var(--guide-copper)]"
       />
       <input
         aria-label={m.search_label()}
         autoComplete="off"
-        className="h-12 w-full rounded-full border border-border bg-[color-mix(in_oklab,var(--card)_92%,white)] pr-11 pl-10.5 text-base text-foreground shadow-[0_1px_0_color-mix(in_oklab,var(--guide-ink)_6%,transparent)] transition-colors outline-none placeholder:text-muted-foreground/80 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40 sm:h-11"
+        className="h-13 w-full rounded-2xl border border-border/80 bg-[color-mix(in_oklab,var(--card)_94%,white)] pr-12 pl-12 text-base text-foreground shadow-[0_10px_30px_-18px_color-mix(in_oklab,var(--guide-ink)_60%,transparent)] transition-[box-shadow,border-color] outline-none placeholder:text-muted-foreground/80 focus-visible:border-[var(--guide-copper)] focus-visible:ring-3 focus-visible:ring-[var(--guide-copper)]/25 sm:h-12"
         defaultValue={props.q}
         enterKeyHint="search"
-        id={SEARCH_FIELD_ID}
         name="q"
         onChange={(event) => {
           const q = event.currentTarget.value;
@@ -193,7 +169,7 @@ function SearchField(props: { q: string }) {
       {props.q.length > 0 ? (
         <button
           aria-label={m.clear_search()}
-          className="absolute top-1/2 right-1.5 inline-flex size-9 -translate-y-1/2 touch-manipulation items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+          className="absolute top-1/2 right-2 inline-flex size-10 -translate-y-1/2 touch-manipulation items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
           onClick={(event) => {
             const field = event.currentTarget.form?.querySelector("input");
             if (field) {
@@ -209,39 +185,65 @@ function SearchField(props: { q: string }) {
           }}
           type="button"
         >
-          <XIcon aria-hidden className="size-4.5" />
+          <XIcon aria-hidden className="size-5" />
         </button>
       ) : null}
     </form>
   );
 }
 
-function QuickLink(props: { section: CategorySection; variant: "chip" | "list" }) {
-  const label = categoryMessage[props.section.category]();
-  const count = props.section.entries.length;
+function formatRange(
+  range: { max: number; min: number },
+  opts: { locale: string; unit: TemperatureUnit },
+) {
+  const min = formatTemperature(range.min, opts);
+  const max = formatTemperature(range.max, opts);
+  return min === max ? min : `${min}–${max}`;
+}
 
-  if (props.variant === "list") {
-    return (
-      <Link
-        className="flex min-h-9 items-center justify-between gap-3 rounded-lg px-2.5 text-sm text-foreground/90 transition-colors hover:bg-[color-mix(in_oklab,var(--guide-copper)_12%,transparent)] hover:text-[var(--guide-ink)]"
-        hash={props.section.category}
-        to="/"
-      >
-        <span className="font-medium">{label}</span>
-        <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
-      </Link>
-    );
-  }
-
+function CategoryTiles(props: {
+  locale: string;
+  sections: ReadonlyArray<CategorySection>;
+  unit: TemperatureUnit;
+}) {
   return (
-    <Link
-      className="inline-flex h-9 shrink-0 touch-manipulation items-center gap-1.5 rounded-full border border-border/80 bg-[color-mix(in_oklab,var(--card)_80%,transparent)] px-3 text-sm font-medium whitespace-nowrap text-foreground transition-colors hover:border-[var(--guide-copper)] hover:text-[var(--guide-ink)]"
-      hash={props.section.category}
-      to="/"
-    >
-      <span>{label}</span>
-      <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
-    </Link>
+    <nav aria-label={m.jump_to_category()} className="pt-3 pb-2">
+      <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
+        {props.sections.map((section) => {
+          const label = categoryMessage[section.category]();
+          return (
+            <li key={section.category}>
+              <Link
+                className="group flex min-h-[5.25rem] touch-manipulation flex-col justify-between overflow-hidden rounded-2xl border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,white)] p-3 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] transition-[transform,border-color] hover:border-[var(--guide-copper)] active:translate-y-px"
+                hash={section.category}
+                to="/"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-display text-lg leading-tight font-semibold text-[var(--guide-ink)]">
+                    {label}
+                  </span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {section.entries.length}
+                  </span>
+                </div>
+                <div>
+                  <div
+                    className="h-1.5 rounded-full"
+                    style={{ backgroundImage: thermalGradient(section.temperatureRangeC) }}
+                  />
+                  <span className="mt-1.5 block text-xs text-muted-foreground tabular-nums">
+                    {formatRange(section.temperatureRangeC, {
+                      locale: props.locale,
+                      unit: props.unit,
+                    })}
+                  </span>
+                </div>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
   );
 }
 
@@ -254,32 +256,42 @@ function CategorySectionView(props: {
 
   return (
     <section
-      className="scroll-mt-[calc(var(--site-header-h)+5.75rem)] pt-7 lg:scroll-mt-[calc(var(--site-header-h)+3rem)] lg:pt-8"
+      className="scroll-mt-[calc(var(--site-header-h)+4.25rem)] pt-8 sm:pt-10"
       id={props.section.category}
     >
-      <div className="flex items-baseline justify-between gap-3 border-b-2 border-[var(--guide-ink)] pb-2">
-        <h2 className="font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)]">
-          <Link
-            aria-label={m.category_permalink_label({ category: label })}
-            className="underline-offset-4 hover:underline"
-            hash={props.section.category}
-            to="/"
-          >
-            {label}
-          </Link>{" "}
-          <span className="font-sans text-sm font-normal text-muted-foreground tabular-nums">
-            {props.section.entries.length}
-          </span>
-        </h2>
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <h2 className="font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] sm:text-3xl">
+            <Link
+              aria-label={m.category_permalink_label({ category: label })}
+              className="underline-offset-4 hover:underline"
+              hash={props.section.category}
+              to="/"
+            >
+              {label}
+            </Link>
+          </h2>
+          <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
+            <span
+              aria-hidden
+              className="inline-block h-1.5 w-10 rounded-full"
+              style={{ backgroundImage: thermalGradient(props.section.temperatureRangeC) }}
+            />
+            {formatRange(props.section.temperatureRangeC, {
+              locale: props.locale,
+              unit: props.unit,
+            })}
+          </p>
+        </div>
         <a
-          className="inline-flex min-h-9 items-center gap-1 text-xs font-medium text-muted-foreground uppercase tracking-wide transition-colors hover:text-[var(--guide-ink)]"
+          className="inline-flex min-h-11 items-center gap-1 text-xs font-medium tracking-wide text-muted-foreground uppercase transition-colors hover:text-[var(--guide-ink)]"
           href="#sous-vide"
         >
           <ArrowUpIcon aria-hidden className="size-3.5" />
           {m.back_to_top()}
         </a>
       </div>
-      <EntryTable
+      <CardGrid
         entries={props.section.entries}
         locale={props.locale}
         showCategory={false}
@@ -299,8 +311,8 @@ function SearchResults(props: {
   const query = props.q.trim();
 
   return (
-    <section aria-live="polite" className="pt-5">
-      <p className="text-sm text-muted-foreground">
+    <section aria-live="polite" className="pt-4">
+      <p className="mb-3 text-sm text-muted-foreground">
         {count === 0
           ? m.no_results()
           : count === 1
@@ -308,13 +320,13 @@ function SearchResults(props: {
             : m.results_for_query({ count, query })}
       </p>
       {count > 0 ? (
-        <EntryTable entries={props.entries} locale={props.locale} showCategory unit={props.unit} />
+        <CardGrid entries={props.entries} locale={props.locale} showCategory unit={props.unit} />
       ) : null}
     </section>
   );
 }
 
-function EntryTable(props: {
+function CardGrid(props: {
   entries: ReadonlyArray<SousVideEntry>;
   locale: string;
   showCategory: boolean;
@@ -323,27 +335,9 @@ function EntryTable(props: {
   const groups = groupSousVideEntriesByCut(props.entries);
 
   return (
-    <table className="w-full table-fixed border-collapse">
-      <colgroup>
-        <col />
-        <col className="w-[4.75rem] sm:w-24" />
-        <col className="w-[6.25rem] sm:w-36" />
-      </colgroup>
-      <thead>
-        <tr className="text-left text-[0.7rem] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-          <th className="py-2 pr-2 font-semibold" scope="col">
-            {m.column_cut()}
-          </th>
-          <th className="py-2 text-right font-semibold" scope="col">
-            {m.column_temperature()}
-          </th>
-          <th className="py-2 pl-2 text-right font-semibold" scope="col">
-            {m.column_time()}
-          </th>
-        </tr>
-      </thead>
+    <div className="space-y-5">
       {groups.map((group) => (
-        <CutRows
+        <CutCards
           group={group}
           key={group.cutId}
           locale={props.locale}
@@ -351,122 +345,82 @@ function EntryTable(props: {
           unit={props.unit}
         />
       ))}
-    </table>
+    </div>
   );
 }
 
 /**
- * One `<tbody>` per cut. Cuts with several doneness steps get a heading row
- * with the name once, then one row per step; single-step cuts stay one row.
+ * One caption per cut, then a card per doneness step. The track list is
+ * `auto-fill`, so a lone card keeps the same width as the cards of a
+ * three-step cut beside it.
  */
-function CutRows(props: {
+function CutCards(props: {
   group: SousVideCutGroup;
   locale: string;
   showCategory: boolean;
   unit: TemperatureUnit;
 }) {
   const group = props.group;
-  const category = props.showCategory ? categoryMessage[group.category]() : null;
-  const single = group.rows.length === 1 ? group.rows[0] : undefined;
-
-  if (single !== undefined) {
-    const detail = [category, single.doneness].filter((part) => part !== null).join(" · ");
-    return (
-      <tbody className="border-t border-border/70" id={group.cutId}>
-        <EntryRow
-          detail={detail}
-          entry={single}
-          label={<CutName cutId={group.cutId} name={group.name} />}
-          locale={props.locale}
-          unit={props.unit}
-        />
-      </tbody>
-    );
-  }
 
   return (
-    <tbody
-      className="scroll-mt-[calc(var(--site-header-h)+6rem)] border-t border-border/70 lg:scroll-mt-[calc(var(--site-header-h)+3.5rem)]"
+    <section
+      className="scroll-mt-[calc(var(--site-header-h)+4.5rem)] target:[&>h3>a]:underline"
       id={group.cutId}
     >
-      <tr>
-        <th
-          className="pt-3 pb-1 text-left font-medium text-[var(--guide-ink)]"
-          colSpan={3}
-          scope="rowgroup"
+      <h3 className="mb-2 flex flex-wrap items-baseline gap-x-2 font-display text-lg leading-snug font-semibold text-[var(--guide-ink)]">
+        <Link
+          aria-label={m.permalink_label()}
+          className="underline-offset-4 hover:underline"
+          hash={group.cutId}
+          to="/"
         >
-          <CutName cutId={group.cutId} name={group.name} />
-          {category !== null ? (
-            <span className="ml-2 text-xs font-normal text-muted-foreground">{category}</span>
-          ) : null}
-        </th>
-      </tr>
-      {group.rows.map((entry) => (
-        <EntryRow
-          detail=""
-          entry={entry}
-          key={entry.id}
-          label={
-            <span className="block pl-3 text-sm text-foreground/90">{entry.doneness ?? "—"}</span>
-          }
-          locale={props.locale}
-          unit={props.unit}
-        />
-      ))}
-    </tbody>
+          {group.name}
+        </Link>
+        {props.showCategory ? (
+          <span className="font-sans text-[0.7rem] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+            {categoryMessage[group.category]()}
+          </span>
+        ) : null}
+      </h3>
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] sm:gap-3">
+        {group.rows.map((entry) => (
+          <li className="min-w-0" key={entry.id}>
+            <EntryCard entry={entry} locale={props.locale} unit={props.unit} />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
-function CutName(props: { cutId: string; name: string }) {
-  return (
-    <Link
-      aria-label={m.permalink_label()}
-      className="font-medium text-[var(--guide-ink)] underline-offset-4 hover:underline"
-      hash={props.cutId}
-      to="/"
-    >
-      {props.name}
-    </Link>
-  );
-}
-
-function EntryRow(props: {
-  detail: string;
-  entry: SousVideEntry;
-  label: ReactNode;
-  locale: string;
-  unit: TemperatureUnit;
-}) {
+function EntryCard(props: { entry: SousVideEntry; locale: string; unit: TemperatureUnit }) {
   const entry = props.entry;
+  const swatch = temperatureSwatch(entry.temperatureC);
   const recommended = formatDurationRange(entry.recommendedMinutes, props.locale);
   const max =
     entry.maxMinutes === null ? null : formatDurationMinutes(entry.maxMinutes, props.locale);
 
   return (
-    <tr
-      className="scroll-mt-[calc(var(--site-header-h)+6rem)] align-top target:bg-[color-mix(in_oklab,var(--guide-copper)_12%,transparent)] lg:scroll-mt-[calc(var(--site-header-h)+3.5rem)]"
+    <article
+      className="flex h-full scroll-mt-[calc(var(--site-header-h)+4.5rem)] flex-col overflow-hidden rounded-2xl border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,white)] shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] target:ring-2 target:ring-[var(--guide-copper)]"
       id={entry.id}
     >
-      <td className="py-2.5 pr-2">
-        {props.label}
-        {props.detail.length > 0 ? (
-          <span className="mt-0.5 block text-xs text-muted-foreground">{props.detail}</span>
-        ) : null}
-      </td>
-      <td className="py-2.5 text-right">
-        <span className="temp-number text-lg leading-6 font-semibold text-[var(--guide-copper)]">
+      <div
+        className="flex flex-col gap-1 px-2.5 pt-2.5 pb-2 sm:px-3 sm:pt-3"
+        style={{ backgroundColor: swatch.wash, color: swatch.ink }}
+      >
+        <span className="temp-number text-2xl leading-none font-semibold sm:text-[1.75rem]">
           {formatTemperature(entry.temperatureC, { locale: props.locale, unit: props.unit })}
         </span>
-      </td>
-      <td className="py-2.5 pl-2 text-right text-sm text-foreground/90 tabular-nums">
-        <span className="block leading-6">{recommended}</span>
-        {max ? (
-          <span className="mt-0.5 block text-xs text-muted-foreground">
-            {m.max_time_short({ time: max })}
-          </span>
-        ) : null}
-      </td>
-    </tr>
+        <span className="min-h-[1em] truncate text-[0.65rem] font-semibold tracking-wide uppercase sm:text-[0.7rem]">
+          {entry.doneness ?? ""}
+        </span>
+      </div>
+      <p className="flex flex-1 flex-col px-2.5 pt-2 pb-2.5 text-xs text-muted-foreground tabular-nums sm:px-3 sm:pb-3">
+        <span className="font-medium text-foreground/90">{recommended}</span>
+        {max ? <span className="mt-auto block">{m.max_time_short({ time: max })}</span> : null}
+      </p>
+    </article>
   );
 }
 

@@ -28,14 +28,16 @@ locale’s default unit (with a toast when the unit flips).
 
 ## Browsing
 
-`/` renders every row grouped by category as one dense reference table per
-category (cut, temperature, recommended and max time); a cut with several
-doneness steps is one heading row followed by one row per step. Category
-quick links are **in-page anchors** (not filters): a horizontal strip under the
-search field on phones, a sticky table of contents beside the tables on wide
-screens. Search updates `?q=` as you type (replace navigation, so the history
-stays clean); the field is uncontrolled so focus and cursor never move, and
-filtering is deferred so the input stays responsive. Permalinks use `#category`,
+`/` renders every row as a card, grouped under one caption per cut (a cut with
+several doneness steps is one caption and one card per step); each card's colour
+follows its bath temperature
+(`src/lib/temperature-color.ts`: a blue → violet → red → orange ramp from 40 °C
+to 90 °C, so fish reads cold and vegetables read hot at a glance). A legend bar
+under the title explains the scale. Categories are tiles under the intro that
+show their row count and temperature span and jump to their section — **in-page
+anchors**, not filters. Search updates `?q=` as you type (replace navigation);
+the field is uncontrolled so focus and cursor never move, and filtering is
+deferred so the input stays responsive. Permalinks use `#category`,
 `#cut-id` and `#entry-id` with smooth scrolling and sticky-header offset.
 
 ## Content database

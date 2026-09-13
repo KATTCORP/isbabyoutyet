@@ -20,12 +20,14 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
   navigation, and the Clear button resets the field imperatively. Scroll is
   kept while refining (`resetScroll: false`) and reset once when a query starts
   so results land under the sticky toolbar. The page filters with
-  `useDeferredValue` so typing stays responsive. Quick links hide while a query
-  is active (results are one ranked list, not sections).
-- **Cut grouping**: tables render one `<tbody id={cutId}>` per cut via
-  `groupSousVideEntriesByCut` (`src/lib/group-cuts.ts`); multi-step cuts get a
-  heading row with the name once, then one row per doneness step. Keep
-  doneness rows coldest-first in `src/data/sousVide.ts`.
+  `useDeferredValue` so typing stays responsive. Category tiles hide while a
+  query is active (results are one ranked card grid, not sections).
+- **Colour** encodes temperature: use `temperatureSwatch` / `thermalGradient`
+  from `src/lib/temperature-color.ts` rather than ad-hoc colours per category.
+- **Cut grouping**: cards render under one caption per cut via
+  `groupSousVideEntriesByCut` (`src/lib/group-cuts.ts`); the caption carries the
+  name and `#cutId` anchor, each card carries one doneness step. Keep doneness
+  rows coldest-first in `src/data/sousVide.ts`.
 
 ## Content seam
 
