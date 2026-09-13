@@ -84,7 +84,7 @@ export function SousVideFilters(props: SousVideSearch) {
       </form>
 
       <nav aria-label={m.categories_label()} className="-mx-1">
-        <div className="flex gap-2 overflow-x-auto px-1 pb-1 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden">
+        <div className="flex flex-wrap gap-2 px-1 pb-1">
           <CategoryChip
             category="all"
             active={props.category === "all"}

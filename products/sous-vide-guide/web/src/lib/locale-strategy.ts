@@ -1,11 +1,15 @@
-import { localeFromAcceptLanguageHeader, mapLanguageTag } from "@/lib/detect-locale.server";
+import { mapAcceptLanguage, mapLanguageTag } from "@/lib/map-language-tag";
 import { defineCustomClientStrategy, defineCustomServerStrategy } from "@/paraglide/runtime";
 
 const STRATEGY = "custom-acceptLanguage";
 
 let registered = false;
 
-/** Register Accept-Language mapping used by both SSR and the browser. */
+/**
+ * Register Accept-Language mapping used by both SSR and the browser.
+ * Must not import `.server` modules — Vite import-protection mocks those on the client
+ * and would otherwise resolve locale to `[import-protection mock]`.
+ */
 export function registerAcceptLanguageStrategy() {
   if (registered) {
     return;
@@ -14,7 +18,7 @@ export function registerAcceptLanguageStrategy() {
 
   defineCustomServerStrategy(STRATEGY, {
     getLocale: (request) => {
-      return localeFromAcceptLanguageHeader(request?.headers.get("accept-language"));
+      return mapAcceptLanguage(request?.headers.get("accept-language")) ?? undefined;
     },
   });
 
