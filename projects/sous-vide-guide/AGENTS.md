@@ -12,12 +12,20 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
   locale with `setLocaleInPlace` so the page can navigate/`?unit=` without a
   full reload.
 - **Categories** are in-page `#anchor` links only (not URL filters) — no “All”
-  chip. Sections use `scroll-mt-*`; `html { scroll-behavior: smooth }` is in
-  `src/styles/app.css`. Keep category sections while filtering so layout does
-  not swap under the sticky search bar.
-- **Search** writes `?q=` on every change with a controlled input
-  (`resetScroll: false`, no remount `key`). The page filters with
-  `useDeferredValue` so typing stays responsive without stealing focus.
+  chip. Sections use `scroll-mt-*` against `--site-header-h` (fixed header
+  height, see `src/styles/app.css`, which also sets
+  `html { scroll-behavior: smooth }`).
+- **Search** writes `?q=` on every change with `replace: true`; the input is
+  uncontrolled (`defaultValue`, never re-keyed) so focus and cursor survive the
+  navigation, and the Clear button resets the field imperatively. Scroll is
+  kept while refining (`resetScroll: false`) and reset once when a query starts
+  so results land under the sticky toolbar. The page filters with
+  `useDeferredValue` so typing stays responsive. Quick links hide while a query
+  is active (results are one ranked list, not sections).
+- **Cut grouping**: tables render one `<tbody id={cutId}>` per cut via
+  `groupSousVideEntriesByCut` (`src/lib/group-cuts.ts`); multi-step cuts get a
+  heading row with the name once, then one row per doneness step. Keep
+  doneness rows coldest-first in `src/data/sousVide.ts`.
 
 ## Content seam
 

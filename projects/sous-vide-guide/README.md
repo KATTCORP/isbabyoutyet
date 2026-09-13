@@ -28,10 +28,15 @@ locale’s default unit (with a toast when the unit flips).
 
 ## Browsing
 
-`/` renders every row grouped by category. Category chips are **in-page anchors**
-(not filters). Search updates `?q=` as you type; filtering is deferred so the
-input stays responsive. Permalinks use `#category` and `#entry-id` with smooth
-scrolling and sticky-header offset.
+`/` renders every row grouped by category as one dense reference table per
+category (cut, temperature, recommended and max time); a cut with several
+doneness steps is one heading row followed by one row per step. Category
+quick links are **in-page anchors** (not filters): a horizontal strip under the
+search field on phones, a sticky table of contents beside the tables on wide
+screens. Search updates `?q=` as you type (replace navigation, so the history
+stays clean); the field is uncontrolled so focus and cursor never move, and
+filtering is deferred so the input stays responsive. Permalinks use `#category`,
+`#cut-id` and `#entry-id` with smooth scrolling and sticky-header offset.
 
 ## Content database
 
