@@ -17,13 +17,13 @@ function clampTemperature(temperatureC: number) {
 }
 
 /** Position of a temperature on the ramp, `0` at the cold end and `1` at the hot end. */
-export function thermalPosition(temperatureC: number) {
+function thermalPosition(temperatureC: number) {
   const span = THERMAL_RANGE_C.max - THERMAL_RANGE_C.min;
   return (clampTemperature(temperatureC) - THERMAL_RANGE_C.min) / span;
 }
 
 /** OKLCH hue in degrees, `[0, 360)`. */
-export function temperatureHue(temperatureC: number) {
+function temperatureHue(temperatureC: number) {
   return (HUE_START + HUE_SWEEP * thermalPosition(temperatureC)) % 360;
 }
 
