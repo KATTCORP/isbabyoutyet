@@ -26,11 +26,7 @@ describe("groupSousVideEntriesByCut", () => {
     const groups = groupSousVideEntriesByCut(entries);
     expect(groups).toHaveLength(1);
     expect(groups[0]?.cutId).toBe("pork-fillet");
-    expect(groups[0]?.rows.map((row) => row.doneness)).toEqual([
-      "Rare",
-      "Medium",
-      "Well done",
-    ]);
+    expect(groups[0]?.rows.map((row) => row.doneness)).toEqual(["Rare", "Medium", "Well done"]);
   });
 
   it("leaves single-row cuts without a doneness suffix alone", () => {

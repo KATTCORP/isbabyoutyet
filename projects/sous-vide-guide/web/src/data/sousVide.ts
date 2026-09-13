@@ -178,9 +178,7 @@ export function getSousVideEntries(t: ContentT): ReadonlyArray<SousVideEntry> {
       maxMinutes: 1440,
       name: t("Pork belly"),
       recommendedMinutes: { max: 1080, min: 840 },
-      searchTerms: splitMessageList(
-        t("fläsk, pork, sida, belly, ribs, revben, Fläsksida, Blodig"),
-      ),
+      searchTerms: splitMessageList(t("fläsk, pork, sida, belly, ribs, revben, Fläsksida, Blodig")),
       temperatureC: 60,
     },
     {
@@ -392,9 +390,7 @@ export function getSousVideEntries(t: ContentT): ReadonlyArray<SousVideEntry> {
       maxMinutes: 2880,
       name: t("Chuck"),
       recommendedMinutes: { max: 1440, min: 1440 },
-      searchTerms: splitMessageList(
-        t("nöt, beef, högrev, hogrev, chuck, blade, Blodig"),
-      ),
+      searchTerms: splitMessageList(t("nöt, beef, högrev, hogrev, chuck, blade, Blodig")),
       temperatureC: 57,
     },
     {
@@ -426,9 +422,7 @@ export function getSousVideEntries(t: ContentT): ReadonlyArray<SousVideEntry> {
       maxMinutes: 2880,
       name: t("Brisket"),
       recommendedMinutes: { max: 1440, min: 1440 },
-      searchTerms: splitMessageList(
-        t("nöt, beef, oxbringa, bringa, brisket, Blodig"),
-      ),
+      searchTerms: splitMessageList(t("nöt, beef, oxbringa, bringa, brisket, Blodig")),
       temperatureC: 58,
     },
     {
@@ -448,9 +442,7 @@ export function getSousVideEntries(t: ContentT): ReadonlyArray<SousVideEntry> {
       maxMinutes: 1080,
       name: t("Brisket"),
       recommendedMinutes: { max: 480, min: 480 },
-      searchTerms: splitMessageList(
-        t("nöt, beef, oxbringa, bringa, brisket, Välstekt, Well-done"),
-      ),
+      searchTerms: splitMessageList(t("nöt, beef, oxbringa, bringa, brisket, Välstekt, Well-done")),
       temperatureC: 85,
     },
     {

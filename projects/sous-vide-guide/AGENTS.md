@@ -12,13 +12,31 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
   locale with `setLocaleInPlace` so the page can navigate/`?unit=` without a
   full reload.
 - **Categories** are in-page `#anchor` links only (not URL filters) — no “All”
-  chip. Search and jump chips scroll with the page; only the site header is
-  sticky. Sections use `scroll-mt-*`; `html { scroll-behavior: smooth }` is in
-  `src/styles/app.css`. Keep category sections while filtering so layout does
-  not jump when the result set changes.
-- **Search** writes `?q=` on every change with a controlled input
-  (`resetScroll: false`, no remount `key`). The page filters with
-  `useDeferredValue` so typing stays responsive without stealing focus.
+  chip. The search field scrolls with the page; only the site header (and the
+  quick-link dock) stays pinned. Sections use `scroll-mt-*` against
+  `--site-header-h` (fixed header height, see `src/styles/app.css`, which also
+  sets `html { scroll-behavior: smooth }`) plus the dock row height on `sm+`.
+- **Search** writes `?q=` on every change with `replace: true`; the input is
+  uncontrolled (`defaultValue`, never re-keyed) so focus and cursor survive the
+  navigation, and the Clear button resets the field imperatively. Scroll is
+  never reset (`resetScroll: false`): results render right under the field the
+  user is typing in. The page filters with
+  `useDeferredValue` so typing stays responsive. While a query is active the
+  dock shows the result count instead of the category links.
+- **Grouping**: rows are shown per cut via `groupSousVideEntriesByCut`
+  (`src/lib/group-cuts.ts`); doneness steps must stay coldest-first in
+  `src/data/sousVide.ts` because the ladder renders them in source order.
+- **Bottom dock** (`CategoryDock`) is `position: fixed` on phones — keep it out
+  of any ancestor with `backdrop-filter`/`transform`, and keep `main`'s bottom
+  padding so the footer clears it. The links are one segmented button group;
+  the current section is highlighted by `useActiveSection`
+  (`src/lib/use-active-section.ts`, the one audited hook seam here): a section
+  is "reached" once its top passes its own `scroll-margin-top`, so the spy and
+  `#hash` jumps agree — change `scroll-mt-*` on `CategorySectionView` and the
+  spy follows. TanStack `Link` owns `aria-current`; quick links use
+  `activeOptions={{ exact: true, includeHash: true }}` so only the URL-hash
+  match announces as current.
+- **One column** of cards at every width; `main` stays `max-w-3xl`.
 
 ## Content seam
 

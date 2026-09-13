@@ -1,7 +1,4 @@
-import {
-  overwriteSetLocale,
-  setLocale as paraglideSetLocale,
-} from "@/paraglide/runtime";
+import { overwriteSetLocale, setLocale as paraglideSetLocale } from "@/paraglide/runtime";
 import type { Locale } from "@/paraglide/runtime";
 
 const persistLocale = paraglideSetLocale;

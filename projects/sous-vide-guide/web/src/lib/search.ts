@@ -1,4 +1,4 @@
-import type { SousVideCategory, SousVideEntry } from "@/data/sousVide";
+import type { SousVideEntry } from "@/data/sousVide";
 import { fuzzyScore } from "@/lib/fuzzy";
 
 function bestFuzzyScore(query: string, fields: ReadonlyArray<string>) {
@@ -54,25 +54,31 @@ function entryFields(entry: SousVideEntry) {
   ];
 }
 
+/**
+ * Fuzzy matching ignores needles shorter than 2 chars; treat those as "not
+ * searching yet" so a lone keystroke never empties the list. The UI uses the
+ * same rule to decide when to switch from category sections to ranked results.
+ */
+export function isSearchQuery(query: string) {
+  return query.trim().length >= 2;
+}
+
+/**
+ * Rank rows for a free-text query. An empty or one-character query returns
+ * every row in source order; otherwise rows are sorted by fuzzy score.
+ * Categories are browsed via section anchors, not filtered here.
+ */
 export function filterSousVideEntries(opts: {
-  category: SousVideCategory | "all";
   entries: ReadonlyArray<SousVideEntry>;
   query: string;
 }) {
   const trimmed = opts.query.trim();
 
-  const categoryFiltered =
-    opts.category === "all"
-      ? opts.entries
-      : opts.entries.filter((entry) => entry.category === opts.category);
-
-  // Fuzzy matching ignores needles shorter than 2 chars; treat those
-  // as "not searching yet" so a lone keystroke never empties the list.
-  if (trimmed.length < 2) {
-    return [...categoryFiltered];
+  if (!isSearchQuery(trimmed)) {
+    return [...opts.entries];
   }
 
-  return categoryFiltered
+  return opts.entries
     .map((entry) => ({
       entry,
       score: multiTokenScore(trimmed, entryFields(entry)),

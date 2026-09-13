@@ -28,8 +28,16 @@ locale’s default unit (with a toast when the unit flips).
 
 ## Browsing
 
-`/` renders every row grouped by category. Category chips are **in-page anchors**
-(not filters). Search updates `?q=` as you type; filtering is deferred so the
+`/` renders one card per cut: doneness variants (rare → medium → well done)
+collapse into a ladder inside the card (`src/lib/group-cuts.ts`), so 76 rows
+read as about 30 ingredients. Categories are **in-page anchors** (not filters)
+in a quick-link dock: fixed to the bottom of the screen on phones (thumb reach,
+above the home indicator), a sticky row under the site header on wider
+screens. The links form one button group and the section currently scrolled
+into view is highlighted. While a search is active the dock shows the result
+count instead.
+Search updates `?q=` as you type (replace navigation); the field is
+uncontrolled so focus and cursor never move, and filtering is deferred so the
 input stays responsive. Permalinks use `#category` and `#entry-id` with smooth
 scrolling and sticky-header offset.
 

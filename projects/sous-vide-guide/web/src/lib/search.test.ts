@@ -9,26 +9,19 @@ import { formatTemperature } from "@/lib/temperature";
 const SOUS_VIDE_ENTRIES = getSousVideEntries(createContentT("en-GB"));
 
 describe("filterSousVideEntries", () => {
-  it("filters by category", () => {
-    const fish = filterSousVideEntries({
-      category: "fish",
-      entries: SOUS_VIDE_ENTRIES,
-      query: "",
-    });
-    expect(fish.length).toBeGreaterThan(0);
-    expect(fish.every((entry) => entry.category === "fish")).toBe(true);
+  it("returns every row in source order for an empty query", () => {
+    const all = filterSousVideEntries({ entries: SOUS_VIDE_ENTRIES, query: "   " });
+    expect(all.map((entry) => entry.id)).toEqual(SOUS_VIDE_ENTRIES.map((entry) => entry.id));
   });
 
   it("ignores single-character queries instead of showing no matches", () => {
     const oneChar = filterSousVideEntries({
-      category: "all",
       entries: SOUS_VIDE_ENTRIES,
       query: "p",
     });
     expect(oneChar).toEqual(SOUS_VIDE_ENTRIES);
 
     const spaced = filterSousVideEntries({
-      category: "all",
       entries: SOUS_VIDE_ENTRIES,
       query: " p ",
     });
@@ -37,12 +30,10 @@ describe("filterSousVideEntries", () => {
 
   it("matches ingredient names across locales", () => {
     const salmon = filterSousVideEntries({
-      category: "all",
       entries: SOUS_VIDE_ENTRIES,
       query: "salmon",
     });
     const lax = filterSousVideEntries({
-      category: "all",
       entries: SOUS_VIDE_ENTRIES,
       query: "lax",
     });
@@ -53,14 +44,12 @@ describe("filterSousVideEntries", () => {
 
   it("fuzzy-matches typos and American tenderloin wording", () => {
     const typo = filterSousVideEntries({
-      category: "all",
       entries: SOUS_VIDE_ENTRIES,
       query: "salmn",
     });
     expect(typo.some((entry) => entry.id.includes("salmon"))).toBe(true);
 
     const tenderloin = filterSousVideEntries({
-      category: "all",
       entries: SOUS_VIDE_ENTRIES,
       query: "tenderloin",
     });
@@ -69,7 +58,6 @@ describe("filterSousVideEntries", () => {
 
   it("matches multi-word queries with AND semantics", () => {
     const salmonRare = filterSousVideEntries({
-      category: "all",
       entries: SOUS_VIDE_ENTRIES,
       query: "salmon rare",
     });
@@ -79,7 +67,6 @@ describe("filterSousVideEntries", () => {
 
   it("avoids loose subsequence false positives", () => {
     const sea = filterSousVideEntries({
-      category: "all",
       entries: SOUS_VIDE_ENTRIES,
       query: "sea",
     });
@@ -88,7 +75,6 @@ describe("filterSousVideEntries", () => {
 
   it("matches Fahrenheit numeric queries", () => {
     const hits = filterSousVideEntries({
-      category: "all",
       entries: SOUS_VIDE_ENTRIES,
       query: "140",
     });
