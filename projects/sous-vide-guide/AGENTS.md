@@ -12,12 +12,22 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
   locale with `setLocaleInPlace` so the page can navigate/`?unit=` without a
   full reload.
 - **Categories** are in-page `#anchor` links only (not URL filters) — no “All”
-  chip. Sections use `scroll-mt-*`; `html { scroll-behavior: smooth }` is in
-  `src/styles/app.css`. Keep category sections while filtering so layout does
-  not swap under the sticky search bar.
-- **Search** writes `?q=` on every change with a controlled input
-  (`resetScroll: false`, no remount `key`). The page filters with
-  `useDeferredValue` so typing stays responsive without stealing focus.
+  chip. Sections use `scroll-mt-*` against `--site-header-h` (fixed header
+  height, see `src/styles/app.css`, which also sets
+  `html { scroll-behavior: smooth }`).
+- **Search** writes `?q=` on every change with `replace: true`; the input is
+  uncontrolled (`defaultValue`, never re-keyed) so focus and cursor survive the
+  navigation, and the Clear button resets the field imperatively. Scroll is
+  kept while refining (`resetScroll: false`) and reset once when a query starts
+  so results land under the sticky toolbar. The page filters with
+  `useDeferredValue` so typing stays responsive. While a query is active the
+  dock shows the result count instead of the category links.
+- **Grouping**: rows are shown per cut via `groupSousVideEntriesByCut`
+  (`src/lib/group-cuts.ts`); doneness steps must stay coldest-first in
+  `src/data/sousVide.ts` because the ladder renders them in source order.
+- **Bottom dock** (`CategoryDock`) is `position: fixed` on phones — keep it out
+  of any ancestor with `backdrop-filter`/`transform`, and keep `main`'s bottom
+  padding so the footer clears it.
 
 ## Content seam
 
