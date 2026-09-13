@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 
-import { cookieName, getLocale } from "@/paraglide/runtime";
-import { setLocale } from "@/lib/paraglide-setup";
+import "@/lib/paraglide-setup";
+import { cookieName, getLocale, setLocale } from "@/paraglide/runtime";
 
 function clearLocaleCookie() {
   document.cookie = `${cookieName}=; path=/; max-age=0`;

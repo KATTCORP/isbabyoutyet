@@ -22,8 +22,6 @@ overwriteSetLocale((newLocale, options) => {
   return persistLocale(newLocale, options);
 });
 
-export { setLocale } from "@/paraglide/runtime";
-
 /** Persist an explicit locale choice without reloading the document. */
 export async function setLocaleInPlace(locale: Locale) {
   await persistLocale(locale, { reload: false });
