@@ -1,9 +1,12 @@
 import { createRouter } from "@tanstack/react-router";
 
 import "@/lib/paraglide-setup";
+import { registerAcceptLanguageStrategy } from "@/lib/locale-strategy";
 import { routeTree } from "./routeTree.gen";
 import { baseLocale } from "./paraglide/runtime";
 import type { Locale } from "./paraglide/runtime";
+
+registerAcceptLanguageStrategy();
 
 export function getRouter() {
   return createRouter({

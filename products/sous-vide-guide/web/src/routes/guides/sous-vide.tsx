@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { retainSearchParams } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { SousVideFilters, SousVideResults } from "@/components/sous-vide-browser";
@@ -15,13 +16,17 @@ const sousVideSearchSchema = z.object({
     .default("all")
     .transform((value) => (value === "all" || isSousVideCategory(value) ? value : "all")),
   unit: z
-    .union([z.literal("c"), z.literal("f"), z.literal("")])
-    .default("")
-    .transform((value) => (isTemperatureUnit(value) ? value : defaultTemperatureUnit(getLocale()))),
+    .string()
+    .optional()
+    .transform((value) => (value && isTemperatureUnit(value) ? value : undefined))
+    .catch(undefined),
 });
 
 export const Route = createFileRoute("/guides/sous-vide")({
   validateSearch: sousVideSearchSchema,
+  search: {
+    middlewares: [retainSearchParams(["unit"])],
+  },
   component: SousVideGuidePage,
   head: () => ({
     meta: [
@@ -33,6 +38,7 @@ export const Route = createFileRoute("/guides/sous-vide")({
 
 function SousVideGuidePage() {
   const search = Route.useSearch();
+  const unit = search.unit ?? defaultTemperatureUnit(getLocale());
   const entries = filterSousVideEntries({
     entries: SOUS_VIDE_ENTRIES,
     query: search.q,
@@ -40,21 +46,24 @@ function SousVideGuidePage() {
   });
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-12">
+    <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:gap-8 sm:px-6 sm:py-12">
       <div className="space-y-3">
-        <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-foreground">
+        <Link
+          to="/"
+          className="inline-flex min-h-11 items-center text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
           ← {m.back_home()}
         </Link>
         <h1
           id="sous-vide"
-          className="scroll-mt-24 font-display text-4xl font-semibold tracking-tight text-[var(--kitchen-ink)] sm:text-5xl"
+          className="scroll-mt-28 font-display text-3xl font-semibold tracking-tight text-[var(--guide-ink)] sm:scroll-mt-24 sm:text-5xl"
         >
           <a
             href="#sous-vide"
             className="inline-flex items-center gap-2 underline-offset-4 hover:underline"
           >
             <span>{m.sous_vide_title()}</span>
-            <span aria-hidden className="text-2xl text-[var(--kitchen-copper)]">
+            <span aria-hidden className="text-2xl text-[var(--guide-copper)]">
               #
             </span>
           </a>
@@ -63,15 +72,18 @@ function SousVideGuidePage() {
           {m.sous_vide_summary()}
         </p>
         <p className="max-w-3xl text-sm text-muted-foreground">{m.sous_vide_thickness_note()}</p>
+        <p className="max-w-3xl rounded-xl border border-border/70 bg-background/70 px-3 py-2 text-sm text-muted-foreground">
+          {m.food_safety_disclaimer()}
+        </p>
       </div>
 
-      <SousVideFilters q={search.q} category={search.category} unit={search.unit} />
-      <SousVideResults entries={entries} unit={search.unit} query={search.q} />
+      <SousVideFilters q={search.q} category={search.category} unit={unit} />
+      <SousVideResults entries={entries} unit={unit} query={search.q} />
 
       <footer className="border-t border-border/70 pt-6 text-sm text-muted-foreground">
         <p>{m.source_attribution()}</p>
         <a
-          className="mt-1 inline-flex font-medium text-[var(--kitchen-copper)] underline-offset-4 hover:underline"
+          className="mt-1 inline-flex min-h-11 items-center font-medium text-[var(--guide-copper)] underline-offset-4 hover:underline"
           href="https://www.kitchenlab.se/koksbloggen/koksguiden-9-sous-vide-temperaturer-och-koktider/"
           rel="noreferrer"
           target="_blank"

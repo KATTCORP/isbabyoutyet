@@ -28,21 +28,21 @@ function HomePage() {
   const guides = filterGuides(GUIDES, search.q);
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-10 sm:px-6 sm:py-14">
+    <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-14">
       <section className="max-w-3xl space-y-5">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--kitchen-copper)]">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--guide-copper)]">
           {m.nav_guides()}
         </p>
         <h1
           id="home"
-          className="scroll-mt-24 font-display text-5xl font-semibold tracking-tight text-[var(--kitchen-ink)] sm:text-6xl"
+          className="scroll-mt-24 font-display text-4xl font-semibold tracking-tight text-[var(--guide-ink)] sm:text-6xl"
         >
           <a
             href="#home"
             className="inline-flex items-center gap-2 underline-offset-4 hover:underline"
           >
             <span>{m.app_name()}</span>
-            <span aria-hidden className="text-3xl text-[var(--kitchen-copper)]">
+            <span aria-hidden className="text-3xl text-[var(--guide-copper)]">
               #
             </span>
           </a>
@@ -51,7 +51,17 @@ function HomePage() {
         <div className="flex flex-wrap gap-3">
           <Button
             size="lg"
-            render={<Link to="/guides/sous-vide" search={{ q: "", category: "all", unit: "" }} />}
+            className="min-h-12 touch-manipulation"
+            render={
+              <Link
+                to="/guides/sous-vide"
+                search={(prev) => ({
+                  q: "",
+                  category: "all",
+                  unit: prev.unit,
+                })}
+              />
+            }
           >
             {m.browse_sous_vide()}
           </Button>
@@ -65,7 +75,7 @@ function HomePage() {
             className="inline-flex items-center gap-2 underline-offset-4 hover:underline"
           >
             <span>{m.guides_heading()}</span>
-            <span aria-hidden className="text-base text-[var(--kitchen-copper)]">
+            <span aria-hidden className="text-base text-[var(--guide-copper)]">
               #
             </span>
           </a>
@@ -77,9 +87,9 @@ function HomePage() {
             defaultValue={search.q}
             placeholder={m.search_guides_placeholder()}
             aria-label={m.search_guides_placeholder()}
-            className="h-11 max-w-xl bg-background/80"
+            className="h-12 max-w-xl bg-background/80 text-base sm:h-11 sm:text-sm"
           />
-          <Button type="submit" className="h-11">
+          <Button type="submit" className="h-12 min-h-12 touch-manipulation sm:h-11">
             {m.submit_search()}
           </Button>
         </form>

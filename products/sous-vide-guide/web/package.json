@@ -7,7 +7,7 @@
     "dev": "vite dev --port 3002",
     "build": "vite build",
     "preview": "vite preview --port 3002",
-    "i18n:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy cookie preferredLanguage baseLocale --output-structure message-modules --emit-ts-declarations --silent",
+    "i18n:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy cookie custom-acceptLanguage baseLocale --output-structure message-modules --emit-ts-declarations --silent",
     "pretypecheck": "pnpm i18n:compile",
     "test": "vitest run",
     "lint": "oxlint",

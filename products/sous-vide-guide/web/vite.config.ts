@@ -14,7 +14,7 @@ const config = defineConfig({
       outputStructure: "message-modules",
       emitTsDeclarations: true,
       cookieName: "PARAGLIDE_LOCALE",
-      strategy: ["cookie", "preferredLanguage", "baseLocale"],
+      strategy: ["cookie", "custom-acceptLanguage", "baseLocale"],
     }),
     nitro({
       preset: "vercel",

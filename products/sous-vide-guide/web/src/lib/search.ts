@@ -54,7 +54,12 @@ function guideFields(guide: GuideSummary) {
   ];
 }
 
+function celsiusToFahrenheit(temperatureC: number) {
+  return Math.round((temperatureC * 9) / 5 + 32);
+}
+
 function entryFields(entry: SousVideEntry) {
+  const fahrenheit = celsiusToFahrenheit(entry.temperatureC);
   return [
     entry.name.sv,
     entry.name["en-GB"],
@@ -65,6 +70,9 @@ function entryFields(entry: SousVideEntry) {
     entry.category,
     ...entry.searchTerms,
     `${entry.temperatureC}`,
+    `${fahrenheit}`,
+    `${entry.temperatureC}°C`,
+    `${fahrenheit}°F`,
   ];
 }
 

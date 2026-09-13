@@ -1,37 +1,23 @@
 import { describe, expect, it } from "vitest";
 
-import { detectLocaleFromRequestHeaders } from "@/lib/detect-locale.server";
+import { mapAcceptLanguage, mapLanguageTag } from "@/lib/map-language-tag";
 
-describe("detectLocaleFromRequestHeaders", () => {
-  it("prefers the Paraglide locale cookie", () => {
-    const locale = detectLocaleFromRequestHeaders(undefined, {
-      readCookie: () => "en-US",
-      readHeader: () => "sv",
-    });
-    expect(locale).toBe("en-US");
+describe("mapLanguageTag", () => {
+  it("maps en-US and bare en", () => {
+    expect(mapLanguageTag("en-US")).toBe("en-US");
+    expect(mapLanguageTag("EN-us")).toBe("en-US");
+    expect(mapLanguageTag("en")).toBe("en-GB");
+    expect(mapLanguageTag("en-AU")).toBe("en-GB");
+    expect(mapLanguageTag("en-CA")).toBe("en-GB");
+    expect(mapLanguageTag("sv")).toBe("sv");
   });
+});
 
-  it("maps en-US Accept-Language to American English", () => {
-    const locale = detectLocaleFromRequestHeaders(undefined, {
-      readCookie: () => undefined,
-      readHeader: (name) => (name === "accept-language" ? "en-US,en;q=0.9" : undefined),
-    });
-    expect(locale).toBe("en-US");
-  });
-
-  it("maps bare en Accept-Language to British English", () => {
-    const locale = detectLocaleFromRequestHeaders(undefined, {
-      readCookie: () => undefined,
-      readHeader: (name) => (name === "accept-language" ? "en" : undefined),
-    });
-    expect(locale).toBe("en-GB");
-  });
-
-  it("falls back to Swedish", () => {
-    const locale = detectLocaleFromRequestHeaders(undefined, {
-      readCookie: () => undefined,
-      readHeader: () => undefined,
-    });
-    expect(locale).toBe("sv");
+describe("mapAcceptLanguage", () => {
+  it("honors q-values", () => {
+    expect(mapAcceptLanguage("fr;q=0.8,en-US;q=0.9")).toBe("en-US");
+    expect(mapAcceptLanguage("sv,en;q=0.8")).toBe("sv");
+    expect(mapAcceptLanguage("en")).toBe("en-GB");
+    expect(mapAcceptLanguage(null)).toBeNull();
   });
 });

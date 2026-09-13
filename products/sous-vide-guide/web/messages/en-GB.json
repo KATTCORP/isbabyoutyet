@@ -40,5 +40,8 @@
   "unit_fahrenheit": "Fahrenheit",
   "permalink_label": "Link to this row",
   "category_permalink_label": "Link to the {category} category",
-  "stats_line": "{categories} categories · {rows} rows"
+  "stats_line": "{categories} categories · {rows} rows",
+  "food_safety_disclaimer": "These times describe texture, not pasteurisation or food safety. Use a trusted food-safety guide for pathogen reduction.",
+  "categories_label": "Categories",
+  "results_count_one": "1 result"
 }

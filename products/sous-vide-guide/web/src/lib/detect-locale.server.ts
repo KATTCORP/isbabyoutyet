@@ -1,62 +1,11 @@
-import { getCookie, getRequestHeader } from "@tanstack/react-start/server";
-
-import { baseLocale, cookieName, locales } from "@/paraglide/runtime";
+import { mapAcceptLanguage, mapLanguageTag } from "@/lib/map-language-tag";
 import type { Locale } from "@/paraglide/runtime";
 
-type LocaleRequestDeps = {
-  readHeader: (name: string) => string | undefined;
-  readCookie: (name: string) => string | undefined;
-};
+export { mapLanguageTag };
 
-function isLocale(value: string): value is Locale {
-  return (locales as ReadonlyArray<string>).includes(value);
-}
-
-function localeFromAcceptLanguage(header: string | undefined) {
-  if (!header) {
-    return null;
-  }
-
-  for (const part of header.split(",")) {
-    const tag = part.trim().split(";")[0]?.toLowerCase();
-    if (!tag) {
-      continue;
-    }
-
-    if (tag === "en-us") {
-      return "en-US";
-    }
-    if (tag === "en-gb") {
-      return "en-GB";
-    }
-    if (tag === "en") {
-      return "en-GB";
-    }
-    if (isLocale(tag)) {
-      return tag;
-    }
-
-    const language = tag.split("-")[0];
-    if (language === "en") {
-      return "en-GB";
-    }
-    if (language && isLocale(language)) {
-      return language;
-    }
-  }
-
-  return null;
-}
-
-export function detectLocaleFromRequestHeaders(
-  _serverContext: unknown = undefined,
-  deps: LocaleRequestDeps | undefined = undefined,
-) {
-  const readHeader = deps?.readHeader ?? getRequestHeader;
-  const readCookie = deps?.readCookie ?? getCookie;
-  const saved = readCookie(cookieName);
-  if (saved && isLocale(saved)) {
-    return saved;
-  }
-  return localeFromAcceptLanguage(readHeader("accept-language")) ?? baseLocale;
+/** Resolve a locale from Accept-Language for the custom Paraglide strategy. */
+export function localeFromAcceptLanguageHeader(
+  header: string | null | undefined,
+): Locale | undefined {
+  return mapAcceptLanguage(header) ?? undefined;
 }

@@ -40,5 +40,8 @@
   "unit_fahrenheit": "Fahrenheit",
   "permalink_label": "Länk till den här raden",
   "category_permalink_label": "Länk till kategorin {category}",
-  "stats_line": "{categories} kategorier · {rows} rader"
+  "stats_line": "{categories} kategorier · {rows} rader",
+  "food_safety_disclaimer": "Tiderna beskriver textur, inte pastörisering eller livsmedelssäkerhet. Följ en pålitlig livsmedelsguide för patogenreducering.",
+  "categories_label": "Kategorier",
+  "results_count_one": "1 träff"
 }

@@ -79,6 +79,15 @@ describe("filterSousVideEntries", () => {
     });
     expect(sea.every((entry) => !entry.id.includes("carrot"))).toBe(true);
   });
+
+  it("matches Fahrenheit numeric queries", () => {
+    const hits = filterSousVideEntries({
+      entries: SOUS_VIDE_ENTRIES,
+      query: "140",
+      category: "all",
+    });
+    expect(hits.some((entry) => Math.round((entry.temperatureC * 9) / 5 + 32) === 140)).toBe(true);
+  });
 });
 
 describe("fuzzyScore", () => {
@@ -96,7 +105,7 @@ describe("fuzzyScore", () => {
 
 describe("formatTemperature", () => {
   it("formats Celsius and Fahrenheit", () => {
-    expect(formatTemperature(60, "c")).toBe("60°C");
-    expect(formatTemperature(60, "f")).toBe("140°F");
+    expect(formatTemperature(60, { unit: "c", locale: "en-GB" })).toBe("60°C");
+    expect(formatTemperature(60, { unit: "f", locale: "en-US" })).toBe("140°F");
   });
 });

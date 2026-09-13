@@ -1,10 +1,11 @@
 /// <reference types="vite/client" />
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
+import { retainSearchParams } from "@tanstack/react-router";
+import { z } from "zod";
 
 import { SiteHeader } from "@/components/site-header";
-import { detectRequestLocale } from "@/lib/detect-locale";
 import * as m from "@/paraglide/messages";
-import { getLocale, overwriteGetLocale } from "@/paraglide/runtime";
+import { getLocale } from "@/paraglide/runtime";
 import type { Locale } from "@/paraglide/runtime";
 import appCss from "@/styles/app.css?url";
 
@@ -23,23 +24,27 @@ function ogLocale(locale: Locale) {
   }
 }
 
+const rootSearchSchema = z.object({
+  unit: z.enum(["c", "f"]).optional().catch(undefined),
+});
+
 export const Route = createRootRouteWithContext<{ locale: Locale }>()({
+  validateSearch: rootSearchSchema,
+  search: {
+    middlewares: [retainSearchParams(["unit"])],
+  },
   beforeLoad: async () => {
-    if (typeof window === "undefined") {
-      const locale = await detectRequestLocale();
-      overwriteGetLocale(() => locale);
-      return { locale };
-    }
+    // Locale is ALS-scoped by paraglideMiddleware + custom Accept-Language strategy.
     return { locale: getLocale() };
   },
-  head: ({ match }) => {
-    const locale = match.context.locale;
+  head: (ctx) => {
+    const locale = ctx.match.context.locale;
     return {
       meta: [
         { charSet: "utf-8" },
         {
           name: "viewport",
-          content: "width=device-width, initial-scale=1",
+          content: "width=device-width, initial-scale=1, viewport-fit=cover",
         },
         { title: m.app_name() },
         { name: "description", content: m.home_intro() },

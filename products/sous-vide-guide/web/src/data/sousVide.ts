@@ -16,14 +16,21 @@ export const SOUS_VIDE_CATEGORIES = [
 
 export type SousVideCategory = (typeof SOUS_VIDE_CATEGORIES)[number];
 
+export type TimeRangeMinutes = {
+  min: number;
+  max: number;
+};
+
 export type SousVideEntry = {
   id: string;
   category: SousVideCategory;
   name: LocalizedText;
   doneness: LocalizedText | null;
   temperatureC: number;
-  recommendedTime: LocalizedText;
-  maxTime: LocalizedText | null;
+  /** Inclusive recommended cook window in minutes. */
+  recommendedMinutes: TimeRangeMinutes;
+  /** Absolute max cook time in minutes, when the source lists one. */
+  maxMinutes: number | null;
   /** Extra tokens for fuzzy search (all locales). */
   searchTerms: ReadonlyArray<string>;
 };
@@ -58,16 +65,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Rare",
     },
     temperatureC: 60,
-    recommendedTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
-    maxTime: {
-      sv: "2,5 h",
-      "en-GB": "2.5 h",
-      "en-US": "2.5 h",
-    },
+    recommendedMinutes: { min: 60, max: 60 },
+    maxMinutes: 150,
     searchTerms: ["fläsk", "pork", "filé", "fillet", "Pork fillet", "Pork tenderloin", "Fläskfilé"],
   },
   {
@@ -84,16 +83,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 65,
-    recommendedTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
-    maxTime: {
-      sv: "2 h",
-      "en-GB": "2 h",
-      "en-US": "2 h",
-    },
+    recommendedMinutes: { min: 60, max: 60 },
+    maxMinutes: 120,
     searchTerms: ["fläsk", "pork", "filé", "fillet", "Pork fillet", "Pork tenderloin", "Fläskfilé"],
   },
   {
@@ -110,16 +101,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Well-done",
     },
     temperatureC: 70,
-    recommendedTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
-    maxTime: {
-      sv: "1,5 h",
-      "en-GB": "1.5 h",
-      "en-US": "1.5 h",
-    },
+    recommendedMinutes: { min: 60, max: 60 },
+    maxMinutes: 90,
     searchTerms: ["fläsk", "pork", "filé", "fillet", "Pork fillet", "Pork tenderloin", "Fläskfilé"],
   },
   {
@@ -136,16 +119,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Rare",
     },
     temperatureC: 60,
-    recommendedTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
-    maxTime: {
-      sv: "2,5 h",
-      "en-GB": "2.5 h",
-      "en-US": "2.5 h",
-    },
+    recommendedMinutes: { min: 60, max: 60 },
+    maxMinutes: 150,
     searchTerms: ["fläsk", "pork", "kotlett", "chop", "Pork chop", "Fläskkotlett"],
   },
   {
@@ -162,16 +137,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 65,
-    recommendedTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
-    maxTime: {
-      sv: "2 h",
-      "en-GB": "2 h",
-      "en-US": "2 h",
-    },
+    recommendedMinutes: { min: 60, max: 60 },
+    maxMinutes: 120,
     searchTerms: ["fläsk", "pork", "kotlett", "chop", "Pork chop", "Fläskkotlett"],
   },
   {
@@ -188,16 +155,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Well-done",
     },
     temperatureC: 70,
-    recommendedTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
-    maxTime: {
-      sv: "1,5 h",
-      "en-GB": "1.5 h",
-      "en-US": "1.5 h",
-    },
+    recommendedMinutes: { min: 60, max: 60 },
+    maxMinutes: 90,
     searchTerms: ["fläsk", "pork", "kotlett", "chop", "Pork chop", "Fläskkotlett"],
   },
   {
@@ -214,16 +173,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Rare",
     },
     temperatureC: 60,
-    recommendedTime: {
-      sv: "3–3,5 h",
-      "en-GB": "3–3.5 h",
-      "en-US": "3–3.5 h",
-    },
-    maxTime: {
-      sv: "5–6 h",
-      "en-GB": "5–6 h",
-      "en-US": "5–6 h",
-    },
+    recommendedMinutes: { min: 180, max: 210 },
+    maxMinutes: 360,
     searchTerms: ["fläsk", "pork", "stek", "roast", "Pork roast", "Fläskstek"],
   },
   {
@@ -240,16 +191,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 65,
-    recommendedTime: {
-      sv: "3 h",
-      "en-GB": "3 h",
-      "en-US": "3 h",
-    },
-    maxTime: {
-      sv: "4 h",
-      "en-GB": "4 h",
-      "en-US": "4 h",
-    },
+    recommendedMinutes: { min: 180, max: 180 },
+    maxMinutes: 240,
     searchTerms: ["fläsk", "pork", "stek", "roast", "Pork roast", "Fläskstek"],
   },
   {
@@ -266,12 +209,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Well-done",
     },
     temperatureC: 70,
-    recommendedTime: {
-      sv: "3,5 h",
-      "en-GB": "3.5 h",
-      "en-US": "3.5 h",
-    },
-    maxTime: null,
+    recommendedMinutes: { min: 210, max: 210 },
+    maxMinutes: null,
     searchTerms: ["fläsk", "pork", "stek", "roast", "Pork roast", "Fläskstek"],
   },
   {
@@ -288,16 +227,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Rare",
     },
     temperatureC: 60,
-    recommendedTime: {
-      sv: "14–18 h",
-      "en-GB": "14–18 h",
-      "en-US": "14–18 h",
-    },
-    maxTime: {
-      sv: "24 h",
-      "en-GB": "24 h",
-      "en-US": "24 h",
-    },
+    recommendedMinutes: { min: 840, max: 1080 },
+    maxMinutes: 1440,
     searchTerms: ["fläsk", "pork", "bog", "shoulder", "karré", "Pork shoulder", "Fläskbog"],
   },
   {
@@ -314,16 +245,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 65,
-    recommendedTime: {
-      sv: "10–14 h",
-      "en-GB": "10–14 h",
-      "en-US": "10–14 h",
-    },
-    maxTime: {
-      sv: "24 h",
-      "en-GB": "24 h",
-      "en-US": "24 h",
-    },
+    recommendedMinutes: { min: 600, max: 840 },
+    maxMinutes: 1440,
     searchTerms: ["fläsk", "pork", "bog", "shoulder", "Pork shoulder", "Fläskbog"],
   },
   {
@@ -340,12 +263,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Pull-apart",
     },
     temperatureC: 85,
-    recommendedTime: {
-      sv: "16 h",
-      "en-GB": "16 h",
-      "en-US": "16 h",
-    },
-    maxTime: null,
+    recommendedMinutes: { min: 960, max: 960 },
+    maxMinutes: null,
     searchTerms: ["fläsk", "pork", "bog", "shoulder", "pulled", "Pork shoulder", "Fläskbog"],
   },
   {
@@ -358,16 +277,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
     },
     doneness: null,
     temperatureC: 70,
-    recommendedTime: {
-      sv: "14–18 h",
-      "en-GB": "14–18 h",
-      "en-US": "14–18 h",
-    },
-    maxTime: {
-      sv: "16 h",
-      "en-GB": "16 h",
-      "en-US": "16 h",
-    },
+    recommendedMinutes: { min: 840, max: 1080 },
+    maxMinutes: 1080,
     searchTerms: ["fläsk", "pork", "sida", "belly", "ribs", "revben", "Pork belly", "Fläsksida"],
   },
   {
@@ -384,16 +295,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 58,
-    recommendedTime: {
-      sv: "1–1,5 h",
-      "en-GB": "1–1.5 h",
-      "en-US": "1–1.5 h",
-    },
-    maxTime: {
-      sv: "2,5 h",
-      "en-GB": "2.5 h",
-      "en-US": "2.5 h",
-    },
+    recommendedMinutes: { min: 60, max: 90 },
+    maxMinutes: 150,
     searchTerms: ["anka", "duck", "fågel", "poultry", "Duck breast", "Ankbröst"],
   },
   {
@@ -410,16 +313,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium rare",
     },
     temperatureC: 60,
-    recommendedTime: {
-      sv: "1,5 h",
-      "en-GB": "1.5 h",
-      "en-US": "1.5 h",
-    },
-    maxTime: {
-      sv: "2 h",
-      "en-GB": "2 h",
-      "en-US": "2 h",
-    },
+    recommendedMinutes: { min: 90, max: 90 },
+    maxMinutes: 120,
     searchTerms: ["kyckling", "chicken", "filé", "breast", "Chicken breast", "Kycklingfilé"],
   },
   {
@@ -436,16 +331,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 63,
-    recommendedTime: {
-      sv: "1–1,5 h",
-      "en-GB": "1–1.5 h",
-      "en-US": "1–1.5 h",
-    },
-    maxTime: {
-      sv: "2 h",
-      "en-GB": "2 h",
-      "en-US": "2 h",
-    },
+    recommendedMinutes: { min: 60, max: 90 },
+    maxMinutes: 120,
     searchTerms: ["kyckling", "chicken", "filé", "breast", "Chicken breast", "Kycklingfilé"],
   },
   {
@@ -462,16 +349,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Well-done",
     },
     temperatureC: 72,
-    recommendedTime: {
-      sv: "1–1,5 h",
-      "en-GB": "1–1.5 h",
-      "en-US": "1–1.5 h",
-    },
-    maxTime: {
-      sv: "3 h",
-      "en-GB": "3 h",
-      "en-US": "3 h",
-    },
+    recommendedMinutes: { min: 60, max: 90 },
+    maxMinutes: 180,
     searchTerms: ["kyckling", "chicken", "filé", "breast", "Chicken breast", "Kycklingfilé"],
   },
   {
@@ -488,16 +367,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 65,
-    recommendedTime: {
-      sv: "1,5 h",
-      "en-GB": "1.5 h",
-      "en-US": "1.5 h",
-    },
-    maxTime: {
-      sv: "4–5 h",
-      "en-GB": "4–5 h",
-      "en-US": "4–5 h",
-    },
+    recommendedMinutes: { min: 90, max: 90 },
+    maxMinutes: 300,
     searchTerms: ["kyckling", "chicken", "lår", "thigh", "Chicken thigh", "Kycklinglår"],
   },
   {
@@ -514,16 +385,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Well-done",
     },
     temperatureC: 72,
-    recommendedTime: {
-      sv: "1,5 h",
-      "en-GB": "1.5 h",
-      "en-US": "1.5 h",
-    },
-    maxTime: {
-      sv: "3 h",
-      "en-GB": "3 h",
-      "en-US": "3 h",
-    },
+    recommendedMinutes: { min: 90, max: 90 },
+    maxMinutes: 180,
     searchTerms: ["kyckling", "chicken", "lår", "thigh", "Chicken thigh", "Kycklinglår"],
   },
   {
@@ -540,16 +403,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Rare",
     },
     temperatureC: 54,
-    recommendedTime: {
-      sv: "1,5 h",
-      "en-GB": "1.5 h",
-      "en-US": "1.5 h",
-    },
-    maxTime: {
-      sv: "3 h",
-      "en-GB": "3 h",
-      "en-US": "3 h",
-    },
+    recommendedMinutes: { min: 90, max: 90 },
+    maxMinutes: 180,
     searchTerms: ["nöt", "beef", "ryggbiff", "sirloin", "biff", "Sirloin", "Ryggbiff"],
   },
   {
@@ -566,16 +421,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 58,
-    recommendedTime: {
-      sv: "1,5 h",
-      "en-GB": "1.5 h",
-      "en-US": "1.5 h",
-    },
-    maxTime: {
-      sv: "3 h",
-      "en-GB": "3 h",
-      "en-US": "3 h",
-    },
+    recommendedMinutes: { min: 90, max: 90 },
+    maxMinutes: 180,
     searchTerms: ["nöt", "beef", "ryggbiff", "sirloin", "Sirloin", "Ryggbiff"],
   },
   {
@@ -592,16 +439,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Well-done",
     },
     temperatureC: 70,
-    recommendedTime: {
-      sv: "1,5 h",
-      "en-GB": "1.5 h",
-      "en-US": "1.5 h",
-    },
-    maxTime: {
-      sv: "3 h",
-      "en-GB": "3 h",
-      "en-US": "3 h",
-    },
+    recommendedMinutes: { min: 90, max: 90 },
+    maxMinutes: 180,
     searchTerms: ["nöt", "beef", "ryggbiff", "sirloin", "Sirloin", "Ryggbiff"],
   },
   {
@@ -618,16 +457,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Rare",
     },
     temperatureC: 54,
-    recommendedTime: {
-      sv: "1,5 h",
-      "en-GB": "1.5 h",
-      "en-US": "1.5 h",
-    },
-    maxTime: {
-      sv: "3 h",
-      "en-GB": "3 h",
-      "en-US": "3 h",
-    },
+    recommendedMinutes: { min: 90, max: 90 },
+    maxMinutes: 180,
     searchTerms: [
       "nöt",
       "beef",
@@ -653,16 +484,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 58,
-    recommendedTime: {
-      sv: "1,5 h",
-      "en-GB": "1.5 h",
-      "en-US": "1.5 h",
-    },
-    maxTime: {
-      sv: "3 h",
-      "en-GB": "3 h",
-      "en-US": "3 h",
-    },
+    recommendedMinutes: { min: 90, max: 90 },
+    maxMinutes: 180,
     searchTerms: [
       "nöt",
       "beef",
@@ -687,16 +510,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Well-done",
     },
     temperatureC: 70,
-    recommendedTime: {
-      sv: "1,5 h",
-      "en-GB": "1.5 h",
-      "en-US": "1.5 h",
-    },
-    maxTime: {
-      sv: "3 h",
-      "en-GB": "3 h",
-      "en-US": "3 h",
-    },
+    recommendedMinutes: { min: 90, max: 90 },
+    maxMinutes: 180,
     searchTerms: [
       "nöt",
       "beef",
@@ -721,16 +536,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Rare",
     },
     temperatureC: 54,
-    recommendedTime: {
-      sv: "1,5 h",
-      "en-GB": "1.5 h",
-      "en-US": "1.5 h",
-    },
-    maxTime: {
-      sv: "7–8 h",
-      "en-GB": "7–8 h",
-      "en-US": "7–8 h",
-    },
+    recommendedMinutes: { min: 90, max: 90 },
+    maxMinutes: 480,
     searchTerms: [
       "nöt",
       "beef",
@@ -755,16 +562,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 58,
-    recommendedTime: {
-      sv: "1,5 h",
-      "en-GB": "1.5 h",
-      "en-US": "1.5 h",
-    },
-    maxTime: {
-      sv: "7–8 h",
-      "en-GB": "7–8 h",
-      "en-US": "7–8 h",
-    },
+    recommendedMinutes: { min: 90, max: 90 },
+    maxMinutes: 480,
     searchTerms: ["nöt", "beef", "entrecôte", "ribeye", "Ribeye, sliced", "Entrecôte, skivad"],
   },
   {
@@ -781,16 +580,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Rare",
     },
     temperatureC: 58,
-    recommendedTime: {
-      sv: "12 h",
-      "en-GB": "12 h",
-      "en-US": "12 h",
-    },
-    maxTime: {
-      sv: "48 h",
-      "en-GB": "48 h",
-      "en-US": "48 h",
-    },
+    recommendedMinutes: { min: 720, max: 720 },
+    maxMinutes: 2880,
     searchTerms: ["nöt", "beef", "flank", "flankstek", "Flank steak", "Flankstek"],
   },
   {
@@ -807,16 +598,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 65,
-    recommendedTime: {
-      sv: "12 h",
-      "en-GB": "12 h",
-      "en-US": "12 h",
-    },
-    maxTime: {
-      sv: "24 h",
-      "en-GB": "24 h",
-      "en-US": "24 h",
-    },
+    recommendedMinutes: { min: 720, max: 720 },
+    maxMinutes: 1440,
     searchTerms: ["nöt", "beef", "flank", "flankstek", "Flank steak", "Flankstek"],
   },
   {
@@ -833,16 +616,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Well-done",
     },
     temperatureC: 82,
-    recommendedTime: {
-      sv: "8 h",
-      "en-GB": "8 h",
-      "en-US": "8 h",
-    },
-    maxTime: {
-      sv: "18 h",
-      "en-GB": "18 h",
-      "en-US": "18 h",
-    },
+    recommendedMinutes: { min: 480, max: 480 },
+    maxMinutes: 1080,
     searchTerms: ["nöt", "beef", "flank", "flankstek", "Flank steak", "Flankstek"],
   },
   {
@@ -859,16 +634,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Pink",
     },
     temperatureC: 54.5,
-    recommendedTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
-    maxTime: {
-      sv: "1 h 30 min",
-      "en-GB": "1 h 30 min",
-      "en-US": "1 h 30 min",
-    },
+    recommendedMinutes: { min: 60, max: 60 },
+    maxMinutes: 90,
     searchTerms: [
       "vilt",
       "game",
@@ -894,16 +661,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Rare",
     },
     temperatureC: 55,
-    recommendedTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
-    maxTime: {
-      sv: "2 h",
-      "en-GB": "2 h",
-      "en-US": "2 h",
-    },
+    recommendedMinutes: { min: 60, max: 60 },
+    maxMinutes: 120,
     searchTerms: [
       "vilt",
       "game",
@@ -929,16 +688,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 58,
-    recommendedTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
-    maxTime: {
-      sv: "2 h",
-      "en-GB": "2 h",
-      "en-US": "2 h",
-    },
+    recommendedMinutes: { min: 60, max: 60 },
+    maxMinutes: 120,
     searchTerms: ["vilt", "game", "älg", "ren", "moose", "reindeer", "Moose / reindeer", "Älg/ren"],
   },
   {
@@ -955,16 +706,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Rare",
     },
     temperatureC: 42,
-    recommendedTime: {
-      sv: "40 min",
-      "en-GB": "40 min",
-      "en-US": "40 min",
-    },
-    maxTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
+    recommendedMinutes: { min: 40, max: 40 },
+    maxMinutes: 60,
     searchTerms: ["fisk", "fish", "lax", "salmon", "Salmon fillet", "Laxfilé"],
   },
   {
@@ -981,16 +724,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 50,
-    recommendedTime: {
-      sv: "40 min",
-      "en-GB": "40 min",
-      "en-US": "40 min",
-    },
-    maxTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
+    recommendedMinutes: { min: 40, max: 40 },
+    maxMinutes: 60,
     searchTerms: ["fisk", "fish", "lax", "salmon", "Salmon fillet", "Laxfilé"],
   },
   {
@@ -1007,16 +742,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Well-done",
     },
     temperatureC: 55,
-    recommendedTime: {
-      sv: "40 min",
-      "en-GB": "40 min",
-      "en-US": "40 min",
-    },
-    maxTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
+    recommendedMinutes: { min: 40, max: 40 },
+    maxMinutes: 60,
     searchTerms: ["fisk", "fish", "lax", "salmon", "Salmon fillet", "Laxfilé"],
   },
   {
@@ -1033,16 +760,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Rare",
     },
     temperatureC: 41,
-    recommendedTime: {
-      sv: "40 min",
-      "en-GB": "40 min",
-      "en-US": "40 min",
-    },
-    maxTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
+    recommendedMinutes: { min: 40, max: 40 },
+    maxMinutes: 60,
     searchTerms: ["fisk", "fish", "tonfisk", "tuna", "Tuna", "Tonfisk"],
   },
   {
@@ -1059,16 +778,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 46,
-    recommendedTime: {
-      sv: "40 min",
-      "en-GB": "40 min",
-      "en-US": "40 min",
-    },
-    maxTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
+    recommendedMinutes: { min: 40, max: 40 },
+    maxMinutes: 60,
     searchTerms: ["fisk", "fish", "tonfisk", "tuna", "Tuna", "Tonfisk"],
   },
   {
@@ -1085,16 +796,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Well-done",
     },
     temperatureC: 49,
-    recommendedTime: {
-      sv: "40 min",
-      "en-GB": "40 min",
-      "en-US": "40 min",
-    },
-    maxTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
+    recommendedMinutes: { min: 40, max: 40 },
+    maxMinutes: 60,
     searchTerms: ["fisk", "fish", "tonfisk", "tuna", "Tuna", "Tonfisk"],
   },
   {
@@ -1111,16 +814,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Rare",
     },
     temperatureC: 42,
-    recommendedTime: {
-      sv: "40 min",
-      "en-GB": "40 min",
-      "en-US": "40 min",
-    },
-    maxTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
+    recommendedMinutes: { min: 40, max: 40 },
+    maxMinutes: 60,
     searchTerms: ["fisk", "fish", "torsk", "cod", "Cod", "Torsk"],
   },
   {
@@ -1137,16 +832,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 50,
-    recommendedTime: {
-      sv: "40 min",
-      "en-GB": "40 min",
-      "en-US": "40 min",
-    },
-    maxTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
+    recommendedMinutes: { min: 40, max: 40 },
+    maxMinutes: 60,
     searchTerms: ["fisk", "fish", "torsk", "cod", "Cod", "Torsk"],
   },
   {
@@ -1163,16 +850,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Well-done",
     },
     temperatureC: 54,
-    recommendedTime: {
-      sv: "40 min",
-      "en-GB": "40 min",
-      "en-US": "40 min",
-    },
-    maxTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
+    recommendedMinutes: { min: 40, max: 40 },
+    maxMinutes: 60,
     searchTerms: ["fisk", "fish", "torsk", "cod", "Cod", "Torsk"],
   },
   {
@@ -1189,16 +868,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Rare",
     },
     temperatureC: 42,
-    recommendedTime: {
-      sv: "40 min",
-      "en-GB": "40 min",
-      "en-US": "40 min",
-    },
-    maxTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
+    recommendedMinutes: { min: 40, max: 40 },
+    maxMinutes: 60,
     searchTerms: ["fisk", "fish", "hälleflundra", "halibut", "Halibut", "Hälleflundra"],
   },
   {
@@ -1215,16 +886,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 50,
-    recommendedTime: {
-      sv: "30 min",
-      "en-GB": "30 min",
-      "en-US": "30 min",
-    },
-    maxTime: {
-      sv: "45 min",
-      "en-GB": "45 min",
-      "en-US": "45 min",
-    },
+    recommendedMinutes: { min: 30, max: 30 },
+    maxMinutes: 45,
     searchTerms: ["fisk", "fish", "hälleflundra", "halibut", "Halibut", "Hälleflundra"],
   },
   {
@@ -1241,16 +904,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Well-done",
     },
     temperatureC: 52,
-    recommendedTime: {
-      sv: "40 min",
-      "en-GB": "40 min",
-      "en-US": "40 min",
-    },
-    maxTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
+    recommendedMinutes: { min: 40, max: 40 },
+    maxMinutes: 60,
     searchTerms: ["fisk", "fish", "hälleflundra", "halibut", "Halibut", "Hälleflundra"],
   },
   {
@@ -1267,16 +922,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Rare",
     },
     temperatureC: 42,
-    recommendedTime: {
-      sv: "40 min",
-      "en-GB": "40 min",
-      "en-US": "40 min",
-    },
-    maxTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
+    recommendedMinutes: { min: 40, max: 40 },
+    maxMinutes: 60,
     searchTerms: ["fisk", "fish", "piggvar", "turbot", "Turbot", "Piggvar"],
   },
   {
@@ -1293,16 +940,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Medium",
     },
     temperatureC: 47,
-    recommendedTime: {
-      sv: "30 min",
-      "en-GB": "30 min",
-      "en-US": "30 min",
-    },
-    maxTime: {
-      sv: "45 min",
-      "en-GB": "45 min",
-      "en-US": "45 min",
-    },
+    recommendedMinutes: { min: 30, max: 30 },
+    maxMinutes: 45,
     searchTerms: ["fisk", "fish", "piggvar", "turbot", "Turbot", "Piggvar"],
   },
   {
@@ -1319,16 +958,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Well-done",
     },
     temperatureC: 50,
-    recommendedTime: {
-      sv: "40 min",
-      "en-GB": "40 min",
-      "en-US": "40 min",
-    },
-    maxTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
+    recommendedMinutes: { min: 40, max: 40 },
+    maxMinutes: 60,
     searchTerms: ["fisk", "fish", "piggvar", "turbot", "Turbot", "Piggvar"],
   },
   {
@@ -1345,16 +976,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Nearly raw",
     },
     temperatureC: 49,
-    recommendedTime: {
-      sv: "20 min",
-      "en-GB": "20 min",
-      "en-US": "20 min",
-    },
-    maxTime: {
-      sv: "30 min",
-      "en-GB": "30 min",
-      "en-US": "30 min",
-    },
+    recommendedMinutes: { min: 20, max: 20 },
+    maxMinutes: 30,
     searchTerms: [
       "skaldjur",
       "shellfish",
@@ -1378,16 +1001,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Tender",
     },
     temperatureC: 54,
-    recommendedTime: {
-      sv: "20 min",
-      "en-GB": "20 min",
-      "en-US": "20 min",
-    },
-    maxTime: {
-      sv: "30 min",
-      "en-GB": "30 min",
-      "en-US": "30 min",
-    },
+    recommendedMinutes: { min: 20, max: 20 },
+    maxMinutes: 30,
     searchTerms: [
       "skaldjur",
       "shellfish",
@@ -1411,16 +1026,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Firm",
     },
     temperatureC: 59,
-    recommendedTime: {
-      sv: "20 min",
-      "en-GB": "20 min",
-      "en-US": "20 min",
-    },
-    maxTime: {
-      sv: "30 min",
-      "en-GB": "30 min",
-      "en-US": "30 min",
-    },
+    recommendedMinutes: { min: 20, max: 20 },
+    maxMinutes: 30,
     searchTerms: [
       "skaldjur",
       "shellfish",
@@ -1444,16 +1051,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Nearly raw",
     },
     temperatureC: 42,
-    recommendedTime: {
-      sv: "20 min",
-      "en-GB": "20 min",
-      "en-US": "20 min",
-    },
-    maxTime: {
-      sv: "30 min",
-      "en-GB": "30 min",
-      "en-US": "30 min",
-    },
+    recommendedMinutes: { min: 20, max: 20 },
+    maxMinutes: 30,
     searchTerms: ["skaldjur", "shellfish", "musslor", "scallops", "Scallops", "Pilgrimsmusslor"],
   },
   {
@@ -1470,16 +1069,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Tender",
     },
     temperatureC: 51,
-    recommendedTime: {
-      sv: "20 min",
-      "en-GB": "20 min",
-      "en-US": "20 min",
-    },
-    maxTime: {
-      sv: "30 min",
-      "en-GB": "30 min",
-      "en-US": "30 min",
-    },
+    recommendedMinutes: { min: 20, max: 20 },
+    maxMinutes: 30,
     searchTerms: ["skaldjur", "shellfish", "musslor", "scallops", "Scallops", "Pilgrimsmusslor"],
   },
   {
@@ -1496,16 +1087,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Firm",
     },
     temperatureC: 54,
-    recommendedTime: {
-      sv: "20 min",
-      "en-GB": "20 min",
-      "en-US": "20 min",
-    },
-    maxTime: {
-      sv: "30 min",
-      "en-GB": "30 min",
-      "en-US": "30 min",
-    },
+    recommendedMinutes: { min: 20, max: 20 },
+    maxMinutes: 30,
     searchTerms: ["skaldjur", "shellfish", "musslor", "scallops", "Scallops", "Pilgrimsmusslor"],
   },
   {
@@ -1522,16 +1105,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Nearly raw",
     },
     temperatureC: 50,
-    recommendedTime: {
-      sv: "15 min",
-      "en-GB": "15 min",
-      "en-US": "15 min",
-    },
-    maxTime: {
-      sv: "20 min",
-      "en-GB": "20 min",
-      "en-US": "20 min",
-    },
+    recommendedMinutes: { min: 15, max: 15 },
+    maxMinutes: 20,
     searchTerms: [
       "skaldjur",
       "shellfish",
@@ -1558,16 +1133,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Tender",
     },
     temperatureC: 56,
-    recommendedTime: {
-      sv: "15 min",
-      "en-GB": "15 min",
-      "en-US": "15 min",
-    },
-    maxTime: {
-      sv: "20 min",
-      "en-GB": "20 min",
-      "en-US": "20 min",
-    },
+    recommendedMinutes: { min: 15, max: 15 },
+    maxMinutes: 20,
     searchTerms: ["skaldjur", "shellfish", "räkor", "räka", "shrimp", "Prawns", "Shrimp", "Räkor"],
   },
   {
@@ -1584,16 +1151,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Firm",
     },
     temperatureC: 60,
-    recommendedTime: {
-      sv: "15 min",
-      "en-GB": "15 min",
-      "en-US": "15 min",
-    },
-    maxTime: {
-      sv: "20 min",
-      "en-GB": "20 min",
-      "en-US": "20 min",
-    },
+    recommendedMinutes: { min: 15, max: 15 },
+    maxMinutes: 20,
     searchTerms: ["skaldjur", "shellfish", "räkor", "räka", "shrimp", "Prawns", "Shrimp", "Räkor"],
   },
   {
@@ -1606,16 +1165,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
     },
     doneness: null,
     temperatureC: 85,
-    recommendedTime: {
-      sv: "15 min",
-      "en-GB": "15 min",
-      "en-US": "15 min",
-    },
-    maxTime: {
-      sv: "20 min",
-      "en-GB": "20 min",
-      "en-US": "20 min",
-    },
+    recommendedMinutes: { min: 15, max: 15 },
+    maxMinutes: 20,
     searchTerms: [
       "grönsaker",
       "vegetables",
@@ -1637,16 +1188,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
     },
     doneness: null,
     temperatureC: 82,
-    recommendedTime: {
-      sv: "22 min",
-      "en-GB": "22 min",
-      "en-US": "22 min",
-    },
-    maxTime: {
-      sv: "30 min",
-      "en-GB": "30 min",
-      "en-US": "30 min",
-    },
+    recommendedMinutes: { min: 22, max: 22 },
+    maxMinutes: 30,
     searchTerms: ["grönsaker", "vegetables", "sparris", "asparagus", "Asparagus", "Sparris"],
   },
   {
@@ -1659,16 +1202,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
     },
     doneness: null,
     temperatureC: 88,
-    recommendedTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
-    maxTime: {
-      sv: "3 h",
-      "en-GB": "3 h",
-      "en-US": "3 h",
-    },
+    recommendedMinutes: { min: 60, max: 60 },
+    maxMinutes: 180,
     searchTerms: ["grönsaker", "vegetables", "potatis", "potato", "Potato", "Potatis"],
   },
   {
@@ -1681,16 +1216,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
     },
     doneness: null,
     temperatureC: 86,
-    recommendedTime: {
-      sv: "3 h",
-      "en-GB": "3 h",
-      "en-US": "3 h",
-    },
-    maxTime: {
-      sv: "5 h",
-      "en-GB": "5 h",
-      "en-US": "5 h",
-    },
+    recommendedMinutes: { min: 180, max: 180 },
+    maxMinutes: 300,
     searchTerms: [
       "grönsaker",
       "vegetables",
@@ -1712,16 +1239,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
     },
     doneness: null,
     temperatureC: 90,
-    recommendedTime: {
-      sv: "30 min",
-      "en-GB": "30 min",
-      "en-US": "30 min",
-    },
-    maxTime: {
-      sv: "45 min",
-      "en-GB": "45 min",
-      "en-US": "45 min",
-    },
+    recommendedMinutes: { min: 30, max: 30 },
+    maxMinutes: 45,
     searchTerms: ["grönsaker", "vegetables", "pumpa", "pumpkin", "squash", "Pumpkin", "Pumpa"],
   },
   {
@@ -1738,16 +1257,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Soft",
     },
     temperatureC: 64,
-    recommendedTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
-    maxTime: {
-      sv: "2 h",
-      "en-GB": "2 h",
-      "en-US": "2 h",
-    },
+    recommendedMinutes: { min: 60, max: 60 },
+    maxMinutes: 120,
     searchTerms: ["ägg", "egg", "breakfast", "Large egg", "Ägg, Large"],
   },
   {
@@ -1764,16 +1275,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Poached",
     },
     temperatureC: 72,
-    recommendedTime: {
-      sv: "13 min",
-      "en-GB": "13 min",
-      "en-US": "13 min",
-    },
-    maxTime: {
-      sv: "15 min",
-      "en-GB": "15 min",
-      "en-US": "15 min",
-    },
+    recommendedMinutes: { min: 13, max: 13 },
+    maxMinutes: 15,
     searchTerms: ["ägg", "egg", "pocherat", "poached", "Large egg", "Ägg, Large"],
   },
   {
@@ -1790,16 +1293,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Hard-cooked",
     },
     temperatureC: 84,
-    recommendedTime: {
-      sv: "20 min",
-      "en-GB": "20 min",
-      "en-US": "20 min",
-    },
-    maxTime: {
-      sv: "20 min",
-      "en-GB": "20 min",
-      "en-US": "20 min",
-    },
+    recommendedMinutes: { min: 20, max: 20 },
+    maxMinutes: 20,
     searchTerms: ["ägg", "egg", "hårdkokt", "Large egg", "Ägg, Large"],
   },
   {
@@ -1816,16 +1311,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-US": "Spreadable yolk, set white",
     },
     temperatureC: 65,
-    recommendedTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
-    maxTime: {
-      sv: "2 h",
-      "en-GB": "2 h",
-      "en-US": "2 h",
-    },
+    recommendedMinutes: { min: 60, max: 60 },
+    maxMinutes: 120,
     searchTerms: ["ägg", "egg", "gula", "yolk", "Large egg", "Ägg, Large"],
   },
   {
@@ -1838,16 +1325,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
     },
     doneness: null,
     temperatureC: 80,
-    recommendedTime: {
-      sv: "1 h",
-      "en-GB": "1 h",
-      "en-US": "1 h",
-    },
-    maxTime: {
-      sv: "1 h 30 min",
-      "en-GB": "1 h 30 min",
-      "en-US": "1 h 30 min",
-    },
+    recommendedMinutes: { min: 60, max: 60 },
+    maxMinutes: 90,
     searchTerms: [
       "ägg",
       "egg",
@@ -1868,16 +1347,8 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
     },
     doneness: null,
     temperatureC: 43,
-    recommendedTime: {
-      sv: "12 h",
-      "en-GB": "12 h",
-      "en-US": "12 h",
-    },
-    maxTime: {
-      sv: "16 h",
-      "en-GB": "16 h",
-      "en-US": "16 h",
-    },
+    recommendedMinutes: { min: 720, max: 720 },
+    maxMinutes: 960,
     searchTerms: ["yoghurt", "yogurt", "ferment", "Yoghurt", "Yogurt"],
   },
 ];

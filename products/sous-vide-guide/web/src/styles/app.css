@@ -25,9 +25,9 @@
   --input: oklch(0.9 0.015 75);
   --ring: oklch(0.55 0.08 45);
   --radius: 0.75rem;
-  --kitchen-ink: oklch(0.2 0.025 50);
-  --kitchen-copper: oklch(0.62 0.12 50);
-  --kitchen-steam: oklch(0.95 0.02 90);
+  --guide-ink: oklch(0.2 0.025 50);
+  --guide-copper: oklch(0.62 0.12 50);
+  --guide-steam: oklch(0.95 0.02 90);
 }
 
 html,
@@ -42,7 +42,7 @@ body {
   background:
     radial-gradient(
       1200px 500px at 10% -10%,
-      color-mix(in oklab, var(--kitchen-copper) 22%, transparent),
+      color-mix(in oklab, var(--guide-copper) 22%, transparent),
       transparent 60%
     ),
     radial-gradient(
@@ -50,7 +50,7 @@ body {
       color-mix(in oklab, var(--accent) 18%, transparent),
       transparent 55%
     ),
-    linear-gradient(180deg, var(--kitchen-steam), var(--background) 42%, oklch(0.94 0.016 80));
+    linear-gradient(180deg, var(--guide-steam), var(--background) 42%, oklch(0.94 0.016 80));
   background-attachment: fixed;
 }
 
@@ -62,7 +62,7 @@ body {
 .surface-panel {
   background: color-mix(in oklab, var(--card) 88%, white);
   border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
-  box-shadow: 0 18px 40px -28px color-mix(in oklab, var(--kitchen-ink) 45%, transparent);
+  box-shadow: 0 18px 40px -28px color-mix(in oklab, var(--guide-ink) 45%, transparent);
 }
 
 .temp-number {
