@@ -9,6 +9,7 @@ import { formatDurationMinutes, formatDurationRange } from "@/lib/duration";
 import type { SousVideCutGroup } from "@/lib/group-cuts";
 import { groupSousVideEntriesByCut } from "@/lib/group-cuts";
 import { isSearchQuery } from "@/lib/search";
+import { useActiveSection } from "@/lib/use-active-section";
 import type { TemperatureUnit } from "@/lib/temperature";
 import { formatTemperature } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
@@ -48,7 +49,7 @@ export function SousVideBrowser(props: BrowserProps) {
   const sections = groupEntriesByCategory(props.allEntries);
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:pb-12 lg:max-w-5xl">
+    <main className="mx-auto w-full max-w-3xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:pb-12">
       <GuideIntro rows={props.allEntries.length} />
 
       <Toolbar q={props.q} />
@@ -187,12 +188,18 @@ function CategoryDock(props: {
   sections: ReadonlyArray<CategorySection>;
 }) {
   const query = props.q.trim();
+  const active = useActiveSection({
+    enabled: !props.searching,
+    ids: props.sections.map((section) => section.category),
+    onChange: revealQuickLink,
+  });
+
   return (
     <nav
       aria-label={m.jump_to_category()}
       className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-[color-mix(in_oklab,var(--background)_86%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:sticky sm:top-[calc(var(--site-header-h)+4rem)] sm:z-10 sm:-mx-6 sm:border-t-0 sm:border-b sm:pb-0"
     >
-      <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2 sm:px-6 lg:max-w-5xl">
+      <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2 sm:px-6">
         {props.searching ? (
           <p
             aria-live="polite"
@@ -205,26 +212,56 @@ function CategoryDock(props: {
                 : m.results_for_query({ count: props.count, query })}
           </p>
         ) : (
-          <ul className="quick-strip -my-1 flex min-w-0 flex-1 snap-x gap-1.5 overflow-x-auto py-1">
-            {props.sections.map((section) => (
-              <li className="snap-start" key={section.category}>
-                <Link
-                  className="inline-flex h-10 shrink-0 touch-manipulation items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--guide-ink)_6%,transparent)] px-3.5 text-sm font-medium whitespace-nowrap text-[var(--guide-ink)] transition-colors hover:bg-[color-mix(in_oklab,var(--guide-ink)_12%,transparent)] active:bg-[color-mix(in_oklab,var(--guide-ink)_16%,transparent)]"
-                  hash={section.category}
-                  to="/"
-                >
-                  <span>{categoryMessage[section.category]()}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    {section.entries.length}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="quick-strip relative -my-1 min-w-0 flex-1 snap-x overflow-x-auto py-1">
+            <ul className="inline-flex rounded-lg border border-border/70 bg-background/80 p-0.5">
+              {props.sections.map((section) => {
+                const isActive = section.category === active;
+                return (
+                  <li className="snap-start" key={section.category}>
+                    <Link
+                      activeOptions={{ exact: true, includeHash: true }}
+                      className={cn(
+                        "inline-flex h-10 shrink-0 touch-manipulation items-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors sm:h-9",
+                        isActive
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-[color-mix(in_oklab,var(--guide-ink)_6%,transparent)] hover:text-foreground",
+                      )}
+                      data-quick-link={section.category}
+                      hash={section.category}
+                      to="/"
+                    >
+                      <span>{categoryMessage[section.category]()}</span>
+                      <span
+                        className={cn(
+                          "text-xs tabular-nums",
+                          isActive ? "text-primary-foreground/75" : "text-muted-foreground/80",
+                        )}
+                      >
+                        {section.entries.length}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
       </div>
     </nav>
   );
+}
+
+/** Keeps the highlighted quick link centred in the horizontally scrolling strip. */
+function revealQuickLink(id: string) {
+  const link = document.querySelector<HTMLElement>(`[data-quick-link="${id}"]`);
+  const strip = link?.closest<HTMLElement>(".quick-strip");
+  if (!link || !strip || strip.scrollWidth <= strip.clientWidth) {
+    return;
+  }
+  strip.scrollTo({
+    behavior: "smooth",
+    left: link.offsetLeft - (strip.clientWidth - link.offsetWidth) / 2,
+  });
 }
 
 function CategorySectionView(props: {
@@ -296,7 +333,7 @@ function IngredientList(props: {
   unit: TemperatureUnit;
 }) {
   return (
-    <ul className="grid gap-3 lg:grid-cols-2">
+    <ul className="grid gap-3">
       {props.groups.map((group) => (
         <li className="min-w-0" key={group.cutId}>
           <IngredientCard

@@ -27,7 +27,15 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
   `src/data/sousVide.ts` because the ladder renders them in source order.
 - **Bottom dock** (`CategoryDock`) is `position: fixed` on phones — keep it out
   of any ancestor with `backdrop-filter`/`transform`, and keep `main`'s bottom
-  padding so the footer clears it.
+  padding so the footer clears it. The links are one segmented button group;
+  the current section is highlighted by `useActiveSection`
+  (`src/lib/use-active-section.ts`, the one audited hook seam here): a section
+  is "reached" once its top passes its own `scroll-margin-top`, so the spy and
+  `#hash` jumps agree — change `scroll-mt-*` on `CategorySectionView` and the
+  spy follows. TanStack `Link` owns `aria-current`; quick links use
+  `activeOptions={{ exact: true, includeHash: true }}` so only the URL-hash
+  match announces as current.
+- **One column** of cards at every width; `main` stays `max-w-3xl`.
 
 ## Content seam
 

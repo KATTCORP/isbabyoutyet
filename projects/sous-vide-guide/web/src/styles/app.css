@@ -53,17 +53,11 @@ html {
   }
 }
 
-/* Horizontal quick-link strip: scrollable, no visible scrollbar, soft edge fade. */
+/* Horizontal quick-link strip: scrollable with no visible scrollbar. The
+   button group inside has its own border, so no edge fade (it would clip it). */
 .quick-strip {
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  mask-image: linear-gradient(
-    90deg,
-    transparent,
-    black 0.75rem,
-    black calc(100% - 1.25rem),
-    transparent
-  );
 }
 
 .quick-strip::-webkit-scrollbar {
