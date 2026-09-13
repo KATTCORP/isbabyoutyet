@@ -5,12 +5,12 @@ import { defineRule } from "@oxlint/plugins";
  *
  * App state should come from route search params, queries, mutations, or
  * direct user interactions. External subscriptions (timers, observers,
- * storage) belong in audited `apps/web/src/lib` seams — not in feature UI.
+ * storage) belong in audited `projects/<app>/web/src/lib` seams — not in feature UI.
  */
 
 const BANNED_EFFECT_HOOKS = new Set(["useEffect", "useLayoutEffect"]);
 const MESSAGE =
-  "Do not use React `{{name}}`. Derive state during render, update it in user interactions, or use an audited `apps/web/src/lib` hook seam.";
+  "Do not use React `{{name}}`. Derive state during render, update it in user interactions, or use an audited `projects/<app>/web/src/lib` hook seam.";
 
 function importedName(node) {
   return node.imported.type === "Identifier" ? node.imported.name : node.imported.value;

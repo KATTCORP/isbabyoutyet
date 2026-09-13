@@ -1,0 +1,17 @@
+{
+  "extends": "@workspace/tsconfig/react.json",
+  "include": ["**/*.ts", "**/*.tsx"],
+  "compilerOptions": {
+    "types": ["vite/client"],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@isbabyoutyet/backend/*": ["../../projects/isbabyoutyet/backend/*"],
+      "@workspace/convex-prefetch": ["../../../packages/convex-prefetch/src/index.ts"],
+      "@workspace/convex-prefetch/test-helpers": [
+        "../../../packages/convex-prefetch/src/test-helpers.ts"
+      ],
+      "@workspace/query-prefetch": ["../../../packages/query-prefetch/src/index.ts"],
+      "@workspace/ui/*": ["../../../packages/ui/src/*"]
+    }
+  }
+}

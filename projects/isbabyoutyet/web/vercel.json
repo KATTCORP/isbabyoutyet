@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "tanstack-start",
+  "buildCommand": "pnpm deploy-convex",
+  "installCommand": "cd ../../.. && pnpm install",
+  "trailingSlash": false
+}

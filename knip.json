@@ -10,7 +10,10 @@
   ],
   "tags": ["-@internal"],
   "workspaces": {
-    "apps/web": {
+    ".": {
+      "entry": ["scripts/clean.mjs!"]
+    },
+    "projects/isbabyoutyet/web": {
       "tanstack-router": {
         "entry": ["src/routes/**/*.{ts,tsx}!", "src/router.tsx!"]
       },
@@ -31,7 +34,7 @@
         "scripts/write-convex-url.mjs!"
       ]
     },
-    "packages/convex": {
+    "projects/isbabyoutyet/backend": {
       "entry": [
         "scripts/ensureLocalEnv.ts!",
         "scripts/seedHomepageDemo.ts!",
@@ -68,7 +71,7 @@
     },
     "packages/runtime": {},
     "packages/form-guard": {},
-    "packages/email": {
+    "projects/isbabyoutyet/email": {
       "entry": ["emails/**/*.{ts,tsx}!", "src/index.ts!"]
     },
     "packages/query-prefetch": {},

@@ -94,7 +94,7 @@ The stack root mounts a TanStack `useBlocker` for in-app navigation and
 `beforeunload`. An overlay's _own_ close navigation (after its exit
 transition) must pass `ignoreBlocker: true` — the guard already answered, and a
 blocked replace / reverted `history.back()` would leave the URL on the overlay
-route with nothing visible. `apps/web/src/lib/overlay-nav.ts` does this.
+route with nothing visible. `projects/isbabyoutyet/web/src/lib/overlay-nav.ts` does this.
 
 ## Stacked overlays
 

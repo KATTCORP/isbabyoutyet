@@ -49,7 +49,7 @@
       "inputs": [
         "$TURBO_ROOT$/package.json",
         "$TURBO_ROOT$/vitest.config.ts",
-        "$TURBO_ROOT$/apps/**",
+        "$TURBO_ROOT$/projects/**",
         "$TURBO_ROOT$/packages/**",
         "$TURBO_ROOT$/tooling/**",
         "!$TURBO_ROOT$/packages/oxlint-plugins/*.ts",

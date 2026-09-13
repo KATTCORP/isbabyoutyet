@@ -81,7 +81,7 @@ function createClient(router: AnyRouter, url: string, transformer: any) {
 }
 ```
 
-### No optional `?` (apps/web)
+### No optional `?` (projects/isbabyoutyet/web)
 
 Enforced by `no-optional/no-optional` in `.oxlintrc.json`. Do not use TypeScript
 optional markers on properties or parameters (`x?: T`, `(x?: T) => …`). Prefer a
@@ -112,7 +112,7 @@ Do not use `v.optional()` on Convex schema fields or RPC args unless the
 optional is a **temporary** migration hatch. Mark those with JSDoc `@todo`
 (the field is still in use; remaining work is to require the key). `@deprecated`
 also satisfies the lint if you want that signal. Follow
-[`packages/convex/.agents/skills/convex-schema-migration/SKILL.md`](packages/convex/.agents/skills/convex-schema-migration/SKILL.md)
+[`projects/isbabyoutyet/backend/.agents/skills/convex-schema-migration/SKILL.md`](projects/isbabyoutyet/backend/.agents/skills/convex-schema-migration/SKILL.md)
 for backfill vs require-after-backfill deploys.
 
 Prefer a required key with an explicit absence union so callers and rows must
@@ -153,7 +153,7 @@ args: {
 }
 ```
 
-`packages/convex/convex/convex.config.ts` env validators are exempt (unset env
+`projects/isbabyoutyet/backend/convex/convex.config.ts` env validators are exempt (unset env
 is not a schema/RPC omission).
 
 ### Naming Conventions
@@ -221,7 +221,7 @@ import { z } from 'zod';
 - **NEVER** import from `@trpc/*/src` - remove the `/src` part
 - **NEVER** use `waitFor` from Testing Library - use `vi.waitFor` instead
 - **NEVER** use `Symbol.dispose` or `Symbol.asyncDispose` - use `makeResource()` or `makeAsyncResource()`
-- **NEVER** use module mocking (`vi.mock` / `vi.hoisted` / `jest.mock`) in `apps/web` tests — enforced by `no-mock/no-mock` in `.oxlintrc.json`. Prefer `convex-test` seeding, real providers (`renderWithTestRouter`), prop injection into presentational views, or `vi.spyOn` / `vi.stubGlobal` for browser host APIs. Local `vi.fn()` callbacks are fine.
+- **NEVER** use module mocking (`vi.mock` / `vi.hoisted` / `jest.mock`) in `projects/isbabyoutyet/web` tests — enforced by `no-mock/no-mock` in `.oxlintrc.json`. Prefer `convex-test` seeding, real providers (`renderWithTestRouter`), prop injection into presentational views, or `vi.spyOn` / `vi.stubGlobal` for browser host APIs. Local `vi.fn()` callbacks are fine.
 
 ```typescript
 // ✅ CORRECT — inject callbacks into a presentational view

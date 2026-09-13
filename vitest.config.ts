@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { webUnitProject } from "./apps/web/vitest.config.ts";
+import { webUnitProject } from "./projects/isbabyoutyet/web/vitest.config.ts";
 
 /**
  * Monorepo Vitest projects (formerly "workspaces").
@@ -22,14 +22,14 @@ export default defineConfig({
         "**/stubJsdomWindow.ts",
       ],
       include: [
-        "apps/web/src/**/*.{ts,tsx}",
-        "packages/convex/convex/**/*.ts",
-        "packages/convex/src/**/*.ts",
+        "projects/isbabyoutyet/web/src/**/*.{ts,tsx}",
+        "projects/isbabyoutyet/backend/convex/**/*.ts",
+        "projects/isbabyoutyet/backend/src/**/*.ts",
         "packages/runtime/src/**/*.ts",
         "packages/query-prefetch/src/**/*.ts",
         "packages/convex-prefetch/src/**/*.ts",
         "packages/form-guard/src/**/*.ts",
-        "packages/email/src/**/*.{ts,tsx}",
+        "projects/isbabyoutyet/email/src/**/*.{ts,tsx}",
       ],
       // CI: json-summary for the local coverage ratchet; lcov for Codecov history uploads.
       // Local: full HTML/JSON reports for browsing.
@@ -42,13 +42,13 @@ export default defineConfig({
       fsModuleCachePath: "node_modules/.experimental-vitest-cache",
     },
     projects: [
-      "packages/convex",
+      "projects/isbabyoutyet/backend",
       "packages/runtime",
       "packages/oxlint-plugins",
       "packages/query-prefetch",
       "packages/convex-prefetch",
       "packages/form-guard",
-      "packages/email",
+      "projects/isbabyoutyet/email",
       webUnitProject,
     ],
   },

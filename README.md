@@ -1,31 +1,45 @@
-mainly vibe coded
+# Is Baby Out Yet
 
-## dev setup
+Monorepo for **Is Baby Out Yet?** and sibling products.
+
+## Layout
+
+```
+projects/
+  isbabyoutyet/
+    web/       @isbabyoutyet/web       TanStack Start app
+    backend/   @isbabyoutyet/backend   Convex backend
+    email/     @isbabyoutyet/email     React Email templates
+  sous-vide-guide/                     (stacked PR) Sous Vide Guide web app
+packages/      Shared UI, form-guard, oxlint plugins, prefetch helpers, …
+```
+
+Each product under `projects/<name>/` owns its app code, hosting config, and
+(if any) backend. Cross-product code stays in `packages/`.
+
+## Setup
 
 Requires **Node.js 24** ([`.nvmrc`](.nvmrc)).
 
-### install
-
 ```sh
 pnpm install
+pnpm dev          # all workspaces
+pnpm clean        # wipe install/build caches and reinstall
 ```
 
-### development
+Filter to one product:
 
 ```sh
-pnpm dev
+pnpm --filter '@isbabyoutyet/*' dev
 ```
 
-Local and Vercel preview backends are seeded with demo logins:
+## Products
 
-- email: `test@example.com` / password: `password` — owns babies in every status (waiting, labour, hospital, born)
-- email: `test+newuser@example.com` / password: `password` — empty dashboard / first-run tour
-- email: `test+coparent@example.com` / password: `password` — co-parent on Milo (`/baby/baby-born`)
+- **Is Baby Out Yet?** — [`projects/isbabyoutyet/README.md`](projects/isbabyoutyet/README.md)
+  (demo logins, Vercel root directory, Convex, email preview via `pnpm email`)
+- **Sous Vide Guide** — added in the stacked PR under `projects/sous-vide-guide/`
 
-Re-run with `pnpm --filter @workspace/convex seed` (idempotent). Wipe the local anonymous Convex DB with `pnpm reset-dev`, then run `pnpm dev` to provision and seed again.
+## Agent notes
 
-The homepage also links to a locale-specific public live demo (Juniper Hale, Willow Brooks, Ella Holm, Lucía Navarro, or Helena Costa) seeded in every environment, including production. Production deploys refresh their dates and wipe visitor comments.
-
-Demo photos live in Git LFS (`packages/convex/assets/homepage-demo/`). Vercel: enable Git LFS in the project Git settings so production/preview builds receive the actual images.
-
-Password-reset mail is React Email in `@workspace/email`. `pnpm dev` also starts the template preview at http://localhost:3333. Local Convex logs instead of sending.
+Root [`AGENTS.md`](AGENTS.md) covers monorepo-wide rules (hooks ban, tests,
+PRs). Product-specific notes live under each project’s `AGENTS.md`.

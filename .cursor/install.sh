@@ -25,11 +25,11 @@ echo "Using node $(node -v) / pnpm $(pnpm -v)"
 pnpm install --frozen-lockfile
 
 # Web app dev env file (VITE_CONVEX_URL etc.); .env.local is gitignored.
-(cd apps/web && [ -f .env.local ] || pnpm setup-dev)
+(cd projects/isbabyoutyet/web && [ -f .env.local ] || pnpm setup-dev)
 
 # Provision the local anonymous Convex backend, set its env vars, generate
 # VAPID keys, and seed demo data (login + babies in every status + homepage
 # demo text). Gated on .env.local so it only runs on a fresh backend.
-(cd packages/convex && [ -f .env.local ] || pnpm setup-dev)
+(cd projects/isbabyoutyet/backend && [ -f .env.local ] || pnpm setup-dev)
 
 echo "Install complete."

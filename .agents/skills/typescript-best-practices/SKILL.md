@@ -34,7 +34,7 @@ Examples: `references/patterns.md`.
 Keep the table above, then apply these local constraints so the skill does not fight lint:
 
 - **Discriminants.** Use one name per domain and stick to it. Existing code uses `type` on `BabyStatus` and `kind` on notification capability. Do not mix both on the same union.
-- **No optional `?` in `apps/web`.** `workspace/no-optional` requires a present key with `T | null` / `T | undefined`. Do not reintroduce `Partial<{ ... }>` bags to dodge that rule when the caller already has the fields.
+- **No optional `?` in `projects/isbabyoutyet/web`.** `workspace/no-optional` requires a present key with `T | null` / `T | undefined`. Do not reintroduce `Partial<{ ... }>` bags to dodge that rule when the caller already has the fields.
 - **Assertions.** `typescript/consistent-type-assertions` is `never`. Earned casts need a `SAFETY:` comment (`anti-slop/require-safety-comment-for-type-assertion`). Prefer `satisfies` and `as const`. Tests may assert.
 - **`unknown` vs `any`.** `anti-slop/no-unknown-parameters` (and `no-unknown-returns`) ban unparsed `unknown` on ordinary functions. Decode at the I/O boundary (`packages/runtime/src/guards.ts` is the seam). Never substitute `any` for that ban — give the value a domain type (`QueryFactoryInput`, `Doc<"baby">`, a discriminated union). Implementation-overload `any` on bivariant generic helpers (query-prefetch `invokeFactory`) is the remaining named exception: replacing it needs a banned `as` or a banned `unknown` parameter.
 - **Branding.** Unique-symbol brands (query-prefetch handles) are valid here; do not rewrite them to `{ readonly __brand: "X" }`.

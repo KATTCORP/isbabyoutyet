@@ -45,7 +45,7 @@ Fill `.github/pull_request_template.md`. Do not duplicate the template here.
 - **Stacked PRs:** `## Stack` first, with the full two-column table (PR | Description). Mark the current PR in the PR column as `**👉 …**` (bold plus emoji). Do not use `← this PR` in Description. Then follow the rest of `.github/pull_request_template.md`.
 - **Non-stack PRs:** omit the Stack section entirely. Do not write `n/a`.
 - **Why / How / What / Alternate approaches considered:** titled `##` sections with concise bullets under each. Do not use a single Summary with labeled `Why:` bullets. See `.github/pull_request_template.md` (do not duplicate it here).
-- **Schema changes** is required and covers schema **and** related Convex migrations (for example `packages/convex/convex/migrations.ts` or migration functions). If neither changed, write `None`. If either did, fill the schema, why, migrations, and follow-up bullets in `.github/pull_request_template.md` (do not duplicate them here).
+- **Schema changes** is required and covers schema **and** related Convex migrations (for example `projects/isbabyoutyet/backend/convex/migrations.ts` or migration functions). If neither changed, write `None`. If either did, fill the schema, why, migrations, and follow-up bullets in `.github/pull_request_template.md` (do not duplicate them here).
 - **Screenshots / video** is required. Follow the root `AGENTS.md`: attach final-preview screenshots for UI changes and a short video for interactions; otherwise write `None — <brief reason>`.
 
 ## Stack table

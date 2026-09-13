@@ -1,5 +1,5 @@
 {
-  "$schema": "./packages/convex/node_modules/oxfmt/configuration_schema.json",
+  "$schema": "./projects/isbabyoutyet/backend/node_modules/oxfmt/configuration_schema.json",
   // From `oxfmt --init`, plus ignores for generated code.
   "ignorePatterns": [
     "**/_generated/**",
@@ -8,7 +8,7 @@
     "packages/scripts/dist/**",
     // Vendor Convex skills from `npx convex ai-files update` — oxfmt would
     // rewrite their fenced TS and undo the CLI install.
-    "packages/convex/.agents/skills/**",
-    "packages/convex/.claude/skills/**"
+    "projects/isbabyoutyet/backend/.agents/skills/**",
+    "projects/isbabyoutyet/backend/.claude/skills/**"
   ]
 }
