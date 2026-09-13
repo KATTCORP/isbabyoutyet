@@ -39,7 +39,24 @@ export const Route = createRootRouteWithContext<{ locale: Locale }>()({
   head: (ctx) => {
     const locale = ctx.match.context.locale;
     return {
-      links: [{ href: appCss, rel: "stylesheet" }],
+      links: [
+        { href: appCss, rel: "stylesheet" },
+        { href: "/favicon.svg", rel: "icon", type: "image/svg+xml" },
+        { href: "/favicon.ico", rel: "icon" },
+        {
+          href: "/favicon-32x32.png",
+          rel: "icon",
+          sizes: "32x32",
+          type: "image/png",
+        },
+        {
+          href: "/favicon-16x16.png",
+          rel: "icon",
+          sizes: "16x16",
+          type: "image/png",
+        },
+        { href: "/apple-touch-icon.png", rel: "apple-touch-icon" },
+      ],
       meta: [
         { charSet: "utf8" },
         {
