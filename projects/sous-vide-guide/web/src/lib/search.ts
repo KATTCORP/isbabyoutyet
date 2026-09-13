@@ -66,7 +66,9 @@ export function filterSousVideEntries(opts: {
       ? opts.entries
       : opts.entries.filter((entry) => entry.category === opts.category);
 
-  if (trimmed.length === 0) {
+  // Fuzzy matching ignores needles shorter than 2 chars; treat those
+  // as "not searching yet" so a lone keystroke never empties the list.
+  if (trimmed.length < 2) {
     return [...categoryFiltered];
   }
 
