@@ -25,7 +25,20 @@ deployment rather than adding project prefixes to Baby Outlet variables.
 
 ## Deploy (Vercel)
 
-The Vercel project's **Root Directory** is `projects/baby-outlet/web`.
-`web/vercel.json` installs from the monorepo root (`cd ../../.. && pnpm install`)
-and builds with `pnpm deploy-convex`, which deploys the Convex backend in
-`backend/` and then builds the web app.
+Update the **existing** baby-outlet Vercel project (do not create a second one):
+
+1. Project → **Settings → General → Root Directory** → set to
+   `projects/baby-outlet/web` (was `apps/web`) → Save.
+2. **Settings → General → Framework Settings**
+   - Framework Preset: **TanStack Start** (matches `vercel.json`)
+   - Build Command: override **off**, or `pnpm deploy-convex`
+   - Output Directory: override **off** / empty (Nitro emits `.vercel/output`)
+   - Install Command: override **off**, or `cd ../../.. && pnpm install`
+     (three `..`, not two — the app is one level deeper than `apps/web`)
+3. **Settings → Environment Variables** — leave as-is (`CONVEX_DEPLOY_KEY`,
+   `BETTER_AUTH_SECRET`, Resend, VAPID, etc.). Same Convex deployment.
+4. Redeploy the latest Production deployment (Deployments → … → Redeploy).
+
+`web/vercel.json` is the source of truth for install/build once Root Directory
+points at `projects/baby-outlet/web`. The deploy script resolves the Convex
+package at `../backend` automatically — no Convex dashboard path change.
