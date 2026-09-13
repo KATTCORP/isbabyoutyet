@@ -31,7 +31,7 @@ function listDirs(parentRelative) {
     .map((entry) => join(parentRelative, entry.name));
 }
 
-/** Workspace package roots: packages/*, tooling/*, projects/*/* */
+/** Workspace package roots under packages/, tooling/, and projects/<name>/<pkg>. */
 function workspacePackageDirs() {
   return [
     ...listDirs("packages"),
