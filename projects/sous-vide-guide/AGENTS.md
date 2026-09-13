@@ -27,13 +27,6 @@ Guide row strings use English (en-GB) literals as keys via `createContentT` in
 UI chrome stays on Paraglide `m.*`. Do not chase further `t('literal')` churn;
 the current seam is enough.
 
-## PWA
-
-The guide is installable: `public/manifest.webmanifest` plus a thin `public/sw.js`
-registered from `src/lib/register-service-worker.ts` (side-effect import in the
-root route). Keep install icons square (`android-chrome-192x192.png` /
-`android-chrome-512x512.png`) so Android can mask them.
-
 ## Deploy
 
 New Vercel project. Root Directory: `projects/sous-vide-guide/web`. Do not point
