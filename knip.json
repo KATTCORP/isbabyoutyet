@@ -38,7 +38,7 @@
       "tanstack-router": {
         "entry": ["src/routes/**/*.{ts,tsx}!", "src/router.tsx!"]
       },
-      "entry": ["src/server.ts!", "vite.config.ts!"]
+      "entry": ["public/sw.js!", "src/server.ts!", "vite.config.ts!"]
     },
     "projects/isbabyoutyet/backend": {
       "entry": [
