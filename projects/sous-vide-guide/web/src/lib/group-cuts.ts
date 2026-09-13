@@ -21,7 +21,7 @@ const CUT_ID_SUFFIXES = [
 ] as const;
 
 /** Stable in-page anchor for a cut (meat type), not a doneness row. */
-export function cutIdFromEntryId(entryId: string) {
+function cutIdFromEntryId(entryId: string) {
   for (const suffix of CUT_ID_SUFFIXES) {
     if (entryId.endsWith(suffix)) {
       return entryId.slice(0, -suffix.length);
@@ -42,7 +42,9 @@ export type SousVideCutGroup = {
  * temperature outcome in a single glance (KitchenLab table style).
  * Preserves first-seen cut order within the filtered list.
  */
-export function groupSousVideEntriesByCut(entries: ReadonlyArray<SousVideEntry>) {
+export function groupSousVideEntriesByCut(
+  entries: ReadonlyArray<SousVideEntry>,
+): ReadonlyArray<SousVideCutGroup> {
   const groups: Array<{
     category: SousVideCategory;
     cutId: string;
