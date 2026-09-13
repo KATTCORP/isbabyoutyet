@@ -4,11 +4,11 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 import type { SousVideEntry } from "@/data/sousVide";
 import { SOUS_VIDE_CATEGORIES } from "@/data/sousVide";
 import { formatDurationMinutes, formatDurationRange } from "@/lib/duration";
+import { groupSousVideEntriesByCut } from "@/lib/group-cuts";
 import type { TemperatureUnit } from "@/lib/temperature";
 import { formatTemperature } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
-import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 
@@ -106,30 +106,31 @@ export function SousVideResults(props: {
 }) {
   const locale = getLocale();
   const deferredEntries = useDeferredValue(props.entries);
+  const cutGroups = groupSousVideEntriesByCut(deferredEntries);
 
-  if (deferredEntries.length === 0) {
+  if (cutGroups.length === 0) {
     return <p className="py-10 text-center text-muted-foreground">{m.no_results()}</p>;
   }
 
   return (
     <div className="space-y-8">
       <p className="text-sm text-muted-foreground">
-        {deferredEntries.length === 1
-          ? m.results_count_one()
-          : m.results_count({ count: deferredEntries.length })}
+        {cutGroups.length === 1
+          ? m.results_cuts_count_one()
+          : m.results_cuts_count({ count: cutGroups.length })}
       </p>
 
       {/* Always keep category sections so search does not swap layout and jump scroll. */}
       {SOUS_VIDE_CATEGORIES.map((category) => {
-        const entries = deferredEntries.filter((entry) => entry.category === category);
-        if (entries.length === 0) {
+        const groups = cutGroups.filter((group) => group.category === category);
+        if (groups.length === 0) {
           return null;
         }
         const categoryLabel = categoryMessage[category]();
 
         return (
           <section
-            className="scroll-mt-36 space-y-3 sm:scroll-mt-24"
+            className="scroll-mt-36 space-y-4 sm:scroll-mt-24"
             id={category}
             key={category}
           >
@@ -143,12 +144,18 @@ export function SousVideResults(props: {
                 #
               </a>
             </h2>
-            <EntryList
-              categoryLabel={categoryLabel}
-              entries={entries}
-              locale={locale}
-              unit={props.unit}
-            />
+            <div className="space-y-4">
+              {groups.map((group) => (
+                <CutTable
+                  cutId={group.cutId}
+                  key={group.cutId}
+                  locale={locale}
+                  name={group.name}
+                  rows={group.rows}
+                  unit={props.unit}
+                />
+              ))}
+            </div>
           </section>
         );
       })}
@@ -156,65 +163,73 @@ export function SousVideResults(props: {
   );
 }
 
-function EntryList(props: {
-  categoryLabel: string | undefined;
-  entries: ReadonlyArray<SousVideEntry>;
+function CutTable(props: {
+  cutId: string;
   locale: string;
+  name: string;
+  rows: ReadonlyArray<SousVideEntry>;
   unit: TemperatureUnit;
 }) {
   return (
-    <ul className="divide-y divide-border/80 overflow-hidden rounded-2xl border border-border/80 bg-[color-mix(in_oklab,var(--card)_92%,white)]">
-      {props.entries.map((entry) => {
-        const recommendedTime = formatDurationRange(entry.recommendedMinutes, props.locale);
-        const maxTime =
-          entry.maxMinutes === null ? null : formatDurationMinutes(entry.maxMinutes, props.locale);
-        const categoryLabel = props.categoryLabel ?? categoryMessage[entry.category]();
-
-        return (
-          <li
-            className="grid scroll-mt-40 gap-3 px-4 py-4 sm:scroll-mt-28 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6 sm:px-5"
-            id={entry.id}
-            key={entry.id}
+    <article
+      className="scroll-mt-40 overflow-hidden rounded-2xl border border-border/80 bg-[color-mix(in_oklab,var(--card)_92%,white)] sm:scroll-mt-28"
+      id={props.cutId}
+    >
+      <header className="flex flex-wrap items-baseline gap-2 border-b border-border/70 px-4 py-3 sm:px-5">
+        <h3 className="font-display text-lg font-semibold text-[var(--guide-ink)] sm:text-xl">
+          <span>{props.name}</span>{" "}
+          <a
+            aria-label={m.permalink_cut_label()}
+            className="inline-flex min-h-11 min-w-11 items-center justify-center text-sm text-[var(--guide-copper)] underline-offset-4 hover:underline sm:min-h-0 sm:min-w-0"
+            href={`#${props.cutId}`}
           >
-            <div className="min-w-0 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-display text-lg font-semibold text-[var(--guide-ink)]">
-                  <span>{entry.name}</span>{" "}
-                  <a
-                    aria-label={m.permalink_label()}
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center text-sm text-[var(--guide-copper)] underline-offset-4 hover:underline sm:min-h-0 sm:min-w-0"
-                    href={`#${entry.id}`}
-                  >
-                    #
-                  </a>
-                </h3>
-                {entry.doneness ? <Badge variant="outline">{entry.doneness}</Badge> : null}
-                <Badge variant="secondary">{categoryLabel}</Badge>
-              </div>
-              <dl className="grid grid-cols-1 gap-y-1 text-sm text-muted-foreground sm:grid-cols-2 sm:gap-x-6">
-                <div>
-                  <dt className="inline font-medium text-foreground/80">
-                    {m.recommended_time()}:{" "}
-                  </dt>
-                  <dd className="inline">{recommendedTime}</dd>
-                </div>
-                {maxTime ? (
-                  <div>
-                    <dt className="inline font-medium text-foreground/80">{m.max_time()}: </dt>
-                    <dd className="inline">{maxTime}</dd>
-                  </div>
-                ) : null}
-              </dl>
-            </div>
-            <div className="temp-number text-4xl font-semibold leading-none text-[var(--guide-copper)] sm:text-right">
-              {formatTemperature(entry.temperatureC, {
-                locale: props.locale,
-                unit: props.unit,
-              })}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+            #
+          </a>
+        </h3>
+      </header>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[20rem] border-collapse text-left text-sm">
+          <thead className="bg-muted/40 text-muted-foreground">
+            <tr>
+              <th className="px-4 py-2 font-medium sm:px-5">{m.doneness_label()}</th>
+              <th className="px-3 py-2 font-medium">{m.recommended_time()}</th>
+              <th className="px-3 py-2 font-medium">{m.max_time()}</th>
+              <th className="px-4 py-2 text-right font-medium sm:px-5">
+                {m.temperature_label()}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {props.rows.map((entry) => {
+              const recommendedTime = formatDurationRange(
+                entry.recommendedMinutes,
+                props.locale,
+              );
+              const maxTime =
+                entry.maxMinutes === null
+                  ? "—"
+                  : formatDurationMinutes(entry.maxMinutes, props.locale);
+
+              return (
+                <tr className="border-t border-border/60" key={entry.id}>
+                  <td className="px-4 py-3 text-foreground/90 sm:px-5">
+                    {entry.doneness ?? "—"}
+                  </td>
+                  <td className="px-3 py-3 text-muted-foreground">{recommendedTime}</td>
+                  <td className="px-3 py-3 text-muted-foreground">{maxTime}</td>
+                  <td className="temp-number px-4 py-3 text-right text-2xl font-semibold leading-none text-[var(--guide-copper)] sm:px-5 sm:text-3xl">
+                    {formatTemperature(entry.temperatureC, {
+                      locale: props.locale,
+                      unit: props.unit,
+                    })}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </article>
   );
 }
