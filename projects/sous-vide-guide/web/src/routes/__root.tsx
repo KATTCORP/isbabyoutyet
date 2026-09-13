@@ -4,6 +4,7 @@ import { retainSearchParams } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { SiteHeader } from "@/components/site-header";
+import "@/lib/register-service-worker";
 import { temperatureUnitSearchSchema } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
@@ -56,6 +57,7 @@ export const Route = createRootRouteWithContext<{ locale: Locale }>()({
           type: "image/png",
         },
         { href: "/apple-touch-icon.png", rel: "apple-touch-icon" },
+        { href: "/manifest.webmanifest", rel: "manifest" },
       ],
       meta: [
         { charSet: "utf8" },
@@ -67,7 +69,11 @@ export const Route = createRootRouteWithContext<{ locale: Locale }>()({
         { content: m.sous_vide_summary(), name: "description" },
         { content: m.app_name(), property: "og:site_name" },
         { content: ogLocale(locale), property: "og:locale" },
-        { content: "#8a5a2b", name: "theme-color" },
+        { content: "#8A5A2B", name: "theme-color" },
+        { content: "yes", name: "mobile-web-app-capable" },
+        { content: "yes", name: "apple-mobile-web-app-capable" },
+        { content: "black-translucent", name: "apple-mobile-web-app-status-bar-style" },
+        { content: m.app_name(), name: "apple-mobile-web-app-title" },
       ],
     };
   },
