@@ -12,14 +12,15 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
   locale with `setLocaleInPlace` so the page can navigate/`?unit=` without a
   full reload.
 - **Categories** are in-page `#anchor` links only (not URL filters) — no “All”
-  chip. Sections use `scroll-mt-*` against `--site-header-h` (fixed header
-  height, see `src/styles/app.css`, which also sets
-  `html { scroll-behavior: smooth }`).
+  chip. The search field scrolls with the page; only the site header (and the
+  quick-link dock) stays pinned. Sections use `scroll-mt-*` against
+  `--site-header-h` (fixed header height, see `src/styles/app.css`, which also
+  sets `html { scroll-behavior: smooth }`) plus the dock row height on `sm+`.
 - **Search** writes `?q=` on every change with `replace: true`; the input is
   uncontrolled (`defaultValue`, never re-keyed) so focus and cursor survive the
   navigation, and the Clear button resets the field imperatively. Scroll is
-  kept while refining (`resetScroll: false`) and reset once when a query starts
-  so results land under the sticky toolbar. The page filters with
+  never reset (`resetScroll: false`): results render right under the field the
+  user is typing in. The page filters with
   `useDeferredValue` so typing stays responsive. While a query is active the
   dock shows the result count instead of the category links.
 - **Grouping**: rows are shown per cut via `groupSousVideEntriesByCut`

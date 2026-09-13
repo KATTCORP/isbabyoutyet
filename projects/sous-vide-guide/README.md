@@ -32,7 +32,7 @@ locale’s default unit (with a toast when the unit flips).
 collapse into a ladder inside the card (`src/lib/group-cuts.ts`), so 76 rows
 read as about 30 ingredients. Categories are **in-page anchors** (not filters)
 in a quick-link dock: fixed to the bottom of the screen on phones (thumb reach,
-above the home indicator), a sticky row under the search field on wider
+above the home indicator), a sticky row under the site header on wider
 screens. The links form one button group and the section currently scrolled
 into view is highlighted. While a search is active the dock shows the result
 count instead.

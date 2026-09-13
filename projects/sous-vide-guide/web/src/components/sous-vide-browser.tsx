@@ -27,8 +27,6 @@ const categoryMessage = {
   vegetables: () => m.category_vegetables(),
 } as const satisfies Record<SousVideCategory, () => string>;
 
-const RESULTS_ID = "results";
-
 type BrowserProps = {
   allEntries: ReadonlyArray<SousVideEntry>;
   entries: ReadonlyArray<SousVideEntry>;
@@ -38,10 +36,10 @@ type BrowserProps = {
 
 /**
  * "Ladder" layout: rows collapse into one card per cut, with the doneness
- * steps (rare → medium → well done) as a ladder inside it. Search stays pinned
- * under the header; the category quick links live in a thumb-reach dock at the
- * bottom of the phone screen (a sticky row on wider screens). The °C/°F switch
- * lives in the site header.
+ * steps (rare → medium → well done) as a ladder inside it. Search scrolls with
+ * the page (only the site header is pinned); the category quick links live in a
+ * thumb-reach dock at the bottom of the phone screen and in a sticky row under
+ * the header on wider screens. The °C/°F switch lives in the site header.
  */
 export function SousVideBrowser(props: BrowserProps) {
   const locale = getLocale();
@@ -60,7 +58,7 @@ export function SousVideBrowser(props: BrowserProps) {
         sections={sections}
       />
 
-      <div className="scroll-mt-[calc(var(--site-header-h)+4rem)]" id={RESULTS_ID}>
+      <div>
         {searching ? (
           <SearchResults entries={props.entries} locale={locale} q={props.q} unit={props.unit} />
         ) : (
@@ -105,7 +103,7 @@ function GuideIntro(props: { rows: number }) {
 
 function Toolbar(props: { q: string }) {
   return (
-    <div className="sticky top-[var(--site-header-h)] z-10 -mx-4 bg-[color-mix(in_oklab,var(--background)_88%,transparent)] px-4 py-2 backdrop-blur-md sm:-mx-6 sm:px-6">
+    <div className="py-2">
       <SearchField q={props.q} />
     </div>
   );
@@ -142,8 +140,7 @@ function SearchField(props: { q: string }) {
           void navigate({
             hash: "",
             replace: true,
-            // Jump to the results once when a search starts; keep the scroll while refining.
-            resetScroll: props.q.length === 0 && q.length > 0,
+            resetScroll: false,
             search: (previous) => ({ ...previous, q }),
           });
         }}
@@ -178,7 +175,7 @@ function SearchField(props: { q: string }) {
 
 /**
  * Bottom dock on phones (thumb reach, above the home indicator); on wider
- * screens it becomes a sticky row directly under the search field. While a
+ * screens it becomes a sticky row directly under the site header. While a
  * search is active it shows the result count instead of the links.
  */
 function CategoryDock(props: {
@@ -197,7 +194,7 @@ function CategoryDock(props: {
   return (
     <nav
       aria-label={m.jump_to_category()}
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-[color-mix(in_oklab,var(--background)_86%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:sticky sm:top-[calc(var(--site-header-h)+4rem)] sm:z-10 sm:-mx-6 sm:border-t-0 sm:border-b sm:pb-0"
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-[color-mix(in_oklab,var(--background)_86%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:sticky sm:top-[var(--site-header-h)] sm:z-10 sm:-mx-6 sm:border-t-0 sm:border-b sm:pb-0"
     >
       <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2 sm:px-6">
         {props.searching ? (
@@ -274,7 +271,7 @@ function CategorySectionView(props: {
 
   return (
     <section
-      className="scroll-mt-[calc(var(--site-header-h)+4rem)] pt-7 sm:scroll-mt-[calc(var(--site-header-h)+7.75rem)] sm:pt-9"
+      className="scroll-mt-[calc(var(--site-header-h)+0.5rem)] pt-7 sm:scroll-mt-[calc(var(--site-header-h)+3.5rem)] sm:pt-9"
       id={props.section.category}
     >
       <h2 className="mb-3 flex items-baseline gap-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)]">
@@ -359,7 +356,7 @@ function IngredientCard(props: {
 
   return (
     <article
-      className="scroll-mt-[calc(var(--site-header-h)+4.5rem)] rounded-2xl border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,white)] px-4 pt-3.5 pb-2 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] target:ring-2 target:ring-[var(--guide-copper)]"
+      className="scroll-mt-[calc(var(--site-header-h)+1rem)] rounded-2xl sm:scroll-mt-[calc(var(--site-header-h)+4.25rem)] border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,white)] px-4 pt-3.5 pb-2 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] target:ring-2 target:ring-[var(--guide-copper)]"
       id={props.group.cutId}
     >
       <div className="flex items-baseline justify-between gap-3">
@@ -417,7 +414,7 @@ function DonenessStep(props: {
 
   return (
     <li
-      className="grid scroll-mt-[calc(var(--site-header-h)+4.25rem)] grid-cols-[0.85rem_minmax(0,1fr)_auto_auto] items-baseline gap-x-3 py-2 target:rounded-lg target:bg-[color-mix(in_oklab,var(--guide-copper)_12%,transparent)] sm:scroll-mt-[calc(var(--site-header-h)+8rem)]"
+      className="grid scroll-mt-[calc(var(--site-header-h)+1rem)] grid-cols-[0.85rem_minmax(0,1fr)_auto_auto] items-baseline gap-x-3 py-2 target:rounded-lg target:bg-[color-mix(in_oklab,var(--guide-copper)_12%,transparent)] sm:scroll-mt-[calc(var(--site-header-h)+4.25rem)]"
       id={entry.id}
     >
       <span
