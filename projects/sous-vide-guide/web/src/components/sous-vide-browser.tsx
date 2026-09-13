@@ -31,8 +31,8 @@ type SousVideToolbarProps = {
 /**
  * Search + category jump links. Categories are in-page anchors (not filters);
  * the sticky header offset is handled via `scroll-mt-*` on sections.
- * Query updates go straight to the URL; the page defers filtering with
- * `useDeferredValue` so typing stays responsive.
+ * Query updates go straight to the URL without remounting the input or
+ * resetting scroll; the page defers filtering with `useDeferredValue`.
  */
 export function SousVideToolbar(props: SousVideToolbarProps) {
   const navigate = useNavigate({ from: "/" });
@@ -45,13 +45,12 @@ export function SousVideToolbar(props: SousVideToolbarProps) {
           aria-label={m.search_entries_placeholder()}
           autoComplete="off"
           className="h-12 bg-background/90 text-base sm:h-11 sm:text-sm"
-          defaultValue={props.q}
           enterKeyHint="search"
-          key={props.q}
           name="q"
           onChange={(event) => {
             void navigate({
               replace: true,
+              resetScroll: false,
               search: {
                 ...search,
                 q: event.currentTarget.value,
@@ -61,6 +60,7 @@ export function SousVideToolbar(props: SousVideToolbarProps) {
           }}
           placeholder={m.search_entries_placeholder()}
           type="search"
+          value={props.q}
         />
         {props.q.length > 0 ? (
           <Button
@@ -68,6 +68,7 @@ export function SousVideToolbar(props: SousVideToolbarProps) {
             onClick={() => {
               void navigate({
                 replace: true,
+                resetScroll: false,
                 search: { ...search, q: "", unit: props.unit },
               });
             }}
@@ -81,15 +82,6 @@ export function SousVideToolbar(props: SousVideToolbarProps) {
 
       <nav aria-label={m.categories_label()} className="-mx-1">
         <div className="flex flex-wrap gap-2 px-1 pb-1">
-          <Button
-            className="h-10 shrink-0 snap-start rounded-full px-4 touch-manipulation"
-            render={<a href="#sous-vide" />}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            {m.all_categories()}
-          </Button>
           {SOUS_VIDE_CATEGORIES.map((category) => (
             <Button
               className="h-10 shrink-0 snap-start rounded-full px-4 touch-manipulation"
@@ -110,13 +102,10 @@ export function SousVideToolbar(props: SousVideToolbarProps) {
 
 export function SousVideResults(props: {
   entries: ReadonlyArray<SousVideEntry>;
-  query: string;
   unit: TemperatureUnit;
 }) {
   const locale = getLocale();
-  const deferredQuery = useDeferredValue(props.query);
   const deferredEntries = useDeferredValue(props.entries);
-  const hasQuery = deferredQuery.trim().length > 0;
 
   if (deferredEntries.length === 0) {
     return <p className="py-10 text-center text-muted-foreground">{m.no_results()}</p>;
@@ -130,47 +119,39 @@ export function SousVideResults(props: {
           : m.results_count({ count: deferredEntries.length })}
       </p>
 
-      {hasQuery ? (
-        <EntryList
-          categoryLabel={undefined}
-          entries={deferredEntries}
-          locale={locale}
-          unit={props.unit}
-        />
-      ) : (
-        SOUS_VIDE_CATEGORIES.map((category) => {
-          const entries = deferredEntries.filter((entry) => entry.category === category);
-          if (entries.length === 0) {
-            return null;
-          }
-          const categoryLabel = categoryMessage[category]();
+      {/* Always keep category sections so search does not swap layout and jump scroll. */}
+      {SOUS_VIDE_CATEGORIES.map((category) => {
+        const entries = deferredEntries.filter((entry) => entry.category === category);
+        if (entries.length === 0) {
+          return null;
+        }
+        const categoryLabel = categoryMessage[category]();
 
-          return (
-            <section
-              className="scroll-mt-36 space-y-3 sm:scroll-mt-24"
-              id={category}
-              key={category}
-            >
-              <h2 className="font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)]">
-                <span>{categoryLabel}</span>{" "}
-                <a
-                  aria-label={m.category_permalink_label({ category: categoryLabel })}
-                  className="text-base text-[var(--guide-copper)] underline-offset-4 hover:underline"
-                  href={`#${category}`}
-                >
-                  #
-                </a>
-              </h2>
-              <EntryList
-                categoryLabel={categoryLabel}
-                entries={entries}
-                locale={locale}
-                unit={props.unit}
-              />
-            </section>
-          );
-        })
-      )}
+        return (
+          <section
+            className="scroll-mt-36 space-y-3 sm:scroll-mt-24"
+            id={category}
+            key={category}
+          >
+            <h2 className="font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)]">
+              <span>{categoryLabel}</span>{" "}
+              <a
+                aria-label={m.category_permalink_label({ category: categoryLabel })}
+                className="text-base text-[var(--guide-copper)] underline-offset-4 hover:underline"
+                href={`#${category}`}
+              >
+                #
+              </a>
+            </h2>
+            <EntryList
+              categoryLabel={categoryLabel}
+              entries={entries}
+              locale={locale}
+              unit={props.unit}
+            />
+          </section>
+        );
+      })}
     </div>
   );
 }
