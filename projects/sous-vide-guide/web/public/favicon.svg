@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Sous Vide Guide">
+  <rect width="32" height="32" rx="7" fill="#8A5A2B" />
+  <path
+    fill="#F4EDE0"
+    d="M13.2 5.4h5.6c1.33 0 2.4 1.07 2.4 2.4v9.7a6.6 6.6 0 1 1-10.4 0V7.8c0-1.33 1.07-2.4 2.4-2.4z"
+  />
+  <path
+    fill="#E39A4A"
+    d="M14.85 8.6h2.3c.5 0 .9.4.9.9v10.35a2.05 2.05 0 1 1-4.1 0V9.5c0-.5.4-.9.9-.9z"
+  />
+  <rect x="21.2" y="8.1" width="3.4" height="1.6" rx="0.8" fill="#F4EDE0" />
+  <rect x="21.2" y="11.6" width="3.4" height="1.6" rx="0.8" fill="#F4EDE0" />
+</svg>

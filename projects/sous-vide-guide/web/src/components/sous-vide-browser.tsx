@@ -30,7 +30,8 @@ type SousVideToolbarProps = {
 
 /**
  * Search + category jump links. Categories are in-page anchors (not filters);
- * the sticky header offset is handled via `scroll-mt-*` on sections.
+ * the sticky site-header offset is handled via `scroll-mt-*` on sections.
+ * This toolbar scrolls with the page so it does not stack under the header.
  * Query updates go straight to the URL without remounting the input or
  * resetting scroll; the page defers filtering with `useDeferredValue`.
  */
@@ -39,7 +40,7 @@ export function SousVideToolbar(props: SousVideToolbarProps) {
   const search = useRouterState({ select: (state) => state.location.search });
 
   return (
-    <div className="sticky top-[3.25rem] z-10 -mx-4 space-y-3 border-b border-border/60 bg-[color-mix(in_oklab,var(--background)_92%,transparent)] px-4 py-3 backdrop-blur-md sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+    <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Input
           aria-label={m.search_entries_placeholder()}
@@ -129,11 +130,7 @@ export function SousVideResults(props: {
         const categoryLabel = categoryMessage[category]();
 
         return (
-          <section
-            className="scroll-mt-36 space-y-4 sm:scroll-mt-24"
-            id={category}
-            key={category}
-          >
+          <section className="scroll-mt-24 space-y-4 sm:scroll-mt-20" id={category} key={category}>
             <h2 className="font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)]">
               <span>{categoryLabel}</span>{" "}
               <a
@@ -172,7 +169,7 @@ function CutTable(props: {
 }) {
   return (
     <article
-      className="scroll-mt-40 overflow-hidden rounded-2xl border border-border/80 bg-[color-mix(in_oklab,var(--card)_92%,white)] sm:scroll-mt-28"
+      className="scroll-mt-24 overflow-hidden rounded-2xl border border-border/80 bg-[color-mix(in_oklab,var(--card)_92%,white)] sm:scroll-mt-20"
       id={props.cutId}
     >
       <header className="flex flex-wrap items-baseline gap-2 border-b border-border/70 px-4 py-3 sm:px-5">
@@ -195,17 +192,12 @@ function CutTable(props: {
               <th className="px-4 py-2 font-medium sm:px-5">{m.doneness_label()}</th>
               <th className="px-3 py-2 font-medium">{m.recommended_time()}</th>
               <th className="px-3 py-2 font-medium">{m.max_time()}</th>
-              <th className="px-4 py-2 text-right font-medium sm:px-5">
-                {m.temperature_label()}
-              </th>
+              <th className="px-4 py-2 text-right font-medium sm:px-5">{m.temperature_label()}</th>
             </tr>
           </thead>
           <tbody>
             {props.rows.map((entry) => {
-              const recommendedTime = formatDurationRange(
-                entry.recommendedMinutes,
-                props.locale,
-              );
+              const recommendedTime = formatDurationRange(entry.recommendedMinutes, props.locale);
               const maxTime =
                 entry.maxMinutes === null
                   ? "—"
@@ -213,9 +205,7 @@ function CutTable(props: {
 
               return (
                 <tr className="border-t border-border/60" key={entry.id}>
-                  <td className="px-4 py-3 text-foreground/90 sm:px-5">
-                    {entry.doneness ?? "—"}
-                  </td>
+                  <td className="px-4 py-3 text-foreground/90 sm:px-5">{entry.doneness ?? "—"}</td>
                   <td className="px-3 py-3 text-muted-foreground">{recommendedTime}</td>
                   <td className="px-3 py-3 text-muted-foreground">{maxTime}</td>
                   <td className="temp-number px-4 py-3 text-right text-2xl font-semibold leading-none text-[var(--guide-copper)] sm:px-5 sm:text-3xl">

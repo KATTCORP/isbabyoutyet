@@ -12,9 +12,10 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
   locale with `setLocaleInPlace` so the page can navigate/`?unit=` without a
   full reload.
 - **Categories** are in-page `#anchor` links only (not URL filters) — no “All”
-  chip. Sections use `scroll-mt-*`; `html { scroll-behavior: smooth }` is in
+  chip. Search and jump chips scroll with the page; only the site header is
+  sticky. Sections use `scroll-mt-*`; `html { scroll-behavior: smooth }` is in
   `src/styles/app.css`. Keep category sections while filtering so layout does
-  not swap under the sticky search bar.
+  not jump when the result set changes.
 - **Search** writes `?q=` on every change with a controlled input
   (`resetScroll: false`, no remount `key`). The page filters with
   `useDeferredValue` so typing stays responsive without stealing focus.
