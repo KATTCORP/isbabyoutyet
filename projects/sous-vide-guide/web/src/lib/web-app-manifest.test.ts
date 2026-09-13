@@ -1,11 +1,10 @@
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 import { expect, test } from "vitest";
 import { z } from "zod";
 
-const publicDir = join(dirname(fileURLToPath(import.meta.url)), "../../public");
+const publicDir = join(import.meta.dirname, "../../public");
 
 const webAppManifestSchema = z.object({
   display: z.literal("standalone"),
