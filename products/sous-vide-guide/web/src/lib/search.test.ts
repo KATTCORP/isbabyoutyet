@@ -60,6 +60,25 @@ describe("filterSousVideEntries", () => {
     });
     expect(tenderloin.length).toBeGreaterThan(0);
   });
+
+  it("matches multi-word queries with AND semantics", () => {
+    const salmonRare = filterSousVideEntries({
+      entries: SOUS_VIDE_ENTRIES,
+      query: "salmon rare",
+      category: "all",
+    });
+    expect(salmonRare.some((entry) => entry.id === "salmon-rare")).toBe(true);
+    expect(salmonRare.every((entry) => entry.id.includes("salmon"))).toBe(true);
+  });
+
+  it("avoids loose subsequence false positives", () => {
+    const sea = filterSousVideEntries({
+      entries: SOUS_VIDE_ENTRIES,
+      query: "sea",
+      category: "all",
+    });
+    expect(sea.every((entry) => !entry.id.includes("carrot"))).toBe(true);
+  });
 });
 
 describe("fuzzyScore", () => {
@@ -70,6 +89,8 @@ describe("fuzzyScore", () => {
     expect(fuzzyScore("flask", "fläskfilé")).toBeGreaterThan(0);
     expect(fuzzyScore("xyz", "pork chop")).toBe(0);
     expect(fuzzyScore("lax", "lammfilé")).toBe(0);
+    expect(fuzzyScore("sea", "carrot")).toBe(0);
+    expect(fuzzyScore("e", "beef")).toBe(0);
   });
 });
 

@@ -1536,6 +1536,7 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "skaldjur",
       "shellfish",
       "räkor",
+      "räka",
       "shrimp",
       "prawns",
       "Prawns",
@@ -1567,7 +1568,7 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-GB": "20 min",
       "en-US": "20 min",
     },
-    searchTerms: ["skaldjur", "shellfish", "räkor", "shrimp", "Prawns", "Shrimp", "Räkor"],
+    searchTerms: ["skaldjur", "shellfish", "räkor", "räka", "shrimp", "Prawns", "Shrimp", "Räkor"],
   },
   {
     id: "shrimp-firm",
@@ -1593,7 +1594,7 @@ export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
       "en-GB": "20 min",
       "en-US": "20 min",
     },
-    searchTerms: ["skaldjur", "shellfish", "räkor", "shrimp", "Prawns", "Shrimp", "Räkor"],
+    searchTerms: ["skaldjur", "shellfish", "räkor", "räka", "shrimp", "Prawns", "Shrimp", "Räkor"],
   },
   {
     id: "carrot",

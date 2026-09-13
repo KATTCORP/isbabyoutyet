@@ -39,5 +39,6 @@
   "unit_celsius": "Celsius",
   "unit_fahrenheit": "Fahrenheit",
   "permalink_label": "Länk till den här raden",
-  "category_permalink_label": "Länk till kategorin {category}"
+  "category_permalink_label": "Länk till kategorin {category}",
+  "stats_line": "{categories} kategorier · {rows} rader"
 }

@@ -163,6 +163,7 @@ function TemperatureUnitToggle(props: { search: SousVideSearch }) {
 export function SousVideResults(props: {
   entries: ReadonlyArray<SousVideEntry>;
   unit: TemperatureUnit;
+  query: string;
 }) {
   const locale = getLocale();
 
@@ -170,10 +171,7 @@ export function SousVideResults(props: {
     return <p className="py-10 text-center text-muted-foreground">{m.no_results()}</p>;
   }
 
-  const grouped = SOUS_VIDE_CATEGORIES.map((category) => ({
-    category,
-    entries: props.entries.filter((entry) => entry.category === category),
-  })).filter((group) => group.entries.length > 0);
+  const hasQuery = props.query.trim().length > 0;
 
   return (
     <div className="space-y-8">
@@ -181,78 +179,104 @@ export function SousVideResults(props: {
         {m.results_count({ count: props.entries.length })}
       </p>
 
-      {grouped.map((group) => {
-        const categoryLabel = categoryMessage[group.category]();
+      {hasQuery ? (
+        <EntryList
+          entries={props.entries}
+          unit={props.unit}
+          locale={locale}
+          categoryLabel={undefined}
+        />
+      ) : (
+        SOUS_VIDE_CATEGORIES.map((category) => {
+          const entries = props.entries.filter((entry) => entry.category === category);
+          if (entries.length === 0) {
+            return null;
+          }
+          const categoryLabel = categoryMessage[category]();
+
+          return (
+            <section key={category} id={category} className="scroll-mt-24 space-y-3">
+              <h2 className="font-display text-2xl font-semibold tracking-tight text-[var(--kitchen-ink)]">
+                <span>{categoryLabel}</span>{" "}
+                <a
+                  href={`#${category}`}
+                  className="text-base text-[var(--kitchen-copper)] underline-offset-4 hover:underline"
+                  aria-label={m.category_permalink_label({ category: categoryLabel })}
+                >
+                  #
+                </a>
+              </h2>
+              <EntryList
+                entries={entries}
+                unit={props.unit}
+                locale={locale}
+                categoryLabel={categoryLabel}
+              />
+            </section>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+function EntryList(props: {
+  entries: ReadonlyArray<SousVideEntry>;
+  unit: TemperatureUnit;
+  locale: string;
+  categoryLabel: string | undefined;
+}) {
+  return (
+    <ul className="divide-y divide-border/80 overflow-hidden rounded-2xl border border-border/80 bg-[color-mix(in_oklab,var(--card)_92%,white)]">
+      {props.entries.map((entry) => {
+        const name = pickLocalized(entry.name, props.locale);
+        const doneness = entry.doneness ? pickLocalized(entry.doneness, props.locale) : null;
+        const recommendedTime = pickLocalized(entry.recommendedTime, props.locale);
+        const maxTime = entry.maxTime ? pickLocalized(entry.maxTime, props.locale) : null;
+        const categoryLabel = props.categoryLabel ?? categoryMessage[entry.category]();
 
         return (
-          <section key={group.category} id={group.category} className="scroll-mt-24 space-y-3">
-            <h2 className="font-display text-2xl font-semibold tracking-tight text-[var(--kitchen-ink)]">
-              <a
-                href={`#${group.category}`}
-                className="inline-flex items-center gap-2 underline-offset-4 hover:underline"
-                aria-label={m.category_permalink_label({ category: categoryLabel })}
-              >
-                <span>{categoryLabel}</span>
-                <span aria-hidden className="text-base text-[var(--kitchen-copper)]">
-                  #
-                </span>
-              </a>
-            </h2>
-
-            <ul className="divide-y divide-border/80 overflow-hidden rounded-2xl border border-border/80 bg-[color-mix(in_oklab,var(--card)_92%,white)]">
-              {group.entries.map((entry) => {
-                const name = pickLocalized(entry.name, locale);
-                const doneness = entry.doneness ? pickLocalized(entry.doneness, locale) : null;
-                const recommendedTime = pickLocalized(entry.recommendedTime, locale);
-                const maxTime = entry.maxTime ? pickLocalized(entry.maxTime, locale) : null;
-
-                return (
-                  <li
-                    key={entry.id}
-                    id={entry.id}
-                    className="grid scroll-mt-28 gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6 sm:px-5"
+          <li
+            key={entry.id}
+            id={entry.id}
+            className="grid scroll-mt-28 gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6 sm:px-5"
+          >
+            <div className="min-w-0 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-display text-lg font-semibold text-[var(--kitchen-ink)]">
+                  <span>{name}</span>{" "}
+                  <a
+                    href={`#${entry.id}`}
+                    className="text-sm text-[var(--kitchen-copper)] underline-offset-4 hover:underline"
+                    aria-label={m.permalink_label()}
                   >
-                    <div className="min-w-0 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-display text-lg font-semibold text-[var(--kitchen-ink)]">
-                          <a
-                            href={`#${entry.id}`}
-                            className="underline-offset-4 hover:underline"
-                            aria-label={m.permalink_label()}
-                          >
-                            {name}
-                          </a>
-                        </h3>
-                        {doneness ? <Badge variant="outline">{doneness}</Badge> : null}
-                        <Badge variant="secondary">{categoryLabel}</Badge>
-                      </div>
-                      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground sm:flex sm:flex-wrap sm:gap-x-6">
-                        <div>
-                          <dt className="inline font-medium text-foreground/80">
-                            {m.recommended_time()}:{" "}
-                          </dt>
-                          <dd className="inline">{recommendedTime}</dd>
-                        </div>
-                        {maxTime ? (
-                          <div>
-                            <dt className="inline font-medium text-foreground/80">
-                              {m.max_time()}:{" "}
-                            </dt>
-                            <dd className="inline">{maxTime}</dd>
-                          </div>
-                        ) : null}
-                      </dl>
-                    </div>
-                    <div className="temp-number text-3xl font-semibold text-[var(--kitchen-copper)] sm:text-right sm:text-4xl">
-                      {formatTemperature(entry.temperatureC, props.unit)}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+                    #
+                  </a>
+                </h3>
+                {doneness ? <Badge variant="outline">{doneness}</Badge> : null}
+                <Badge variant="secondary">{categoryLabel}</Badge>
+              </div>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground sm:flex sm:flex-wrap sm:gap-x-6">
+                <div>
+                  <dt className="inline font-medium text-foreground/80">
+                    {m.recommended_time()}:{" "}
+                  </dt>
+                  <dd className="inline">{recommendedTime}</dd>
+                </div>
+                {maxTime ? (
+                  <div>
+                    <dt className="inline font-medium text-foreground/80">{m.max_time()}: </dt>
+                    <dd className="inline">{maxTime}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            </div>
+            <div className="temp-number text-3xl font-semibold text-[var(--kitchen-copper)] sm:text-right sm:text-4xl">
+              {formatTemperature(entry.temperatureC, props.unit)}
+            </div>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }

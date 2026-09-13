@@ -39,5 +39,6 @@
   "unit_celsius": "Celsius",
   "unit_fahrenheit": "Fahrenheit",
   "permalink_label": "Link to this row",
-  "category_permalink_label": "Link to the {category} category"
+  "category_permalink_label": "Link to the {category} category",
+  "stats_line": "{categories} categories · {rows} rows"
 }

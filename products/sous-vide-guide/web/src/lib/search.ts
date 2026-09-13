@@ -21,6 +21,27 @@ function bestFuzzyScore(query: string, fields: ReadonlyArray<string>) {
   return best;
 }
 
+/** AND across whitespace tokens; score is the sum of per-token bests. */
+function multiTokenScore(query: string, fields: ReadonlyArray<string>) {
+  const tokens = query
+    .trim()
+    .split(/\s+/)
+    .filter((token) => token.length > 0);
+  if (tokens.length === 0) {
+    return 0;
+  }
+
+  let total = 0;
+  for (const token of tokens) {
+    const score = bestFuzzyScore(token, fields);
+    if (score === 0) {
+      return 0;
+    }
+    total += score;
+  }
+  return total;
+}
+
 function guideFields(guide: GuideSummary) {
   return [
     guide.title.sv,
@@ -56,7 +77,7 @@ export function filterGuides(guides: ReadonlyArray<GuideSummary>, query: string)
   return guides
     .map((guide) => ({
       guide,
-      score: bestFuzzyScore(trimmed, guideFields(guide)),
+      score: multiTokenScore(trimmed, guideFields(guide)),
     }))
     .filter((row) => row.score > 0)
     .sort((a, b) => b.score - a.score)
@@ -82,7 +103,7 @@ export function filterSousVideEntries(opts: {
   return categoryFiltered
     .map((entry) => ({
       entry,
-      score: bestFuzzyScore(trimmed, entryFields(entry)),
+      score: multiTokenScore(trimmed, entryFields(entry)),
     }))
     .filter((row) => row.score > 0)
     .sort((a, b) => b.score - a.score)

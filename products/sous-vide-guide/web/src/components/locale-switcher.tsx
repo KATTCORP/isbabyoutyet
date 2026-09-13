@@ -1,5 +1,7 @@
-import { getLocale, locales, setLocale } from "@/paraglide/runtime";
+import "@/lib/paraglide-setup";
+import { getLocale, locales } from "@/paraglide/runtime";
 import type { Locale } from "@/paraglide/runtime";
+import { setLocale } from "@/lib/paraglide-setup";
 import * as m from "@/paraglide/messages";
 import { Button } from "@workspace/ui/components/button";
 

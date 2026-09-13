@@ -66,7 +66,7 @@ function SousVideGuidePage() {
       </div>
 
       <SousVideFilters q={search.q} category={search.category} unit={search.unit} />
-      <SousVideResults entries={entries} unit={search.unit} />
+      <SousVideResults entries={entries} unit={search.unit} query={search.q} />
 
       <footer className="border-t border-border/70 pt-6 text-sm text-muted-foreground">
         <p>{m.source_attribution()}</p>
@@ -79,7 +79,10 @@ function SousVideGuidePage() {
           {m.source_link_label()}
         </a>
         <p className="mt-3 text-xs">
-          {SOUS_VIDE_CATEGORIES.length} categories · {SOUS_VIDE_ENTRIES.length} rows
+          {m.stats_line({
+            categories: SOUS_VIDE_CATEGORIES.length,
+            rows: SOUS_VIDE_ENTRIES.length,
+          })}
         </p>
       </footer>
     </main>
