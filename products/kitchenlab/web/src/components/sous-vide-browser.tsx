@@ -1,4 +1,5 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import type { FormEvent } from "react";
 
 import type { SousVideCategory, SousVideEntry } from "@/data/sousVide";
 import { SOUS_VIDE_CATEGORIES, pickLocalized } from "@/data/sousVide";
@@ -28,12 +29,26 @@ type SousVideSearch = {
 };
 
 export function SousVideFilters(props: SousVideSearch) {
+  const navigate = useNavigate({ from: "/guides/sous-vide" });
+
+  function onSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const q = String(formData.get("q") ?? "").trim();
+    void navigate({
+      search: {
+        q,
+        category: props.category,
+        unit: props.unit,
+      },
+    });
+  }
+
   return (
     <div className="space-y-4">
-      <form method="get" className="flex flex-col gap-2 sm:flex-row">
-        <input type="hidden" name="category" value={props.category} />
-        <input type="hidden" name="unit" value={props.unit} />
+      <form onSubmit={onSearchSubmit} className="flex flex-col gap-2 sm:flex-row">
         <Input
+          key={props.q}
           name="q"
           type="search"
           defaultValue={props.q}
