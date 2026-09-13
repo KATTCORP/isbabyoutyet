@@ -49,7 +49,7 @@ function SousVideGuidePage() {
       id="sous-vide"
     >
       <div className="space-y-3">
-        <h1 className="scroll-mt-28 font-display text-3xl font-semibold tracking-tight text-[var(--guide-ink)] sm:scroll-mt-24 sm:text-5xl">
+        <h1 className="scroll-mt-24 font-display text-3xl font-semibold tracking-tight text-[var(--guide-ink)] sm:scroll-mt-20 sm:text-5xl">
           <a
             className="inline-flex items-center gap-2 underline-offset-4 hover:underline"
             href="#sous-vide"
