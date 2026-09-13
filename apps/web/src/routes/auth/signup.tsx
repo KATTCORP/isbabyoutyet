@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouteContext, useRouter } from "@tanstack/react-router";
 import type { LinkProps } from "@tanstack/react-router";
 import { z } from "zod";
 import { signUpThenGo } from "@/lib/auth-client";
@@ -35,8 +35,6 @@ function signupSchema(t: TranslationFunction) {
   });
 }
 
-type NewAccount = { email: string; name: string; password: string };
-
 export const Route = createFileRoute("/auth/signup")({
   component: SignupPage,
   headers: authPageCacheHeaders,
@@ -50,13 +48,8 @@ export const Route = createFileRoute("/auth/signup")({
   }),
 });
 
-/**
- * @internal Exported for smoke tests; production mounts it via `Route`.
- */
-export function SignupPage() {
-  const { t } = useI18n();
+function SignupPage() {
   const router = useRouter();
-  const context = Route.useRouteContext();
 
   return (
     <div className="min-h-screen bg-background bg-dots flex items-center justify-center p-6">
@@ -72,15 +65,7 @@ export function SignupPage() {
         </Link>
         <Card className="rounded-[2rem] border-2 pop-shadow-strong">
           <SignupCard
-            onSignUp={(values) =>
-              signUpThenGo(values, {
-                convexClient: context.convexClient,
-                convexQueryClient: context.convexQueryClient,
-                navigate: () => router.navigate({ to: "/dashboard" }),
-                queryClient: context.queryClient,
-                t,
-              })
-            }
+            navigate={() => router.navigate({ to: "/dashboard" })}
             signInLink={{ to: "/auth/login" }}
           />
         </Card>
@@ -90,16 +75,15 @@ export function SignupPage() {
 }
 
 /**
- * Signup form. Takes the account-creation flow as a prop so tests can render
- * it without an auth client.
+ * Signup form, creating the account through the real auth client. Callers
+ * wrap it in page or dialog chrome and own the destination (`navigate` runs
+ * once Convex sees the new user).
  *
- * @internal Exported for tests; production uses `SignupPage`.
+ * Shared by `/auth/signup` and the baby-page signup overlay.
  */
-export function SignupCard(props: {
-  onSignUp: (values: NewAccount) => Promise<void>;
-  signInLink: LinkProps;
-}) {
+export function SignupCard(props: { navigate: () => Promise<void> | void; signInLink: LinkProps }) {
   const { t } = useI18n();
+  const context = useRouteContext({ from: "__root__" });
 
   const form = useZodForm({
     defaultValues: {
@@ -122,7 +106,18 @@ export function SignupCard(props: {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Form form={form} handleSubmit={(values) => props.onSignUp(values)}>
+        <Form
+          form={form}
+          handleSubmit={(values) =>
+            signUpThenGo(values, {
+              convexClient: context.convexClient,
+              convexQueryClient: context.convexQueryClient,
+              navigate: props.navigate,
+              queryClient: context.queryClient,
+              t,
+            })
+          }
+        >
           <div className="space-y-5">
             <FormField
               control={form.control}

@@ -1,22 +1,28 @@
 import type { ConvexQueryClient } from "@convex-dev/react-query";
+import { convexQuery } from "@convex-dev/react-query";
 import type { QueryClient, QueryFunctionContext } from "@tanstack/react-query";
 import { QueryClient as QueryClientImpl } from "@tanstack/react-query";
 import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
-import type { FunctionReference, UserIdentity } from "convex/server";
+import type { FunctionReference, SchemaDefinition, UserIdentity } from "convex/server";
 import type { Value } from "convex/values";
 import {
   CONVEX_INFINITE_QUERY_KEY,
   convexInfiniteQueryFn,
   getConvexQueryPreloader,
 } from "@workspace/convex-prefetch";
+import { CookieJar } from "tough-cookie";
 import schema from "@workspace/convex/convex/schema";
 import { makeAsyncResource } from "@workspace/convex/convex/test.resource";
 import { modules, registerComponents } from "@workspace/convex/convex/test.setup";
 import { isPlainObject, isString } from "@workspace/runtime/guards";
 import { stubJsdomWindow } from "@/test/stubJsdomWindow";
+import { installFetchHandler } from "@/test/testFetch";
 
-type ConvexTestRoot = ReturnType<typeof convexTest>;
+type SchemaTables =
+  typeof schema extends SchemaDefinition<infer TTables, boolean> ? TTables : never;
+/** Schema-typed so `t.run` / `t.action` callbacks can hand `ctx` to `createAuth`. */
+type ConvexTestRoot = ReturnType<typeof convexTest<SchemaTables>>;
 type ConvexTestCaller = ConvexTestRoot | ReturnType<ConvexTestRoot["withIdentity"]>;
 
 type WatchQueryHandle = {
@@ -27,7 +33,9 @@ type WatchQueryHandle = {
 type ConvexQueryRef = FunctionReference<"query">;
 type ConvexMutationRef = FunctionReference<"mutation">;
 type ConvexActionRef = FunctionReference<"action">;
-type ConvexAuthTokenFetcher = () => Promise<string | null | undefined>;
+type ConvexAuthTokenFetcher = (opts: {
+  forceRefreshToken: boolean;
+}) => Promise<string | null | undefined>;
 
 type ConvexCallerQuery = <TArgs>(query: ConvexQueryRef, args: TArgs) => Promise<Value>;
 type ConvexCallerMutation = <TArgs>(mutation: ConvexMutationRef, args: TArgs) => Promise<Value>;
@@ -38,15 +46,45 @@ export type IntegrationConvexClient = {
   clearAuth: () => void;
   mutation: ConvexCallerMutation;
   query: ConvexCallerQuery;
-  setAuth: (fetchToken: ConvexAuthTokenFetcher, onChange: (authenticated: boolean) => void) => void;
+  setAuth: (
+    fetchToken: ConvexAuthTokenFetcher,
+    onChange: ((authenticated: boolean) => void) | undefined,
+  ) => void;
   watchQuery: <TArgs>(query: ConvexQueryRef, args: TArgs) => WatchQueryHandle;
 };
+
+const AUTH_ROUTE_PREFIX = "/api/auth/";
+
+/**
+ * `sub` of a JWT the real Better Auth handler just minted. Deliberately
+ * unverified: convex-test's `withIdentity` cannot reproduce Convex's JWKS
+ * check anyway, so this is identity plumbing, not security coverage.
+ */
+function jwtSubject(token: string) {
+  const payload = token.split(".")[1];
+  if (!payload) {
+    return null;
+  }
+  try {
+    const json = Buffer.from(payload, "base64url").toString("utf8");
+    const parsed: unknown = JSON.parse(json);
+    return isPlainObject(parsed) && isString(parsed.sub) ? parsed.sub : null;
+  } catch {
+    return null;
+  }
+}
+
+function hasRequestBody(method: string) {
+  return method !== "GET" && method !== "HEAD";
+}
 
 export type ConvexTestHarness = {
   client: ConvexTestCaller;
   convexClient: IntegrationConvexClient;
   convexPreloader: ReturnType<typeof getConvexQueryPreloader>;
   convexQueryClient: ConvexQueryClient;
+  /** The "browser's" cookies for `/api/auth/*` — Better Auth's session lives here. */
+  cookieJar: CookieJar;
   queryClient: QueryClient;
   t: ConvexTestRoot;
   /** Switch the active caller on the shared in-memory backend. */
@@ -57,6 +95,16 @@ export type ConvexTestHarness = {
  * Boots a shared in-memory Convex backend (`convex-test`) and wires it into the
  * same React Query + prefetch stack production uses — no `vi.mock("convex/*")`,
  * no hand-built query results.
+ *
+ * `/api/auth/*` requests from the real auth client are routed into the
+ * backend's HTTP router (`t.fetch` → `http.ts` → Better Auth), with the
+ * harness playing the browser: it keeps the session cookies in
+ * {@link ConvexTestHarness.cookieJar} and, after a successful write, refetches
+ * live queries the way production's Convex subscription would push them.
+ * A sign-in / sign-up flips the backend identity exactly as in production —
+ * the client hands the Convex JWT from the response to `setAuth`, and the
+ * harness reads its `sub`. Tests can therefore mount a route "as is" and
+ * submit its real form.
  */
 export async function createConvexTestHarness(opts: { identity: Partial<UserIdentity> | null }) {
   const jsdomWindow = stubJsdomWindow();
@@ -66,6 +114,33 @@ export async function createConvexTestHarness(opts: { identity: Partial<UserIden
 
   const watchCache = new Map<object, Map<string, Value>>();
   let queryClientForInvalidation: QueryClient | null = null;
+
+  const cookieJar = new CookieJar();
+  const authRoutes = installFetchHandler(async (request) => {
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith(AUTH_ROUTE_PREFIX)) {
+      return null;
+    }
+    const headers = new Headers(request.headers);
+    const cookie = await cookieJar.getCookieString(request.url);
+    if (cookie) {
+      headers.set("cookie", cookie);
+    }
+    const response = await t.fetch(`${url.pathname}${url.search}`, {
+      body: hasRequestBody(request.method) ? await request.arrayBuffer() : undefined,
+      headers,
+      method: request.method,
+    });
+    for (const setCookie of response.headers.getSetCookie()) {
+      await cookieJar.setCookie(setCookie, request.url, { ignoreError: true });
+    }
+    if (response.ok && hasRequestBody(request.method)) {
+      // Reactivity emulation: convex-test has no websocket push, so refetch
+      // what a Better Auth write (name change, sign-out, …) would have updated.
+      invalidateConvexQueries();
+    }
+    return response;
+  });
 
   function runQuery<TArgs>(query: ConvexQueryRef, args: TArgs) {
     // SAFETY: convex-test caller methods are generic over FunctionReference.
@@ -99,15 +174,21 @@ export async function createConvexTestHarness(opts: { identity: Partial<UserIden
       invalidateConvexQueries();
       return result;
     },
-    clearAuth: () => {},
+    clearAuth: () => {
+      harness.withIdentity(null);
+    },
     mutation: async (mutation, args) => {
       const result = await runMutation(mutation, args);
       invalidateConvexQueries();
       return result;
     },
     query: runQuery,
-    setAuth: (_fetchToken, onChange) => {
-      onChange(opts.identity !== null);
+    setAuth: (fetchToken, onChange) => {
+      void fetchToken({ forceRefreshToken: false }).then((token) => {
+        const subject = token ? jwtSubject(token) : null;
+        harness.withIdentity(subject === null ? null : { subject });
+        onChange?.(subject !== null);
+      });
     },
     watchQuery: (query, args) => {
       // SAFETY: Test fixture is a subset of the production type.
@@ -142,6 +223,12 @@ export async function createConvexTestHarness(opts: { identity: Partial<UserIden
     convexClient,
     hashFn: () => JSON.stringify,
     queryFn: () => Promise.resolve(null),
+    // Same key shape as production so the QueryClient's default queryFn (below)
+    // resolves it against convex-test. `waitForMe` observes `profile.get` this way.
+    queryOptions: <TArgs>(query: ConvexQueryRef, args: TArgs) => ({
+      // SAFETY: convexQuery is generic over FunctionReference; only the key is used.
+      queryKey: convexQuery(query, args as never).queryKey,
+    }),
     serverHttpClient: undefined,
   } as const;
   // @ts-expect-error — stand-in only implements the members this harness reads
@@ -166,6 +253,7 @@ export async function createConvexTestHarness(opts: { identity: Partial<UserIden
     convexClient,
     convexPreloader: getConvexQueryPreloader(queryClient),
     convexQueryClient,
+    cookieJar,
     queryClient,
     get t() {
       return t;
@@ -179,6 +267,7 @@ export async function createConvexTestHarness(opts: { identity: Partial<UserIden
 
   return makeAsyncResource(harness, async () => {
     queryClient.clear();
+    authRoutes.release();
     jsdomWindow.restore();
   });
 }

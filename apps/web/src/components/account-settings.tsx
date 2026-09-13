@@ -43,82 +43,6 @@ import { authClient } from "@/lib/auth-client";
 import type { TranslationFunction } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n";
 
-export type AccountUser = {
-  email: string;
-  name: string;
-};
-
-type AccountSessionSnapshot = {
-  data: { user: AccountUser } | null;
-};
-
-export type AccountAuthResult = {
-  errorMessage: string | null;
-};
-
-/**
- * @internal Exported for tests; production wires it in `AccountSettings`.
- */
-export async function completeAccountAuthAction(
-  result: AccountAuthResult,
-  opts: { failedMessage: string; onSuccess: () => Promise<void> },
-) {
-  if (result.errorMessage !== null) {
-    throw new Error(result.errorMessage || opts.failedMessage);
-  }
-  await opts.onSuccess();
-}
-
-/**
- * Maps a Better Auth user (or logged-out `null`) onto the account section's
- * session snapshot.
- *
- * @internal
- */
-export function accountSessionSnapshot(
-  user: { email: string; name: string } | null,
-): AccountSessionSnapshot {
-  if (user === null) {
-    return { data: null };
-  }
-  return {
-    data: {
-      user: {
-        email: user.email,
-        name: user.name,
-      },
-    },
-  };
-}
-
-async function defaultChangeEmail(body: {
-  newEmail: string;
-  persist: (args: { newEmail: string }) => Promise<null>;
-}) {
-  try {
-    await body.persist({ newEmail: body.newEmail });
-    return { error: null };
-  } catch (error) {
-    return { error: { message: error instanceof Error ? error.message : "" } };
-  }
-}
-
-/**
- * Mutable auth adapters so sheet tests can swap the network-backed
- * better-auth client without `vi.mock`.
- *
- * @internal
- */
-export const accountAuthAdapter = {
-  changeEmail: defaultChangeEmail,
-  changePassword: (body: {
-    currentPassword: string;
-    newPassword: string;
-    revokeOtherSessions: true;
-  }) => authClient.changePassword(body),
-  updateUser: (body: { name: string }) => authClient.updateUser(body),
-};
-
 function nameSchema(t: TranslationFunction) {
   return z.object({
     name: z.string().trim().min(2, t("Name must be at least 2 characters")),
@@ -174,112 +98,15 @@ function EditorActions() {
 }
 
 /**
- * Convex-wired account rows for the dashboard settings sheet.
+ * Account rows for the dashboard settings sheet: name and password go through
+ * Better Auth's session, email through the Convex `accountEmail.change`
+ * mutation. `profile.get` is live, so a saved change shows up in the row.
  */
 export function AccountSettings(props: { profile: PreloadedConvexQuery<typeof api.profile.get> }) {
   const { t } = useI18n();
-  const changeAccountEmail = useMutation(api.accountEmail.change);
-  const profileQuery = usePreloadedConvexQuery(api.profile.get, props.profile);
-  const profile = profileQuery.data;
+  const profile = usePreloadedConvexQuery(api.profile.get, props.profile).data;
 
-  const sessionUser =
-    profile === null || profile === undefined
-      ? null
-      : {
-          email: profile.email,
-          name: profile.name,
-        };
-
-  return (
-    <AccountSettingsView
-      onChangeEmail={
-        sessionUser
-          ? async (values) => {
-              const result = await accountAuthAdapter.changeEmail({
-                newEmail: values.newEmail,
-                persist: async (args) => {
-                  await changeAccountEmail(args);
-                  return null;
-                },
-              });
-              await completeAccountAuthAction(
-                { errorMessage: result.error ? (result.error.message ?? "") : null },
-                {
-                  failedMessage: t("Unable to change your email"),
-                  onSuccess: async () => {
-                    toast.success(t("Your email has been updated."));
-                  },
-                },
-              );
-            }
-          : null
-      }
-      onChangePassword={
-        sessionUser
-          ? async (values) => {
-              const result = await accountAuthAdapter.changePassword({
-                currentPassword: values.currentPassword,
-                newPassword: values.newPassword,
-                revokeOtherSessions: true,
-              });
-              await completeAccountAuthAction(
-                { errorMessage: result.error ? (result.error.message ?? "") : null },
-                {
-                  failedMessage: t("Unable to update your password"),
-                  onSuccess: async () => {
-                    toast.success(t("Your password has been updated."));
-                  },
-                },
-              );
-            }
-          : null
-      }
-      onUpdateName={
-        sessionUser
-          ? async (values) => {
-              const result = await accountAuthAdapter.updateUser({
-                name: values.name,
-              });
-              await completeAccountAuthAction(
-                { errorMessage: result.error ? (result.error.message ?? "") : null },
-                {
-                  failedMessage: t("Unable to update your name"),
-                  onSuccess: async () => {
-                    toast.success(t("Your name has been updated."));
-                  },
-                },
-              );
-            }
-          : null
-      }
-      user={sessionUser}
-    />
-  );
-}
-
-export type AccountSettingsHandlers = {
-  onChangeEmail: (values: { newEmail: string }) => Promise<void>;
-  onChangePassword: (values: {
-    confirmPassword: string;
-    currentPassword: string;
-    newPassword: string;
-  }) => Promise<void>;
-  onUpdateName: (values: { name: string }) => Promise<void>;
-};
-
-/**
- * Presentational account rows. Auth arrives as props so tests can drive
- * submit without mocking the better-auth client.
- */
-export function AccountSettingsView(props: {
-  onChangeEmail: AccountSettingsHandlers["onChangeEmail"] | null;
-  onChangePassword: AccountSettingsHandlers["onChangePassword"] | null;
-  onUpdateName: AccountSettingsHandlers["onUpdateName"] | null;
-  user: AccountUser | null;
-}) {
-  const { t } = useI18n();
-
-  if (props.user === null) {
+  if (profile === null || profile === undefined) {
     return (
       <Item>
         <ItemContent>
@@ -298,12 +125,10 @@ export function AccountSettingsView(props: {
         </ItemMedia>
         <ItemContent>
           <ItemTitle>{t("Your name")}</ItemTitle>
-          <ItemDescription>{props.user.name}</ItemDescription>
+          <ItemDescription>{profile.name}</ItemDescription>
         </ItemContent>
         <ItemActions>
-          {props.onUpdateName === null ? null : (
-            <NameEditor name={props.user.name} onUpdateName={props.onUpdateName} />
-          )}
+          <NameEditor name={profile.name} />
         </ItemActions>
       </Item>
 
@@ -315,12 +140,10 @@ export function AccountSettingsView(props: {
         </ItemMedia>
         <ItemContent>
           <ItemTitle>{t("Email")}</ItemTitle>
-          <ItemDescription>{props.user.email}</ItemDescription>
+          <ItemDescription>{profile.email}</ItemDescription>
         </ItemContent>
         <ItemActions>
-          {props.onChangeEmail === null ? null : (
-            <EmailEditor email={props.user.email} onChangeEmail={props.onChangeEmail} />
-          )}
+          <EmailEditor email={profile.email} />
         </ItemActions>
       </Item>
 
@@ -337,19 +160,14 @@ export function AccountSettingsView(props: {
           </ItemDescription>
         </ItemContent>
         <ItemActions>
-          {props.onChangePassword === null ? null : (
-            <PasswordEditor onChangePassword={props.onChangePassword} />
-          )}
+          <PasswordEditor />
         </ItemActions>
       </Item>
     </>
   );
 }
 
-function NameEditor(props: {
-  name: string;
-  onUpdateName: AccountSettingsHandlers["onUpdateName"];
-}) {
+function NameEditor(props: { name: string }) {
   const { t } = useI18n();
   const overlay = useFormGuard({ defaultOpen: false });
 
@@ -364,18 +182,14 @@ function NameEditor(props: {
       />
       <PopoverContent align="end" className="w-80 max-w-[calc(100vw-1rem)]">
         <FormGuardProvider guard={overlay}>
-          <NameForm name={props.name} onClose={overlay.close} onUpdateName={props.onUpdateName} />
+          <NameForm name={props.name} onClose={overlay.close} />
         </FormGuardProvider>
       </PopoverContent>
     </Popover>
   );
 }
 
-function NameForm(props: {
-  name: string;
-  onClose: () => void;
-  onUpdateName: AccountSettingsHandlers["onUpdateName"];
-}) {
+function NameForm(props: { name: string; onClose: () => void }) {
   const { t } = useI18n();
   const form = useZodForm({
     defaultValues: { name: props.name },
@@ -386,7 +200,11 @@ function NameForm(props: {
     <Form
       form={form}
       handleSubmit={async (values) => {
-        await props.onUpdateName(values);
+        const result = await authClient.updateUser({ name: values.name });
+        if (result.error) {
+          throw new Error(result.error.message || t("Unable to update your name"));
+        }
+        toast.success(t("Your name has been updated."));
         props.onClose();
       }}
     >
@@ -407,10 +225,7 @@ function NameForm(props: {
   );
 }
 
-function EmailEditor(props: {
-  email: string;
-  onChangeEmail: AccountSettingsHandlers["onChangeEmail"];
-}) {
+function EmailEditor(props: { email: string }) {
   const { t } = useI18n();
   const overlay = useFormGuard({ defaultOpen: false });
 
@@ -425,23 +240,16 @@ function EmailEditor(props: {
       />
       <PopoverContent align="end" className="w-80 max-w-[calc(100vw-1rem)]">
         <FormGuardProvider guard={overlay}>
-          <EmailForm
-            email={props.email}
-            onChangeEmail={props.onChangeEmail}
-            onClose={overlay.close}
-          />
+          <EmailForm email={props.email} onClose={overlay.close} />
         </FormGuardProvider>
       </PopoverContent>
     </Popover>
   );
 }
 
-function EmailForm(props: {
-  email: string;
-  onChangeEmail: AccountSettingsHandlers["onChangeEmail"];
-  onClose: () => void;
-}) {
+function EmailForm(props: { email: string; onClose: () => void }) {
   const { t } = useI18n();
+  const changeAccountEmail = useMutation(api.accountEmail.change);
   const form = useZodForm({
     defaultValues: { newEmail: props.email },
     schema: changeEmailSchema(t, props.email),
@@ -451,7 +259,8 @@ function EmailForm(props: {
     <Form
       form={form}
       handleSubmit={async (values) => {
-        await props.onChangeEmail(values);
+        await changeAccountEmail({ newEmail: values.newEmail });
+        toast.success(t("Your email has been updated."));
         props.onClose();
       }}
     >
@@ -473,7 +282,7 @@ function EmailForm(props: {
   );
 }
 
-function PasswordEditor(props: { onChangePassword: AccountSettingsHandlers["onChangePassword"] }) {
+function PasswordEditor() {
   const { t } = useI18n();
   const overlay = useFormGuard({ defaultOpen: false });
 
@@ -488,17 +297,14 @@ function PasswordEditor(props: { onChangePassword: AccountSettingsHandlers["onCh
       />
       <PopoverContent align="end" className="w-80 max-w-[calc(100vw-1rem)]">
         <FormGuardProvider guard={overlay}>
-          <PasswordForm onChangePassword={props.onChangePassword} onClose={overlay.close} />
+          <PasswordForm onClose={overlay.close} />
         </FormGuardProvider>
       </PopoverContent>
     </Popover>
   );
 }
 
-function PasswordForm(props: {
-  onChangePassword: AccountSettingsHandlers["onChangePassword"];
-  onClose: () => void;
-}) {
+function PasswordForm(props: { onClose: () => void }) {
   const { t } = useI18n();
   const form = useZodForm({
     defaultValues: {
@@ -513,7 +319,15 @@ function PasswordForm(props: {
     <Form
       form={form}
       handleSubmit={async (values) => {
-        await props.onChangePassword(values);
+        const result = await authClient.changePassword({
+          currentPassword: values.currentPassword,
+          newPassword: values.newPassword,
+          revokeOtherSessions: true,
+        });
+        if (result.error) {
+          throw new Error(result.error.message || t("Unable to update your password"));
+        }
+        toast.success(t("Your password has been updated."));
         props.onClose();
       }}
     >

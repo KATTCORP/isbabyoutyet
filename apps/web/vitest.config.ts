@@ -76,9 +76,10 @@ export const webUnitProject = defineProject({
     exclude: ["src/**/*.browser.test.{ts,tsx}"],
     include: ["src/**/*.test.{ts,tsx}"],
     name: "web",
-    // Loads better-auth host stubs (broadcast, focus, online) before that
-    // package is imported. Window API stubs are opt-in via `stubJsdomWindow()`.
-    setupFiles: ["./src/test/stubJsdomWindow.ts"],
+    // Loads better-auth host stubs (broadcast, focus, online) and the per-test
+    // `fetch` dispatcher before that package is imported. Window API stubs are
+    // opt-in via `stubJsdomWindow()`.
+    setupFiles: ["./src/test/testFetch.ts", "./src/test/stubJsdomWindow.ts"],
     // Keep auth/Convex clients off real backends so unit tests never dial the
     // developer's running `pnpm dev` / Convex backend (ports 3000 / 3210) or
     // a publicly resolvable Convex host (example.convex.cloud resolves in DNS).

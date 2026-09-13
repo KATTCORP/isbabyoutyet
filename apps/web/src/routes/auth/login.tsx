@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouteContext, useRouter } from "@tanstack/react-router";
 import type { LinkProps } from "@tanstack/react-router";
 import { z } from "zod";
 import { signInThenGo } from "@/lib/auth-client";
@@ -38,8 +38,6 @@ function loginSchema(t: TranslationFunction) {
   });
 }
 
-type Credentials = { email: string; password: string };
-
 export const Route = createFileRoute("/auth/login")({
   component: LoginPage,
   validateSearch: z.object({
@@ -56,17 +54,12 @@ export const Route = createFileRoute("/auth/login")({
   }),
 });
 
-/**
- * @internal Exported for smoke tests; production mounts it via `Route`.
- */
-export function LoginPage() {
-  const { t } = useI18n();
+function LoginPage() {
   const router = useRouter();
   const search = Route.useSearch();
   const redirect = search.redirect;
   const homeLink = babyLoginHomeLink(redirect);
   const successTarget = loginSuccessTarget(redirect);
-  const context = Route.useRouteContext();
 
   return (
     <div className="min-h-screen bg-background bg-dots flex items-center justify-center p-6">
@@ -82,16 +75,7 @@ export function LoginPage() {
         </Link>
         <Card className="rounded-[2rem] border-2 pop-shadow-strong">
           <LoginCard
-            demoLoginEnabled={hasDemoLogin}
-            onSignIn={(values) =>
-              signInThenGo(values, {
-                convexClient: context.convexClient,
-                convexQueryClient: context.convexQueryClient,
-                navigate: () => router.navigate(successTarget),
-                queryClient: context.queryClient,
-                t,
-              })
-            }
+            navigate={() => router.navigate(successTarget)}
             signUpLink={{ to: "/auth/signup" }}
           />
         </Card>
@@ -101,20 +85,18 @@ export function LoginPage() {
 }
 
 /**
- * Login form and its demo-account prefill. Callers wrap it in page or dialog
- * chrome.
+ * Login form and its demo-account prefill, signing in through the real auth
+ * client. Callers wrap it in page or dialog chrome and own the destination
+ * (`navigate` runs once Convex sees the signed-in user).
  *
- * @internal Exported for tests; production uses `LoginPage`.
+ * Shared by `/auth/login` and the baby-page login overlay.
  */
-export function LoginCard(props: {
-  demoLoginEnabled: boolean;
-  onSignIn: (values: Credentials) => Promise<void>;
-  signUpLink: LinkProps;
-}) {
+export function LoginCard(props: { navigate: () => Promise<void> | void; signUpLink: LinkProps }) {
   const { t } = useI18n();
+  const context = useRouteContext({ from: "__root__" });
 
   const form = useZodForm({
-    defaultValues: props.demoLoginEnabled
+    defaultValues: hasDemoLogin
       ? {
           email: DEMO_USER.email,
           password: DEMO_USER.password,
@@ -139,14 +121,25 @@ export function LoginCard(props: {
       </CardHeader>
       <CardContent>
         <DemoAccountPicker
-          enabled={props.demoLoginEnabled}
+          enabled={hasDemoLogin}
           onPrefill={(account) => {
             form.setValue("email", account.email);
             form.setValue("password", account.password);
             form.formRef.current?.requestSubmit();
           }}
         />
-        <Form form={form} handleSubmit={(values) => props.onSignIn(values)}>
+        <Form
+          form={form}
+          handleSubmit={(values) =>
+            signInThenGo(values, {
+              convexClient: context.convexClient,
+              convexQueryClient: context.convexQueryClient,
+              navigate: props.navigate,
+              queryClient: context.queryClient,
+              t,
+            })
+          }
+        >
           <div className="space-y-5">
             <FormField
               control={form.control}

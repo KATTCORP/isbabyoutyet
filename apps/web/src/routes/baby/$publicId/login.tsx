@@ -8,10 +8,8 @@ import {
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { z } from "zod";
 import { overlayLoginSuccessTarget } from "@/lib/baby-login-redirect";
-import { hasDemoLogin } from "@/lib/has-demo-login";
 import { useI18n } from "@/lib/i18n";
 import { openOverlayLink, useBabyLoginOverlay } from "@/lib/overlay-nav";
-import { signInThenGo } from "@/lib/auth-client";
 import { LoginCard } from "@/routes/auth/login";
 
 export const Route = createFileRoute("/baby/$publicId/login")({
@@ -21,9 +19,8 @@ export const Route = createFileRoute("/baby/$publicId/login")({
   }),
 });
 
-export function BabyLoginOverlay() {
+function BabyLoginOverlay() {
   const { t } = useI18n();
-  const context = Route.useRouteContext();
   const params = Route.useParams();
   const router = useRouter();
   const search = Route.useSearch();
@@ -38,17 +35,7 @@ export function BabyLoginOverlay() {
           <DialogDescription>{t("Sign in to keep everyone in the loop")}</DialogDescription>
         </DialogHeader>
         <LoginCard
-          demoLoginEnabled={hasDemoLogin}
-          onSignIn={(values) =>
-            signInThenGo(values, {
-              convexClient: context.convexClient,
-              convexQueryClient: context.convexQueryClient,
-              navigate: () =>
-                successTarget === null ? login.close() : router.navigate(successTarget),
-              queryClient: context.queryClient,
-              t,
-            })
-          }
+          navigate={() => (successTarget === null ? login.close() : router.navigate(successTarget))}
           signUpLink={{
             ...openOverlayLink({
               params: { publicId: params.publicId },
