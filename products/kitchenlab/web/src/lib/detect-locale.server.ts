@@ -16,19 +16,35 @@ function localeFromAcceptLanguage(header: string | undefined) {
   if (!header) {
     return null;
   }
+
   for (const part of header.split(",")) {
     const tag = part.trim().split(";")[0]?.toLowerCase();
     if (!tag) {
       continue;
     }
+
+    if (tag === "en-us") {
+      return "en-US";
+    }
+    if (tag === "en-gb") {
+      return "en-GB";
+    }
+    if (tag === "en") {
+      return "en-GB";
+    }
     if (isLocale(tag)) {
       return tag;
     }
+
     const language = tag.split("-")[0];
+    if (language === "en") {
+      return "en-GB";
+    }
     if (language && isLocale(language)) {
       return language;
     }
   }
+
   return null;
 }
 

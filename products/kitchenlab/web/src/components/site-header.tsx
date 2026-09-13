@@ -16,7 +16,7 @@ export function SiteHeader() {
         <div className="flex items-center gap-3">
           <Link
             to="/guides/sous-vide"
-            search={{ q: "", category: "all" }}
+            search={{ q: "", category: "all", unit: "" }}
             className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline"
           >
             {m.nav_guides()}

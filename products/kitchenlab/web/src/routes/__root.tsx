@@ -8,6 +8,21 @@ import { getLocale, overwriteGetLocale } from "@/paraglide/runtime";
 import type { Locale } from "@/paraglide/runtime";
 import appCss from "@/styles/app.css?url";
 
+function ogLocale(locale: Locale) {
+  switch (locale) {
+    case "sv":
+      return "sv_SE";
+    case "en-GB":
+      return "en_GB";
+    case "en-US":
+      return "en_US";
+    default: {
+      const _exhaustive: never = locale;
+      return _exhaustive;
+    }
+  }
+}
+
 export const Route = createRootRouteWithContext<{ locale: Locale }>()({
   beforeLoad: async () => {
     if (typeof window === "undefined") {
@@ -29,7 +44,7 @@ export const Route = createRootRouteWithContext<{ locale: Locale }>()({
         { title: m.app_name() },
         { name: "description", content: m.home_intro() },
         { property: "og:site_name", content: m.app_name() },
-        { property: "og:locale", content: locale === "sv" ? "sv_SE" : "en_US" },
+        { property: "og:locale", content: ogLocale(locale) },
         { name: "theme-color", content: "#8a5a2b" },
       ],
       links: [{ rel: "stylesheet", href: appCss }],

@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { GUIDES } from "@/data/guides";
 import { SOUS_VIDE_ENTRIES } from "@/data/sousVide";
+import { fuzzyScore } from "@/lib/fuzzy";
 import { filterGuides, filterSousVideEntries } from "@/lib/search";
+import { formatTemperature } from "@/lib/temperature";
 
 describe("filterGuides", () => {
   it("returns every guide when the query is empty", () => {
@@ -38,7 +40,42 @@ describe("filterSousVideEntries", () => {
       query: "lax",
       category: "all",
     });
-    expect(salmon.length).toBeGreaterThan(0);
-    expect(lax).toEqual(salmon);
+    expect(salmon.some((entry) => entry.id.includes("salmon"))).toBe(true);
+    expect(lax.some((entry) => entry.id.includes("salmon"))).toBe(true);
+    expect(salmon[0]?.id).toBe(lax[0]?.id);
+  });
+
+  it("fuzzy-matches typos and American tenderloin wording", () => {
+    const typo = filterSousVideEntries({
+      entries: SOUS_VIDE_ENTRIES,
+      query: "salmn",
+      category: "all",
+    });
+    expect(typo.some((entry) => entry.id.includes("salmon"))).toBe(true);
+
+    const tenderloin = filterSousVideEntries({
+      entries: SOUS_VIDE_ENTRIES,
+      query: "tenderloin",
+      category: "all",
+    });
+    expect(tenderloin.length).toBeGreaterThan(0);
+  });
+});
+
+describe("fuzzyScore", () => {
+  it("scores exact and fuzzy tokens", () => {
+    expect(fuzzyScore("salmon", "salmon fillet")).toBeGreaterThan(
+      fuzzyScore("salmn", "salmon fillet"),
+    );
+    expect(fuzzyScore("flask", "fläskfilé")).toBeGreaterThan(0);
+    expect(fuzzyScore("xyz", "pork chop")).toBe(0);
+    expect(fuzzyScore("lax", "lammfilé")).toBe(0);
+  });
+});
+
+describe("formatTemperature", () => {
+  it("formats Celsius and Fahrenheit", () => {
+    expect(formatTemperature(60, "c")).toBe("60°C");
+    expect(formatTemperature(60, "f")).toBe("140°F");
   });
 });

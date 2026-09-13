@@ -1,19 +1,20 @@
 import { Link } from "@tanstack/react-router";
 
 import type { GuideSummary } from "@/data/guides";
-import { getLocale } from "@/paraglide/runtime";
+import { pickLocalized } from "@/data/sousVide";
 import * as m from "@/paraglide/messages";
+import { getLocale } from "@/paraglide/runtime";
 import { Badge } from "@workspace/ui/components/badge";
 
 export function GuideCard(props: { guide: GuideSummary }) {
   const locale = getLocale();
-  const title = locale === "en" ? props.guide.titleEn : props.guide.titleSv;
-  const summary = locale === "en" ? props.guide.summaryEn : props.guide.summarySv;
+  const title = pickLocalized(props.guide.title, locale);
+  const summary = pickLocalized(props.guide.summary, locale);
 
   return (
     <Link
       to="/guides/sous-vide"
-      search={{ q: "", category: "all" }}
+      search={{ q: "", category: "all", unit: "" }}
       className="surface-panel group block rounded-2xl p-5 transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="mb-3">

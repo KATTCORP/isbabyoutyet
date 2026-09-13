@@ -5,14 +5,15 @@ import { Button } from "@workspace/ui/components/button";
 
 const localeLabels: Record<Locale, () => string> = {
   sv: () => m.locale_sv(),
-  en: () => m.locale_en(),
+  "en-GB": () => m.locale_en_gb(),
+  "en-US": () => m.locale_en_us(),
 };
 
 export function LocaleSwitcher() {
   const current = getLocale();
 
   return (
-    <div className="flex items-center gap-1" role="group" aria-label={m.language()}>
+    <div className="flex flex-wrap items-center gap-1" role="group" aria-label={m.language()}>
       {locales.map((locale) => (
         <Button
           key={locale}

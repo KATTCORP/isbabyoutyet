@@ -4,7 +4,9 @@ import { z } from "zod";
 import { SousVideFilters, SousVideResults } from "@/components/sous-vide-browser";
 import { SOUS_VIDE_CATEGORIES, SOUS_VIDE_ENTRIES } from "@/data/sousVide";
 import { filterSousVideEntries, isSousVideCategory } from "@/lib/search";
+import { defaultTemperatureUnit, isTemperatureUnit } from "@/lib/temperature";
 import * as m from "@/paraglide/messages";
+import { getLocale } from "@/paraglide/runtime";
 
 const sousVideSearchSchema = z.object({
   q: z.string().default(""),
@@ -12,6 +14,10 @@ const sousVideSearchSchema = z.object({
     .string()
     .default("all")
     .transform((value) => (value === "all" || isSousVideCategory(value) ? value : "all")),
+  unit: z
+    .union([z.literal("c"), z.literal("f"), z.literal("")])
+    .default("")
+    .transform((value) => (isTemperatureUnit(value) ? value : defaultTemperatureUnit(getLocale()))),
 });
 
 export const Route = createFileRoute("/guides/sous-vide")({
@@ -39,8 +45,19 @@ function SousVideGuidePage() {
         <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-foreground">
           ← {m.back_home()}
         </Link>
-        <h1 className="font-display text-4xl font-semibold tracking-tight text-[var(--kitchen-ink)] sm:text-5xl">
-          {m.sous_vide_title()}
+        <h1
+          id="sous-vide"
+          className="scroll-mt-24 font-display text-4xl font-semibold tracking-tight text-[var(--kitchen-ink)] sm:text-5xl"
+        >
+          <a
+            href="#sous-vide"
+            className="inline-flex items-center gap-2 underline-offset-4 hover:underline"
+          >
+            <span>{m.sous_vide_title()}</span>
+            <span aria-hidden className="text-2xl text-[var(--kitchen-copper)]">
+              #
+            </span>
+          </a>
         </h1>
         <p className="max-w-3xl text-base leading-relaxed text-muted-foreground sm:text-lg">
           {m.sous_vide_summary()}
@@ -48,8 +65,8 @@ function SousVideGuidePage() {
         <p className="max-w-3xl text-sm text-muted-foreground">{m.sous_vide_thickness_note()}</p>
       </div>
 
-      <SousVideFilters query={search.q} category={search.category} />
-      <SousVideResults entries={entries} />
+      <SousVideFilters q={search.q} category={search.category} unit={search.unit} />
+      <SousVideResults entries={entries} unit={search.unit} />
 
       <footer className="border-t border-border/70 pt-6 text-sm text-muted-foreground">
         <p>{m.source_attribution()}</p>

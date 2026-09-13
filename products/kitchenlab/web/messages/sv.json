@@ -24,7 +24,8 @@
   "source_link_label": "Originalartikel på kitchenlab.se",
   "language": "Språk",
   "locale_sv": "Svenska",
-  "locale_en": "English",
+  "locale_en_gb": "Engelska (UK)",
+  "locale_en_us": "Engelska (US)",
   "back_home": "Till startsidan",
   "browse_sous_vide": "Öppna temperaturguiden",
   "sous_vide_title": "Sous vide — temperaturer & koktider",
@@ -33,5 +34,10 @@
   "guide_badge_reference": "Referens",
   "nav_guides": "Guider",
   "submit_search": "Sök",
-  "clear_search": "Rensa"
+  "clear_search": "Rensa",
+  "temperature_unit": "Temperaturenhet",
+  "unit_celsius": "Celsius",
+  "unit_fahrenheit": "Fahrenheit",
+  "permalink_label": "Länk till den här raden",
+  "category_permalink_label": "Länk till kategorin {category}"
 }

@@ -33,22 +33,43 @@ function HomePage() {
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--kitchen-copper)]">
           {m.nav_guides()}
         </p>
-        <h1 className="font-display text-5xl font-semibold tracking-tight text-[var(--kitchen-ink)] sm:text-6xl">
-          {m.app_name()}
+        <h1
+          id="home"
+          className="scroll-mt-24 font-display text-5xl font-semibold tracking-tight text-[var(--kitchen-ink)] sm:text-6xl"
+        >
+          <a
+            href="#home"
+            className="inline-flex items-center gap-2 underline-offset-4 hover:underline"
+          >
+            <span>{m.app_name()}</span>
+            <span aria-hidden className="text-3xl text-[var(--kitchen-copper)]">
+              #
+            </span>
+          </a>
         </h1>
         <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">{m.home_intro()}</p>
         <div className="flex flex-wrap gap-3">
           <Button
             size="lg"
-            render={<Link to="/guides/sous-vide" search={{ q: "", category: "all" }} />}
+            render={<Link to="/guides/sous-vide" search={{ q: "", category: "all", unit: "" }} />}
           >
             {m.browse_sous_vide()}
           </Button>
         </div>
       </section>
 
-      <section className="space-y-4">
-        <h2 className="font-display text-2xl font-semibold tracking-tight">{m.guides_heading()}</h2>
+      <section id="guides" className="scroll-mt-24 space-y-4">
+        <h2 className="font-display text-2xl font-semibold tracking-tight">
+          <a
+            href="#guides"
+            className="inline-flex items-center gap-2 underline-offset-4 hover:underline"
+          >
+            <span>{m.guides_heading()}</span>
+            <span aria-hidden className="text-base text-[var(--kitchen-copper)]">
+              #
+            </span>
+          </a>
+        </h2>
         <form method="get" className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Input
             name="q"
