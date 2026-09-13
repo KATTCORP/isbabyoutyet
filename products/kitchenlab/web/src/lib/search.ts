@@ -2,7 +2,7 @@ import type { GuideSummary } from "@/data/guides";
 import type { SousVideCategory, SousVideEntry } from "@/data/sousVide";
 import { SOUS_VIDE_CATEGORIES } from "@/data/sousVide";
 
-export function normalizeQuery(query: string) {
+function normalizeQuery(query: string) {
   return query.trim().toLocaleLowerCase("sv-SE");
 }
 

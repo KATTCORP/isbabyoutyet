@@ -19,9 +19,7 @@
   "dependencies": {
     "@fontsource-variable/source-sans-3": "^5.2.9",
     "@fontsource-variable/source-serif-4": "^5.2.9",
-    "@phosphor-icons/react": "^2.1.10",
     "@tanstack/react-router": "^1.170.30",
-    "@tanstack/react-router-devtools": "^1.167.1",
     "@tanstack/react-start": "^1.168.47",
     "@workspace/ui": "workspace:*",
     "react": "catalog:",

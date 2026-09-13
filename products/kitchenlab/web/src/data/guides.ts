@@ -1,4 +1,4 @@
-export type GuideId = "sous-vide";
+type GuideId = "sous-vide";
 
 export type GuideSummary = {
   id: GuideId;
