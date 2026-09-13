@@ -76,11 +76,25 @@ jobs:
       - name: Format
         run: pnpm format
 
+      # On PRs / merge queue, only typecheck & lint packages affected since the
+      # base SHA so a sous-vide-only change does not rebuild the baby app (and
+      # vice versa). Shared package / tooling edits still pull dependents in via
+      # turbo's `...[sha]` graph. Pushes to main/next/canary run the full graph.
       - name: Lint
-        run: pnpm lint-fix
+        run: |
+          if [ -n "${CI_BASE_SHA:-}" ]; then
+            pnpm exec turbo run lint-fix --filter="...[${CI_BASE_SHA}]"
+          else
+            pnpm lint-fix
+          fi
 
       - name: Typecheck
-        run: pnpm typecheck
+        run: |
+          if [ -n "${CI_BASE_SHA:-}" ]; then
+            pnpm exec turbo run typecheck --filter="...[${CI_BASE_SHA}]"
+          else
+            pnpm typecheck
+          fi
 
       # PRs and merge groups: Vitest --changed only (no coverage).
       # Merge queue compares against merge_group.base_sha — the previous queue

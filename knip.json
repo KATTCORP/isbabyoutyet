@@ -34,6 +34,12 @@
         "scripts/write-convex-url.mjs!"
       ]
     },
+    "projects/sous-vide-guide/web": {
+      "tanstack-router": {
+        "entry": ["src/routes/**/*.{ts,tsx}!", "src/router.tsx!"]
+      },
+      "entry": ["src/server.ts!", "vite.config.ts!"]
+    },
     "projects/isbabyoutyet/backend": {
       "entry": [
         "scripts/ensureLocalEnv.ts!",
