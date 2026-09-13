@@ -39,4 +39,3 @@ export function fuzzyScore(query: string, candidate: string) {
 
   return score;
 }
-

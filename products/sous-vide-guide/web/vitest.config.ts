@@ -8,7 +8,7 @@ export default defineConfig({
     }),
   ],
   test: {
-    name: "kitchenlab-web",
+    name: "sous-vide-guide-web",
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],
   },

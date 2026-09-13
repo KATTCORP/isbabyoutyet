@@ -18,7 +18,7 @@ export default defineConfig({
     projects: [
       "products/baby-outlet/backend",
       "products/rhythm-game/web",
-      "products/kitchenlab/web",
+      "products/sous-vide-guide/web",
       "packages/query-prefetch",
       "packages/convex-prefetch",
       webUnitProject,
@@ -34,7 +34,7 @@ export default defineConfig({
         "products/baby-outlet/backend/convex/**/*.ts",
         "products/baby-outlet/backend/src/**/*.ts",
         "products/rhythm-game/web/src/**/*.{ts,tsx}",
-        "products/kitchenlab/web/src/**/*.{ts,tsx}",
+        "products/sous-vide-guide/web/src/**/*.{ts,tsx}",
         "packages/query-prefetch/src/**/*.ts",
         "packages/convex-prefetch/src/**/*.ts",
       ],

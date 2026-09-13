@@ -39,9 +39,9 @@ export function pickLocalized(text: LocalizedText, locale: string) {
 }
 
 /**
- * Static, translated sous vide reference rows derived from KitchenLab’s
- * “Köksguiden #9” temperature tables. Times assume ~25 mm thickness and
- * room-temperature ingredients.
+ * Static, translated sous vide reference rows adapted from KitchenLab’s
+ * köksguide #9 (source attribution only). Times assume ~25 mm thickness
+ * and room-temperature ingredients.
  */
 export const SOUS_VIDE_ENTRIES: ReadonlyArray<SousVideEntry> = [
   {

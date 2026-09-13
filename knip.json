@@ -30,7 +30,7 @@
     "products/rhythm-game/web": {
       "entry": ["src/main.tsx!", "vite.config.ts!"]
     },
-    "products/kitchenlab/web": {
+    "products/sous-vide-guide/web": {
       "tanstack-router": {
         "entry": ["src/routes/**/*.{ts,tsx}!", "src/router.tsx!"]
       },

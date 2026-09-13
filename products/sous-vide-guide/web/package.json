@@ -1,5 +1,5 @@
 {
-  "name": "@kitchenlab/web",
+  "name": "@sous-vide-guide/web",
   "private": true,
   "type": "module",
   "scripts": {
