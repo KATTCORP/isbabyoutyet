@@ -22,11 +22,7 @@ export function LocaleSwitcher() {
   const current = getLocale();
 
   return (
-    <div
-      className="flex shrink-0 items-center gap-0.5"
-      role="group"
-      aria-label={m.language()}
-    >
+    <div className="flex shrink-0 items-center gap-0.5" role="group" aria-label={m.language()}>
       {locales.map((locale) => {
         const fullLabel = localeLabels[locale]();
         return (

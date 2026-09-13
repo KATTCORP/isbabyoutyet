@@ -65,7 +65,7 @@ function pullLfsFiles() {
   console.log("Git LFS pointer files detected — running git lfs pull");
   execFileSync(
     "git",
-    ["lfs", "pull", "--include", "products/baby-outlet/backend/assets/homepage-demo/**"],
+    ["lfs", "pull", "--include", "projects/baby-outlet/backend/assets/homepage-demo/**"],
     {
       cwd: path.resolve(convexPackageDir, "../../.."),
       stdio: "inherit",

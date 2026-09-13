@@ -24,7 +24,17 @@ export function formatTemperature(temperatureC: number, options: FormatTemperatu
   return `${formatted}${suffix}`;
 }
 
-/** Default unit: Fahrenheit for American English, Celsius otherwise. */
+/**
+ * Default unit from the active app locale (itself derived from the browser
+ * Accept-Language header via the custom Paraglide strategy, then cookie once
+ * the user picks a language).
+ *
+ * Fahrenheit for US English (`en-US` and other `*-US` tags); Celsius otherwise.
+ */
 export function defaultTemperatureUnit(locale: string): TemperatureUnit {
-  return locale === "en-US" ? "f" : "c";
+  const normalized = locale.trim().toLowerCase().replaceAll("_", "-");
+  if (normalized === "en-us" || normalized.endsWith("-us")) {
+    return "f";
+  }
+  return "c";
 }

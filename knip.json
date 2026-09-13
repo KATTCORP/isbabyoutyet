@@ -12,7 +12,7 @@
     ".": {
       "entry": ["scripts/compareCoverage.ts!"]
     },
-    "products/baby-outlet/web": {
+    "projects/baby-outlet/web": {
       "tanstack-router": {
         "entry": ["src/routes/**/*.{ts,tsx}!", "src/router.tsx!"]
       },
@@ -24,13 +24,10 @@
         "scripts/build-web.mjs!"
       ]
     },
-    "products/baby-outlet/backend": {
+    "projects/baby-outlet/backend": {
       "entry": ["scripts/seedHomepageDemo.ts!"]
     },
-    "products/rhythm-game/web": {
-      "entry": ["src/main.tsx!", "vite.config.ts!"]
-    },
-    "products/sous-vide-guide/web": {
+    "projects/sous-vide-guide/web": {
       "tanstack-router": {
         "entry": ["src/routes/**/*.{ts,tsx}!", "src/router.tsx!"]
       },

@@ -2,8 +2,8 @@
 
 ## Convex
 
-When working under `products/baby-outlet/backend/`, also follow
-[`products/baby-outlet/backend/AGENTS.md`](products/baby-outlet/backend/AGENTS.md).
+When working under `projects/baby-outlet/backend/`, also follow
+[`projects/baby-outlet/backend/AGENTS.md`](projects/baby-outlet/backend/AGENTS.md).
 
 ## Pull requests
 
