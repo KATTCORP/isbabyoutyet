@@ -10,7 +10,7 @@
   ],
   "tags": ["-@internal"],
   "workspaces": {
-    "apps/web": {
+    "projects/baby-outlet/web": {
       "tanstack-router": {
         "entry": ["src/routes/**/*.{ts,tsx}!", "src/router.tsx!"]
       },
@@ -31,7 +31,7 @@
         "scripts/write-convex-url.mjs!"
       ]
     },
-    "packages/convex": {
+    "projects/baby-outlet/backend": {
       "entry": [
         "scripts/ensureLocalEnv.ts!",
         "scripts/seedHomepageDemo.ts!",

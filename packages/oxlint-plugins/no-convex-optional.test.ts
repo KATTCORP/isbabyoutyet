@@ -61,7 +61,7 @@ tester.run("no-undocumented-optional", plugin.rules["no-undocumented-optional"],
     `const v = { optional: (x) => x };
        const theme = v.optional("x");`,
     {
-      filename: "packages/convex/convex/convex.config.ts",
+      filename: "projects/baby-outlet/backend/convex/convex.config.ts",
       code: `import { v } from "convex/values";
                const app = defineApp({
                  env: { SITE_URL: v.optional(v.string()) },

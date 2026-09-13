@@ -7,7 +7,7 @@ import { defineRule } from "@oxlint/plugins";
  * Feature UI state should live in the URL (search params / nested routes),
  * come from queries/mutations, or use uncontrolled component triggers
  * (PopoverTrigger, DialogTrigger, etc.). Ephemeral timing, observers, and
- * external-store subscriptions belong in `apps/web/src/lib`.
+ * external-store subscriptions belong in `projects/baby-outlet/web/src/lib`.
  *
  * Also bans useReducer / useActionState / useOptimistic — they are useState
  * with extra steps and would otherwise bypass the rule. Optimistic UI that

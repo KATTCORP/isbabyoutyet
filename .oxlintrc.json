@@ -1,5 +1,5 @@
 {
-  "$schema": "./packages/convex/node_modules/oxlint/configuration_schema.json",
+  "$schema": "./projects/baby-outlet/backend/node_modules/oxlint/configuration_schema.json",
   // Closely matches `oxlint --init`, plus the stricter `suspicious` category.
   // Pedantic/style/restriction stay off as categories — nkzw rules below are
   // enabled individually (https://github.com/nkzw-tech/oxlint-config).
@@ -22,7 +22,7 @@
   "jsPlugins": [
     // Off-the-shelf JSX copy guard: flags user-visible string/template literals
     // that are not passed through `t` / `translate` (and i18next-style aliases).
-    // Scoped to apps/web below; tests/dev-only routes opt out.
+    // Scoped to projects/baby-outlet/web below; tests/dev-only routes opt out.
     {
       "name": "i18n-literal",
       "specifier": "@rrazvan.dev/oxlint-plugin-i18n-literal"
@@ -142,7 +142,7 @@
     "workspace/no-convex-query-hooks": "error",
     "workspace/no-use-effect": "error",
     "workspace/no-use-state": "error",
-    // Always on — including apps/web/src/lib — so banned hooks cannot be
+    // Always on — including projects/baby-outlet/web/src/lib — so banned hooks cannot be
     // laundered through a local re-export barrel.
     "workspace/no-banned-react-reexport": "error",
     "workspace/no-undocumented-optional": "error",
@@ -413,7 +413,7 @@
       }
     },
     {
-      "files": ["apps/web/src/**/*.{ts,tsx}"],
+      "files": ["projects/baby-outlet/web/src/**/*.{ts,tsx}"],
       "rules": {
         "workspace/infer-callback-params": "error",
         "i18n-literal/no-literal-string": "error",
@@ -431,13 +431,13 @@
     },
     {
       "files": [
-        "apps/web/src/routes/demo/**/*.{ts,tsx}",
-        "apps/web/src/**/*.test.{ts,tsx}",
-        "apps/web/src/components/dev-bar.tsx",
-        "apps/web/src/components/demo-account-picker.tsx",
-        "apps/web/src/lib/robots.ts",
-        "apps/web/src/routes/robots[.]txt.ts",
-        "apps/web/src/routes/sitemap[.]xml.ts"
+        "projects/baby-outlet/web/src/routes/demo/**/*.{ts,tsx}",
+        "projects/baby-outlet/web/src/**/*.test.{ts,tsx}",
+        "projects/baby-outlet/web/src/components/dev-bar.tsx",
+        "projects/baby-outlet/web/src/components/demo-account-picker.tsx",
+        "projects/baby-outlet/web/src/lib/robots.ts",
+        "projects/baby-outlet/web/src/routes/robots[.]txt.ts",
+        "projects/baby-outlet/web/src/routes/sitemap[.]xml.ts"
       ],
       "rules": {
         "i18n-literal/no-literal-string": "off",
@@ -450,7 +450,7 @@
     {
       // Steer web tests toward convex-test harness instead of stub clients /
       // fake preloaded handles.
-      "files": ["apps/web/src/**/*.test.{ts,tsx}"],
+      "files": ["projects/baby-outlet/web/src/**/*.test.{ts,tsx}"],
       "rules": {
         "workspace/no-invalid-convex-client": "error",
         "workspace/no-test-preloaded-query": "error"
@@ -472,7 +472,7 @@
     },
     {
       // Peer-type bridge for better-auth vs @convex-dev/better-auth AuthClient.
-      "files": ["apps/web/src/lib/auth-client-bridge.ts"],
+      "files": ["projects/baby-outlet/web/src/lib/auth-client-bridge.ts"],
       "rules": {
         "typescript/consistent-type-assertions": "off",
         "anti-slop/no-chained-type-assertions": "off",
@@ -482,7 +482,7 @@
     },
     {
       // Service worker: plain JS JSON boundary (no TS type predicates).
-      "files": ["apps/web/public/sw.js"],
+      "files": ["projects/baby-outlet/web/public/sw.js"],
       "globals": {
         "clients": "readonly",
         "registration": "readonly",
@@ -572,7 +572,7 @@
       }
     },
     {
-      // Automatic JSX runtime — same as apps/web.
+      // Automatic JSX runtime — same as projects/baby-outlet/web.
       "files": ["packages/email/**/*.{ts,tsx}"],
       "rules": {
         "react/react-in-jsx-scope": "off"
@@ -583,7 +583,7 @@
       // Timers/observers/stores may use effects and local state. Feature
       // components stay banned. React Compiler rules stay on so render-phase
       // ref access cannot hide in these seams.
-      "files": ["apps/web/src/lib/use-*.{ts,tsx}", "apps/web/src/lib/overlay-nav.ts"],
+      "files": ["projects/baby-outlet/web/src/lib/use-*.{ts,tsx}", "projects/baby-outlet/web/src/lib/overlay-nav.ts"],
       "rules": {
         "workspace/no-use-effect": "off",
         "workspace/no-use-state": "off"
@@ -602,7 +602,7 @@
     },
     {
       // Process env validators, not schema/RPC — absence is "unset in this deploy".
-      "files": ["packages/convex/convex/convex.config.ts"],
+      "files": ["projects/baby-outlet/backend/convex/convex.config.ts"],
       "rules": {
         "workspace/no-undocumented-optional": "off"
       }
@@ -629,7 +629,7 @@
       "files": [
         "**/scripts/**",
         "packages/scripts/src/**",
-        "packages/convex/convex/**"
+        "projects/baby-outlet/backend/convex/**"
       ],
       "rules": {
         "no-console": "off"
@@ -639,7 +639,7 @@
       // Latest dismiss is an Effect Event assigned onto the external store
       // each render; the compiler rule forbids passing Effect Events, but the
       // click handler is outside React and cannot be an Effect.
-      "files": ["apps/web/src/lib/use-coachmark-store.ts"],
+      "files": ["projects/baby-outlet/web/src/lib/use-coachmark-store.ts"],
       "rules": {
         "react-hooks/rules-of-hooks": "off",
         "react/rules-of-hooks": "off"
@@ -648,7 +648,7 @@
     {
       // Field order is domain-grouped; sort-objects detaches @todo JSDoc from
       // v.optional() fields and trips workspace/no-undocumented-optional.
-      "files": ["packages/convex/convex/schema.ts"],
+      "files": ["projects/baby-outlet/backend/convex/schema.ts"],
       "rules": {
         "perfectionist/sort-objects": "off"
       }
@@ -656,7 +656,7 @@
     {
       // TanStack Router infers loader/search/context types from option key
       // order (`validateSearch` before `loader`, `loader` before `head`).
-      "files": ["apps/web/src/routes/**/*.{ts,tsx}"],
+      "files": ["projects/baby-outlet/web/src/routes/**/*.{ts,tsx}"],
       "rules": {
         "perfectionist/sort-objects": "off"
       }

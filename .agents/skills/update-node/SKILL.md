@@ -15,13 +15,13 @@ Current major: **24**. Edit every pin below in the same change.
 | --- | --- |
 | [`.nvmrc`](../../../.nvmrc) | The major (`24`). Source of truth for nvm/fnm and CI. |
 | [`package.json`](../../../package.json) `engines.node` | `^<major>.0.0`. pnpm, and Vercel (overrides Project Settings on the next deploy). |
-| [`packages/convex/convex.json`](../../../packages/convex/convex.json) `node.nodeVersion` | The major (Convex `"use node"` actions). |
+| [`projects/baby-outlet/backend/convex.json`](../../../projects/baby-outlet/backend/convex.json) `node.nodeVersion` | The major (Convex `"use node"` actions). |
 | [`.github/workflows/main.yml`](../../../.github/workflows/main.yml) | Keep `node-version-file: .nvmrc`. Do not hardcode a second version. |
 | [`pnpm-workspace.yaml`](../../../pnpm-workspace.yaml) catalog `@types/node` | Only if types need a bump. |
 | Vercel → Project → Settings → Build and Deployment → Node.js Version | Same major (`24.x`). Dashboard deprecation still follows this setting even when `engines.node` overrides the deploy. |
 | Cursor Cloud environment snapshot | Install the same major so agents match `.nvmrc`. |
 
-There is no Node pin in [`apps/web/vercel.json`](../../../apps/web/vercel.json).
+There is no Node pin in [`projects/baby-outlet/web/vercel.json`](../../../projects/baby-outlet/web/vercel.json).
 
 ## GitHub Actions runtimes
 

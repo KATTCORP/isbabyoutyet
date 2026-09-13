@@ -106,4 +106,4 @@ jobs:
             exit 1
           fi
           echo "Seeding Convex preview ${BRANCH}"
-          pnpm --filter @workspace/convex run seed:homepage:photos -- --preview-name "$BRANCH"
+          pnpm --filter @baby-outlet/backend run seed:homepage:photos -- --preview-name "$BRANCH"

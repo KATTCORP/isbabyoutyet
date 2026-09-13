@@ -2,7 +2,7 @@ import { pixelBasedPreset } from "react-email";
 import type { TailwindConfig } from "react-email";
 
 /**
- * Default-theme tokens from `packages/ui` + `apps/web/src/styles/app.css`,
+ * Default-theme tokens from `packages/ui` + `projects/baby-outlet/web/src/styles/app.css`,
  * converted to hex so email clients that skip `oklch` still match the app.
  */
 export const emailTheme = {

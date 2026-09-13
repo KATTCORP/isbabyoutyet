@@ -30,7 +30,7 @@ If schema.ts (or related schema files) and migrations did not change, write None
 Otherwise bullets for:
 - Schema: tables/fields/indexes/unions; additive vs breaking vs required-field
 - Why / motivation
-- Migrations: what ran/will run (e.g. packages/convex/convex/migrations.ts or
+- Migrations: what ran/will run (e.g. projects/baby-outlet/backend/convex/migrations.ts or
   migration functions); backfill vs require-after-backfill; follow-up PRs that
   tighten validators or drop old fields
 - If this continues schema/migration work from an earlier PR, link it and say

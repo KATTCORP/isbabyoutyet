@@ -2,7 +2,7 @@
 
 ## React hooks policy (`useEffect` / local state)
 
-Feature code under `apps/web/src/components` and `apps/web/src/routes` must not
+Feature code under `projects/baby-outlet/web/src/components` and `projects/baby-outlet/web/src/routes` must not
 use `useEffect` / `useLayoutEffect`, local-state hooks (`useState`,
 `useReducer`, `useActionState`, `useOptimistic`), or `useSyncExternalStore`.
 Prefer:
@@ -12,7 +12,7 @@ Prefer:
 - **Uncontrolled triggers** (`PopoverTrigger`, `DialogTrigger`, `DrawerTrigger`)
   for settings editors and similar ephemeral open/close
 
-### `apps/web/src/lib` audited seams
+### `projects/baby-outlet/web/src/lib` audited seams
 
 Lib may use effects, local state, and `useSyncExternalStore` when the hook is a
 **reusable seam** that owns cleanup for an external system (timers, observers,
@@ -136,8 +136,8 @@ repo-wide by the `no-mock` oxlint plugin. Build a seam instead:
 
 ## Convex
 
-When working under `packages/convex/`, also follow
-[`packages/convex/AGENTS.md`](packages/convex/AGENTS.md).
+When working under `projects/baby-outlet/backend/`, also follow
+[`projects/baby-outlet/backend/AGENTS.md`](projects/baby-outlet/backend/AGENTS.md).
 
 For route loaders and other project skills, see
 [`.agents/AGENTS.md`](.agents/AGENTS.md).

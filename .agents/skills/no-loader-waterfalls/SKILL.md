@@ -34,7 +34,7 @@ loader: async (opts) => {
 };
 ```
 
-Reference: [`apps/web/src/routes/baby/$publicId.tsx`](../../../apps/web/src/routes/baby/$publicId.tsx).
+Reference: [`projects/baby-outlet/web/src/routes/baby/$publicId.tsx`](../../../projects/baby-outlet/web/src/routes/baby/$publicId.tsx).
 
 ## beforeLoad vs loader
 
@@ -66,7 +66,7 @@ client, e.g. `getDetectedLocale()` instead of `detectRequestLocale()`.
 
 When many queries need the same entity, add a shared resolver and widen read-query args to accept **id or public slug** — not only `v.id("table")`.
 
-Pattern (see [`packages/convex/convex/babyLookup.ts`](../../../packages/convex/convex/babyLookup.ts)):
+Pattern (see [`projects/baby-outlet/backend/convex/babyLookup.ts`](../../../projects/baby-outlet/backend/convex/babyLookup.ts)):
 
 ```typescript
 export const babyIdOrPublicIdValidator = v.union(v.id("baby"), v.string());
@@ -100,7 +100,7 @@ return { browserPush, ...(await allKeyed({ /* convex */ })) };
 
 Guard SSR in the prefetch helper (`typeof window === "undefined"`). `skipToken` alone is not enough for `ensureQueryData` on the server.
 
-Reference: [`notification-subscribe.tsx`](../../../apps/web/src/components/baby/notification-subscribe.tsx).
+Reference: [`notification-subscribe.tsx`](../../../projects/baby-outlet/web/src/components/baby/notification-subscribe.tsx).
 
 ## Do not re-fetch auth in page loaders
 
@@ -128,7 +128,7 @@ Sequential awaits are fine when step B **truly depends** on step A's *response b
 
 ## Tests
 
-Loader tests should mock query handlers and assert **which queries fire** with **which inputs**, without requiring a prior fetch to supply ids. See [`$publicId.test.tsx`](../../../apps/web/src/routes/baby/$publicId.test.tsx).
+Loader tests should mock query handlers and assert **which queries fire** with **which inputs**, without requiring a prior fetch to supply ids. See [`$publicId.test.tsx`](../../../projects/baby-outlet/web/src/routes/baby/$publicId.test.tsx).
 
 ## Related docs
 
