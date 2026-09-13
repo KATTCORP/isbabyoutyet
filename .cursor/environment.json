@@ -5,12 +5,12 @@
     {
       "name": "convex",
       "description": "Local anonymous Convex backend (ports 3210/3211).",
-      "command": "export NVM_DIR=\"$HOME/.nvm\"; . \"$NVM_DIR/nvm.sh\"; export PATH=\"$(dirname \"$(nvm which default)\"):$PATH\"; cd projects/baby-outlet/backend && CONVEX_AGENT_MODE=anonymous pnpm dev:convex"
+      "command": "export NVM_DIR=\"$HOME/.nvm\"; . \"$NVM_DIR/nvm.sh\"; export PATH=\"$(dirname \"$(nvm which default)\"):$PATH\"; cd projects/isbabyoutyet/backend && CONVEX_AGENT_MODE=anonymous pnpm dev:convex"
     },
     {
       "name": "web",
       "description": "Vite dev server for the web app (http://localhost:3000).",
-      "command": "export NVM_DIR=\"$HOME/.nvm\"; . \"$NVM_DIR/nvm.sh\"; export PATH=\"$(dirname \"$(nvm which default)\"):$PATH\"; cd projects/baby-outlet/web && pnpm dev"
+      "command": "export NVM_DIR=\"$HOME/.nvm\"; . \"$NVM_DIR/nvm.sh\"; export PATH=\"$(dirname \"$(nvm which default)\"):$PATH\"; cd projects/isbabyoutyet/web && pnpm dev"
     }
   ],
   "ports": [

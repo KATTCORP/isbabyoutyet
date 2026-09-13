@@ -3,7 +3,7 @@ import { defineRule } from "@oxlint/plugins";
 /**
  * Ban re-exporting React hooks that the project forbids in feature code.
  *
- * `projects/baby-outlet/web/src/lib` may *use* effects/local state, but must not re-export
+ * `projects/<app>/web/src/lib` may *use* effects/local state, but must not re-export
  * `useEffect` / `useState` / etc. from `"react"` — that would launder them
  * past the feature bans.
  *
