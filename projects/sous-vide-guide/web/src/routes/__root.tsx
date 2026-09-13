@@ -5,7 +5,6 @@ import { z } from "zod";
 
 import { SiteHeader } from "@/components/site-header";
 import { temperatureUnitSearchSchema } from "@/lib/temperature";
-import { useUnitChangeToast } from "@/lib/use-unit-change-toast";
 import { m } from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
 import type { Locale } from "@/paraglide/runtime";
@@ -64,7 +63,6 @@ export const Route = createRootRouteWithContext<{ locale: Locale }>()({
 
 function RootComponent() {
   const { locale } = Route.useRouteContext();
-  useUnitChangeToast();
 
   return (
     <html lang={locale}>
