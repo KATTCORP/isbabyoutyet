@@ -19,6 +19,22 @@ describe("filterSousVideEntries", () => {
     expect(fish.every((entry) => entry.category === "fish")).toBe(true);
   });
 
+  it("ignores single-character queries instead of showing no matches", () => {
+    const oneChar = filterSousVideEntries({
+      category: "all",
+      entries: SOUS_VIDE_ENTRIES,
+      query: "p",
+    });
+    expect(oneChar).toEqual(SOUS_VIDE_ENTRIES);
+
+    const spaced = filterSousVideEntries({
+      category: "all",
+      entries: SOUS_VIDE_ENTRIES,
+      query: " p ",
+    });
+    expect(spaced).toEqual(SOUS_VIDE_ENTRIES);
+  });
+
   it("matches ingredient names across locales", () => {
     const salmon = filterSousVideEntries({
       category: "all",
