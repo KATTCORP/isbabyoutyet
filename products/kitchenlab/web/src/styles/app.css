@@ -1,0 +1,72 @@
+@import "@workspace/ui/globals.css";
+@import "@fontsource-variable/source-serif-4/wght.css";
+@import "@fontsource-variable/source-sans-3/wght.css";
+
+:root {
+  color-scheme: light;
+  --font-serif: "Source Serif 4 Variable", "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+  --font-sans: "Source Sans 3 Variable", "Avenir Next", "Segoe UI", sans-serif;
+  --background: oklch(0.97 0.012 85);
+  --foreground: oklch(0.22 0.02 55);
+  --card: oklch(0.99 0.008 85);
+  --card-foreground: oklch(0.22 0.02 55);
+  --popover: oklch(0.99 0.008 85);
+  --popover-foreground: oklch(0.22 0.02 55);
+  --primary: oklch(0.45 0.09 45);
+  --primary-foreground: oklch(0.98 0.01 85);
+  --secondary: oklch(0.93 0.02 85);
+  --secondary-foreground: oklch(0.28 0.03 55);
+  --muted: oklch(0.94 0.015 85);
+  --muted-foreground: oklch(0.45 0.02 55);
+  --accent: oklch(0.72 0.12 55);
+  --accent-foreground: oklch(0.2 0.03 45);
+  --destructive: oklch(0.55 0.2 25);
+  --border: oklch(0.86 0.02 75);
+  --input: oklch(0.9 0.015 75);
+  --ring: oklch(0.55 0.08 45);
+  --radius: 0.75rem;
+  --kitchen-ink: oklch(0.2 0.025 50);
+  --kitchen-copper: oklch(0.62 0.12 50);
+  --kitchen-steam: oklch(0.95 0.02 90);
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--foreground);
+  background:
+    radial-gradient(
+      1200px 500px at 10% -10%,
+      color-mix(in oklab, var(--kitchen-copper) 22%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 420px at 90% 0%,
+      color-mix(in oklab, var(--accent) 18%, transparent),
+      transparent 55%
+    ),
+    linear-gradient(180deg, var(--kitchen-steam), var(--background) 42%, oklch(0.94 0.016 80));
+  background-attachment: fixed;
+}
+
+.font-display {
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+}
+
+.surface-panel {
+  background: color-mix(in oklab, var(--card) 88%, white);
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  box-shadow: 0 18px 40px -28px color-mix(in oklab, var(--kitchen-ink) 45%, transparent);
+}
+
+.temp-number {
+  font-family: var(--font-serif);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}

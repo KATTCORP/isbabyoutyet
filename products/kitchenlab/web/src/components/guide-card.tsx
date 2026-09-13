@@ -1,0 +1,31 @@
+import { Link } from "@tanstack/react-router";
+
+import type { GuideSummary } from "@/data/guides";
+import { getLocale } from "@/paraglide/runtime";
+import * as m from "@/paraglide/messages";
+import { Badge } from "@workspace/ui/components/badge";
+
+export function GuideCard(props: { guide: GuideSummary }) {
+  const locale = getLocale();
+  const title = locale === "en" ? props.guide.titleEn : props.guide.titleSv;
+  const summary = locale === "en" ? props.guide.summaryEn : props.guide.summarySv;
+
+  return (
+    <Link
+      to="/guides/sous-vide"
+      search={{ q: "", category: "all" }}
+      className="surface-panel group block rounded-2xl p-5 transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <div className="mb-3">
+        <Badge variant="secondary">{m.guide_badge_reference()}</Badge>
+      </div>
+      <h2 className="font-display text-2xl font-semibold tracking-tight text-[var(--kitchen-ink)] group-hover:text-[var(--kitchen-copper)]">
+        {title}
+      </h2>
+      <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">{summary}</p>
+      <span className="mt-4 inline-flex text-sm font-semibold text-[var(--kitchen-copper)]">
+        {m.browse_sous_vide()} →
+      </span>
+    </Link>
+  );
+}
