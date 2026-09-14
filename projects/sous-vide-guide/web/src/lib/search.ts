@@ -44,7 +44,7 @@ function entryFields(entry: SousVideEntry) {
   const fahrenheit = celsiusToFahrenheit(entry.temperatureC);
   return [
     entry.name,
-    entry.doneness ?? "",
+    entry.doneness,
     entry.category,
     ...entry.searchTerms,
     `${entry.temperatureC}`,
