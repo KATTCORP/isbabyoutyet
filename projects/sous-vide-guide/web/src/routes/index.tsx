@@ -10,9 +10,11 @@ import { defaultTemperatureUnit, temperatureUnitSearchSchema } from "@/lib/tempe
 import { m } from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
 
-const SEARCH_DEFAULTS = { q: "" } as const;
+const SEARCH_DEFAULTS = { info: "", q: "" } as const;
 
 const sousVideSearchSchema = z.object({
+  /** Cut id for the More info drawer (`?info=egg` + `#egg`). Empty when closed. */
+  info: z.string().default(SEARCH_DEFAULTS.info),
   q: z.string().default(SEARCH_DEFAULTS.q),
   unit: temperatureUnitSearchSchema,
 });
@@ -41,6 +43,12 @@ function SousVideGuidePage() {
   const entries = filterSousVideEntries({ entries: allEntries, query: deferredQuery });
 
   return (
-    <SousVideBrowser allEntries={allEntries} entries={entries} q={deferredQuery} unit={unit} />
+    <SousVideBrowser
+      allEntries={allEntries}
+      entries={entries}
+      info={search.info}
+      q={deferredQuery}
+      unit={unit}
+    />
   );
 }

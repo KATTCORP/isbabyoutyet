@@ -1,10 +1,12 @@
-import { MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
+import { ArrowSquareOutIcon, InfoIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
 import { Link, useNavigate } from "@tanstack/react-router";
 
+import { cutHasGuideDetail, getCutGuide } from "@/data/cutGuide";
 import type { SousVideCategory, SousVideEntry } from "@/data/sousVide";
 import { SOUS_VIDE_CATEGORIES } from "@/data/sousVide";
 import type { CategorySection } from "@/lib/categories";
 import { groupEntriesByCategory } from "@/lib/categories";
+import { createContentT } from "@/lib/content-t";
 import { formatDurationMinutes, formatDurationRange } from "@/lib/duration";
 import type { SousVideCutGroup } from "@/lib/group-cuts";
 import { groupSousVideEntriesByCut } from "@/lib/group-cuts";
@@ -14,6 +16,15 @@ import type { TemperatureUnit } from "@/lib/temperature";
 import { formatTemperature } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
+import { Button } from "@workspace/ui/components/button";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@workspace/ui/components/drawer";
 import { cn } from "@workspace/ui/lib/utils";
 
 const categoryMessage = {
@@ -30,6 +41,8 @@ const categoryMessage = {
 type BrowserProps = {
   allEntries: ReadonlyArray<SousVideEntry>;
   entries: ReadonlyArray<SousVideEntry>;
+  /** Cut id for the open More info drawer (`?info=`), or "" when closed. */
+  info: string;
   q: string;
   unit: TemperatureUnit;
 };
@@ -62,10 +75,17 @@ export function SousVideBrowser(props: BrowserProps) {
 
       <div>
         {searching ? (
-          <SearchResults entries={props.entries} locale={locale} q={props.q} unit={props.unit} />
+          <SearchResults
+            entries={props.entries}
+            info={props.info}
+            locale={locale}
+            q={props.q}
+            unit={props.unit}
+          />
         ) : (
           sections.map((section) => (
             <CategorySectionView
+              info={props.info}
               key={section.category}
               locale={locale}
               section={section}
@@ -264,6 +284,7 @@ function revealQuickLink(id: string) {
 }
 
 function CategorySectionView(props: {
+  info: string;
   locale: string;
   section: CategorySection;
   unit: TemperatureUnit;
@@ -296,6 +317,7 @@ function CategorySectionView(props: {
       </h2>
       <IngredientList
         groups={groups}
+        info={props.info}
         locale={props.locale}
         showCategory={false}
         unit={props.unit}
@@ -306,6 +328,7 @@ function CategorySectionView(props: {
 
 function SearchResults(props: {
   entries: ReadonlyArray<SousVideEntry>;
+  info: string;
   locale: string;
   q: string;
   unit: TemperatureUnit;
@@ -324,7 +347,13 @@ function SearchResults(props: {
             : m.results_for_query({ count, query })}
       </p>
       {count > 0 ? (
-        <IngredientList groups={groups} locale={props.locale} showCategory unit={props.unit} />
+        <IngredientList
+          groups={groups}
+          info={props.info}
+          locale={props.locale}
+          showCategory
+          unit={props.unit}
+        />
       ) : null}
     </section>
   );
@@ -332,6 +361,7 @@ function SearchResults(props: {
 
 function IngredientList(props: {
   groups: ReadonlyArray<SousVideCutGroup>;
+  info: string;
   locale: string;
   showCategory: boolean;
   unit: TemperatureUnit;
@@ -342,6 +372,7 @@ function IngredientList(props: {
         <li className="min-w-0" key={group.cutId}>
           <IngredientCard
             group={group}
+            info={props.info}
             locale={props.locale}
             showCategory={props.showCategory}
             unit={props.unit}
@@ -354,13 +385,21 @@ function IngredientList(props: {
 
 function IngredientCard(props: {
   group: SousVideCutGroup;
+  info: string;
   locale: string;
   showCategory: boolean;
   unit: TemperatureUnit;
 }) {
   const steps = props.group.rows;
   const single = steps.length === 1;
-  const sharedStart = sharedIngredientStart(steps.map((step) => step.start));
+  const t = createContentT(props.locale);
+  const starts = steps.map((step) => step.start);
+  const showDetail = cutHasGuideDetail({
+    cutId: props.group.cutId,
+    starts,
+    t,
+  });
+  const sharedStart = sharedIngredientStart(starts);
 
   return (
     <article
@@ -385,11 +424,16 @@ function IngredientCard(props: {
             </p>
           ) : null}
         </div>
-        {props.showCategory ? (
-          <span className="shrink-0 text-[0.7rem] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-            {categoryMessage[props.group.category]()}
-          </span>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-2">
+          {props.showCategory ? (
+            <span className="text-[0.7rem] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+              {categoryMessage[props.group.category]()}
+            </span>
+          ) : null}
+          {showDetail ? (
+            <CutDetailDrawer group={props.group} info={props.info} locale={props.locale} />
+          ) : null}
+        </div>
       </div>
       <ol
         className={cn(
@@ -424,6 +468,115 @@ function sharedIngredientStart(starts: ReadonlyArray<SousVideEntry["start"]>) {
     }
   }
   return first;
+}
+
+function CutDetailDrawer(props: { group: SousVideCutGroup; info: string; locale: string }) {
+  const navigate = useNavigate({ from: "/" });
+  const t = createContentT(props.locale);
+  const guide = getCutGuide(props.group.cutId, t);
+  const open = props.info === props.group.cutId;
+  const starts = [
+    ...new Set(props.group.rows.map((row) => row.start).filter((start) => start !== null)),
+  ];
+
+  function setInfoOpen(nextOpen: boolean) {
+    void navigate({
+      // Keep the cut permalink in the hash so shared `?info=` links also land on the card.
+      hash: props.group.cutId,
+      replace: true,
+      resetScroll: false,
+      search: (previous) => ({
+        ...previous,
+        info: nextOpen ? props.group.cutId : "",
+      }),
+    });
+  }
+
+  return (
+    <Drawer
+      onOpenChange={(nextOpen) => {
+        if (nextOpen !== open) {
+          setInfoOpen(nextOpen);
+        }
+      }}
+      open={open}
+      showSwipeHandle
+    >
+      <Button
+        aria-label={m.more_info()}
+        className="size-11"
+        onClick={() => {
+          setInfoOpen(true);
+        }}
+        size="icon"
+        type="button"
+        variant="ghost"
+      >
+        <InfoIcon />
+      </Button>
+      <DrawerContent className="mx-auto w-full max-w-3xl">
+        <DrawerHeader className="text-left">
+          <DrawerTitle>{props.group.name}</DrawerTitle>
+          <DrawerDescription>{m.more_info()}</DrawerDescription>
+        </DrawerHeader>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2">
+          {starts.length > 0 ? (
+            <p className="text-sm text-foreground/90">
+              {starts
+                .map((start) => (start === "fridge" ? m.start_from_fridge() : m.start_from_room()))
+                .join(" · ")}
+            </p>
+          ) : null}
+          {guide !== null && guide.notes.length > 0 ? (
+            <section className="flex flex-col gap-2">
+              <h4 className="text-sm font-semibold text-[var(--guide-ink)]">
+                {m.guide_notes_heading()}
+              </h4>
+              <ul className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
+                {guide.notes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          {guide !== null && guide.references.length > 0 ? (
+            <section className="flex flex-col gap-2">
+              <h4 className="text-sm font-semibold text-[var(--guide-ink)]">
+                {m.guide_references_heading()}
+              </h4>
+              <ul className="flex flex-col gap-2">
+                {guide.references.map((reference) => (
+                  <li key={reference.href}>
+                    <a
+                      className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-[var(--guide-copper)] underline-offset-4 hover:underline"
+                      href={reference.href}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      <ArrowSquareOutIcon className="size-4 shrink-0" />
+                      <span>{reference.label}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
+        <DrawerFooter>
+          <Button
+            className="min-h-11 w-full"
+            onClick={() => {
+              setInfoOpen(false);
+            }}
+            type="button"
+            variant="secondary"
+          >
+            {m.close_detail()}
+          </Button>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  );
 }
 
 function DonenessStep(props: {
