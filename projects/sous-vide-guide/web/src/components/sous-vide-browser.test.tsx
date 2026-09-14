@@ -209,4 +209,21 @@ describe("SousVideBrowser", () => {
     expect(within(dialog).getByText(m.guide_notes_heading())).toBeTruthy();
     guide.view.unmount();
   });
+
+  it("opens chuck (högrev) detail with Swedish source links", async () => {
+    const guide = await renderGuide("/?info=chuck");
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("link", { name: /KitchenLab/i }).getAttribute("href")).toMatch(
+      /kitchenlab\.se/,
+    );
+    expect(
+      within(dialog).getByRole("link", { name: /Hagshultskossorna/i }).getAttribute("href"),
+    ).toMatch(/hagshult\.se/);
+    expect(
+      within(dialog).getByRole("link", { name: /Gårdssällskapet|Gardssallskapet/i }).getAttribute(
+        "href",
+      ),
+    ).toMatch(/gardssallskapet\.se/);
+    guide.view.unmount();
+  });
 });

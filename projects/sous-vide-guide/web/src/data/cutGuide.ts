@@ -117,6 +117,43 @@ export function getCutGuide(cutId: string, t: ContentT): CutGuide | null {
           },
         ],
       };
+    case "chuck":
+      return {
+        cutId,
+        notes: [
+          t(
+            "Chuck (Swedish högrev) is a tough, collagen-rich roast. The long times here are for breaking connective tissue, not just heating the centre.",
+          ),
+          t(
+            "Rare (57C / 24 h) stays sliceable and steak-like. Medium (64C / 16 h) moves toward pot-roast. Well done (82C / 8 h) is fully braised and pull-apart. Larger pieces may need toward the max time.",
+          ),
+          t(
+            "Pat the roast very dry and sear hard in a ripping-hot pan or on the grill after the bath so you get a crust without cooking the interior further.",
+          ),
+        ],
+        references: [
+          {
+            href: KITCHENLAB_GUIDE_HREF,
+            label: "KitchenLab — högrev (57 / 64 / 82C table)",
+          },
+          {
+            href: "https://hagshult.se/guider-tips/stora-guiden-till-sous-vide/",
+            label: "Hagshultskossorna — stora guiden (högrev 58–62C)",
+          },
+          {
+            href: "https://www.gardssallskapet.se/kottguiden/recept/hogrev-sousvide-chimichurri",
+            label: "Gårdssällskapet — högrev sous vide (57C / 24 h)",
+          },
+          {
+            href: "http://www.kunskapskokboken.se/4.21514/varufakta/sa-lagas-hogrev-av-not/",
+            label: "Kunskapskokboken — högrev sous vide (~58C / ~18 h)",
+          },
+          {
+            href: "https://recipes.anovaculinary.com/recipe/sous-vide-medium-rare-chuck-roast",
+            label: "Anova — medium-rare chuck roast (57C / 24–36 h)",
+          },
+        ],
+      };
     default:
       return null;
   }
