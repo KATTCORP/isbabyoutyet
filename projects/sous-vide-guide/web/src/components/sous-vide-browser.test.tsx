@@ -14,6 +14,7 @@ import { z } from "zod";
 import { SousVideBrowser } from "@/components/sous-vide-browser";
 import { getSousVideEntries } from "@/data/sousVide";
 import { createContentT } from "@/lib/content-t";
+import { hashScrollIntoViewOptions } from "@/lib/hash-scroll";
 import { filterSousVideEntries } from "@/lib/search";
 import { temperatureUnitSearchSchema } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
@@ -47,9 +48,18 @@ function GuidePage() {
   );
 }
 
+function usingCleanup(dispose: () => void): Disposable {
+  return {
+    [Symbol.dispose]() {
+      dispose();
+    },
+  };
+}
+
 async function renderGuide(initialUrl: string) {
   cleanup();
   const router = createRouter({
+    defaultHashScrollIntoView: hashScrollIntoViewOptions(),
     history: createMemoryHistory({ initialEntries: [initialUrl] }),
     routeTree: rootRoute.addChildren([indexRoute]),
   });
@@ -88,6 +98,39 @@ describe("SousVideBrowser", () => {
     const quickLinks = within(dock).getAllByRole("link");
     expect(quickLinks).toHaveLength(8);
     expect(quickLinks[0]?.getAttribute("href")).toBe("/#pork");
+
+    guide.view.unmount();
+  });
+
+  it("smooth-scrolls category hash jumps via scrollIntoView options", async () => {
+    // jsdom does not implement scrollIntoView — define before spying.
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      value: () => {},
+      writable: true,
+    });
+    const scrollIntoView = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockImplementation(() => {});
+    await using _spy = usingCleanup(() => {
+      scrollIntoView.mockRestore();
+    });
+
+    const guide = await renderGuide("/");
+    const fishLink = document.querySelector<HTMLElement>('[data-quick-link="fish"]');
+    if (fishLink === null) {
+      throw new Error("Expected fish quick link");
+    }
+    fireEvent.click(fishLink);
+
+    await vi.waitFor(() => {
+      expect(guide.router.state.location.hash).toBe("fish");
+    });
+    await vi.waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalledWith(
+        expect.objectContaining({ behavior: expect.stringMatching(/^(smooth|instant)$/) }),
+      );
+    });
 
     guide.view.unmount();
   });

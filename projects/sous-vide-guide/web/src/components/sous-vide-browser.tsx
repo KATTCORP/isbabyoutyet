@@ -10,6 +10,7 @@ import { createContentT } from "@/lib/content-t";
 import { formatDurationMinutes, formatDurationRange } from "@/lib/duration";
 import type { SousVideCutGroup } from "@/lib/group-cuts";
 import { groupSousVideEntriesByCut } from "@/lib/group-cuts";
+import { scrollBehavior } from "@/lib/hash-scroll";
 import { isSearchQuery } from "@/lib/search";
 import { useActiveSection } from "@/lib/use-active-section";
 import type { TemperatureUnit } from "@/lib/temperature";
@@ -278,7 +279,7 @@ function revealQuickLink(id: string) {
     return;
   }
   strip.scrollTo({
-    behavior: "smooth",
+    behavior: scrollBehavior(),
     left: link.offsetLeft - (strip.clientWidth - link.offsetWidth) / 2,
   });
 }

@@ -21,9 +21,13 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
   section title (Fish, Pork, …), and the quick-link dock stay pinned. Category
   titles stick under the header (and under the dock on `sm+`) for the length of
   that section. Sections use `scroll-mt-*` against `--site-header-h` (fixed
-  header height, see `src/styles/app.css`, which also sets
-  `html { scroll-behavior: smooth }`) plus the dock row height on `sm+`; cut /
-  doneness targets also clear the sticky category title.
+  header height, see `src/styles/app.css`) plus the dock row height on `sm+`;
+  cut / doneness targets also clear the sticky category title. Smooth hash
+  jumps come from `defaultHashScrollIntoView` in `src/router.tsx` (via
+  `hashScrollIntoViewOptions` in `src/lib/hash-scroll.ts`) — CSS
+  `scroll-behavior: smooth` is only a native-anchor fallback; SPA `#hash`
+  Links call `scrollIntoView` and need the explicit options object (notably
+  on iOS Safari).
 - **Search** writes `?q=` on every change with `replace: true`; the input is
   uncontrolled (`defaultValue`, never re-keyed) so focus and cursor survive the
   navigation, and the Clear button resets the field imperatively. Scroll is

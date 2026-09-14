@@ -1,6 +1,7 @@
 import { createRouter } from "@tanstack/react-router";
 
 import "@/lib/paraglide-setup";
+import { hashScrollIntoViewOptions } from "@/lib/hash-scroll";
 import { registerAcceptLanguageStrategy } from "@/lib/locale-strategy";
 import { routeTree } from "./routeTree.gen";
 import { baseLocale } from "./paraglide/runtime";
@@ -12,6 +13,8 @@ export function getRouter() {
     context: {
       locale: baseLocale,
     },
+    // Category / cut `#hash` Links use scrollIntoView — see hash-scroll.ts.
+    defaultHashScrollIntoView: hashScrollIntoViewOptions(),
     defaultPreload: "viewport",
     routeTree,
     scrollRestoration: true,
