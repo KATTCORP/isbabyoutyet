@@ -19,13 +19,11 @@ import { getLocale } from "@/paraglide/runtime";
 import { Button } from "@workspace/ui/components/button";
 import {
   Drawer,
-  DrawerClose,
   DrawerContent,
   DrawerDescription,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
-  DrawerTrigger,
 } from "@workspace/ui/components/drawer";
 import { cn } from "@workspace/ui/lib/utils";
 
@@ -43,6 +41,8 @@ const categoryMessage = {
 type BrowserProps = {
   allEntries: ReadonlyArray<SousVideEntry>;
   entries: ReadonlyArray<SousVideEntry>;
+  /** Cut id for the open More info drawer (`?info=`), or "" when closed. */
+  info: string;
   q: string;
   unit: TemperatureUnit;
 };
@@ -75,10 +75,17 @@ export function SousVideBrowser(props: BrowserProps) {
 
       <div>
         {searching ? (
-          <SearchResults entries={props.entries} locale={locale} q={props.q} unit={props.unit} />
+          <SearchResults
+            entries={props.entries}
+            info={props.info}
+            locale={locale}
+            q={props.q}
+            unit={props.unit}
+          />
         ) : (
           sections.map((section) => (
             <CategorySectionView
+              info={props.info}
               key={section.category}
               locale={locale}
               section={section}
@@ -277,6 +284,7 @@ function revealQuickLink(id: string) {
 }
 
 function CategorySectionView(props: {
+  info: string;
   locale: string;
   section: CategorySection;
   unit: TemperatureUnit;
@@ -309,6 +317,7 @@ function CategorySectionView(props: {
       </h2>
       <IngredientList
         groups={groups}
+        info={props.info}
         locale={props.locale}
         showCategory={false}
         unit={props.unit}
@@ -319,6 +328,7 @@ function CategorySectionView(props: {
 
 function SearchResults(props: {
   entries: ReadonlyArray<SousVideEntry>;
+  info: string;
   locale: string;
   q: string;
   unit: TemperatureUnit;
@@ -337,7 +347,13 @@ function SearchResults(props: {
             : m.results_for_query({ count, query })}
       </p>
       {count > 0 ? (
-        <IngredientList groups={groups} locale={props.locale} showCategory unit={props.unit} />
+        <IngredientList
+          groups={groups}
+          info={props.info}
+          locale={props.locale}
+          showCategory
+          unit={props.unit}
+        />
       ) : null}
     </section>
   );
@@ -345,6 +361,7 @@ function SearchResults(props: {
 
 function IngredientList(props: {
   groups: ReadonlyArray<SousVideCutGroup>;
+  info: string;
   locale: string;
   showCategory: boolean;
   unit: TemperatureUnit;
@@ -355,6 +372,7 @@ function IngredientList(props: {
         <li className="min-w-0" key={group.cutId}>
           <IngredientCard
             group={group}
+            info={props.info}
             locale={props.locale}
             showCategory={props.showCategory}
             unit={props.unit}
@@ -367,6 +385,7 @@ function IngredientList(props: {
 
 function IngredientCard(props: {
   group: SousVideCutGroup;
+  info: string;
   locale: string;
   showCategory: boolean;
   unit: TemperatureUnit;
@@ -411,7 +430,9 @@ function IngredientCard(props: {
               {categoryMessage[props.group.category]()}
             </span>
           ) : null}
-          {showDetail ? <CutDetailDrawer group={props.group} locale={props.locale} /> : null}
+          {showDetail ? (
+            <CutDetailDrawer group={props.group} info={props.info} locale={props.locale} />
+          ) : null}
         </div>
       </div>
       <ol
@@ -449,28 +470,52 @@ function sharedIngredientStart(starts: ReadonlyArray<SousVideEntry["start"]>) {
   return first;
 }
 
-function CutDetailDrawer(props: { group: SousVideCutGroup; locale: string }) {
+function CutDetailDrawer(props: {
+  group: SousVideCutGroup;
+  info: string;
+  locale: string;
+}) {
+  const navigate = useNavigate({ from: "/" });
   const t = createContentT(props.locale);
   const guide = getCutGuide(props.group.cutId, t);
+  const open = props.info === props.group.cutId;
   const starts = [
     ...new Set(props.group.rows.map((row) => row.start).filter((start) => start !== null)),
   ];
 
+  function setInfoOpen(nextOpen: boolean) {
+    void navigate({
+      replace: true,
+      resetScroll: false,
+      search: (previous) => ({
+        ...previous,
+        info: nextOpen ? props.group.cutId : "",
+      }),
+    });
+  }
+
   return (
-    <Drawer showSwipeHandle>
-      <DrawerTrigger
-        render={
-          <Button
-            aria-label={m.more_info()}
-            className="size-11"
-            size="icon"
-            type="button"
-            variant="ghost"
-          />
+    <Drawer
+      onOpenChange={(nextOpen) => {
+        if (nextOpen !== open) {
+          setInfoOpen(nextOpen);
         }
+      }}
+      open={open}
+      showSwipeHandle
+    >
+      <Button
+        aria-label={m.more_info()}
+        className="size-11"
+        onClick={() => {
+          setInfoOpen(true);
+        }}
+        size="icon"
+        type="button"
+        variant="ghost"
       >
         <InfoIcon />
-      </DrawerTrigger>
+      </Button>
       <DrawerContent className="mx-auto w-full max-w-3xl">
         <DrawerHeader className="text-left">
           <DrawerTitle>{props.group.name}</DrawerTitle>
@@ -520,11 +565,16 @@ function CutDetailDrawer(props: { group: SousVideCutGroup; locale: string }) {
           ) : null}
         </div>
         <DrawerFooter>
-          <DrawerClose
-            render={<Button className="min-h-11 w-full" type="button" variant="secondary" />}
+          <Button
+            className="min-h-11 w-full"
+            onClick={() => {
+              setInfoOpen(false);
+            }}
+            type="button"
+            variant="secondary"
           >
             {m.close_detail()}
-          </DrawerClose>
+          </Button>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
