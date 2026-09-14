@@ -1,4 +1,4 @@
-import type { IngredientStart } from "@/data/sousVide";
+import type { SousVideEntry } from "@/data/sousVide";
 import type { ContentT } from "@/lib/content-t";
 
 /**
@@ -9,6 +9,8 @@ type GuideReference = {
   href: string;
   label: string;
 };
+
+type IngredientStart = Exclude<SousVideEntry["start"], null>;
 
 export type CutGuide = {
   cutId: string;
