@@ -35,4 +35,34 @@ describe("sous vide data invariants", () => {
       }
     }
   });
+
+  it("gives every row a non-empty outcome label", () => {
+    for (const locale of locales) {
+      const t = createContentT(locale);
+      for (const entry of getSousVideEntries(t)) {
+        expect(entry.doneness.length, `${entry.id} (${locale})`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("labels short-cook vegetables Crisp and longer baths Tender", () => {
+    const byId = new Map(
+      getSousVideEntries(createContentT("en-GB")).map((entry) => [entry.id, entry]),
+    );
+    expect(byId.get("carrot")?.doneness).toBe("Crisp");
+    expect(byId.get("asparagus")?.doneness).toBe("Crisp");
+    expect(byId.get("potato")?.doneness).toBe("Tender");
+    expect(byId.get("beet")?.doneness).toBe("Tender");
+    expect(byId.get("pumpkin")?.doneness).toBe("Tender");
+  });
+
+  it("translates vegetable outcome labels in Swedish", () => {
+    const byId = new Map(
+      getSousVideEntries(createContentT("sv")).map((entry) => [entry.id, entry]),
+    );
+    expect(byId.get("asparagus")?.doneness).toBe("Krispig");
+    expect(byId.get("potato")?.doneness).toBe("Mör");
+    expect(byId.get("creme-brulee")?.doneness).toBe("Stelnad");
+    expect(byId.get("yogurt")?.doneness).toBe("Syrad");
+  });
 });

@@ -21,7 +21,11 @@ export type TimeRangeMinutes = {
 
 export type SousVideEntry = {
   category: SousVideCategory;
-  doneness: string | null;
+  /**
+   * Outcome label shown on the ladder step (rare / tender / crisp / …).
+   * Always set — single-temp cuts still need a word so the row isn’t blank.
+   */
+  doneness: string;
   id: string;
   /** Absolute max cook time in minutes, when the source lists one. */
   maxMinutes: number | null;
@@ -735,54 +739,59 @@ export function getSousVideEntries(t: ContentT): ReadonlyArray<SousVideEntry> {
     },
     {
       category: "vegetables",
-      doneness: null,
+      // Short bath — same “done but still crisp” idea as asparagus in the source prose.
+      doneness: t("Crisp"),
       id: "carrot",
       maxMinutes: 20,
       name: t("Carrot and parsnip"),
       recommendedMinutes: { max: 15, min: 15 },
       searchTerms: splitMessageList(
-        t("grönsaker, vegetables, morot, carrot, palsternacka, parsnip, Morot och palsternacka"),
+        t(
+          "grönsaker, vegetables, morot, carrot, palsternacka, parsnip, Morot och palsternacka, Krispig",
+        ),
       ),
       temperatureC: 85,
     },
     {
       category: "vegetables",
-      doneness: null,
+      // KitchenLab: “går färdigt men förblir angenämt krispigt fräsch”.
+      doneness: t("Crisp"),
       id: "asparagus",
       maxMinutes: 30,
       name: t("Asparagus"),
       recommendedMinutes: { max: 22, min: 22 },
-      searchTerms: splitMessageList(t("grönsaker, vegetables, sparris")),
+      searchTerms: splitMessageList(t("grönsaker, vegetables, sparris, Krispig")),
       temperatureC: 82,
     },
     {
       category: "vegetables",
-      doneness: null,
+      // Longer bath — structure softens (“lätt-tuggade” in the source mörning notes).
+      doneness: t("Tender"),
       id: "potato",
       maxMinutes: 180,
       name: t("Potato"),
       recommendedMinutes: { max: 60, min: 60 },
-      searchTerms: splitMessageList(t("grönsaker, vegetables, potatis")),
+      searchTerms: splitMessageList(t("grönsaker, vegetables, potatis, Mör")),
       temperatureC: 88,
     },
     {
       category: "vegetables",
-      doneness: null,
+      doneness: t("Tender"),
       id: "beet",
       maxMinutes: 300,
       name: t("Beetroot"),
       recommendedMinutes: { max: 180, min: 180 },
-      searchTerms: splitMessageList(t("grönsaker, vegetables, rödbetor, beet, Beets")),
+      searchTerms: splitMessageList(t("grönsaker, vegetables, rödbetor, beet, Beets, Mör")),
       temperatureC: 86,
     },
     {
       category: "vegetables",
-      doneness: null,
+      doneness: t("Tender"),
       id: "pumpkin",
       maxMinutes: 45,
       name: t("Pumpkin"),
       recommendedMinutes: { max: 30, min: 30 },
-      searchTerms: splitMessageList(t("grönsaker, vegetables, pumpa, squash")),
+      searchTerms: splitMessageList(t("grönsaker, vegetables, pumpa, squash, Mör")),
       temperatureC: 90,
     },
     {
@@ -829,22 +838,23 @@ export function getSousVideEntries(t: ContentT): ReadonlyArray<SousVideEntry> {
     },
     {
       category: "eggs",
-      doneness: null,
+      // Custard row in the source table — outcome is a set cream, not a doneness ladder.
+      doneness: t("Set"),
       id: "creme-brulee",
       maxMinutes: 90,
       name: t("Crème brûlée / Crema Catalana"),
       recommendedMinutes: { max: 60, min: 60 },
-      searchTerms: splitMessageList(t("ägg, egg, dessert, crème, brulee, catalana")),
+      searchTerms: splitMessageList(t("ägg, egg, dessert, crème, brulee, catalana, Stelnad")),
       temperatureC: 80,
     },
     {
       category: "eggs",
-      doneness: null,
+      doneness: t("Cultured"),
       id: "yogurt",
       maxMinutes: 960,
       name: t("Yoghurt"),
       recommendedMinutes: { max: 720, min: 720 },
-      searchTerms: splitMessageList(t("yogurt, ferment")),
+      searchTerms: splitMessageList(t("yogurt, ferment, Syrad")),
       temperatureC: 43,
     },
   ];

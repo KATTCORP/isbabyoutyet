@@ -424,7 +424,7 @@ function DonenessStep(props: {
           backgroundColor: `color-mix(in oklab, var(--guide-copper) ${Math.round(fill * 100)}%, var(--card))`,
         }}
       />
-      <span className="truncate text-sm text-foreground/90">{entry.doneness ?? ""}</span>
+      <span className="truncate text-sm text-foreground/90">{entry.doneness}</span>
       <span className="temp-number text-lg leading-6 font-semibold text-[var(--guide-copper)]">
         {formatTemperature(entry.temperatureC, { locale: props.locale, unit: props.unit })}
       </span>
