@@ -73,6 +73,11 @@ body {
   min-height: 100%;
 }
 
+/*
+  Progressive enhancement for native fragment navigation. TanStack hash Links
+  still need `defaultHashScrollIntoView: { behavior: "smooth" }` (see
+  `src/lib/hash-scroll.ts`) — CSS alone does not smooth those SPA jumps on iOS.
+*/
 html {
   scroll-behavior: smooth;
 }

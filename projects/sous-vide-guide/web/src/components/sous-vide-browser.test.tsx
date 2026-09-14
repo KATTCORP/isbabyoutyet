@@ -8,12 +8,13 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { SousVideBrowser } from "@/components/sous-vide-browser";
 import { getSousVideEntries } from "@/data/sousVide";
 import { createContentT } from "@/lib/content-t";
+import { hashScrollIntoViewOptions } from "@/lib/hash-scroll";
 import { filterSousVideEntries } from "@/lib/search";
 import { temperatureUnitSearchSchema } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
@@ -50,8 +51,10 @@ function GuidePage() {
 async function renderGuide(initialUrl: string) {
   cleanup();
   const router = createRouter({
+    defaultHashScrollIntoView: hashScrollIntoViewOptions(),
     history: createMemoryHistory({ initialEntries: [initialUrl] }),
     routeTree: rootRoute.addChildren([indexRoute]),
+    scrollRestoration: true,
   });
   const view = render(<RouterProvider router={router} />);
   // An open `?info=` drawer aria-hides the page chrome; still wait on the field.
@@ -72,6 +75,10 @@ function currentQuery(router: Awaited<ReturnType<typeof renderGuide>>["router"])
 }
 
 describe("SousVideBrowser", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("renders one section per category with one card per cut", async () => {
     const guide = await renderGuide("/");
 
@@ -88,6 +95,37 @@ describe("SousVideBrowser", () => {
     const quickLinks = within(dock).getAllByRole("link");
     expect(quickLinks).toHaveLength(8);
     expect(quickLinks[0]?.getAttribute("href")).toBe("/#pork");
+
+    guide.view.unmount();
+  });
+
+  it("smooth-scrolls category hash jumps via scrollIntoView options", async () => {
+    const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {});
+
+    const guide = await renderGuide("/");
+    const fishLink = document.querySelector<HTMLElement>('[data-quick-link="fish"]');
+    if (fishLink === null) {
+      throw new Error("Expected fish quick link");
+    }
+    fireEvent.click(fishLink);
+
+    await vi.waitFor(() => {
+      expect(guide.router.state.location.hash).toBe("fish");
+    });
+    await vi.waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalled();
+    });
+
+    // Router passes ScrollIntoViewOptions (not the boolean `true` overload).
+    expect(
+      scrollIntoView.mock.calls.some(
+        (call) =>
+          typeof call[0] === "object" &&
+          call[0] !== null &&
+          "behavior" in call[0] &&
+          (call[0].behavior === "smooth" || call[0].behavior === "instant"),
+      ),
+    ).toBe(true);
 
     guide.view.unmount();
   });
