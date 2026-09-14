@@ -19,7 +19,7 @@ export type TimeRangeMinutes = {
   min: number;
 };
 
-export type IngredientStart = "fridge" | "room";
+type IngredientStart = "fridge" | "room";
 
 export type SousVideEntry = {
   category: SousVideCategory;
