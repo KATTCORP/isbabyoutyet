@@ -13,7 +13,7 @@ import { getLocale } from "@/paraglide/runtime";
 const SEARCH_DEFAULTS = { info: "", q: "" } as const;
 
 const sousVideSearchSchema = z.object({
-  /** Cut id for the More info drawer (`?info=egg`). Empty when closed. */
+  /** Cut id for the More info drawer (`?info=egg` + `#egg`). Empty when closed. */
   info: z.string().default(SEARCH_DEFAULTS.info),
   q: z.string().default(SEARCH_DEFAULTS.q),
   unit: temperatureUnitSearchSchema,

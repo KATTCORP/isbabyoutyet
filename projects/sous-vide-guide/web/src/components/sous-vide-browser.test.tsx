@@ -187,6 +187,7 @@ describe("SousVideBrowser", () => {
     fireEvent.click(within(eggCard).getByRole("button", { name: m.more_info() }));
     await vi.waitFor(() => {
       expect(guide.router.state.location.search.info).toBe("egg");
+      expect(guide.router.state.location.hash).toBe("egg");
     });
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(m.guide_notes_heading())).toBeTruthy();
@@ -198,31 +199,37 @@ describe("SousVideBrowser", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: m.close_detail() }));
     await vi.waitFor(() => {
       expect(guide.router.state.location.search.info).toBe("");
+      expect(guide.router.state.location.hash).toBe("egg");
     });
     guide.view.unmount();
   });
 
   it("opens the egg detail drawer from a deep link", async () => {
-    const guide = await renderGuide("/?info=egg");
+    const guide = await renderGuide("/?info=egg#egg");
     expect(guide.router.state.location.search.info).toBe("egg");
+    expect(guide.router.state.location.hash).toBe("egg");
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(m.guide_notes_heading())).toBeTruthy();
     guide.view.unmount();
   });
 
   it("opens chuck (högrev) detail with Swedish source links", async () => {
-    const guide = await renderGuide("/?info=chuck");
+    const guide = await renderGuide("/?info=chuck#chuck");
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByRole("link", { name: /KitchenLab/i }).getAttribute("href")).toMatch(
-      /kitchenlab\.se/,
-    );
     expect(
-      within(dialog).getByRole("link", { name: /Hagshultskossorna/i }).getAttribute("href"),
+      within(dialog)
+        .getByRole("link", { name: /KitchenLab/i })
+        .getAttribute("href"),
+    ).toMatch(/kitchenlab\.se/);
+    expect(
+      within(dialog)
+        .getByRole("link", { name: /Hagshultskossorna/i })
+        .getAttribute("href"),
     ).toMatch(/hagshult\.se/);
     expect(
-      within(dialog).getByRole("link", { name: /Gårdssällskapet|Gardssallskapet/i }).getAttribute(
-        "href",
-      ),
+      within(dialog)
+        .getByRole("link", { name: /Gårdssällskapet|Gardssallskapet/i })
+        .getAttribute("href"),
     ).toMatch(/gardssallskapet\.se/);
     guide.view.unmount();
   });

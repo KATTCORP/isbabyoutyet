@@ -481,6 +481,8 @@ function CutDetailDrawer(props: { group: SousVideCutGroup; info: string; locale:
 
   function setInfoOpen(nextOpen: boolean) {
     void navigate({
+      // Keep the cut permalink in the hash so shared `?info=` links also land on the card.
+      hash: props.group.cutId,
       replace: true,
       resetScroll: false,
       search: (previous) => ({
