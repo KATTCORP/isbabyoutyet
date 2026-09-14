@@ -37,9 +37,11 @@ type BrowserProps = {
 /**
  * "Ladder" layout: rows collapse into one card per cut, with the doneness
  * steps (rare → medium → well done) as a ladder inside it. Search scrolls with
- * the page (only the site header is pinned); the category quick links live in a
- * thumb-reach dock at the bottom of the phone screen and in a sticky row under
- * the header on wider screens. The °C/°F switch lives in the site header.
+ * the page; the site header stays pinned, each category title (Fish, Pork, …)
+ * sticks under it while that section is in view, and the category quick links
+ * live in a thumb-reach dock at the bottom of the phone screen and in a sticky
+ * row under the header on wider screens. The °C/°F switch lives in the site
+ * header.
  */
 export function SousVideBrowser(props: BrowserProps) {
   const locale = getLocale();
@@ -274,7 +276,12 @@ function CategorySectionView(props: {
       className="scroll-mt-[calc(var(--site-header-h)+0.5rem)] pt-7 sm:scroll-mt-[calc(var(--site-header-h)+3.5rem)] sm:pt-9"
       id={props.section.category}
     >
-      <h2 className="mb-3 flex items-baseline gap-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)]">
+      {/*
+        Sticks under the site header (and under the sm+ quick-link dock) for the
+        length of this section, so Fish / Pork / … stay visible while you browse
+        that category's cards. scroll-mt on cut cards accounts for this bar.
+      */}
+      <h2 className="sticky top-[var(--site-header-h)] z-[9] -mx-4 mb-3 flex items-baseline gap-2 border-b border-border/50 bg-[color-mix(in_oklab,var(--background)_88%,transparent)] px-4 py-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] backdrop-blur-md sm:top-[calc(var(--site-header-h)+3.5rem)] sm:-mx-6 sm:px-6">
         <Link
           aria-label={m.category_permalink_label({ category: label })}
           className="underline-offset-4 hover:underline"
@@ -356,7 +363,7 @@ function IngredientCard(props: {
 
   return (
     <article
-      className="scroll-mt-[calc(var(--site-header-h)+1rem)] rounded-2xl sm:scroll-mt-[calc(var(--site-header-h)+4.25rem)] border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,var(--surface-mix))] px-4 pt-3.5 pb-2 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] target:ring-2 target:ring-[var(--guide-copper)]"
+      className="scroll-mt-[calc(var(--site-header-h)+3.25rem)] rounded-2xl border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,var(--surface-mix))] px-4 pt-3.5 pb-2 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] target:ring-2 target:ring-[var(--guide-copper)] sm:scroll-mt-[calc(var(--site-header-h)+6.75rem)]"
       id={props.group.cutId}
     >
       <div className="flex items-baseline justify-between gap-3">
@@ -414,7 +421,7 @@ function DonenessStep(props: {
 
   return (
     <li
-      className="grid scroll-mt-[calc(var(--site-header-h)+1rem)] grid-cols-[0.85rem_minmax(0,1fr)_auto_auto] items-baseline gap-x-3 py-2 target:rounded-lg target:bg-[color-mix(in_oklab,var(--guide-copper)_12%,transparent)] sm:scroll-mt-[calc(var(--site-header-h)+4.25rem)]"
+      className="grid scroll-mt-[calc(var(--site-header-h)+3.25rem)] grid-cols-[0.85rem_minmax(0,1fr)_auto_auto] items-baseline gap-x-3 py-2 target:rounded-lg target:bg-[color-mix(in_oklab,var(--guide-copper)_12%,transparent)] sm:scroll-mt-[calc(var(--site-header-h)+6.75rem)]"
       id={entry.id}
     >
       <span
