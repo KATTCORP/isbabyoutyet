@@ -12,10 +12,13 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
   locale with `setLocaleInPlace` so the page can navigate/`?unit=` without a
   full reload.
 - **Categories** are in-page `#anchor` links only (not URL filters) — no “All”
-  chip. The search field scrolls with the page; only the site header (and the
-  quick-link dock) stays pinned. Sections use `scroll-mt-*` against
-  `--site-header-h` (fixed header height, see `src/styles/app.css`, which also
-  sets `html { scroll-behavior: smooth }`) plus the dock row height on `sm+`.
+  chip. The search field scrolls with the page; the site header, each category
+  section title (Fish, Pork, …), and the quick-link dock stay pinned. Category
+  titles stick under the header (and under the dock on `sm+`) for the length of
+  that section. Sections use `scroll-mt-*` against `--site-header-h` (fixed
+  header height, see `src/styles/app.css`, which also sets
+  `html { scroll-behavior: smooth }`) plus the dock row height on `sm+`; cut /
+  doneness targets also clear the sticky category title.
 - **Search** writes `?q=` on every change with `replace: true`; the input is
   uncontrolled (`defaultValue`, never re-keyed) so focus and cursor survive the
   navigation, and the Clear button resets the field imperatively. Scroll is

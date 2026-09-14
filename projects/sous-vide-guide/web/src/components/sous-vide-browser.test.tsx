@@ -86,6 +86,18 @@ describe("SousVideBrowser", () => {
     guide.view.unmount();
   });
 
+  it("keeps category titles sticky so Fish stays visible while browsing that section", async () => {
+    const guide = await renderGuide("/");
+
+    const fish = document.getElementById("fish");
+    expect(fish).not.toBeNull();
+    const heading = fish?.querySelector("h2");
+    expect(heading?.className).toContain("sticky");
+    expect(heading?.className).toContain("top-[var(--site-header-h)]");
+
+    guide.view.unmount();
+  });
+
   it("filters as you type, writes ?q= and shows ranked results instead of sections", async () => {
     const guide = await renderGuide("/");
     const input = screen.getByRole("searchbox");
