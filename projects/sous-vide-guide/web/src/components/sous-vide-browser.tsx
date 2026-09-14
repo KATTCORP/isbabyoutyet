@@ -470,11 +470,7 @@ function sharedIngredientStart(starts: ReadonlyArray<SousVideEntry["start"]>) {
   return first;
 }
 
-function CutDetailDrawer(props: {
-  group: SousVideCutGroup;
-  info: string;
-  locale: string;
-}) {
+function CutDetailDrawer(props: { group: SousVideCutGroup; info: string; locale: string }) {
   const navigate = useNavigate({ from: "/" });
   const t = createContentT(props.locale);
   const guide = getCutGuide(props.group.cutId, t);

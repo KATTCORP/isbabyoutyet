@@ -5,7 +5,7 @@ import type { ContentT } from "@/lib/content-t";
  * Extra guidance for a cut card: notes and external sources.
  * Not every cut has a detail sheet — only time-sensitive or multi-source rows.
  */
-export type GuideReference = {
+type GuideReference = {
   href: string;
   label: string;
 };
