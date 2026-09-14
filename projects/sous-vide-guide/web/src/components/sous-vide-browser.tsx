@@ -1,10 +1,12 @@
-import { MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
+import { ArrowSquareOutIcon, InfoIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
 import { Link, useNavigate } from "@tanstack/react-router";
 
+import { cutHasGuideDetail, getCutGuide } from "@/data/cutGuide";
 import type { SousVideCategory, SousVideEntry } from "@/data/sousVide";
 import { SOUS_VIDE_CATEGORIES } from "@/data/sousVide";
 import type { CategorySection } from "@/lib/categories";
 import { groupEntriesByCategory } from "@/lib/categories";
+import { createContentT } from "@/lib/content-t";
 import { formatDurationMinutes, formatDurationRange } from "@/lib/duration";
 import type { SousVideCutGroup } from "@/lib/group-cuts";
 import { groupSousVideEntriesByCut } from "@/lib/group-cuts";
@@ -14,6 +16,17 @@ import type { TemperatureUnit } from "@/lib/temperature";
 import { formatTemperature } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
+import { Button } from "@workspace/ui/components/button";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@workspace/ui/components/drawer";
 import { cn } from "@workspace/ui/lib/utils";
 
 const categoryMessage = {
@@ -360,7 +373,14 @@ function IngredientCard(props: {
 }) {
   const steps = props.group.rows;
   const single = steps.length === 1;
-  const sharedStart = sharedIngredientStart(steps.map((step) => step.start));
+  const t = createContentT(props.locale);
+  const starts = steps.map((step) => step.start);
+  const showDetail = cutHasGuideDetail({
+    cutId: props.group.cutId,
+    starts,
+    t,
+  });
+  const sharedStart = sharedIngredientStart(starts);
 
   return (
     <article
@@ -385,11 +405,14 @@ function IngredientCard(props: {
             </p>
           ) : null}
         </div>
-        {props.showCategory ? (
-          <span className="shrink-0 text-[0.7rem] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-            {categoryMessage[props.group.category]()}
-          </span>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-2">
+          {props.showCategory ? (
+            <span className="text-[0.7rem] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+              {categoryMessage[props.group.category]()}
+            </span>
+          ) : null}
+          {showDetail ? <CutDetailDrawer group={props.group} locale={props.locale} /> : null}
+        </div>
       </div>
       <ol
         className={cn(
@@ -424,6 +447,88 @@ function sharedIngredientStart(starts: ReadonlyArray<SousVideEntry["start"]>) {
     }
   }
   return first;
+}
+
+function CutDetailDrawer(props: { group: SousVideCutGroup; locale: string }) {
+  const t = createContentT(props.locale);
+  const guide = getCutGuide(props.group.cutId, t);
+  const starts = [
+    ...new Set(props.group.rows.map((row) => row.start).filter((start) => start !== null)),
+  ];
+
+  return (
+    <Drawer showSwipeHandle>
+      <DrawerTrigger
+        render={
+          <Button
+            aria-label={m.more_info()}
+            className="size-11"
+            size="icon"
+            type="button"
+            variant="ghost"
+          />
+        }
+      >
+        <InfoIcon />
+      </DrawerTrigger>
+      <DrawerContent className="mx-auto w-full max-w-3xl">
+        <DrawerHeader className="text-left">
+          <DrawerTitle>{props.group.name}</DrawerTitle>
+          <DrawerDescription>{m.more_info()}</DrawerDescription>
+        </DrawerHeader>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2">
+          {starts.length > 0 ? (
+            <p className="text-sm text-foreground/90">
+              {starts
+                .map((start) => (start === "fridge" ? m.start_from_fridge() : m.start_from_room()))
+                .join(" · ")}
+            </p>
+          ) : null}
+          {guide !== null && guide.notes.length > 0 ? (
+            <section className="flex flex-col gap-2">
+              <h4 className="text-sm font-semibold text-[var(--guide-ink)]">
+                {m.guide_notes_heading()}
+              </h4>
+              <ul className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
+                {guide.notes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          {guide !== null && guide.references.length > 0 ? (
+            <section className="flex flex-col gap-2">
+              <h4 className="text-sm font-semibold text-[var(--guide-ink)]">
+                {m.guide_references_heading()}
+              </h4>
+              <ul className="flex flex-col gap-2">
+                {guide.references.map((reference) => (
+                  <li key={reference.href}>
+                    <a
+                      className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-[var(--guide-copper)] underline-offset-4 hover:underline"
+                      href={reference.href}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      <ArrowSquareOutIcon className="size-4 shrink-0" />
+                      <span>{reference.label}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
+        <DrawerFooter>
+          <DrawerClose
+            render={<Button className="min-h-11 w-full" type="button" variant="secondary" />}
+          >
+            {m.close_detail()}
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  );
 }
 
 function DonenessStep(props: {
