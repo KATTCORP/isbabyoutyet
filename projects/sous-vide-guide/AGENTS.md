@@ -4,6 +4,11 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
 
 ## UX contracts
 
+- **Color mode** lives in the sticky header via the shared `@workspace/ui`
+  `ModeToggle` (Light / Dark / System). Wired with `next-themes`
+  (`defaultTheme="system"`, `enableSystem`) in `__root.tsx`. Persists in
+  localStorage; dark tokens (including `--guide-*` and `--surface-mix`) live in
+  `src/styles/app.css`.
 - **Temperature unit** lives in the sticky header (`?unit=c|f`). Locale default is
   °F for `*-US`, otherwise °C (`defaultTemperatureUnit`).
 - **Language** is a compact dropdown (region codes GB / US / SE, no emoji flags).
