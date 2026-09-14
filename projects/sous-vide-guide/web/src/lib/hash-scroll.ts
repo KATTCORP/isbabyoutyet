@@ -8,21 +8,20 @@
  * Native `behavior: "smooth"` is supported in Safari / iOS 15.4+; no polyfill
  * needed for current iPhones. Prefer this over a ponyfill.
  */
+import { isServer } from "@/paraglide/runtime";
+
 export function hashScrollIntoViewOptions(): ScrollIntoViewOptions {
-  if (typeof window !== "undefined" && prefersReducedMotion()) {
-    return { behavior: "instant" };
-  }
-  return { behavior: "smooth" };
+  return { behavior: scrollBehavior() };
 }
 
 /** Same preference gate for Element/window `scrollTo({ behavior })` calls. */
 export function scrollBehavior(): ScrollBehavior {
-  if (typeof window !== "undefined" && prefersReducedMotion()) {
-    return "instant";
+  if (isServer || !prefersReducedMotion()) {
+    return "smooth";
   }
-  return "smooth";
+  return "instant";
 }
 
 function prefersReducedMotion() {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
 }

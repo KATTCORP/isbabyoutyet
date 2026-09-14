@@ -8,7 +8,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { SousVideBrowser } from "@/components/sous-vide-browser";
@@ -48,13 +48,20 @@ function GuidePage() {
   );
 }
 
+function usingCleanup(dispose: () => void): Disposable {
+  return {
+    [Symbol.dispose]() {
+      dispose();
+    },
+  };
+}
+
 async function renderGuide(initialUrl: string) {
   cleanup();
   const router = createRouter({
     defaultHashScrollIntoView: hashScrollIntoViewOptions(),
     history: createMemoryHistory({ initialEntries: [initialUrl] }),
     routeTree: rootRoute.addChildren([indexRoute]),
-    scrollRestoration: true,
   });
   const view = render(<RouterProvider router={router} />);
   // An open `?info=` drawer aria-hides the page chrome; still wait on the field.
@@ -75,10 +82,6 @@ function currentQuery(router: Awaited<ReturnType<typeof renderGuide>>["router"])
 }
 
 describe("SousVideBrowser", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it("renders one section per category with one card per cut", async () => {
     const guide = await renderGuide("/");
 
@@ -100,7 +103,18 @@ describe("SousVideBrowser", () => {
   });
 
   it("smooth-scrolls category hash jumps via scrollIntoView options", async () => {
-    const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {});
+    // jsdom does not implement scrollIntoView — define before spying.
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      value: () => {},
+      writable: true,
+    });
+    const scrollIntoView = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockImplementation(() => {});
+    await using _spy = usingCleanup(() => {
+      scrollIntoView.mockRestore();
+    });
 
     const guide = await renderGuide("/");
     const fishLink = document.querySelector<HTMLElement>('[data-quick-link="fish"]');
@@ -113,19 +127,10 @@ describe("SousVideBrowser", () => {
       expect(guide.router.state.location.hash).toBe("fish");
     });
     await vi.waitFor(() => {
-      expect(scrollIntoView).toHaveBeenCalled();
+      expect(scrollIntoView).toHaveBeenCalledWith(
+        expect.objectContaining({ behavior: expect.stringMatching(/^(smooth|instant)$/) }),
+      );
     });
-
-    // Router passes ScrollIntoViewOptions (not the boolean `true` overload).
-    expect(
-      scrollIntoView.mock.calls.some(
-        (call) =>
-          typeof call[0] === "object" &&
-          call[0] !== null &&
-          "behavior" in call[0] &&
-          (call[0].behavior === "smooth" || call[0].behavior === "instant"),
-      ),
-    ).toBe(true);
 
     guide.view.unmount();
   });
