@@ -5,6 +5,7 @@ import { TemperatureUnitToggle } from "@/components/temperature-unit-toggle";
 import { defaultTemperatureUnit } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
+import { ModeToggle } from "@workspace/ui/components/mode-toggle";
 
 /** Height is fixed (`--site-header-h` in app.css) so sticky toolbars can sit flush under it. */
 export function SiteHeader() {
@@ -23,6 +24,7 @@ export function SiteHeader() {
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
           <TemperatureUnitToggle unit={unit} />
           <LocaleSwitcher unit={unit} />
+          <ModeToggle />
         </div>
       </div>
     </header>

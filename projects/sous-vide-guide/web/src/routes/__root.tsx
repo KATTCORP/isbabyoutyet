@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
 import { retainSearchParams } from "@tanstack/react-router";
+import { ThemeProvider } from "next-themes";
 import { z } from "zod";
 
 import { SiteHeader } from "@/components/site-header";
@@ -11,6 +12,7 @@ import { getLocale } from "@/paraglide/runtime";
 import type { Locale } from "@/paraglide/runtime";
 import appCss from "@/styles/app.css?url";
 import { Toaster } from "@workspace/ui/components/sonner";
+import { TooltipProvider } from "@workspace/ui/components/tooltip";
 
 function ogLocale(locale: Locale) {
   switch (locale) {
@@ -88,17 +90,21 @@ function RootComponent() {
   const { locale } = Route.useRouteContext();
 
   return (
-    <html lang={locale}>
-      <head>
-        <HeadContent />
-      </head>
-      <body className="min-h-dvh antialiased">
-        <SiteHeader />
-        <Outlet />
-        <Toaster />
-        <Scripts />
-      </body>
-    </html>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <TooltipProvider>
+        <html lang={locale}>
+          <head>
+            <HeadContent />
+          </head>
+          <body className="min-h-dvh antialiased">
+            <SiteHeader />
+            <Outlet />
+            <Toaster />
+            <Scripts />
+          </body>
+        </html>
+      </TooltipProvider>
+    </ThemeProvider>
   );
 }
 

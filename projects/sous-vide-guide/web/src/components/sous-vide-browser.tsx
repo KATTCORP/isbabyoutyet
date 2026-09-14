@@ -133,7 +133,7 @@ function SearchField(props: { q: string }) {
       <input
         aria-label={m.search_label()}
         autoComplete="off"
-        className="h-12 w-full rounded-xl border border-border/80 bg-[color-mix(in_oklab,var(--card)_94%,white)] pr-12 pl-12 text-base text-foreground shadow-[0_1px_0_color-mix(in_oklab,var(--guide-ink)_6%,transparent)] transition-colors outline-none placeholder:text-muted-foreground/80 focus-visible:border-[var(--guide-ink)] focus-visible:ring-3 focus-visible:ring-[var(--guide-ink)]/15"
+        className="h-12 w-full rounded-xl border border-border/80 bg-[color-mix(in_oklab,var(--card)_94%,var(--surface-mix))] pr-12 pl-12 text-base text-foreground shadow-[0_1px_0_color-mix(in_oklab,var(--guide-ink)_6%,transparent)] transition-colors outline-none placeholder:text-muted-foreground/80 focus-visible:border-[var(--guide-ink)] focus-visible:ring-3 focus-visible:ring-[var(--guide-ink)]/15"
         defaultValue={props.q}
         enterKeyHint="search"
         name="q"
@@ -363,7 +363,7 @@ function IngredientCard(props: {
 
   return (
     <article
-      className="scroll-mt-[calc(var(--site-header-h)+3.25rem)] rounded-2xl border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,white)] px-4 pt-3.5 pb-2 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] target:ring-2 target:ring-[var(--guide-copper)] sm:scroll-mt-[calc(var(--site-header-h)+6.75rem)]"
+      className="scroll-mt-[calc(var(--site-header-h)+3.25rem)] rounded-2xl border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,var(--surface-mix))] px-4 pt-3.5 pb-2 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] target:ring-2 target:ring-[var(--guide-copper)] sm:scroll-mt-[calc(var(--site-header-h)+6.75rem)]"
       id={props.group.cutId}
     >
       <div className="flex items-baseline justify-between gap-3">
