@@ -65,4 +65,16 @@ describe("sous vide data invariants", () => {
     expect(byId.get("creme-brulee")?.doneness).toBe("Stelnad");
     expect(byId.get("yogurt")?.doneness).toBe("Syrad");
   });
+
+  it("marks short cooks as fridge-start and keeps poached eggs on the high-and-fast profile", () => {
+    const byId = new Map(
+      getSousVideEntries(createContentT("en-GB")).map((entry) => [entry.id, entry]),
+    );
+    const poached = byId.get("egg-poached");
+    expect(poached?.temperatureC).toBe(75);
+    expect(poached?.recommendedMinutes).toEqual({ max: 14, min: 13 });
+    expect(poached?.start).toBe("fridge");
+    expect(byId.get("egg-soft")?.start).toBe("fridge");
+    expect(byId.get("pork-fillet-rare")?.start).toBeNull();
+  });
 });

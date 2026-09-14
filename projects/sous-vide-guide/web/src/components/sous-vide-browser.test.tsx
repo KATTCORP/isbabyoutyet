@@ -165,4 +165,12 @@ describe("SousVideBrowser", () => {
     expect(within(duck).queryByText(/°C$/)).toBeNull();
     guide.view.unmount();
   });
+
+  it("shows a fridge-start label on egg cards", async () => {
+    const guide = await renderGuide("/");
+    const eggCard = cardById("egg");
+    expect(within(eggCard).getByText(m.start_from_fridge())).toBeTruthy();
+    expect(within(cardById("pork-fillet")).queryByText(m.start_from_fridge())).toBeNull();
+    guide.view.unmount();
+  });
 });

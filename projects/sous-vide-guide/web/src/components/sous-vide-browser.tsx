@@ -360,23 +360,31 @@ function IngredientCard(props: {
 }) {
   const steps = props.group.rows;
   const single = steps.length === 1;
+  const sharedStart = sharedIngredientStart(steps.map((step) => step.start));
 
   return (
     <article
       className="scroll-mt-[calc(var(--site-header-h)+3.25rem)] rounded-2xl border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,var(--surface-mix))] px-4 pt-3.5 pb-2 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] target:ring-2 target:ring-[var(--guide-copper)] sm:scroll-mt-[calc(var(--site-header-h)+6.75rem)]"
       id={props.group.cutId}
     >
-      <div className="flex items-baseline justify-between gap-3">
-        <h3 className="font-display text-lg leading-tight font-semibold text-[var(--guide-ink)]">
-          <Link
-            aria-label={m.permalink_label()}
-            className="underline-offset-4 hover:underline"
-            hash={props.group.cutId}
-            to="/"
-          >
-            {props.group.name}
-          </Link>
-        </h3>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-display text-lg leading-tight font-semibold text-[var(--guide-ink)]">
+            <Link
+              aria-label={m.permalink_label()}
+              className="underline-offset-4 hover:underline"
+              hash={props.group.cutId}
+              to="/"
+            >
+              {props.group.name}
+            </Link>
+          </h3>
+          {sharedStart !== null ? (
+            <p className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {sharedStart === "fridge" ? m.start_from_fridge() : m.start_from_room()}
+            </p>
+          ) : null}
+        </div>
         {props.showCategory ? (
           <span className="shrink-0 text-[0.7rem] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
             {categoryMessage[props.group.category]()}
@@ -403,6 +411,19 @@ function IngredientCard(props: {
       </ol>
     </article>
   );
+}
+
+function sharedIngredientStart(starts: ReadonlyArray<SousVideEntry["start"]>) {
+  const first = starts[0];
+  if (first === undefined || first === null) {
+    return null;
+  }
+  for (const start of starts) {
+    if (start !== first) {
+      return null;
+    }
+  }
+  return first;
 }
 
 function DonenessStep(props: {
