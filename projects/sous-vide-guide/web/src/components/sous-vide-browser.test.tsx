@@ -165,4 +165,18 @@ describe("SousVideBrowser", () => {
     expect(within(duck).queryByText(/°C$/)).toBeNull();
     guide.view.unmount();
   });
+
+  it("opens egg detail drawer with fridge start and source links", async () => {
+    const guide = await renderGuide("/");
+    const eggCard = cardById("egg");
+    expect(within(eggCard).getByText(m.start_from_fridge())).toBeTruthy();
+    fireEvent.click(within(eggCard).getByRole("button", { name: m.more_info() }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(m.guide_notes_heading())).toBeTruthy();
+    expect(within(dialog).getByText(m.guide_references_heading())).toBeTruthy();
+    expect(within(dialog).getByRole("link", { name: /Anova/i }).getAttribute("href")).toMatch(
+      /^https:\/\//,
+    );
+    guide.view.unmount();
+  });
 });

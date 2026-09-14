@@ -19,6 +19,8 @@ export type TimeRangeMinutes = {
   min: number;
 };
 
+export type IngredientStart = "fridge" | "room";
+
 export type SousVideEntry = {
   category: SousVideCategory;
   /**
@@ -34,19 +36,25 @@ export type SousVideEntry = {
   recommendedMinutes: TimeRangeMinutes;
   /** Extra search aliases for the active locale (comma-separated message). */
   searchTerms: ReadonlyArray<string>;
+  /**
+   * Starting temperature assumed by the listed time.
+   * Null when fridge vs room barely changes the window (most long meat baths).
+   */
+  start: IngredientStart | null;
   temperatureC: number;
 };
 
 /**
  * Static sous vide reference rows adapted from KitchenLab’s köksguide #9
- * (source attribution only). Times assume ~25 mm thickness and
- * room-temperature ingredients.
+ * and cross-checked with other public guides for short, time-sensitive cooks.
+ * Times assume ~25 mm thickness. Long cooks default to room-temperature food;
+ * short cooks set `start: "fridge"` when the clock assumes fridge-cold food.
  *
  * User-facing entry strings use English (en-GB) literals as keys via
  * `createContentT` — pass `t` from that seam, not Paraglide `m`.
  */
 export function getSousVideEntries(t: ContentT): ReadonlyArray<SousVideEntry> {
-  return [
+  const rows: ReadonlyArray<Omit<SousVideEntry, "start">> = [
     {
       category: "pork",
       doneness: t("Rare"),
@@ -810,9 +818,10 @@ export function getSousVideEntries(t: ContentT): ReadonlyArray<SousVideEntry> {
       id: "egg-poached",
       maxMinutes: 15,
       name: t("Large egg"),
-      recommendedMinutes: { max: 13, min: 13 },
+      // High-and-fast poached egg from fridge (Anova / ChefSteps / cook tests).
+      recommendedMinutes: { max: 14, min: 13 },
       searchTerms: splitMessageList(t("ägg, egg, pocherat, Large")),
-      temperatureC: 72,
+      temperatureC: 75,
     },
     {
       category: "eggs",
@@ -858,4 +867,44 @@ export function getSousVideEntries(t: ContentT): ReadonlyArray<SousVideEntry> {
       temperatureC: 43,
     },
   ];
+
+  return rows.map((row) => ({
+    ...row,
+    start: startForEntryId(row.id),
+  }));
 }
+
+function startForEntryId(entryId: string): IngredientStart | null {
+  return FRIDGE_START_IDS.has(entryId) ? "fridge" : null;
+}
+
+/** Short cooks where a fridge-cold start is part of the timing. */
+const FRIDGE_START_IDS = new Set([
+  "egg-soft",
+  "egg-poached",
+  "egg-hard",
+  "egg-jammy",
+  "salmon-rare",
+  "salmon-medium",
+  "salmon-well",
+  "tuna-rare",
+  "tuna-medium",
+  "tuna-well",
+  "cod-rare",
+  "cod-medium",
+  "cod-well",
+  "halibut-rare",
+  "halibut-medium",
+  "halibut-well",
+  "lobster-near-raw",
+  "lobster-tender",
+  "lobster-firm",
+  "scallop-near-raw",
+  "scallop-tender",
+  "scallop-firm",
+  "shrimp-near-raw",
+  "shrimp-tender",
+  "shrimp-firm",
+  "carrot",
+  "asparagus",
+]);
