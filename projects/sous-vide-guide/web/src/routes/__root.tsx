@@ -71,7 +71,18 @@ export const Route = createRootRouteWithContext<{ locale: Locale }>()({
         { content: m.sous_vide_summary(), name: "description" },
         { content: m.app_name(), property: "og:site_name" },
         { content: ogLocale(locale), property: "og:locale" },
-        { content: "#8A5A2B", name: "theme-color" },
+        // Match the sticky header fill so mobile browser chrome does not leave
+        // a contrasting seam (old copper #8A5A2B sat against cream).
+        {
+          content: "#F9F5EC",
+          media: "(prefers-color-scheme: light)",
+          name: "theme-color",
+        },
+        {
+          content: "#17100B",
+          media: "(prefers-color-scheme: dark)",
+          name: "theme-color",
+        },
         { content: "yes", name: "mobile-web-app-capable" },
         { content: "yes", name: "apple-mobile-web-app-capable" },
         { content: "black-translucent", name: "apple-mobile-web-app-status-bar-style" },

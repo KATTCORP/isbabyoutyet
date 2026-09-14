@@ -13,10 +13,11 @@ export function SiteHeader() {
   const unit = search.unit ?? defaultTemperatureUnit(getLocale());
 
   return (
-    // `top: -1px` + 1px extra safe-area padding: Safari leaves a 1px hairline
-    // above `sticky; top: 0` where page chrome shows through. The extra pad
-    // keeps the header's bottom edge (and `--site-header-h`) unchanged.
-    <header className="sticky top-[-1px] z-20 border-b border-border/70 bg-[color-mix(in_oklab,var(--background)_82%,transparent)] pt-[calc(env(safe-area-inset-top,0px)+1px)] backdrop-blur-md">
+    // Sticky layers can land a fractional device-pixel below the viewport top
+    // (DPR / zoom), so scrolled chrome peeks through as a 1px hairline. An
+    // opaque upward box-shadow paints with the sticky layer and covers that
+    // slit; keep the fill mostly opaque so blur alone cannot leave a dark edge.
+    <header className="sticky top-0 z-20 border-b border-border/70 bg-[color-mix(in_oklab,var(--background)_94%,transparent)] pt-[env(safe-area-inset-top,0px)] shadow-[0_-1px_0_0_var(--background)] backdrop-blur-md">
       <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-2 px-3 sm:h-16 sm:gap-4 sm:px-6">
         <Link
           className="min-w-0 truncate font-display text-lg font-semibold tracking-tight text-[var(--guide-ink)] sm:text-xl"

@@ -86,12 +86,12 @@ describe("SiteHeader theme toggle", () => {
     expect(screen.getByRole("button", { name: "Toggle theme" })).toBeTruthy();
   });
 
-  it("bleeds one pixel above the sticky edge to cover the iOS hairline gap", async () => {
+  it("covers the sticky DPR hairline with an opaque upward box-shadow", async () => {
     await using _matchMedia = matchMediaResource();
     await using _view = await renderHeader();
 
     const header = screen.getByRole("banner");
-    expect(header.className).toContain("top-[-1px]");
-    expect(header.className).toContain("pt-[calc(env(safe-area-inset-top,0px)+1px)]");
+    expect(header.className).toContain("top-0");
+    expect(header.className).toContain("shadow-[0_-1px_0_0_var(--background)]");
   });
 });
