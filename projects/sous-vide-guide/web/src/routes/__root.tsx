@@ -71,8 +71,10 @@ export const Route = createRootRouteWithContext<{ locale: Locale }>()({
         { content: m.sous_vide_summary(), name: "description" },
         { content: m.app_name(), property: "og:site_name" },
         { content: ogLocale(locale), property: "og:locale" },
-        // Match the sticky header fill so mobile browser chrome does not leave
-        // a contrasting seam (old copper #8A5A2B sat against cream).
+        // Match the header fill so mobile browser chrome does not leave a
+        // contrasting seam (old copper #8A5A2B sat against cream). Default
+        // without `media` is required — some browsers ignore media-only tags.
+        { content: "#F9F5EC", name: "theme-color" },
         {
           content: "#F9F5EC",
           media: "(prefers-color-scheme: light)",

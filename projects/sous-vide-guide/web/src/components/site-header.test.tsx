@@ -86,12 +86,15 @@ describe("SiteHeader theme toggle", () => {
     expect(screen.getByRole("button", { name: "Toggle theme" })).toBeTruthy();
   });
 
-  it("covers the sticky DPR hairline with an opaque upward box-shadow", async () => {
+  it("pins the bar with position fixed and an opaque background", async () => {
     await using _matchMedia = matchMediaResource();
     await using _view = await renderHeader();
 
     const header = screen.getByRole("banner");
+    expect(header.className).toContain("fixed");
     expect(header.className).toContain("top-0");
-    expect(header.className).toContain("shadow-[0_-1px_0_0_var(--background)]");
+    expect(header.className).toContain("bg-background");
+    expect(header.className).not.toContain("sticky");
+    expect(header.className).not.toContain("backdrop-blur");
   });
 });
