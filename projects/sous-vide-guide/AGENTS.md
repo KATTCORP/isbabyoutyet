@@ -20,8 +20,11 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
   chip. The search field scrolls with the page; the site header, each category
   section title (Fish, Pork, …), and the quick-link dock stay pinned. Category
   titles stick under the header (and under the dock on `sm+`) for the length of
-  that section. Sections use `scroll-mt-*` against `--site-header-h` (fixed
-  header height, see `src/styles/app.css`) plus the dock row height on `sm+`;
+  that section. Category titles use opaque `bg-background` (no backdrop-blur)
+  and sit 1px under `--site-header-h` so sticky compositing cannot leave a
+  page-bg gap under the site header. Sections use `scroll-mt-*` against
+  `--site-header-h` (sticky header height, see `src/styles/app.css`) plus the
+  dock row height on `sm+`;
   cut / doneness targets also clear the sticky category title. Smooth hash
   jumps come from `defaultHashScrollIntoView` in `src/router.tsx` (via
   `hashScrollIntoViewOptions` in `src/lib/hash-scroll.ts`) — CSS

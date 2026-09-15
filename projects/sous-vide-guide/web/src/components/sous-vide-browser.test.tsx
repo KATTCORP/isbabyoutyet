@@ -142,7 +142,10 @@ describe("SousVideBrowser", () => {
     expect(fish).not.toBeNull();
     const heading = fish?.querySelector("h2");
     expect(heading?.className).toContain("sticky");
-    expect(heading?.className).toContain("top-[var(--site-header-h)]");
+    // 1px under the site header so sticky compositing cannot leave a page-bg gap.
+    expect(heading?.className).toContain("top-[calc(var(--site-header-h)-1px)]");
+    expect(heading?.className).toContain("bg-background");
+    expect(heading?.className).not.toContain("backdrop-blur");
 
     guide.view.unmount();
   });
