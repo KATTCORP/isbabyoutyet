@@ -4,16 +4,12 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
 
 ## UX contracts
 
-- **Color mode** lives in the fixed site header via the shared `@workspace/ui`
+- **Color mode** lives in the sticky header via the shared `@workspace/ui`
   `ModeToggle` (Light / Dark / System). Wired with `next-themes`
   (`defaultTheme="system"`, `enableSystem`) in `__root.tsx`. Persists in
   localStorage; dark tokens (including `--guide-*` and `--surface-mix`) live in
-  `src/styles/app.css`. The site header is `position: fixed` with an opaque
-  `bg-background` (not sticky + backdrop-blur) so mobile browsers cannot leave
-  a 1px compositor gap above it; a matching flow spacer preserves layout.
-  `theme-color` matches the light/dark page background so browser chrome does
-  not sit as a contrasting copper bar against the header.
-- **Temperature unit** lives in the site header (`?unit=c|f`). Locale default is
+  `src/styles/app.css`.
+- **Temperature unit** lives in the sticky header (`?unit=c|f`). Locale default is
   °F for `*-US`, otherwise °C (`defaultTemperatureUnit`).
 - **Language** is a compact dropdown (region codes GB / US / SE, no emoji flags).
   Changing language also applies that locale’s default unit. When the unit
@@ -24,10 +20,11 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
   chip. The search field scrolls with the page; the site header, each category
   section title (Fish, Pork, …), and the quick-link dock stay pinned. Category
   titles stick under the header (and under the dock on `sm+`) for the length of
-  that section. Category titles use opaque `bg-background` and sit 1px under
-  `--site-header-h` so sticky compositing cannot leave a page-bg gap under the
-  fixed site header. Sections use `scroll-mt-*` against `--site-header-h` (fixed
-  header height, see `src/styles/app.css`) plus the dock row height on `sm+`;
+  that section. Category titles use opaque `bg-background` (no backdrop-blur)
+  and sit 1px under `--site-header-h` so sticky compositing cannot leave a
+  page-bg gap under the site header. Sections use `scroll-mt-*` against
+  `--site-header-h` (sticky header height, see `src/styles/app.css`) plus the
+  dock row height on `sm+`;
   cut / doneness targets also clear the sticky category title. Smooth hash
   jumps come from `defaultHashScrollIntoView` in `src/router.tsx` (via
   `hashScrollIntoViewOptions` in `src/lib/hash-scroll.ts`) — CSS

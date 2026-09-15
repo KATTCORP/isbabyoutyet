@@ -31,10 +31,8 @@
   --guide-depth: oklch(0.94 0.016 80);
   /* Mix target for elevated surfaces (cards, search). White in light; soft lift in dark. */
   --surface-mix: white;
-  /* Fixed site header height (see site-header.tsx). No bottom border — the
-     sticky category title supplies the separator, and we avoid a 1px layout
-     seam under the fixed bar. */
-  --site-header-h: calc(3.5rem + env(safe-area-inset-top, 0px));
+  /* Sticky site header height (see site-header.tsx) plus its bottom border. */
+  --site-header-h: calc(3.5rem + 1px + env(safe-area-inset-top, 0px));
 }
 
 .dark {

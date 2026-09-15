@@ -305,7 +305,7 @@ function CategorySectionView(props: {
 
         `top` is 1px under --site-header-h and the fill is opaque (no
         backdrop-blur): sticky + translucent blur left a real 1px page-bg gap
-        under the fixed site header on mobile.
+        under the site header on mobile.
       */}
       <h2 className="sticky top-[calc(var(--site-header-h)-1px)] z-[9] -mx-4 mb-3 flex items-baseline gap-2 border-b border-border/50 bg-background px-4 py-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] sm:top-[calc(var(--site-header-h)+3.5rem-1px)] sm:-mx-6 sm:px-6">
         <Link

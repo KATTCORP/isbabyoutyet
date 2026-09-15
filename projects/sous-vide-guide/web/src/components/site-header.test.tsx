@@ -85,16 +85,4 @@ describe("SiteHeader theme toggle", () => {
 
     expect(screen.getByRole("button", { name: "Toggle theme" })).toBeTruthy();
   });
-
-  it("pins the bar with position fixed and an opaque background", async () => {
-    await using _matchMedia = matchMediaResource();
-    await using _view = await renderHeader();
-
-    const header = screen.getByRole("banner");
-    expect(header.className).toContain("fixed");
-    expect(header.className).toContain("top-0");
-    expect(header.className).toContain("bg-background");
-    expect(header.className).not.toContain("sticky");
-    expect(header.className).not.toContain("backdrop-blur");
-  });
 });
