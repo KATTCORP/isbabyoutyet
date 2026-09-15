@@ -18,7 +18,7 @@ export function SiteHeader() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-20 border-b border-border/70 bg-background pt-[env(safe-area-inset-top,0px)]">
+      <header className="fixed inset-x-0 top-0 z-20 bg-background pt-[env(safe-area-inset-top,0px)]">
         <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-2 px-3 sm:h-16 sm:gap-4 sm:px-6">
           <Link
             className="min-w-0 truncate font-display text-lg font-semibold tracking-tight text-[var(--guide-ink)] sm:text-xl"
