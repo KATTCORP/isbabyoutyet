@@ -68,7 +68,7 @@ describe("getCutGuide", () => {
       "pork-belly",
     ] as const) {
       const guide = getCutGuide(cutId, t);
-      expect(guide, cutId).not.toBeNull();
+      expect(guide).not.toBeNull();
       expect(
         guide?.notes.some((note) => /Pink pork/.test(note) && /not a safety check/.test(note)),
       ).toBe(true);
@@ -85,7 +85,7 @@ describe("getCutGuide", () => {
   it("reassures that pink chicken can still be pasteurised, with Anova and Serious Eats sources", () => {
     for (const cutId of ["chicken-breast", "chicken-thigh"] as const) {
       const guide = getCutGuide(cutId, t);
-      expect(guide, cutId).not.toBeNull();
+      expect(guide).not.toBeNull();
       expect(
         guide?.notes.some((note) => /stay pink/.test(note) && /time at temperature/.test(note)),
       ).toBe(true);
