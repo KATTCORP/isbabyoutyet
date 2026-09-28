@@ -50,12 +50,16 @@ export function getCutGuide(cutId: string, t: ContentT): CutGuide | null {
             label: "Anova — sous vide egg (75C / 13 min, from fridge)",
           },
           {
+            href: "https://anovaculinary.com/pages/sous-vide-egg-guide",
+            label: "Anova — egg guide (63C timing: 45 min to 2 h yolk thickening)",
+          },
+          {
             href: "https://www.chefsteps.com/activities/perfect-sous-vide-poached-eggs",
             label: "ChefSteps — perfect poached eggs (75C / 13 min)",
           },
           {
             href: "https://www.seriouseats.com/sous-vide-101-all-about-eggs",
-            label: "Serious Eats — guide to sous vide eggs (equilibrium baths)",
+            label: "Serious Eats — sous vide eggs (equilibrium baths; longer cooks thicken yolk)",
           },
           {
             href: KITCHENLAB_GUIDE_HREF,

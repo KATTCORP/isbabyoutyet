@@ -42,5 +42,17 @@ describe("getCutGuide", () => {
           /Past about an hour/.test(note) && /yolk thickens/.test(note) && /2h max/.test(note),
       ),
     ).toBe(true);
+    expect(guide?.references.map((reference) => reference.href)).toEqual(
+      expect.arrayContaining([
+        "https://anovaculinary.com/pages/sous-vide-egg-guide",
+        "https://www.seriouseats.com/sous-vide-101-all-about-eggs",
+      ]),
+    );
+    expect(
+      guide?.references.some((reference) => /yolk thickening/i.test(reference.label)),
+    ).toBe(true);
+    expect(
+      guide?.references.some((reference) => /thicken.*yolk/i.test(reference.label)),
+    ).toBe(true);
   });
 });
