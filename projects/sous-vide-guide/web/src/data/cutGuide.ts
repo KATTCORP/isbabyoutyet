@@ -32,7 +32,10 @@ export function getCutGuide(cutId: string, t: ContentT): CutGuide | null {
             "Times are for large eggs taken straight from the fridge. Room-temperature eggs finish a minute or two sooner on the short hot baths.",
           ),
           t(
-            "Onsen-style (63C / 45-60 min) is the classic 145F egg — Anova lists 63C; Serious Eats often cites 62.8C. Soft and jammy are longer KitchenLab equilibrium baths. Poached (75C / 13-14 min) is the high-and-fast Anova / ChefSteps method: set white, still-runny yolk.",
+            "Onsen-style (63C / 45-60 min) is the classic 145F egg — Anova lists 63C; Serious Eats often cites 62.8C.",
+          ),
+          t(
+            "Soft and jammy are longer KitchenLab equilibrium baths. Poached (75C / 13-14 min) is Anova / ChefSteps high-and-fast: set white, still-runny yolk.",
           ),
           t(
             "Lower eggs in gently once the bath is at temperature. For make-ahead poached eggs, ice-bath immediately, refrigerate, then rewarm around 60C for a few minutes.",
