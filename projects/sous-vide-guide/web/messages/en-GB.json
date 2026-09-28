@@ -30,7 +30,9 @@
   "Pink": "Pink",
   "Pat the roast very dry and sear hard in a ripping-hot pan or on the grill after the bath so you get a crust without cooking the interior further.": "Pat the roast very dry and sear hard in a ripping-hot pan or on the grill after the bath so you get a crust without cooking the interior further.",
   "Poached": "Poached",
-  "Poached (75C / 13-14 min) follows the high-and-fast method used by Anova and ChefSteps: set white, still-runny yolk. Soft and jammy rows are longer equilibrium baths closer to KitchenLab / Serious Eats.": "Poached (75C / 13-14 min) follows the high-and-fast method used by Anova and ChefSteps: set white, still-runny yolk. Soft and jammy rows are longer equilibrium baths closer to KitchenLab / Serious Eats.",
+  "Onsen-style": "Onsen-style",
+  "Onsen-style (63C / 45-60 min) is the classic 145F egg — Anova lists 63C; Serious Eats often cites 62.8C.": "Onsen-style (63C / 45-60 min) is the classic 145F egg — Anova lists 63C; Serious Eats often cites 62.8C.",
+  "Soft and jammy are longer KitchenLab equilibrium baths. Poached (75C / 13-14 min) is Anova / ChefSteps high-and-fast: set white, still-runny yolk.": "Soft and jammy are longer KitchenLab equilibrium baths. Poached (75C / 13-14 min) is Anova / ChefSteps high-and-fast: set white, still-runny yolk.",
   "Pork belly": "Pork belly",
   "Pork chop": "Pork chop",
   "Pork fillet": "Pork fillet",
@@ -176,5 +178,6 @@
   "ägg, egg, dessert, crème, brulee, catalana, Stelnad": "ägg, egg, dessert, crème, brulee, catalana, Stelnad, Set",
   "ägg, egg, gula, yolk, Large, Bredbar gula med fast yttre, Spreadable yolk, set white": "ägg, egg, gula, yolk, Large, Bredbar gula med fast yttre, Spreadable yolk, set white",
   "ägg, egg, hårdkokt, Large": "ägg, egg, hårdkokt, Large",
+  "ägg, egg, onsen, 63, 62.8, classic, Large, Barely set white, liquid yolk": "ägg, egg, onsen, 63, 62.8, classic, Large, Barely set white, liquid yolk",
   "ägg, egg, pocherat, Large": "ägg, egg, pocherat, Large"
 }

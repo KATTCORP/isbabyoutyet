@@ -77,4 +77,22 @@ describe("sous vide data invariants", () => {
     expect(byId.get("egg-soft")?.start).toBe("fridge");
     expect(byId.get("pork-fillet-rare")?.start).toBeNull();
   });
+
+  it("includes the classic 63C onsen egg and keeps the egg ladder coldest-first", () => {
+    const eggRows = getSousVideEntries(createContentT("en-GB")).filter((entry) =>
+      entry.id.startsWith("egg-"),
+    );
+    expect(eggRows.map((entry) => entry.id)).toEqual([
+      "egg-onsen",
+      "egg-soft",
+      "egg-jammy",
+      "egg-poached",
+      "egg-hard",
+    ]);
+    expect(eggRows.map((entry) => entry.temperatureC)).toEqual([63, 64, 65, 75, 84]);
+    const onsen = eggRows[0];
+    expect(onsen?.doneness).toBe("Onsen-style");
+    expect(onsen?.recommendedMinutes).toEqual({ max: 60, min: 45 });
+    expect(onsen?.start).toBe("fridge");
+  });
 });
