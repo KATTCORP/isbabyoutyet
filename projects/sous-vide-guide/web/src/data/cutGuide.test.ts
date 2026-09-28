@@ -48,11 +48,11 @@ describe("getCutGuide", () => {
         "https://www.seriouseats.com/sous-vide-101-all-about-eggs",
       ]),
     );
-    expect(
-      guide?.references.some((reference) => /yolk thickening/i.test(reference.label)),
-    ).toBe(true);
-    expect(
-      guide?.references.some((reference) => /thicken.*yolk/i.test(reference.label)),
-    ).toBe(true);
+    expect(guide?.references.some((reference) => /yolk thickening/i.test(reference.label))).toBe(
+      true,
+    );
+    expect(guide?.references.some((reference) => /thicken.*yolk/i.test(reference.label))).toBe(
+      true,
+    );
   });
 });
