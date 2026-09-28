@@ -38,6 +38,9 @@ export function getCutGuide(cutId: string, t: ContentT): CutGuide | null {
             "Soft and jammy are longer KitchenLab equilibrium baths. Poached (75C / 13-14 min) is Anova / ChefSteps high-and-fast: set white, still-runny yolk.",
           ),
           t(
+            "Past about an hour on Onsen, Soft, or Jammy, the white barely changes; the yolk thickens toward a soft gel by the 2h max.",
+          ),
+          t(
             "Lower eggs in gently once the bath is at temperature. For make-ahead poached eggs, ice-bath immediately, refrigerate, then rewarm around 60C for a few minutes.",
           ),
         ],

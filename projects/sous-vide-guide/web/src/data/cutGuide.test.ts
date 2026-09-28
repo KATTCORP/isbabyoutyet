@@ -33,4 +33,13 @@ describe("getCutGuide", () => {
       guide?.notes.some((note) => /Soft and jammy/.test(note) && /Poached \(75C/.test(note)),
     ).toBe(true);
   });
+
+  it("explains yolk thickening past an hour on equilibrium egg baths", () => {
+    const guide = getCutGuide("egg", t);
+    expect(
+      guide?.notes.some(
+        (note) => /Past about an hour/.test(note) && /yolk thickens/.test(note) && /2h max/.test(note),
+      ),
+    ).toBe(true);
+  });
 });
