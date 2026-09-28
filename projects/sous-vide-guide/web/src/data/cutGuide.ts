@@ -67,6 +67,67 @@ export function getCutGuide(cutId: string, t: ContentT): CutGuide | null {
           },
         ],
       };
+    case "pork-fillet":
+    case "pork-chop":
+    case "pork-roast":
+    case "pork-shoulder":
+    case "pork-belly":
+      return {
+        cutId,
+        notes: [
+          t(
+            "Pink pork is normal at Rare and Medium. Colour is not a safety check — pathogen kill is time at temperature, not how red it looks.",
+          ),
+          t(
+            "USDA whole-muscle pork is 63C / 145F. Rare at 60C is a texture target; hold the full recommended time for pasteurisation.",
+          ),
+        ],
+        references: [
+          {
+            href: "https://www.fsis.usda.gov/food-safety/safe-food-handling-and-preparation/meat-fish/fresh-pork-farm-table",
+            label: "USDA FSIS — fresh pork (63C / 145F whole-muscle; pink can still be safe)",
+          },
+          {
+            href: KITCHENLAB_GUIDE_HREF,
+            label: "KitchenLab — koksguide #9 (notes FDA lowered pork to 63C)",
+          },
+          {
+            href: "https://www.seriouseats.com/sous-vide-cooking-temperature-and-timing-charts",
+            label: "Serious Eats — sous vide temperature and timing charts",
+          },
+        ],
+      };
+    case "chicken-breast":
+    case "chicken-thigh":
+      return {
+        cutId,
+        notes: [
+          t(
+            "Sous vide chicken can stay pink even when pasteurised. Safety is time at temperature, not clear juices or white meat colour.",
+          ),
+          t(
+            "Breast at 60-63C needs the full recommended hold after the core is hot. Anova and Serious Eats publish poultry pasteurisation charts.",
+          ),
+        ],
+        references: [
+          {
+            href: "https://anovaculinary.com/pages/sous-vide-chicken-guide",
+            label: "Anova — chicken guide (pasteurisation below 74C / 165F)",
+          },
+          {
+            href: "https://www.seriouseats.com/the-food-lab-complete-guide-to-sous-vide-chicken-breast",
+            label: "Serious Eats — sous vide chicken breast (time-at-temp pasteurisation)",
+          },
+          {
+            href: "https://www.seriouseats.com/safe-chicken-temperature-time-and-temp-11948586",
+            label: "Serious Eats — safe chicken temperature (time and temp)",
+          },
+          {
+            href: KITCHENLAB_GUIDE_HREF,
+            label: "KitchenLab — koksguide #9 (extra time at 63C for juicier chicken)",
+          },
+        ],
+      };
     case "salmon":
     case "tuna":
     case "cod":

@@ -5,6 +5,9 @@ import { createContentT } from "@/lib/content-t";
 
 const t = createContentT("en-GB");
 
+const KITCHENLAB_GUIDE_HREF =
+  "https://www.kitchenlab.se/koksbloggen/koksguiden-9-sous-vide-temperaturer-och-koktider/";
+
 describe("getCutGuide", () => {
   it("returns notes and Swedish-leaning sources for chuck (högrev)", () => {
     const guide = getCutGuide("chuck", t);
@@ -12,7 +15,7 @@ describe("getCutGuide", () => {
     expect(guide?.notes.length).toBeGreaterThanOrEqual(2);
     expect(guide?.references.map((reference) => reference.href)).toEqual(
       expect.arrayContaining([
-        "https://www.kitchenlab.se/koksbloggen/koksguiden-9-sous-vide-temperaturer-och-koktider/",
+        KITCHENLAB_GUIDE_HREF,
         "https://hagshult.se/guider-tips/stora-guiden-till-sous-vide/",
         "https://www.gardssallskapet.se/kottguiden/recept/hogrev-sousvide-chimichurri",
         "http://www.kunskapskokboken.se/4.21514/varufakta/sa-lagas-hogrev-av-not/",
@@ -54,5 +57,44 @@ describe("getCutGuide", () => {
     expect(guide?.references.some((reference) => /thicken.*yolk/i.test(reference.label))).toBe(
       true,
     );
+  });
+
+  it("reassures that pink pork is about time-at-temp, with USDA and KitchenLab sources", () => {
+    for (const cutId of [
+      "pork-fillet",
+      "pork-chop",
+      "pork-roast",
+      "pork-shoulder",
+      "pork-belly",
+    ] as const) {
+      const guide = getCutGuide(cutId, t);
+      expect(guide, cutId).not.toBeNull();
+      expect(
+        guide?.notes.some((note) => /Pink pork/.test(note) && /not a safety check/.test(note)),
+      ).toBe(true);
+      expect(guide?.notes.some((note) => /USDA whole-muscle pork is 63C/.test(note))).toBe(true);
+      expect(guide?.references.map((reference) => reference.href)).toEqual(
+        expect.arrayContaining([
+          "https://www.fsis.usda.gov/food-safety/safe-food-handling-and-preparation/meat-fish/fresh-pork-farm-table",
+          KITCHENLAB_GUIDE_HREF,
+        ]),
+      );
+    }
+  });
+
+  it("reassures that pink chicken can still be pasteurised, with Anova and Serious Eats sources", () => {
+    for (const cutId of ["chicken-breast", "chicken-thigh"] as const) {
+      const guide = getCutGuide(cutId, t);
+      expect(guide, cutId).not.toBeNull();
+      expect(
+        guide?.notes.some((note) => /stay pink/.test(note) && /time at temperature/.test(note)),
+      ).toBe(true);
+      expect(guide?.references.map((reference) => reference.href)).toEqual(
+        expect.arrayContaining([
+          "https://anovaculinary.com/pages/sous-vide-chicken-guide",
+          "https://www.seriouseats.com/the-food-lab-complete-guide-to-sous-vide-chicken-breast",
+        ]),
+      );
+    }
   });
 });
