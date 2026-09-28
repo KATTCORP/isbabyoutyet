@@ -22,4 +22,11 @@ describe("getCutGuide", () => {
     expect(guide?.references.some((reference) => /KitchenLab/i.test(reference.label))).toBe(true);
     expect(guide?.references.some((reference) => /Hagshult/i.test(reference.label))).toBe(true);
   });
+
+  it("documents the classic 63C onsen egg on the egg detail sheet", () => {
+    const guide = getCutGuide("egg", t);
+    expect(guide).not.toBeNull();
+    expect(guide?.notes.some((note) => /Onsen-style \(63C/.test(note))).toBe(true);
+    expect(guide?.notes.some((note) => /62\.8C/.test(note))).toBe(true);
+  });
 });

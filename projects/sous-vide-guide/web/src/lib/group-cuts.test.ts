@@ -47,4 +47,20 @@ describe("groupSousVideEntriesByCut", () => {
       true,
     );
   });
+
+  it("groups every egg doneness under one cut id, including onsen", () => {
+    const entries = getSousVideEntries(createContentT("en-GB")).filter((entry) =>
+      entry.id.startsWith("egg-"),
+    );
+    const groups = groupSousVideEntriesByCut(entries);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.cutId).toBe("egg");
+    expect(groups[0]?.rows.map((row) => row.id)).toEqual([
+      "egg-onsen",
+      "egg-soft",
+      "egg-jammy",
+      "egg-poached",
+      "egg-hard",
+    ]);
+  });
 });
