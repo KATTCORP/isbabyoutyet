@@ -38,7 +38,8 @@ describe("getCutGuide", () => {
     const guide = getCutGuide("egg", t);
     expect(
       guide?.notes.some(
-        (note) => /Past about an hour/.test(note) && /yolk thickens/.test(note) && /2h max/.test(note),
+        (note) =>
+          /Past about an hour/.test(note) && /yolk thickens/.test(note) && /2h max/.test(note),
       ),
     ).toBe(true);
   });
