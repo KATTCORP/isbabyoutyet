@@ -40,7 +40,8 @@ pnpm clean                            # wipe caches and reinstall
   not lifecycle hooks or `try/finally`.
 - **Pull requests:** fill every section of
   [`.github/pull_request_template.md`](.github/pull_request_template.md).
-  For stacks, follow [`create-stacked-prs`](.agents/skills/create-stacked-prs/SKILL.md).
+  For stacks, follow [`create-stacked-prs`](.agents/skills/create-stacked-prs/SKILL.md),
+  which links them as a native GitHub stack with `gh stack link`.
   In **Screenshots / video**, attach screenshots for visible UI changes and a
   short video for interactions. Otherwise write `None — <reason>`. Do not open
   a browser just to fill this section.
