@@ -28,3 +28,5 @@ export async function requireAdmin(ctx: AuthDbCtx) {
   }
   return caller;
 }
+
+// CI benchmark: single-file backend change.
