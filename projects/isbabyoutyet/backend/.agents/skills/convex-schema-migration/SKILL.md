@@ -71,7 +71,7 @@ Leave `update` / `patch*` sparse patch args optional (`{ id, patch }` with all-p
 
 ## Stacked PRs (required for breaking changes)
 
-Use [`.agents/skills/create-stacked-prs/SKILL.md`](../../../../.agents/skills/create-stacked-prs/SKILL.md).
+Use [`.agents/skills/create-stacked-prs/SKILL.md`](../../../../../../.agents/skills/create-stacked-prs/SKILL.md).
 
 - **PR 1/N:** Permissive schema + `@todo` on remaining optionals (+ RPC require, if that is a separate slice).
 - **Backfill PR:** Migrations that write or strip data. One deploy runs them via `runAll`.
@@ -146,4 +146,4 @@ Removal:
 
 - Generic migrate skill (Convex-maintained, do not edit): [`convex-migrate`](../convex-migrate/SKILL.md)
 - Rehearse on preview: [`convex-migrate-rehearse`](../convex-migrate-rehearse/SKILL.md)
-- Package agent notes: [`AGENTS.md`](../../AGENTS.md)
+- Package agent notes: [`README.md`](../../../README.md)
