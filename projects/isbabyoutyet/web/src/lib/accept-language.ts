@@ -22,3 +22,5 @@ export function resolveAcceptLanguage(acceptLanguage: string | null): SupportedL
   }
   return DEFAULT_LOCALE;
 }
+
+// CI benchmark: single-file web change.
