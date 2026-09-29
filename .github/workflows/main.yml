@@ -25,7 +25,9 @@ env:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # About 1 min on PRs; the merge queue adds `vitest --changed`. Do not raise
+    # this. If the job gets close, refactor or speed up the slow step or tests.
+    timeout-minutes: 4
     permissions:
       contents: read
       id-token: write
@@ -136,9 +138,11 @@ jobs:
   codecov:
     if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
-    # Worst case (no base baseline, nothing Turbo-cached) measures every
-    # workspace at base + head.
-    timeout-minutes: 10
+    # Usually 35-100s. Worst case (no base baseline, nothing Turbo-cached)
+    # waits for the base artifact, then measures every workspace at base +
+    # head: about 5 min. Do not raise this. If the job gets close, refactor or
+    # speed up the slow tests instead.
+    timeout-minutes: 6
     permissions:
       contents: read
       id-token: write
@@ -221,14 +225,14 @@ jobs:
       # which this ref cannot restore, and its job is usually still running.
       # Artifacts download across refs, so wait for the base tip's codecov job
       # instead of remeasuring the base tip ourselves. Cap the wait below what a
-      # base remeasure costs (~3 min) so the worst case still fits the timeout.
+      # base remeasure costs (~1.5 min) so the worst case still fits the timeout.
       - name: Wait for PR base coverage artifact
         id: baseline-artifact
         if: github.event_name == 'pull_request' && steps.baseline.outputs.cache-hit != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          WAIT_SECONDS: "150"
+          WAIT_SECONDS: "90"
         run: |
           set -euo pipefail
           NAME="coverage-baseline-${CI_BASE_SHA}"
