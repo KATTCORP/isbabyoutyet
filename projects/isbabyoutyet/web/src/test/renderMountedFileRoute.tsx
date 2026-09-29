@@ -124,6 +124,9 @@ async function mountFileRoute(
 
   const router = createRouter({
     context,
+    // Closing an overlay navigates to its parent, which this single-route tree
+    // does not mount.
+    defaultNotFoundComponent: () => null,
     defaultPendingMinMs: 0,
     history,
     routeTree: rootRoute.addChildren([mountedRoute]),

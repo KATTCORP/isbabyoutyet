@@ -15,6 +15,27 @@ import {
 import { renderResource } from "@/test/renderResource";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 
+/**
+ * RTL mounts into a `<div>`, so React warns that `<html>` cannot be a child of
+ * it (the app hydrates the real `document` instead). Swallow only that
+ * warning; any other console error still fails the test.
+ */
+async function renderRootDocument() {
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  const view = await renderWithTestRouter(
+    <RootDocument locale="en-GB">
+      <div>shell</div>
+    </RootDocument>,
+  );
+  return makeResource(view, () => {
+    const unexpected = consoleError.mock.calls.filter(
+      (args) => !args.some((arg) => String(arg).includes("cannot be a child of")),
+    );
+    consoleError.mockRestore();
+    expect(unexpected).toEqual([]);
+  });
+}
+
 function renderProgress(ui: ReactElement) {
   return renderResource(<LocaleProvider locale="en-GB">{ui}</LocaleProvider>);
 }
@@ -50,11 +71,7 @@ test("document locale keeps the baby page when a later match has no locale", () 
 });
 
 test("the root document shell sets the html lang attribute", async () => {
-  await using _view = await renderWithTestRouter(
-    <RootDocument locale="en-GB">
-      <div>shell</div>
-    </RootDocument>,
-  );
+  await using _view = await renderRootDocument();
 
   // React 19 hoists the <html> element onto the real document.
   expect(document.documentElement.getAttribute("lang")).toBe("en-GB");
@@ -66,11 +83,7 @@ test("TanStack Devtools are omitted outside local dev and preview", async () => 
     vi.unstubAllEnvs();
   });
 
-  await using _view = await renderWithTestRouter(
-    <RootDocument locale="en-GB">
-      <div>shell</div>
-    </RootDocument>,
-  );
+  await using _view = await renderRootDocument();
 
   expect(document.querySelector("[data-slot=tanstack-devtools]")).toBeNull();
 });
@@ -82,11 +95,7 @@ test("TanStack Devtools stay on preview builds", async () => {
     vi.unstubAllEnvs();
   });
 
-  await using _view = await renderWithTestRouter(
-    <RootDocument locale="en-GB">
-      <div>shell</div>
-    </RootDocument>,
-  );
+  await using _view = await renderRootDocument();
 
   expect(document.querySelector("[data-slot=tanstack-devtools]")).not.toBeNull();
 });

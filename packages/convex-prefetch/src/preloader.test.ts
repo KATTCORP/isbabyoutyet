@@ -165,8 +165,12 @@ test("preloadedConvexQueryOptions carries initialData only for preloaded handles
 });
 
 test("usePreloadedConvexQuery suspends on the handle's query", async () => {
+  const queryFn = vi.fn<() => Promise<{ isAdmin: boolean; locale: string }>>(async () => ({
+    isAdmin: false,
+    locale: "sv",
+  }));
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { queryFn, retry: false } },
   });
   const handle = testPreloadedConvexQuery<ProfileGetRef>({
     initialData: { isAdmin: false, locale: "sv" },

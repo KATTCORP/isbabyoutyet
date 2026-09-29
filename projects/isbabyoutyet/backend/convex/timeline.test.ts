@@ -10,6 +10,7 @@ import {
   createBabyArgs,
   postUpdateArgs,
   createEncouragementArgs,
+  testPhotoBlob,
 } from "./test.setup";
 import { insertUpdateWithTimelineItem } from "./timeline";
 
@@ -27,7 +28,7 @@ async function setup() {
     }),
   );
   return makeAsyncResource({ asAlice, babyId: created.babyId, t }, async () => {
-    await t.finishInProgressScheduledFunctions();
+    await t.finishAllScheduledFunctions(() => {});
   });
 }
 
@@ -51,7 +52,7 @@ async function getBaby(t: Awaited<ReturnType<typeof setup>>["t"], babyId: Id<"ba
 
 async function storeBlob(t: Awaited<ReturnType<typeof setup>>["t"]) {
   return await t.run(async (ctx) => {
-    return await ctx.storage.store(new Blob(["fake image bytes"], { type: "image/jpeg" }));
+    return await ctx.storage.store(testPhotoBlob());
   });
 }
 
@@ -726,6 +727,9 @@ test("photo updates keep old photos; removing one falls back to the previous", a
 
 test("text updates never displace the current page photo; pinning brings back an older one", async () => {
   await using harness = await setup();
+  // Thumbnail actions queue on fake timers and drain after each photo post:
+  // convex-test rejects storage writes from concurrently running actions.
+  await using _timers = useFakeTimersResource();
   const { asAlice, babyId, t } = harness;
   const photoA = await storeBlob(t);
   const photoB = await storeBlob(t);
@@ -734,10 +738,12 @@ test("text updates never displace the current page photo; pinning brings back an
     api.updates.post,
     postUpdateArgs({ babyId, message: "First pic", photoId: photoA }),
   );
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
   const updateB = await asAlice.mutation(
     api.updates.post,
     postUpdateArgs({ babyId, photoId: photoB }),
   );
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
 
   // Text-only posts after a photo upload leave the page photo alone
   await asAlice.mutation(
@@ -772,8 +778,10 @@ test("text updates never displace the current page photo; pinning brings back an
   // A brand-new photo upload takes over again (latest wins by default)
   const photoC = await storeBlob(t);
   await asAlice.mutation(api.updates.post, postUpdateArgs({ babyId, photoId: photoC }));
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
   baby = await getBaby(t, babyId);
   expect(baby.photoId).toBe(photoC);
+  expect(baby.thumbnailId).toEqual(expect.any(String));
 
   // Only the owner can pin
   const asBob = t.withIdentity({ subject: "bob" });

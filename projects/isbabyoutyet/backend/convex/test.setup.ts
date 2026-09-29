@@ -69,6 +69,20 @@ export async function registerMigrationsComponent(t: TestConvex) {
   t.registerComponent("migrations", migrationsSchema.default, migrationsModules);
 }
 
+const TEST_PHOTO_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWM4EaABAAMkAUFIBLJyAAAAAElFTkSuQmCC";
+
+/**
+ * A decodable 1×1 PNG. Storing photos through the real mutations schedules
+ * `babyThumbnails.generateThumbnail`, which runs sharp on the bytes — fake
+ * bytes make that job log a decode error from inside the test.
+ */
+export function testPhotoBlob() {
+  return new Blob([Uint8Array.from(atob(TEST_PHOTO_PNG_BASE64), (char) => char.charCodeAt(0))], {
+    type: "image/png",
+  });
+}
+
 /** Required `baby.create` args with the pre-feature defaults tests used to omit. */
 export function createBabyArgs(
   opts: Pick<FunctionArgs<typeof api.baby.create>, "name" | "dueDate"> &

@@ -1,10 +1,13 @@
 import type { AnyRoute } from "@tanstack/react-router";
+import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
 import type { ConvexTestHarness } from "@/test/convexTestHarness";
 
 export type RouteTestContext = {
   convexClient: ConvexTestHarness["convexClient"];
   convexPreloader: ConvexTestHarness["convexPreloader"];
   convexQueryClient: ConvexTestHarness["convexQueryClient"];
+  /** Set by the root `beforeLoad` in production; tests mount routes without it. */
+  locale: SupportedLocale;
   queryClient: ConvexTestHarness["queryClient"];
 };
 
@@ -13,6 +16,7 @@ export function routeContextFromHarness(harness: ConvexTestHarness): RouteTestCo
     convexClient: harness.convexClient,
     convexPreloader: harness.convexPreloader,
     convexQueryClient: harness.convexQueryClient,
+    locale: "en-GB",
     queryClient: harness.queryClient,
   };
 }
