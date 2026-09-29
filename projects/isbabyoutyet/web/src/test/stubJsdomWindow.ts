@@ -200,8 +200,22 @@ function patchCryptoSubtle() {
   };
 }
 
-let installCount = 0;
-let restoreInstalled: (() => void) | null = null;
+type InstallState = {
+  count: number;
+  restore: (() => void) | null;
+};
+
+declare global {
+  // Lives on the global, not in module scope: with `isolate: false` this file
+  // is re-evaluated as a setup file for every test file, so module-scoped
+  // counters would fork while earlier holders still own the install.
+  var jsdomWindowStubInstall: InstallState | undefined;
+}
+
+function installState() {
+  globalThis.jsdomWindowStubInstall ??= { count: 0, restore: null };
+  return globalThis.jsdomWindowStubInstall;
+}
 
 function installJsdomWindowStubs() {
   // Fill only missing constructors. Tests that install their own matchMedia or
@@ -267,20 +281,21 @@ function installJsdomWindowStubs() {
 }
 
 function acquireJsdomWindowStubs() {
-  if (installCount === 0) {
-    restoreInstalled = installJsdomWindowStubs();
+  const state = installState();
+  if (state.count === 0) {
+    state.restore = installJsdomWindowStubs();
   }
-  installCount += 1;
+  state.count += 1;
   let released = false;
   return () => {
     if (released) {
       return;
     }
     released = true;
-    installCount -= 1;
-    if (installCount === 0) {
-      restoreInstalled?.();
-      restoreInstalled = null;
+    state.count -= 1;
+    if (state.count === 0) {
+      state.restore?.();
+      state.restore = null;
     }
   };
 }
