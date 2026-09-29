@@ -25,3 +25,5 @@ export function formatDurationRange(range: TimeRangeMinutes, locale: string) {
   }
   return `${formatDurationMinutes(range.min, locale)}–${formatDurationMinutes(range.max, locale)}`;
 }
+
+// CI benchmark: single-file sous-vide change.
