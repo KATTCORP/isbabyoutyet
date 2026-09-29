@@ -1,9 +1,9 @@
-# Products
+# Projects
 
-Each product owns its app code, hosting config, env files, and backend (if
-any). Code shared by more than one product goes in `packages/`.
+Each project owns its app code, hosting config, env files, and backend (if
+any). Code shared by more than one project goes in `packages/`.
 
-| Product | Workspaces |
+| Project | Workspaces |
 | --- | --- |
 | [Is Baby Out Yet?](isbabyoutyet/README.md) | `web/`, `backend/` (Convex), `email/` |
 | [Sous Vide Guide](sous-vide-guide/README.md) | `web/` |

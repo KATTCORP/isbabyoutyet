@@ -1,7 +1,7 @@
-# isbabyoutyet monorepo
+# Toy projects
 
-pnpm + Turborepo monorepo for **Is Baby Out Yet?** and sibling products.
-`AGENTS.md` files are symlinks to the `README.md` beside them: one doc per
+A pnpm + Turborepo monorepo of personal toy projects and the libraries they
+share. `AGENTS.md` files are symlinks to the `README.md` beside them: one doc per
 directory, for humans and agents alike. Read the one closest to the code you
 are changing; each links further down.
 
