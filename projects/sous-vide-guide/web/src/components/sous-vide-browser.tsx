@@ -1,5 +1,5 @@
 import { ArrowSquareOutIcon, InfoIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 
 import { cutHasGuideDetail, getCutGuide } from "@/data/cutGuide";
 import type { SousVideCategory, SousVideEntry } from "@/data/sousVide";
@@ -209,6 +209,7 @@ function CategoryDock(props: {
   sections: ReadonlyArray<CategorySection>;
 }) {
   const query = props.q.trim();
+  const hash = useRouterState({ select: (state) => state.location.hash });
   const active = useActiveSection({
     enabled: !props.searching,
     ids: props.sections.map((section) => section.category),
@@ -218,9 +219,9 @@ function CategoryDock(props: {
   return (
     <nav
       aria-label={m.jump_to_category()}
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-[color-mix(in_oklab,var(--background)_86%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:sticky sm:top-[var(--site-header-h)] sm:z-10 sm:mx-[calc(50%-50vw)] sm:border-t-0 sm:border-b sm:pb-0"
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-[color-mix(in_oklab,var(--background)_86%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:sticky sm:top-[var(--site-header-h)] sm:z-10 sm:mx-[calc(50%-50vw)] sm:h-[var(--category-dock-h)] sm:border-t-0 sm:border-b sm:pb-0"
     >
-      <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2 sm:px-6">
+      <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2 sm:h-full sm:px-6 sm:py-0">
         {props.searching ? (
           <p
             aria-live="polite"
@@ -239,8 +240,13 @@ function CategoryDock(props: {
                 const isActive = section.category === active;
                 return (
                   <li className="snap-start" key={section.category}>
-                    <Link
-                      activeOptions={{ exact: true, includeHash: true }}
+                    {/*
+                      Plain fragment anchor, not a router Link: the browser
+                      re-scrolls even when the hash is already in the URL,
+                      whereas a Link to the current location is a no-op.
+                    */}
+                    <a
+                      aria-current={section.category === hash ? "location" : undefined}
                       className={cn(
                         "inline-flex h-10 shrink-0 touch-manipulation items-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors sm:h-9",
                         isActive
@@ -248,8 +254,7 @@ function CategoryDock(props: {
                           : "text-muted-foreground hover:bg-[color-mix(in_oklab,var(--guide-ink)_6%,transparent)] hover:text-foreground",
                       )}
                       data-quick-link={section.category}
-                      hash={section.category}
-                      to="/"
+                      href={`#${section.category}`}
                     >
                       <span>{categoryMessage[section.category]()}</span>
                       <span
@@ -260,7 +265,7 @@ function CategoryDock(props: {
                       >
                         {section.entries.length}
                       </span>
-                    </Link>
+                    </a>
                   </li>
                 );
               })}
@@ -296,23 +301,26 @@ function CategorySectionView(props: {
 
   return (
     <section
-      className="scroll-mt-[calc(var(--site-header-h)+0.5rem)] pt-7 sm:scroll-mt-[calc(var(--site-header-h)+3.5rem)] sm:pt-9"
+      className="mt-7 scroll-mt-[var(--sticky-chrome-h)] sm:mt-9"
       id={props.section.category}
     >
       {/*
         Sticks under the site header (and under the sm+ quick-link dock) for the
         length of this section, so Fish / Pork / … stay visible while you browse
         that category's cards. scroll-mt on cut cards accounts for this bar.
+
+        The title must be the section's first box (spacing is margin, not
+        padding) with `top` equal to the section's scroll-margin: a `#category`
+        jump then lands the title exactly at its stuck position under the chrome.
       */}
-      <h2 className="sticky top-[var(--site-header-h)] z-[9] -mx-4 mb-3 flex items-baseline gap-2 border-b border-border/50 bg-[color-mix(in_oklab,var(--background)_88%,transparent)] px-4 py-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] backdrop-blur-md sm:top-[calc(var(--site-header-h)+3.5rem)] sm:mx-[calc(50%-50vw)] sm:px-[calc(50vw-50%)]">
-        <Link
+      <h2 className="sticky top-[var(--sticky-chrome-h)] z-[9] -mx-4 mb-3 flex items-baseline gap-2 border-b border-border/50 bg-[color-mix(in_oklab,var(--background)_88%,transparent)] px-4 py-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] backdrop-blur-md sm:mx-[calc(50%-50vw)] sm:px-[calc(50vw-50%)]">
+        <a
           aria-label={m.category_permalink_label({ category: label })}
           className="underline-offset-4 hover:underline"
-          hash={props.section.category}
-          to="/"
+          href={`#${props.section.category}`}
         >
           {label}
-        </Link>
+        </a>
         <span className="font-sans text-sm font-normal text-muted-foreground tabular-nums">
           {props.section.entries.length}
         </span>
@@ -405,7 +413,7 @@ function IngredientCard(props: {
 
   return (
     <article
-      className="scroll-mt-[calc(var(--site-header-h)+3.25rem)] rounded-2xl border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,var(--surface-mix))] px-4 pt-3.5 pb-2 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] target:ring-2 target:ring-[var(--guide-copper)] has-[:target]:ring-2 has-[:target]:ring-[var(--guide-copper)] sm:scroll-mt-[calc(var(--site-header-h)+6.75rem)]"
+      className="scroll-mt-[calc(var(--sticky-chrome-h)+3.25rem)] rounded-2xl border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,var(--surface-mix))] px-4 pt-3.5 pb-2 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] target:ring-2 target:ring-[var(--guide-copper)] has-[:target]:ring-2 has-[:target]:ring-[var(--guide-copper)]"
       id={props.group.cutId}
     >
       <div className="flex items-start justify-between gap-3">
@@ -504,7 +512,7 @@ function CutDetailDrawer(props: { group: SousVideCutGroup; info: string; locale:
     >
       <Button
         aria-label={m.more_info()}
-        className="size-11 scroll-mt-[calc(var(--site-header-h)+4.25rem)] sm:scroll-mt-[calc(var(--site-header-h)+7.75rem)]"
+        className="size-11 scroll-mt-[calc(var(--sticky-chrome-h)+4.25rem)]"
         id={infoHash(props.group.cutId)}
         onClick={() => {
           setInfoOpen(true);
@@ -596,7 +604,7 @@ function DonenessStep(props: {
 
   return (
     <li
-      className="grid scroll-mt-[calc(var(--site-header-h)+3.25rem)] grid-cols-[0.85rem_minmax(0,1fr)_auto_auto] items-baseline gap-x-3 py-2 target:rounded-lg target:bg-[color-mix(in_oklab,var(--guide-copper)_12%,transparent)] sm:scroll-mt-[calc(var(--site-header-h)+6.75rem)]"
+      className="grid scroll-mt-[calc(var(--sticky-chrome-h)+3.25rem)] grid-cols-[0.85rem_minmax(0,1fr)_auto_auto] items-baseline gap-x-3 py-2 target:rounded-lg target:bg-[color-mix(in_oklab,var(--guide-copper)_12%,transparent)]"
       id={entry.id}
     >
       <span

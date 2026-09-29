@@ -1,6 +1,7 @@
 /**
- * Hash jumps go through TanStack Router's `scrollIntoView`, not native
- * `<a href="#…">` scrolling. CSS `html { scroll-behavior: smooth }` alone is
+ * Router hash jumps (cut permalinks, `navigate({ hash })`) go through TanStack
+ * Router's `scrollIntoView`, not native `<a href="#…">` scrolling (category
+ * links are native anchors). CSS `html { scroll-behavior: smooth }` alone is
  * not enough: the router default is `hashScrollIntoView: true`, which calls
  * the boolean `scrollIntoView(true)` overload and jumps instantly — especially
  * noticeable on iOS Safari. Pass an options object with an explicit behavior.
