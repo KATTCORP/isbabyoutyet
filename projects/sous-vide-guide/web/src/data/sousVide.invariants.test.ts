@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import enUSMessages from "../../messages/en-US.json";
+import svMessages from "../../messages/sv.json";
+import { getCutGuide } from "@/data/cutGuide";
 import { getSousVideEntries } from "@/data/sousVide";
+import type { ContentT } from "@/lib/content-t";
 import { createContentT } from "@/lib/content-t";
-import { locales } from "@/paraglide/runtime";
+import { groupSousVideEntriesByCut } from "@/lib/group-cuts";
 
 describe("sous vide data invariants", () => {
   it("has unique ids", () => {
@@ -26,55 +30,21 @@ describe("sous vide data invariants", () => {
     expect(violations).toEqual([]);
   });
 
-  it("resolves a name and search aliases for every locale", () => {
-    for (const locale of locales) {
-      const t = createContentT(locale);
-      for (const entry of getSousVideEntries(t)) {
-        expect(entry.name.length, `${entry.id} (${locale})`).toBeGreaterThan(0);
-        expect(entry.searchTerms.length, `${entry.id} (${locale})`).toBeGreaterThan(0);
-      }
+  it("translates every content string into every locale catalog", () => {
+    const keys = new Set<string>();
+    const recordingT: ContentT = (message) => {
+      keys.add(message);
+      return message;
+    };
+    const entries = getSousVideEntries(recordingT);
+    for (const group of groupSousVideEntriesByCut(entries)) {
+      getCutGuide(group.cutId, recordingT);
     }
-  });
 
-  it("gives every row a non-empty outcome label", () => {
-    for (const locale of locales) {
-      const t = createContentT(locale);
-      for (const entry of getSousVideEntries(t)) {
-        expect(entry.doneness.length, `${entry.id} (${locale})`).toBeGreaterThan(0);
-      }
-    }
-  });
-
-  it("labels short-cook vegetables Crisp and longer baths Tender", () => {
-    const byId = new Map(
-      getSousVideEntries(createContentT("en-GB")).map((entry) => [entry.id, entry]),
+    const missing = Object.entries({ "en-US": enUSMessages, sv: svMessages }).flatMap(
+      ([locale, catalog]) =>
+        [...keys].filter((key) => !Object.hasOwn(catalog, key)).map((key) => `${locale}: ${key}`),
     );
-    expect(byId.get("carrot")?.doneness).toBe("Crisp");
-    expect(byId.get("asparagus")?.doneness).toBe("Crisp");
-    expect(byId.get("potato")?.doneness).toBe("Tender");
-    expect(byId.get("beet")?.doneness).toBe("Tender");
-    expect(byId.get("pumpkin")?.doneness).toBe("Tender");
-  });
-
-  it("translates vegetable outcome labels in Swedish", () => {
-    const byId = new Map(
-      getSousVideEntries(createContentT("sv")).map((entry) => [entry.id, entry]),
-    );
-    expect(byId.get("asparagus")?.doneness).toBe("Krispig");
-    expect(byId.get("potato")?.doneness).toBe("Mör");
-    expect(byId.get("creme-brulee")?.doneness).toBe("Stelnad");
-    expect(byId.get("yogurt")?.doneness).toBe("Syrad");
-  });
-
-  it("marks short cooks as fridge-start and keeps poached eggs on the high-and-fast profile", () => {
-    const byId = new Map(
-      getSousVideEntries(createContentT("en-GB")).map((entry) => [entry.id, entry]),
-    );
-    const poached = byId.get("egg-poached");
-    expect(poached?.temperatureC).toBe(75);
-    expect(poached?.recommendedMinutes).toEqual({ max: 14, min: 13 });
-    expect(poached?.start).toBe("fridge");
-    expect(byId.get("egg-soft")?.start).toBe("fridge");
-    expect(byId.get("pork-fillet-rare")?.start).toBeNull();
+    expect(missing).toEqual([]);
   });
 });

@@ -804,6 +804,19 @@ export function getSousVideEntries(t: ContentT): ReadonlyArray<SousVideEntry> {
     },
     {
       category: "eggs",
+      // Classic “63° egg” / 145°F — Anova rounds 62.8°C; Serious Eats cites 62.8.
+      doneness: t("Onsen-style"),
+      id: "egg-onsen",
+      maxMinutes: 120,
+      name: t("Large egg"),
+      recommendedMinutes: { max: 60, min: 45 },
+      searchTerms: splitMessageList(
+        t("ägg, egg, onsen, 63, 62.8, classic, Large, Barely set white, liquid yolk"),
+      ),
+      temperatureC: 63,
+    },
+    {
+      category: "eggs",
       doneness: t("Soft"),
       id: "egg-soft",
       maxMinutes: 120,
@@ -811,6 +824,18 @@ export function getSousVideEntries(t: ContentT): ReadonlyArray<SousVideEntry> {
       recommendedMinutes: { max: 60, min: 60 },
       searchTerms: splitMessageList(t("ägg, egg, breakfast, Large, Löst")),
       temperatureC: 64,
+    },
+    {
+      category: "eggs",
+      doneness: t("Spreadable yolk, set white"),
+      id: "egg-jammy",
+      maxMinutes: 120,
+      name: t("Large egg"),
+      recommendedMinutes: { max: 60, min: 60 },
+      searchTerms: splitMessageList(
+        t("ägg, egg, gula, yolk, Large, Bredbar gula med fast yttre, Spreadable yolk, set white"),
+      ),
+      temperatureC: 65,
     },
     {
       category: "eggs",
@@ -832,18 +857,6 @@ export function getSousVideEntries(t: ContentT): ReadonlyArray<SousVideEntry> {
       recommendedMinutes: { max: 20, min: 20 },
       searchTerms: splitMessageList(t("ägg, egg, hårdkokt, Large")),
       temperatureC: 84,
-    },
-    {
-      category: "eggs",
-      doneness: t("Spreadable yolk, set white"),
-      id: "egg-jammy",
-      maxMinutes: 120,
-      name: t("Large egg"),
-      recommendedMinutes: { max: 60, min: 60 },
-      searchTerms: splitMessageList(
-        t("ägg, egg, gula, yolk, Large, Bredbar gula med fast yttre, Spreadable yolk, set white"),
-      ),
-      temperatureC: 65,
     },
     {
       category: "eggs",
@@ -880,6 +893,7 @@ function startForEntryId(entryId: string): IngredientStart | null {
 
 /** Short cooks where a fridge-cold start is part of the timing. */
 const FRIDGE_START_IDS = new Set([
+  "egg-onsen",
   "egg-soft",
   "egg-poached",
   "egg-hard",

@@ -14,6 +14,7 @@ const CUT_ID_SUFFIXES = [
   "-pink",
   "-tender",
   "-firm",
+  "-onsen",
   "-soft",
   "-poached",
   "-hard",

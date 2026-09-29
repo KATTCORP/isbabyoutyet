@@ -16,7 +16,7 @@ import { noUnsafeDictionaryTypeRule } from "./rules/no-unsafe-dictionary-type.ts
 import { noWidenThenAssertRule } from "./rules/no-widen-then-assert.ts";
 import { requireSafetyCommentForTypeAssertionRule } from "./rules/require-safety-comment-for-type-assertion.ts";
 
-/** Vendored from https://github.com/dmmulroy/anti-slop — see AGENTS.md for sync steps. */
+/** Vendored from https://github.com/dmmulroy/anti-slop — see README.md for sync steps. */
 const antiSlopPlugin = eslintCompatPlugin({
   meta: { name: "anti-slop" },
   rules: {

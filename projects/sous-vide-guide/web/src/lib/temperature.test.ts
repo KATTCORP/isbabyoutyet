@@ -4,6 +4,7 @@ import {
   defaultTemperatureUnit,
   formatTemperature,
   temperatureUnitSearchSchema,
+  unitSearchMiddleware,
 } from "./temperature";
 
 describe("defaultTemperatureUnit", () => {
@@ -27,6 +28,26 @@ describe("temperatureUnitSearchSchema", () => {
     expect(temperatureUnitSearchSchema.parse("f")).toBe("f");
     expect(temperatureUnitSearchSchema.parse("k")).toBeUndefined();
     expect(temperatureUnitSearchSchema.parse(undefined)).toBeUndefined();
+  });
+});
+
+describe("unitSearchMiddleware", () => {
+  type UnitSearch = Partial<Record<"unit", "c" | "f">>;
+  const inBritishEnglish = unitSearchMiddleware(() => "en-GB");
+  const navigate = (from: UnitSearch, to: UnitSearch) =>
+    inBritishEnglish({ next: () => to, search: from });
+
+  it("keeps the current unit when the navigation doesn't mention it", () => {
+    expect(navigate({ unit: "f" }, {})).toEqual({ unit: "f" });
+  });
+
+  it("drops the locale's default unit, whether set or retained", () => {
+    expect(navigate({ unit: "f" }, { unit: "c" })).toEqual({});
+    expect(navigate({ unit: "c" }, {})).toEqual({});
+  });
+
+  it("drops the unit when it is explicitly cleared", () => {
+    expect(navigate({ unit: "f" }, { unit: undefined })).toEqual({});
   });
 });
 

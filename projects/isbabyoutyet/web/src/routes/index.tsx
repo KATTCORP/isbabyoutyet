@@ -593,7 +593,7 @@ export function HomePageView(props: { isSignedIn: boolean }) {
           />
           <a
             className="inline-flex items-center gap-2 font-bold text-muted-foreground transition-colors hover:text-foreground"
-            href="https://github.com/KATT/isbabyoutyet"
+            href="https://github.com/KATTCORP/isbabyoutyet/tree/main/projects/isbabyoutyet"
             rel="noopener noreferrer"
             target="_blank"
           >
