@@ -82,6 +82,35 @@ describe("getCutGuide", () => {
     }
   });
 
+  it("covers Trichinella for pork, flagging wild boar, with Livsmedelsverket and CDC sources", () => {
+    for (const cutId of [
+      "pork-fillet",
+      "pork-chop",
+      "pork-roast",
+      "pork-shoulder",
+      "pork-belly",
+    ] as const) {
+      const guide = getCutGuide(cutId, t);
+      expect(guide?.notes.some((note) => note.startsWith("Trichinella die at about 60C"))).toBe(
+        true,
+      );
+      expect(guide?.notes.some((note) => /Wild boar/.test(note) && /74C \/ 165F/.test(note))).toBe(
+        true,
+      );
+      expect(guide?.references.map((reference) => reference.href)).toEqual(
+        expect.arrayContaining([
+          "https://www.livsmedelsverket.se/livsmedel-och-innehall/bakterier-virus-parasiter-och-mogelsvampar1/parasiter/trikiner",
+          "https://www.cdc.gov/mmwr/volumes/73/wr/mm7320a2.htm",
+        ]),
+      );
+    }
+  });
+
+  it("uses the word trikiner in the Swedish pork notes", () => {
+    const guide = getCutGuide("pork-chop", createContentT("sv"));
+    expect(guide?.notes.filter((note) => /trikiner/i.test(note))).toHaveLength(2);
+  });
+
   it("reassures that pink chicken can still be pasteurised, with Anova and Serious Eats sources", () => {
     for (const cutId of ["chicken-breast", "chicken-thigh"] as const) {
       const guide = getCutGuide(cutId, t);

@@ -81,11 +81,25 @@ export function getCutGuide(cutId: string, t: ContentT): CutGuide | null {
           t(
             "USDA whole-muscle pork is 63C / 145F. Rare at 60C is a texture target; hold the full recommended time for pasteurisation.",
           ),
+          t(
+            "Trichinella die at about 60C with slow heating and are very rare in inspected farmed pork, so these baths with the full hold cover them.",
+          ),
+          t(
+            "Wild boar and bear can carry Trichinella. Unless the meat is tested, cook it through (CDC: 74C / 165F) instead of using these pork temps.",
+          ),
         ],
         references: [
           {
             href: "https://www.fsis.usda.gov/food-safety/safe-food-handling-and-preparation/meat-fish/fresh-pork-farm-table",
             label: "USDA FSIS — fresh pork (63C / 145F whole-muscle; pink can still be safe)",
+          },
+          {
+            href: "https://www.livsmedelsverket.se/livsmedel-och-innehall/bakterier-virus-parasiter-och-mogelsvampar1/parasiter/trikiner",
+            label: "Livsmedelsverket — trikiner (die around 60-65C; rare in Swedish farmed pigs)",
+          },
+          {
+            href: "https://www.cdc.gov/mmwr/volumes/73/wr/mm7320a2.htm",
+            label: "CDC MMWR — trichinellosis from bear meat (cook wild game to 74C / 165F)",
           },
           {
             href: KITCHENLAB_GUIDE_HREF,
