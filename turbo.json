@@ -41,30 +41,18 @@
     "format": {
       "dependsOn": ["@workspace/oxlint-plugins#build"]
     },
-    "//#test:coverage": {
-      "outputs": [
-        "coverage/coverage-summary.json",
-        "coverage/lcov.info"
-      ],
+    "transit": {
+      "dependsOn": ["^transit"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md", "!**/.agents/**"]
+    },
+    "test:coverage": {
+      "dependsOn": ["transit"],
+      "outputs": ["coverage/coverage-summary.json", "coverage/lcov.info"],
       "inputs": [
-        "$TURBO_ROOT$/package.json",
-        "$TURBO_ROOT$/vitest.config.ts",
-        "$TURBO_ROOT$/projects/**",
-        "$TURBO_ROOT$/packages/**",
-        "$TURBO_ROOT$/tooling/**",
-        "!$TURBO_ROOT$/packages/oxlint-plugins/*.ts",
-        "!$TURBO_ROOT$/**/node_modules/**",
-        "!$TURBO_ROOT$/**/.turbo/**",
-        "!$TURBO_ROOT$/coverage/**",
-        "!$TURBO_ROOT$/**/paraglide/**",
-        "!$TURBO_ROOT$/**/project.inlang/cache/**",
-        "!$TURBO_ROOT$/**/project.inlang/.gitignore",
-        "!$TURBO_ROOT$/**/project.inlang/.meta.json",
-        "!$TURBO_ROOT$/**/project.inlang/README.md",
-        "!$TURBO_ROOT$/**/*.md",
-        "!$TURBO_ROOT$/.github/**",
-        "!$TURBO_ROOT$/**/.agents/**",
-        "!$TURBO_ROOT$/.cursor/**"
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/vitest.coverage.ts",
+        "!**/*.md",
+        "!**/.agents/**"
       ],
       "env": ["CI"]
     },

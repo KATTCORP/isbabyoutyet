@@ -29,6 +29,7 @@
     "seed:homepage:photos": "CONVEX_AGENT_MODE=anonymous tsx scripts/seedHomepageDemo.ts --photos-only",
     "seed:mark-photos-pending": "touch .seed-photos-pending.local",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "lint": "oxlint",
     "lint-fix": "oxlint --fix",
     "format": "oxfmt && oxlint --fix",
