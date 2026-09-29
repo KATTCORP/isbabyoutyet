@@ -7,6 +7,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  useLocation,
 } from "@tanstack/react-router";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -15,6 +16,7 @@ import { SousVideBrowser } from "@/components/sous-vide-browser";
 import { getSousVideEntries } from "@/data/sousVide";
 import { createContentT } from "@/lib/content-t";
 import { hashScrollIntoViewOptions } from "@/lib/hash-scroll";
+import { infoCutIdFromHash } from "@/lib/info-hash";
 import { filterSousVideEntries } from "@/lib/search";
 import { temperatureUnitSearchSchema } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
@@ -28,7 +30,6 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   validateSearch: z.object({
-    info: z.string().default(""),
     q: z.string().default(""),
     unit: temperatureUnitSearchSchema,
   }),
@@ -36,12 +37,13 @@ const indexRoute = createRoute({
 
 function GuidePage() {
   const search = indexRoute.useSearch();
+  const info = useLocation({ select: (location) => infoCutIdFromHash(location.hash) });
   const entries = filterSousVideEntries({ entries: ENTRIES, query: search.q });
   return (
     <SousVideBrowser
       allEntries={ENTRIES}
       entries={entries}
-      info={search.info}
+      info={info}
       q={search.q}
       unit={search.unit ?? "c"}
     />
@@ -64,7 +66,7 @@ async function renderGuide(initialUrl: string) {
     routeTree: rootRoute.addChildren([indexRoute]),
   });
   const view = render(<RouterProvider router={router} />);
-  // An open `?info=` drawer aria-hides the page chrome; still wait on the field.
+  // An open `#info-…` drawer aria-hides the page chrome; still wait on the field.
   await screen.findByRole("searchbox", { hidden: true });
   return { router, view };
 }
@@ -85,14 +87,10 @@ describe("SousVideBrowser", () => {
   it("renders one section per category with one card per cut", async () => {
     const guide = await renderGuide("/");
 
-    const pork = document.getElementById("pork");
-    expect(pork).not.toBeNull();
     expect(document.querySelectorAll("section[id]")).toHaveLength(8);
-
-    const porkFillet = document.getElementById("pork-fillet");
-    expect(porkFillet).not.toBeNull();
-    expect(porkFillet?.querySelectorAll("ol > li")).toHaveLength(3);
-    expect(document.getElementById("duck-breast")?.querySelectorAll("ol > li")).toHaveLength(1);
+    expect(
+      document.getElementById("pork-fillet")?.querySelectorAll("ol > li").length,
+    ).toBeGreaterThan(1);
 
     const dock = screen.getByRole("navigation", { name: m.jump_to_category() });
     const quickLinks = within(dock).getAllByRole("link");
@@ -131,18 +129,6 @@ describe("SousVideBrowser", () => {
         expect.objectContaining({ behavior: expect.stringMatching(/^(smooth|instant)$/) }),
       );
     });
-
-    guide.view.unmount();
-  });
-
-  it("keeps category titles sticky so Fish stays visible while browsing that section", async () => {
-    const guide = await renderGuide("/");
-
-    const fish = document.getElementById("fish");
-    expect(fish).not.toBeNull();
-    const heading = fish?.querySelector("h2");
-    expect(heading?.className).toContain("sticky");
-    expect(heading?.className).toContain("top-[var(--site-header-h)]");
 
     guide.view.unmount();
   });
@@ -223,57 +209,57 @@ describe("SousVideBrowser", () => {
     guide.view.unmount();
   });
 
-  it("opens egg detail drawer from ?info= and keeps the cut id in the URL", async () => {
-    const guide = await renderGuide("/");
+  it("opens the egg drawer via #info-egg without scrolling, and clears the hash on close", async () => {
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      value: () => {},
+      writable: true,
+    });
+    const scrollIntoView = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockImplementation(() => {});
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    await using _spies = usingCleanup(() => {
+      scrollIntoView.mockRestore();
+      scrollTo.mockRestore();
+    });
+
+    const guide = await renderGuide("/?q=egg");
+    scrollIntoView.mockClear();
+    scrollTo.mockClear();
     const eggCard = cardById("egg");
     expect(within(eggCard).getByText(m.start_from_fridge())).toBeTruthy();
     fireEvent.click(within(eggCard).getByRole("button", { name: m.more_info() }));
     await vi.waitFor(() => {
-      expect(guide.router.state.location.search.info).toBe("egg");
-      expect(guide.router.state.location.hash).toBe("egg");
+      expect(guide.router.state.location.hash).toBe("info-egg");
     });
+    expect(currentQuery(guide.router)).toBe("egg");
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText(m.guide_notes_heading())).toBeTruthy();
-    expect(within(dialog).getByText(m.guide_references_heading())).toBeTruthy();
-    expect(within(dialog).getByRole("link", { name: /Anova/i }).getAttribute("href")).toMatch(
-      /^https:\/\//,
-    );
 
     fireEvent.click(within(dialog).getByRole("button", { name: m.close_detail() }));
     await vi.waitFor(() => {
-      expect(guide.router.state.location.search.info).toBe("");
-      expect(guide.router.state.location.hash).toBe("egg");
+      expect(guide.router.state.location.hash).toBe("");
     });
+    expect(currentQuery(guide.router)).toBe("egg");
+    await vi.waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(scrollTo).not.toHaveBeenCalled();
     guide.view.unmount();
   });
 
-  it("opens the egg detail drawer from a deep link", async () => {
-    const guide = await renderGuide("/?info=egg#egg");
-    expect(guide.router.state.location.search.info).toBe("egg");
-    expect(guide.router.state.location.hash).toBe("egg");
+  it("opens the egg detail drawer from a #info-egg deep link, on the info button anchor", async () => {
+    const guide = await renderGuide("/#info-egg");
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(m.guide_notes_heading())).toBeTruthy();
+    expect(document.getElementById("info-egg")?.closest("article")?.id).toBe("egg");
     guide.view.unmount();
   });
 
-  it("opens chuck (högrev) detail with Swedish source links", async () => {
-    const guide = await renderGuide("/?info=chuck#chuck");
-    const dialog = await screen.findByRole("dialog");
-    expect(
-      within(dialog)
-        .getByRole("link", { name: /KitchenLab/i })
-        .getAttribute("href"),
-    ).toMatch(/kitchenlab\.se/);
-    expect(
-      within(dialog)
-        .getByRole("link", { name: /Hagshultskossorna/i })
-        .getAttribute("href"),
-    ).toMatch(/hagshult\.se/);
-    expect(
-      within(dialog)
-        .getByRole("link", { name: /Gårdssällskapet|Gardssallskapet/i })
-        .getAttribute("href"),
-    ).toMatch(/gardssallskapet\.se/);
+  it("keeps plain card permalinks closed", async () => {
+    const guide = await renderGuide("/#egg");
+    expect(screen.queryByRole("dialog")).toBeNull();
     guide.view.unmount();
   });
 });

@@ -5,6 +5,8 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
+    "dev-isbaby": "turbo dev --filter='./projects/isbabyoutyet/*'",
+    "dev-sous": "turbo dev --filter='./projects/sous-vide-guide/*'",
     "email": "pnpm --filter @isbabyoutyet/email dev",
     "dev-convex": "pnpm --filter @isbabyoutyet/backend dev",
     "reset-dev": "pnpm --filter @isbabyoutyet/backend reset-dev",

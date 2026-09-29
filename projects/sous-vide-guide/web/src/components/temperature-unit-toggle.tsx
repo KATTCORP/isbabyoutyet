@@ -28,6 +28,7 @@ export function TemperatureUnitToggle(props: TemperatureUnitToggleProps) {
             : "inline-flex h-9 min-w-10 items-center justify-center rounded-md px-2.5 text-xs font-semibold text-muted-foreground touch-manipulation hover:text-foreground sm:h-8"
         }
         replace
+        resetScroll={false}
         search={{ ...search, unit: "c" }}
         to="/"
       >
@@ -41,6 +42,7 @@ export function TemperatureUnitToggle(props: TemperatureUnitToggleProps) {
             : "inline-flex h-9 min-w-10 items-center justify-center rounded-md px-2.5 text-xs font-semibold text-muted-foreground touch-manipulation hover:text-foreground sm:h-8"
         }
         replace
+        resetScroll={false}
         search={{ ...search, unit: "f" }}
         to="/"
       >
