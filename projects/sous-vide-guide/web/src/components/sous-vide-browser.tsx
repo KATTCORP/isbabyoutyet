@@ -217,7 +217,7 @@ function CategoryDock(props: {
   return (
     <nav
       aria-label={m.jump_to_category()}
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-[color-mix(in_oklab,var(--background)_86%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:sticky sm:top-[var(--site-header-h)] sm:z-10 sm:-mx-6 sm:border-t-0 sm:border-b sm:pb-0"
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-[color-mix(in_oklab,var(--background)_86%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:sticky sm:top-[var(--site-header-h)] sm:z-10 sm:mx-[calc(50%-50vw)] sm:border-t-0 sm:border-b sm:pb-0"
     >
       <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2 sm:px-6">
         {props.searching ? (
@@ -303,7 +303,7 @@ function CategorySectionView(props: {
         length of this section, so Fish / Pork / … stay visible while you browse
         that category's cards. scroll-mt on cut cards accounts for this bar.
       */}
-      <h2 className="sticky top-[var(--site-header-h)] z-[9] -mx-4 mb-3 flex items-baseline gap-2 border-b border-border/50 bg-[color-mix(in_oklab,var(--background)_88%,transparent)] px-4 py-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] backdrop-blur-md sm:top-[calc(var(--site-header-h)+3.5rem)] sm:-mx-6 sm:px-6">
+      <h2 className="sticky top-[var(--site-header-h)] z-[9] -mx-4 mb-3 flex items-baseline gap-2 border-b border-border/50 bg-[color-mix(in_oklab,var(--background)_88%,transparent)] px-4 py-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] backdrop-blur-md sm:top-[calc(var(--site-header-h)+3.5rem)] sm:mx-[calc(50%-50vw)] sm:px-[calc(50vw-50%)]">
         <Link
           aria-label={m.category_permalink_label({ category: label })}
           className="underline-offset-4 hover:underline"
