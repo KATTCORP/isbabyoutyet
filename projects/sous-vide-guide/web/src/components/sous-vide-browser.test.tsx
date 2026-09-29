@@ -141,12 +141,15 @@ describe("SousVideBrowser", () => {
     expect(fish).not.toBeNull();
     // A #fish jump lands the section top at its scroll-margin; the title is the
     // section's first box and sticks at that same line, so it lands flush.
-    expect(fish?.className).toContain("scroll-mt-[var(--sticky-chrome-h)]");
+    expect(fish?.className).toContain("scroll-mt-[calc(var(--sticky-chrome-h)-1px)]");
     expect(fish?.className).not.toMatch(/(^|\s)(sm:)?p[ty]-/);
     const heading = fish?.firstElementChild;
     expect(heading?.tagName).toBe("H2");
     expect(heading?.className).toContain("sticky");
-    expect(heading?.className).toContain("top-[var(--sticky-chrome-h)]");
+    // 1px under sticky chrome + opaque fill so compositing cannot leave a page-bg gap.
+    expect(heading?.className).toContain("top-[calc(var(--sticky-chrome-h)-1px)]");
+    expect(heading?.className).toContain("bg-background");
+    expect(heading?.className).not.toContain("backdrop-blur");
   });
 
   it("filters as you type, writes ?q= and shows ranked results instead of sections", async () => {

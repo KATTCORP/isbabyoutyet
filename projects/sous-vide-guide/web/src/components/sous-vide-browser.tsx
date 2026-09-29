@@ -219,7 +219,7 @@ function CategoryDock(props: {
   return (
     <nav
       aria-label={m.jump_to_category()}
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-[color-mix(in_oklab,var(--background)_86%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:sticky sm:top-[var(--site-header-h)] sm:z-10 sm:mx-[calc(50%-50vw)] sm:h-[var(--category-dock-h)] sm:border-t-0 sm:border-b sm:pb-0"
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-[color-mix(in_oklab,var(--background)_86%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:sticky sm:top-[calc(var(--site-header-h)-1px)] sm:z-10 sm:mx-[calc(50%-50vw)] sm:h-[var(--category-dock-h)] sm:border-t-0 sm:border-b sm:bg-background sm:pb-0 sm:backdrop-blur-none"
     >
       <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2 sm:h-full sm:px-6 sm:py-0">
         {props.searching ? (
@@ -301,7 +301,7 @@ function CategorySectionView(props: {
 
   return (
     <section
-      className="mt-7 scroll-mt-[var(--sticky-chrome-h)] sm:mt-9"
+      className="mt-7 scroll-mt-[calc(var(--sticky-chrome-h)-1px)] sm:mt-9"
       id={props.section.category}
     >
       {/*
@@ -312,8 +312,12 @@ function CategorySectionView(props: {
         The title must be the section's first box (spacing is margin, not
         padding) with `top` equal to the section's scroll-margin: a `#category`
         jump then lands the title exactly at its stuck position under the chrome.
+
+        `top` / scroll-mt sit 1px under --sticky-chrome-h and the fill is opaque
+        (no backdrop-blur): sticky + translucent blur left a real 1px page-bg
+        gap under the site header on mobile.
       */}
-      <h2 className="sticky top-[var(--sticky-chrome-h)] z-[9] -mx-4 mb-3 flex items-baseline gap-2 border-b border-border/50 bg-[color-mix(in_oklab,var(--background)_88%,transparent)] px-4 py-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] backdrop-blur-md sm:mx-[calc(50%-50vw)] sm:px-[calc(50vw-50%)]">
+      <h2 className="sticky top-[calc(var(--sticky-chrome-h)-1px)] z-[9] -mx-4 mb-3 flex items-baseline gap-2 border-b border-border/50 bg-background px-4 py-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] sm:mx-[calc(50%-50vw)] sm:px-[calc(50vw-50%)]">
         <a
           aria-label={m.category_permalink_label({ category: label })}
           className="underline-offset-4 hover:underline"
