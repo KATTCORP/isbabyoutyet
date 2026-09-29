@@ -10,7 +10,7 @@ const FIRST_PAGE = { cursor: null, numItems: 20 };
 
 async function setup() {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   return t;
 }
 

@@ -11,7 +11,7 @@ const TEST_USER_AGENT =
 
 test("subscription secrets stay internal while managers see the exact count", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const asBob = t.withIdentity({ subject: "bob" });
   const created = await asAlice.mutation(
@@ -88,7 +88,7 @@ test("subscription secrets stay internal while managers see the exact count", as
 
 test("internal pagination reaches every subscription without a cap", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,
@@ -138,7 +138,7 @@ test("internal pagination reaches every subscription without a cap", async () =>
 
 test("resubscribe rotates credentials and deleted babies reject new subscriptions", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,
@@ -210,7 +210,7 @@ test("resubscribe rotates credentials and deleted babies reject new subscription
 
 test("managers can opt into message alerts without changing the family subscriber count", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const asBob = t.withIdentity({ subject: "bob" });
   const created = await asAlice.mutation(
@@ -320,7 +320,7 @@ test("managers can opt into message alerts without changing the family subscribe
 
 test("removeByEndpoint clears owner message subscriptions for that browser", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,
