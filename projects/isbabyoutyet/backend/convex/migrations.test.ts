@@ -33,8 +33,8 @@ import {
 
 test("retained migrations skip linked rows and backfill update metadata and counts", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
-  await registerMigrationsComponent(t);
+  registerComponents(t);
+  registerMigrationsComponent(t);
 
   const ids = await t.run(async (ctx) => {
     const photoId = await ctx.storage.store(testPhotoBlob());
@@ -137,7 +137,7 @@ test("retained migrations skip linked rows and backfill update metadata and coun
 
 test("posted-by backfill skips updates whose baby row is gone", async () => {
   const t = convexTest(schema, modules);
-  await registerMigrationsComponent(t);
+  registerMigrationsComponent(t);
 
   const updateId = await t.run(async (ctx) => {
     const babyId = await ctx.db.insert("baby", {
@@ -187,7 +187,7 @@ test("posted-by backfill skips updates whose baby row is gone", async () => {
 
 test("sanitizeOnboardingSteps strips unknown retired step ids", async () => {
   const t = convexTest(schema, modules);
-  await registerMigrationsComponent(t);
+  registerMigrationsComponent(t);
 
   const onboardingId = await t.run(async (ctx) => {
     return await ctx.db.insert("userOnboarding", {
@@ -223,7 +223,7 @@ test("sanitizeOnboardingSteps strips unknown retired step ids", async () => {
 
 test("backfillEncouragementAuthor writes the union from leftover userId and visitorId", async () => {
   const t = convexTest(schema, modules);
-  await registerMigrationsComponent(t);
+  registerMigrationsComponent(t);
 
   const ids = await t.run(async (ctx) => {
     const babyId = await ctx.db.insert("baby", {
@@ -297,7 +297,7 @@ test("backfillEncouragementAuthor writes the union from leftover userId and visi
 
 test("backfillEncouragementAuthor is a no-op when author is already set", async () => {
   const t = convexTest(schema, modules);
-  await registerMigrationsComponent(t);
+  registerMigrationsComponent(t);
 
   const encouragementId = await t.run(async (ctx) => {
     const babyId = await ctx.db.insert("baby", {
@@ -347,7 +347,7 @@ test("backfillEncouragementAuthor is a no-op when author is already set", async 
 
 test("removeEncouragementUserId strips the retired userId key", async () => {
   const t = convexTest(schema, modules);
-  await registerMigrationsComponent(t);
+  registerMigrationsComponent(t);
 
   const encouragementId = await t.run(async (ctx) => {
     const babyId = await ctx.db.insert("baby", {
@@ -399,7 +399,7 @@ test("removeEncouragementUserId strips the retired userId key", async () => {
 
 test("removeBabyEncouragementsDisabled strips the retired flag from baby docs", async () => {
   const t = convexTest(schema, modules);
-  await registerMigrationsComponent(t);
+  registerMigrationsComponent(t);
 
   const babyId = await t.run(async (ctx) => {
     return await ctx.db.insert("baby", {
@@ -436,7 +436,7 @@ test("removeBabyEncouragementsDisabled strips the retired flag from baby docs", 
 
 test("optional-key backfills write missing null/false without clobbering set values", async () => {
   const t = convexTest(schema, modules);
-  await registerMigrationsComponent(t);
+  registerMigrationsComponent(t);
 
   const ids = await t.run(async (ctx) => {
     const sparseBabyId = await ctx.db.insert("baby", {

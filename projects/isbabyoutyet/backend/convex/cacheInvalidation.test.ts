@@ -7,7 +7,7 @@ import { modules, registerComponents, createBabyArgs, createEncouragementArgs } 
 
 test("baby and related writes leave a durable targeted purge job", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
 
   const created = await asAlice.mutation(
@@ -50,7 +50,7 @@ test("baby and related writes leave a durable targeted purge job", async () => {
 
 test("profile locale changes purge every baby page without reading an unbounded baby list", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
 
   await asAlice.mutation(api.profile.updateLocale, { locale: "en-GB" });

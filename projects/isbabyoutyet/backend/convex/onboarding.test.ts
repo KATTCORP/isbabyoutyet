@@ -10,7 +10,7 @@ import { DEMO_EMPTY_USER } from "../src/seedCredentials";
 
 async function setup() {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   return t;
 }
 

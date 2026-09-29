@@ -7,7 +7,7 @@ import { modules, registerComponents, createBabyArgs, postUpdateArgs } from "./t
 
 async function setup() {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   return t;
 }
 
@@ -296,7 +296,7 @@ test("only the owner can manage co-parents and delete the baby", async () => {
 
 test("manager-only listings return forbidden for visitors instead of throwing", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const asBob = t.withIdentity({ subject: "bob" });
   const created = await asAlice.mutation(

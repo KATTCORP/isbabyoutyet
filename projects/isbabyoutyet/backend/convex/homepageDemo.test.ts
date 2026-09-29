@@ -23,7 +23,7 @@ const FIXTURE_ENCOURAGEMENTS = HOMEPAGE_DEMO_FEED.filter((item) => item.kind ===
 
 async function setup() {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   return t;
 }
 

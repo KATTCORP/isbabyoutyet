@@ -9,7 +9,7 @@ const FIRST_PAGE = { cursor: null, numItems: 10 };
 
 async function setupWithBaby() {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const babyId: Id<"baby"> = await t.run(async (ctx) => {
     return await ctx.db.insert("baby", {
       birthJourney: "labor",
@@ -298,7 +298,7 @@ test("removing an encouragement soft-deletes it so it can be recovered later", a
 
 test("visitor messages notify opted-in owners; deletes retract the push instead of sending one", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,
@@ -517,7 +517,7 @@ test("claiming visitor encouragements requires authentication", async () => {
 
 test("a manager posting or deleting a message does not notify owners", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,

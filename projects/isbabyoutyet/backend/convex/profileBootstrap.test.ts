@@ -9,7 +9,7 @@ import { createEncouragementArgs, modules, registerComponents } from "./test.set
 
 async function setup() {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   return t;
 }
 

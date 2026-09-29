@@ -19,7 +19,7 @@ function captureSendSummaryLog() {
 test("sending a photo notification resolves the image URL and marks the job sent", async () => {
   await using logs = captureSendSummaryLog();
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,
@@ -95,7 +95,7 @@ test("sending a photo notification resolves the image URL and marks the job sent
 test("owner message notifications page manager subscriptions without marking family jobs", async () => {
   await using logs = captureSendSummaryLog();
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,
@@ -152,7 +152,7 @@ test("owner message notifications page manager subscriptions without marking fam
 test("dismissing an owner message push pages the same manager subscriptions", async () => {
   await using logs = captureSendSummaryLog();
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,
