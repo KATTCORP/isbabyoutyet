@@ -25,7 +25,7 @@ Do **not** create stacked PRs unless the user asked for a stack or the work is c
 - The first PR is `1/N`. The last is `N/N`.
 - Every PR in the stack must be independently reviewable as much as possible.
 - Repeat the **full** stack table at the **top** of **every** PR body, not only the bottom PR.
-- **Always** link the PRs as a native GitHub stack (see [Link the stack on GitHub](#link-the-stack-on-github)). Never leave that for the user to click in the GitHub UI.
+- Every stack must end up linked as a native GitHub stack. CI does this automatically; confirm it happened (see [Link the stack on GitHub](#link-the-stack-on-github)). Never leave it for the user to click in the GitHub UI.
 - Draft vs ready: follow the user. Add `--draft` only when they ask for drafts. Otherwise create ready PRs.
 - Do not put a demo-seed checklist in the PR body unless the user asks for one.
 
@@ -197,7 +197,15 @@ Each edited body still highlights **that** PR in the PR column (`**👉 …**`).
 
 ## Link the stack on GitHub
 
-GitHub has native stacked PRs: linked PRs get a stack navigator in the PR UI and stack-aware merging. Link every stack right after its PRs exist (and again whenever you add PRs to it), using the official [`gh stack`](https://github.com/github/gh-stack) extension:
+GitHub has native stacked PRs: linked PRs get a stack navigator in the PR UI and stack-aware merging.
+
+The [`link-stack`](../../../.github/workflows/link-stack.yml) workflow links them for you. Whenever a PR is opened, reopened, or retargeted onto another open PR's branch, it walks the base-branch chain and appends the unlinked PRs to the existing stack, or creates the stack. Nothing to run: create the PRs with the right `--base` (above) and it works for every author, including cloud agents with a read-only `gh`.
+
+After creating the PRs, wait for `link-stack` and verify each one: `gh api repos/KATTCORP/isbabyoutyet/pulls/<n> --jq .stack` returns `{ number, position, size, … }` (empty when unlinked). If a PR is still unlinked (for example, it came from a fork, or the workflow failed), check the `link-stack` run, then link it by hand.
+
+### Linking by hand
+
+With the official [`gh stack`](https://github.com/github/gh-stack) extension:
 
 ```bash
 gh extension install github/gh-stack   # once; no-op if already installed
@@ -221,8 +229,6 @@ gh api -X POST repos/KATTCORP/isbabyoutyet/stacks/<stack-number>/add \
   -H "X-GitHub-Api-Version: 2026-03-10" \
   --input - <<< '{"pull_requests":[126]}'
 ```
-
-Verify each PR is linked: `gh api repos/KATTCORP/isbabyoutyet/pulls/<n> --jq .stack` returns `{ number, position, size, … }` (empty when unlinked).
 
 If you cannot write through `gh` in your environment (for example, a read-only token), say so when you report back and give the user the exact `gh stack link …` command to run.
 
