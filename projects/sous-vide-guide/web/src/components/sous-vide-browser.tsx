@@ -219,7 +219,7 @@ function CategoryDock(props: {
   return (
     <nav
       aria-label={m.jump_to_category()}
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-[color-mix(in_oklab,var(--background)_86%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:sticky sm:top-[calc(var(--site-header-h)-1px)] sm:z-10 sm:mx-[calc(50%-50vw)] sm:h-[var(--category-dock-h)] sm:border-t-0 sm:border-b sm:bg-background sm:pb-0 sm:backdrop-blur-none"
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background pb-[env(safe-area-inset-bottom)] sm:sticky sm:top-[calc(var(--site-header-h)-1px)] sm:z-10 sm:mx-[calc(50%-50vw)] sm:h-[var(--category-dock-h)] sm:border-t-0 sm:border-b sm:pb-0"
     >
       <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2 sm:h-full sm:px-6 sm:py-0">
         {props.searching ? (
