@@ -20,14 +20,19 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
   chip. The search field scrolls with the page; the site header, each category
   section title (Fish, Pork, …), and the quick-link dock stay pinned. Category
   titles stick under the header (and under the dock on `sm+`) for the length of
-  that section. Sections use `scroll-mt-*` against `--site-header-h` (fixed
-  header height, see `src/styles/app.css`) plus the dock row height on `sm+`;
-  cut / doneness targets also clear the sticky category title. Smooth hash
-  jumps come from `defaultHashScrollIntoView` in `src/router.tsx` (via
-  `hashScrollIntoViewOptions` in `src/lib/hash-scroll.ts`) — CSS
-  `scroll-behavior: smooth` is only a native-anchor fallback; SPA `#hash`
-  Links call `scrollIntoView` and need the explicit options object (notably
-  on iOS Safari).
+  that section. `--sticky-chrome-h` in `src/styles/app.css` is everything
+  pinned up top (`--site-header-h`, plus `--category-dock-h` on `sm+`, which
+  the dock's fixed height uses too). A section's `scroll-mt` and its title's
+  sticky `top` both equal `--sticky-chrome-h`, and the title is the section's
+  first box (inter-section spacing is `mt-*`, never `pt-*`), so a `#category`
+  jump lands the title flush under the chrome. Cut / doneness targets also
+  clear the sticky category title. Category chips and title permalinks are
+  plain `<a href="#…">` (native fragment navigation: re-clicking the current
+  hash still scrolls; a router `Link` to the current URL is a no-op) and use
+  CSS `scroll-behavior: smooth`. Cut permalinks and `navigate({ hash })` go
+  through the router, whose `defaultHashScrollIntoView` in `src/router.tsx`
+  (via `hashScrollIntoViewOptions` in `src/lib/hash-scroll.ts`) passes an
+  explicit options object (notably for iOS Safari).
 - **Search** writes `?q=` on every change with `replace: true`; the input is
   uncontrolled (`defaultValue`, never re-keyed) so focus and cursor survive the
   navigation, and the Clear button resets the field imperatively. Scroll is
@@ -45,9 +50,9 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
   (`src/lib/use-active-section.ts`, the one audited hook seam here): a section
   is "reached" once its top passes its own `scroll-margin-top`, so the spy and
   `#hash` jumps agree — change `scroll-mt-*` on `CategorySectionView` and the
-  spy follows. TanStack `Link` owns `aria-current`; quick links use
-  `activeOptions={{ exact: true, includeHash: true }}` so only the URL-hash
-  match announces as current.
+  spy follows. Quick links set `aria-current="location"` from the router's
+  `location.hash` (the router picks up native fragment navigations via
+  `popstate`), so only the URL-hash match announces as current.
 - **One column** of cards at every width; `main` stays `max-w-3xl`.
 
 ## Content seam

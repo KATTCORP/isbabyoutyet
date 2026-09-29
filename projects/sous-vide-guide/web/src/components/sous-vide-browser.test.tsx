@@ -97,12 +97,30 @@ describe("SousVideBrowser", () => {
     const dock = screen.getByRole("navigation", { name: m.jump_to_category() });
     const quickLinks = within(dock).getAllByRole("link");
     expect(quickLinks).toHaveLength(8);
-    expect(quickLinks[0]?.getAttribute("href")).toBe("/#pork");
+    expect(quickLinks[0]?.getAttribute("href")).toBe("#pork");
 
     guide.view.unmount();
   });
 
-  it("smooth-scrolls category hash jumps via scrollIntoView options", async () => {
+  it("links categories with native in-page anchors and marks the URL-hash match current", async () => {
+    const guide = await renderGuide("/#fish");
+
+    const dock = screen.getByRole("navigation", { name: m.jump_to_category() });
+    const current = within(dock)
+      .getAllByRole("link")
+      .filter((link) => link.hasAttribute("aria-current"));
+    expect(current.map((link) => link.getAttribute("href"))).toEqual(["#fish"]);
+    expect(current[0]?.getAttribute("aria-current")).toBe("location");
+
+    const permalink = screen.getByRole("link", {
+      name: m.category_permalink_label({ category: m.category_fish() }),
+    });
+    expect(permalink.getAttribute("href")).toBe("#fish");
+
+    guide.view.unmount();
+  });
+
+  it("smooth-scrolls cut permalink hash jumps via scrollIntoView options", async () => {
     // jsdom does not implement scrollIntoView — define before spying.
     Object.defineProperty(Element.prototype, "scrollIntoView", {
       configurable: true,
@@ -117,14 +135,14 @@ describe("SousVideBrowser", () => {
     });
 
     const guide = await renderGuide("/");
-    const fishLink = document.querySelector<HTMLElement>('[data-quick-link="fish"]');
-    if (fishLink === null) {
-      throw new Error("Expected fish quick link");
+    const cutLink = cardById("pork-fillet").querySelector<HTMLElement>("h3 a");
+    if (cutLink === null) {
+      throw new Error("Expected pork fillet permalink");
     }
-    fireEvent.click(fishLink);
+    fireEvent.click(cutLink);
 
     await vi.waitFor(() => {
-      expect(guide.router.state.location.hash).toBe("fish");
+      expect(guide.router.state.location.hash).toBe("pork-fillet");
     });
     await vi.waitFor(() => {
       expect(scrollIntoView).toHaveBeenCalledWith(
@@ -140,9 +158,14 @@ describe("SousVideBrowser", () => {
 
     const fish = document.getElementById("fish");
     expect(fish).not.toBeNull();
-    const heading = fish?.querySelector("h2");
+    // A #fish jump lands the section top at its scroll-margin; the title is the
+    // section's first box and sticks at that same line, so it lands flush.
+    expect(fish?.className).toContain("scroll-mt-[var(--sticky-chrome-h)]");
+    expect(fish?.className).not.toMatch(/(^|\s)(sm:)?p[ty]-/);
+    const heading = fish?.firstElementChild;
+    expect(heading?.tagName).toBe("H2");
     expect(heading?.className).toContain("sticky");
-    expect(heading?.className).toContain("top-[var(--site-header-h)]");
+    expect(heading?.className).toContain("top-[var(--sticky-chrome-h)]");
 
     guide.view.unmount();
   });
