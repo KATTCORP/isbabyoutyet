@@ -6,6 +6,7 @@ import { z } from "zod";
 import { SiteHeader } from "@/components/site-header";
 import "@/lib/register-service-worker";
 import { temperatureUnitSearchSchema, unitSearchMiddleware } from "@/lib/temperature";
+import { useSmoothScrollAfterMount } from "@/lib/use-smooth-scroll-after-mount";
 import { m } from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
 import type { Locale } from "@/paraglide/runtime";
@@ -87,6 +88,7 @@ export const Route = createRootRouteWithContext<{ locale: Locale }>()({
 
 function RootComponent() {
   const { locale } = Route.useRouteContext();
+  useSmoothScrollAfterMount();
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

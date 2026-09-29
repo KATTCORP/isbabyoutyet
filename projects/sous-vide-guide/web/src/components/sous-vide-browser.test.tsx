@@ -244,7 +244,9 @@ describe("SousVideBrowser", () => {
     guide.scrollTo.mockClear();
     const eggCard = cardById("egg");
     expect(within(eggCard).getByText(m.start_from_fridge())).toBeTruthy();
-    fireEvent.click(within(eggCard).getByRole("button", { name: m.more_info() }));
+    const infoLink = within(eggCard).getByRole("link", { name: m.more_info() });
+    expect(infoLink.getAttribute("href")).toBe("/?q=egg#info-egg");
+    fireEvent.click(infoLink);
     await vi.waitFor(() => {
       expect(guide.router.state.location.hash).toBe("info-egg");
     });
