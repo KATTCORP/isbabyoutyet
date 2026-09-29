@@ -301,7 +301,7 @@ function CategorySectionView(props: {
 
   return (
     <section
-      className="mt-7 scroll-mt-[calc(var(--sticky-chrome-h)-1px)] sm:mt-9"
+      className="scroll-mt-[calc(var(--sticky-chrome-h)-1px)] first:mt-7 sm:first:mt-9"
       id={props.section.category}
     >
       {/*
@@ -309,15 +309,22 @@ function CategorySectionView(props: {
         length of this section, so Fish / Pork / … stay visible while you browse
         that category's cards. scroll-mt on cut cards accounts for this bar.
 
-        The title must be the section's first box (spacing is margin, not
-        padding) with `top` equal to the section's scroll-margin: a `#category`
-        jump then lands the title exactly at its stuck position under the chrome.
+        The title must be the section's first box (no top padding) with `top`
+        equal to the section's scroll-margin: a `#category` jump then lands the
+        title exactly at its stuck position under the chrome.
+
+        Sections abut: the gap between them is bottom padding on the list
+        wrapper, inside this section, so the next title pushes this one off
+        with no empty band. A sticky box ignores its parent's own padding, and
+        a child margin would collapse out, so neither can hold the gap. The
+        title has no bottom margin either: its margin box must also fit in the
+        section, so a margin would push it off early.
 
         `top` / scroll-mt sit 1px under --sticky-chrome-h and the fill is opaque
         (no backdrop-blur): sticky + translucent blur left a real 1px page-bg
         gap under the site header on mobile.
       */}
-      <h2 className="sticky top-[calc(var(--sticky-chrome-h)-1px)] z-[9] -mx-4 mb-3 flex items-baseline gap-2 border-b border-border/50 bg-background px-4 py-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] sm:mx-[calc(50%-50vw)] sm:px-[calc(50vw-50%)]">
+      <h2 className="sticky top-[calc(var(--sticky-chrome-h)-1px)] z-[9] -mx-4 flex items-baseline gap-2 border-b border-border/50 bg-background px-4 py-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] sm:mx-[calc(50%-50vw)] sm:px-[calc(50vw-50%)]">
         <a
           aria-label={m.category_permalink_label({ category: label })}
           className="underline-offset-4 hover:underline"
@@ -329,13 +336,15 @@ function CategorySectionView(props: {
           {props.section.entries.length}
         </span>
       </h2>
-      <IngredientList
-        groups={groups}
-        info={props.info}
-        locale={props.locale}
-        showCategory={false}
-        unit={props.unit}
-      />
+      <div className="pt-3 pb-7 sm:pb-9">
+        <IngredientList
+          groups={groups}
+          info={props.info}
+          locale={props.locale}
+          showCategory={false}
+          unit={props.unit}
+        />
+      </div>
     </section>
   );
 }
