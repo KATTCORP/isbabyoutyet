@@ -31,6 +31,15 @@ test("homepage links visitors to the live Juniper Hale demo page", async () => {
   expect(livePage.parentElement).not.toBe(createPage.parentElement);
 });
 
+test("homepage source link opens this product's folder in the monorepo", async () => {
+  await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
+
+  const sourceLink = screen.getByRole("link", { name: /open source on github/i });
+  expect(new URL(sourceLink.getAttribute("href") ?? "").pathname).toMatch(
+    /\/tree\/main\/projects\/isbabyoutyet$/,
+  );
+});
+
 test("signed-out homepage shows sign-in CTAs", async () => {
   await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
 

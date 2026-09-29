@@ -43,13 +43,22 @@ their sources live in `src/data/cutGuide.ts`.
   phones and a sticky row on `sm+`. Keep the dock out of any ancestor with
   `backdrop-filter` or `transform`, and keep `main`'s bottom padding. While
   searching, the dock shows the result count instead.
-- **Scroll offsets:** sections use `scroll-mt-*` against `--site-header-h`
-  (plus the dock row on `sm+`). The active-section spy (`useActiveSection`,
-  the one audited hook seam here) reads the same `scroll-margin-top`, so
-  changing `scroll-mt-*` on `CategorySectionView` moves both. Smooth `#hash`
-  jumps come from `defaultHashScrollIntoView` in `src/router.tsx`; iOS Safari
-  needs the explicit options. Quick links use
-  `activeOptions={{ exact: true, includeHash: true }}` for `aria-current`.
+- **Scroll offsets:** `--sticky-chrome-h` in `src/styles/app.css` is
+  everything pinned up top: `--site-header-h`, plus `--category-dock-h` on
+  `sm+` (the dock's height is set from it too). A section's `scroll-mt` and its
+  title's sticky `top` are both `--sticky-chrome-h`, and the title is the
+  section's first box (spacing between sections is `mt-*`, never `pt-*`), so a
+  `#category` jump lands the title flush under the chrome. The active-section
+  spy (`useActiveSection`, the one audited hook seam here) reads the same
+  `scroll-margin-top`, so changing it moves both.
+- **Category links** (dock chips and title permalinks) are plain
+  `<a href="#…">`: native fragment navigation re-scrolls even when the hash is
+  already in the URL, where a router `Link` to the current URL does nothing.
+  CSS `scroll-behavior: smooth` animates them. `aria-current="location"` comes
+  from the router's `location.hash`, which the router updates on `popstate`.
+  Cut permalinks and `navigate({ hash })` go through the router, whose
+  `defaultHashScrollIntoView` in `src/router.tsx` passes explicit options
+  (iOS Safari needs them).
 - **Layout:** one column of cards at every width, inside `max-w-3xl`.
 
 ## Deploy (Vercel)
