@@ -35,6 +35,12 @@ Web-only product under `projects/sous-vide-guide/web` (`@sous-vide-guide/web`).
   user is typing in. The page filters with
   `useDeferredValue` so typing stays responsive. While a query is active the
   dock shows the result count instead of the category links.
+- **More info drawer** is owned by the hash alone: `#info-<cutId>` open,
+  anything else closed (`src/lib/info-hash.ts`). The info button carries that
+  id, so a shared link scrolls to the card on load. Opening/closing navigates
+  with `hashScrollIntoView: false`, `resetScroll: false`, and `replace: true`
+  (the user is already at the card); closing clears the hash. Legacy
+  `?info=<cutId>` links redirect to `#info-<cutId>` in the index route.
 - **Grouping**: rows are shown per cut via `groupSousVideEntriesByCut`
   (`src/lib/group-cuts.ts`); doneness steps must stay coldest-first in
   `src/data/sousVide.ts` because the ladder renders them in source order.
