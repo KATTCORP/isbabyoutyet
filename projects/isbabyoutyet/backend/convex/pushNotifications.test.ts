@@ -1,10 +1,23 @@
 import { convexTest } from "convex-test";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import schema from "./schema";
+import { makeResource } from "./test.resource";
 import { modules, registerComponents, createBabyArgs, createEncouragementArgs } from "./test.setup";
 
+/**
+ * Tests have no VAPID keys, so every send fails before reaching the network
+ * and `sendPayloadToSubscriptionPages` logs a failure summary.
+ */
+function captureSendSummaryLog() {
+  const log = vi.spyOn(console, "log").mockImplementation(() => {});
+  return makeResource({ log }, () => {
+    log.mockRestore();
+  });
+}
+
 test("sending a photo notification resolves the image URL and marks the job sent", async () => {
+  await using logs = captureSendSummaryLog();
   const t = convexTest(schema, modules);
   await registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
@@ -76,9 +89,11 @@ test("sending a photo notification resolves the image URL and marks the job sent
   expect(notifications).toMatchObject([
     { notificationType: "photo_added", photoId: photo, status: "sent" },
   ]);
+  expect(logs.log).toHaveBeenCalledWith("Sent notifications: 0 succeeded, 1 failed");
 });
 
 test("owner message notifications page manager subscriptions without marking family jobs", async () => {
+  await using logs = captureSendSummaryLog();
   const t = convexTest(schema, modules);
   await registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
@@ -130,9 +145,12 @@ test("owner message notifications page manager subscriptions without marking fam
       endpoint: "https://push.example/owner-sub",
     }),
   ).toBe(true);
+  await t.finishAllScheduledFunctions(() => {});
+  expect(logs.log).toHaveBeenCalledWith("Sent notifications: 0 succeeded, 1 failed");
 });
 
 test("dismissing an owner message push pages the same manager subscriptions", async () => {
+  await using logs = captureSendSummaryLog();
   const t = convexTest(schema, modules);
   await registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
@@ -172,4 +190,6 @@ test("dismissing an owner message push pages the same manager subscriptions", as
       endpoint: "https://push.example/owner-sub",
     }),
   ).toBe(true);
+  await t.finishAllScheduledFunctions(() => {});
+  expect(logs.log).toHaveBeenCalledWith("Sent notifications: 0 succeeded, 1 failed");
 });

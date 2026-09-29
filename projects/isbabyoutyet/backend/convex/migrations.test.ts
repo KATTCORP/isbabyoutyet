@@ -24,14 +24,20 @@ import {
   sanitizeOnboardingStepsDoc,
 } from "./migrations";
 import schema from "./schema";
-import { modules, registerMigrationsComponent } from "./test.setup";
+import {
+  modules,
+  registerComponents,
+  registerMigrationsComponent,
+  testPhotoBlob,
+} from "./test.setup";
 
 test("retained migrations skip linked rows and backfill update metadata and counts", async () => {
   const t = convexTest(schema, modules);
+  await registerComponents(t);
   await registerMigrationsComponent(t);
 
   const ids = await t.run(async (ctx) => {
-    const photoId = await ctx.storage.store(new Blob(["photo"], { type: "image/jpeg" }));
+    const photoId = await ctx.storage.store(testPhotoBlob());
     const babyId = await ctx.db.insert("baby", {
       birthJourney: "labor",
       dueDate: "2026-09-01",
@@ -126,6 +132,7 @@ test("retained migrations skip linked rows and backfill update metadata and coun
       oneBatchOnly: true,
     }),
   ).resolves.toBeTruthy();
+  await t.finishAllScheduledFunctions(() => {});
 });
 
 test("posted-by backfill skips updates whose baby row is gone", async () => {

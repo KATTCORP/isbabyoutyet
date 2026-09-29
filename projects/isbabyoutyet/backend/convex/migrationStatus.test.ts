@@ -2,7 +2,7 @@ import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
 import { internal } from "./_generated/api";
 import schema from "./schema";
-import { modules, registerMigrationsComponent } from "./test.setup";
+import { modules, registerComponents, registerMigrationsComponent } from "./test.setup";
 
 test("deployment status waits for every required table migration", async () => {
   const t = convexTest(schema, modules);
@@ -20,6 +20,7 @@ test("deployment status waits for every required table migration", async () => {
 
 test("deployment migrations have separate historical and newly-added runners", async () => {
   const t = convexTest(schema, modules);
+  await registerComponents(t);
   await registerMigrationsComponent(t);
 
   await expect(
@@ -42,4 +43,5 @@ test("deployment migrations have separate historical and newly-added runners", a
       oneBatchOnly: true,
     }),
   ).resolves.toBeTruthy();
+  await t.finishAllScheduledFunctions(() => {});
 });
