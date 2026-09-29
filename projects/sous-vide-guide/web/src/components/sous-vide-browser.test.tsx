@@ -156,6 +156,19 @@ describe("SousVideBrowser", () => {
     expect(dock.className).not.toContain("backdrop-blur");
   });
 
+  it("puts the gap between sections inside each section so titles hand off flush", async () => {
+    using _guide = await renderGuide("/");
+
+    const sections = [...document.querySelectorAll("section[id]")];
+    expect(sections.length).toBeGreaterThan(1);
+    for (const section of sections) {
+      // Only `first:` may add a top margin; a plain margin between sections
+      // leaves a band where neither title is stuck.
+      expect(section.className).not.toMatch(/(^|\s)(sm:)?m[ty]-/);
+      expect(section.lastElementChild?.className).toContain("pb-7");
+    }
+  });
+
   it("filters as you type, writes ?q= and shows ranked results instead of sections", async () => {
     using guide = await renderGuide("/");
     const input = screen.getByRole("searchbox");

@@ -50,8 +50,11 @@ their sources live in `src/data/cutGuide.ts`.
   everything pinned up top: `--site-header-h`, plus `--category-dock-h` on
   `sm+` (the dock's height is set from it too). A section's `scroll-mt` and its
   title's sticky `top` are both `calc(var(--sticky-chrome-h) - 1px)`, and the
-  title is the section's first box (spacing between sections is `mt-*`, never
-  `pt-*`), so a `#category` jump lands the title flush under the chrome. The
+  title is the section's first box (never `pt-*` on the section), so a
+  `#category` jump lands the title flush under the chrome. Sections abut: the
+  gap between them is bottom padding on the list wrapper inside each section,
+  so the next title pushes the current one off with no empty band between
+  them (only the first section has a top margin). The
   1px overlap closes a mobile compositor page-bg slit under the site header.
   The active-section spy (`useActiveSection`, the one audited hook
   seam here) reads the same `scroll-margin-top`, so changing it moves both.
