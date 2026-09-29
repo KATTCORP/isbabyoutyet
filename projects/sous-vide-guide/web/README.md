@@ -3,9 +3,8 @@
 TanStack Start app with Paraglide (`sv`, `en-GB`, `en-US`). The rules shared by
 every web app are in [`projects/`](../../README.md).
 
-```sh
-pnpm --filter @sous-vide-guide/web dev   # http://localhost:3002
-```
+Run `pnpm dev-sous` from the repo root to serve it at
+[localhost:3002](http://localhost:3002).
 
 ## Content
 
@@ -14,7 +13,8 @@ are code. Names, doneness, and search aliases go through `createContentT`
 (`src/lib/content-t.ts`), with English literals as keys in
 `messages/{en-GB,en-US,sv}.json`. UI chrome uses Paraglide `m.*`. Keep doneness
 steps coldest-first, because the per-cut ladder (`src/lib/group-cuts.ts`)
-renders them in source order.
+renders them in source order. Detail-sheet notes, including safety notes, and
+their sources live in `src/data/cutGuide.ts`.
 
 ## UX contracts
 
@@ -23,11 +23,18 @@ renders them in source order.
   (region codes GB / US / SE, no emoji flags). Dark tokens are in
   `src/styles/app.css`.
 - **Unit:** an explicit `?unit=c|f` always wins. Otherwise the default is °F
-  for `*-US` locales and °C elsewhere (`defaultTemperatureUnit`). The locale
-  comes from the Paraglide cookie, falling back to `Accept-Language`
-  (`src/lib/locale-strategy.ts`). Changing language applies that locale's
-  default unit: the switcher handler shows a toast when the unit flips, and
-  `setLocaleInPlace` persists the locale without a reload.
+  for `*-US` locales and °C elsewhere (`defaultTemperatureUnit`).
+  `unitSearchMiddleware` removes `?unit=` when it matches the locale default.
+  The locale comes from the Paraglide cookie, falling back to
+  `Accept-Language` (`src/lib/locale-strategy.ts`). Changing language applies
+  that locale's default unit: the switcher shows a toast when the unit flips,
+  and `setLocaleInPlace` persists the locale without a reload. Unit and
+  language switches keep the scroll position.
+- **More info drawer:** the URL hash alone controls it (`#info-<cutId>`, via
+  `src/lib/info-hash.ts`), so a shared link scrolls to the card. Opening and
+  closing navigate with `replace: true`, `resetScroll: false`, and
+  `hashScrollIntoView: false`, and closing clears the hash. Legacy
+  `?info=<cutId>` links redirect to the hash form in the index route.
 - **Search** writes `?q=` with `replace: true` and `resetScroll: false`. The
   input is uncontrolled (`defaultValue`, never re-keyed) so focus survives
   navigation, and filtering runs through `useDeferredValue`.

@@ -7,7 +7,9 @@ are changing; each links further down.
 
 | Path | What |
 | --- | --- |
-| [`projects/`](projects/README.md) | Product apps, plus rules shared by every `projects/*/web` |
+| [`projects/isbabyoutyet/`](projects/isbabyoutyet/README.md) | **Is Baby Out Yet?**: web app, Convex backend, email templates |
+| [`projects/sous-vide-guide/`](projects/sous-vide-guide/README.md) | **Sous Vide Guide**: web app |
+| [`projects/`](projects/README.md) | Rules shared by every `projects/*/web` |
 | [`packages/`](packages/) | Shared libraries: `ui` (vendored shadcn), [`form-guard`](packages/form-guard/README.md), [`convex-prefetch`](packages/convex-prefetch/README.md), [`query-prefetch`](packages/query-prefetch/README.md), `runtime`, `scripts`, `oxlint-plugins` |
 | [`.agents/skills/`](.agents/skills/) | Agent skills (third-party ones are pinned in `skills-lock.json`) |
 
@@ -18,7 +20,8 @@ Requires Node.js 24 ([`.nvmrc`](.nvmrc)).
 ```sh
 pnpm install
 pnpm dev                              # every workspace
-pnpm --filter '@isbabyoutyet/*' dev   # one product
+pnpm dev-isbaby                       # Is Baby Out Yet? only
+pnpm dev-sous                         # Sous Vide Guide only
 pnpm checks                           # format, typecheck, changed tests, knip; run before calling work done
 pnpm clean                            # wipe caches and reinstall
 ```

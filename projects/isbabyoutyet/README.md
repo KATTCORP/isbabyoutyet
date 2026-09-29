@@ -7,11 +7,10 @@ and send encouragement. Live at [isbabyoutyet.com](https://isbabyoutyet.com).
 | --- | --- | --- |
 | [`web/`](web/README.md) | `@isbabyoutyet/web` | TanStack Start app: routes, overlays, i18n, Vercel deploy |
 | [`backend/`](backend/README.md) | `@isbabyoutyet/backend` | Convex schema and functions, migrations, demo seed |
-| `email/` | `@isbabyoutyet/email` | React Email templates, compiled into the backend send path (preview with `pnpm email`) |
+| `email/` | `@isbabyoutyet/email` | React Email templates, compiled into the backend send path |
 
-```sh
-pnpm --filter '@isbabyoutyet/*' dev
-```
+From the repo root: `pnpm dev-isbaby` runs every workspace here, `pnpm
+dev-convex` runs only the backend, and `pnpm email` runs the email preview.
 
 The web app owns its Vite env files. The backend owns its Convex deployment and
 that deployment's env vars. Other products get their own env and deployments;

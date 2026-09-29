@@ -1,12 +1,11 @@
 /// <reference types="vite/client" />
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
-import { retainSearchParams } from "@tanstack/react-router";
 import { ThemeProvider } from "next-themes";
 import { z } from "zod";
 
 import { SiteHeader } from "@/components/site-header";
 import "@/lib/register-service-worker";
-import { temperatureUnitSearchSchema } from "@/lib/temperature";
+import { temperatureUnitSearchSchema, unitSearchMiddleware } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
 import type { Locale } from "@/paraglide/runtime";
@@ -81,7 +80,7 @@ export const Route = createRootRouteWithContext<{ locale: Locale }>()({
   },
   notFoundComponent: NotFoundComponent,
   search: {
-    middlewares: [retainSearchParams(["unit"])],
+    middlewares: [unitSearchMiddleware(getLocale)],
   },
   validateSearch: rootSearchSchema,
 });
