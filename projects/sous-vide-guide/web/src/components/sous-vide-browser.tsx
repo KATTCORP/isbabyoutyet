@@ -218,9 +218,9 @@ function CategoryDock(props: {
   return (
     <nav
       aria-label={m.jump_to_category()}
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-[color-mix(in_oklab,var(--background)_86%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:sticky sm:top-[var(--site-header-h)] sm:z-10 sm:mx-[calc(50%-50vw)] sm:border-t-0 sm:border-b sm:pb-0"
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-[color-mix(in_oklab,var(--background)_86%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:sticky sm:top-[var(--site-header-h)] sm:z-10 sm:h-[var(--category-dock-h)] sm:mx-[calc(50%-50vw)] sm:border-t-0 sm:border-b sm:pb-0"
     >
-      <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2 sm:px-6">
+      <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2 sm:h-full sm:px-6 sm:py-0">
         {props.searching ? (
           <p
             aria-live="polite"
@@ -296,15 +296,18 @@ function CategorySectionView(props: {
 
   return (
     <section
-      className="scroll-mt-[calc(var(--site-header-h)+0.5rem)] pt-7 sm:scroll-mt-[calc(var(--site-header-h)+3.5rem)] sm:pt-9"
+      className="mt-7 scroll-mt-[var(--site-header-h)] sm:mt-9 sm:scroll-mt-[calc(var(--site-header-h)+var(--category-dock-h))]"
       id={props.section.category}
     >
       {/*
         Sticks under the site header (and under the sm+ quick-link dock) for the
         length of this section, so Fish / Pork / … stay visible while you browse
         that category's cards. scroll-mt on cut cards accounts for this bar.
+        The section's scroll-mt matches this bar's `top` and the gap between
+        sections is margin (outside the scroll-margin box), so `#fish` lands
+        with the heading flush under the header / dock.
       */}
-      <h2 className="sticky top-[var(--site-header-h)] z-[9] -mx-4 mb-3 flex items-baseline gap-2 border-b border-border/50 bg-[color-mix(in_oklab,var(--background)_88%,transparent)] px-4 py-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] backdrop-blur-md sm:top-[calc(var(--site-header-h)+3.5rem)] sm:mx-[calc(50%-50vw)] sm:px-[calc(50vw-50%)]">
+      <h2 className="sticky top-[var(--site-header-h)] z-[9] -mx-4 mb-3 flex items-baseline gap-2 border-b border-border/50 bg-[color-mix(in_oklab,var(--background)_88%,transparent)] px-4 py-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] backdrop-blur-md sm:top-[calc(var(--site-header-h)+var(--category-dock-h))] sm:mx-[calc(50%-50vw)] sm:px-[calc(50vw-50%)]">
         <Link
           aria-label={m.category_permalink_label({ category: label })}
           className="underline-offset-4 hover:underline"
@@ -405,7 +408,7 @@ function IngredientCard(props: {
 
   return (
     <article
-      className="scroll-mt-[calc(var(--site-header-h)+3.25rem)] rounded-2xl border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,var(--surface-mix))] px-4 pt-3.5 pb-2 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] target:ring-2 target:ring-[var(--guide-copper)] has-[:target]:ring-2 has-[:target]:ring-[var(--guide-copper)] sm:scroll-mt-[calc(var(--site-header-h)+6.75rem)]"
+      className="scroll-mt-[calc(var(--site-header-h)+3.25rem)] rounded-2xl border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,var(--surface-mix))] px-4 pt-3.5 pb-2 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] target:ring-2 target:ring-[var(--guide-copper)] has-[:target]:ring-2 has-[:target]:ring-[var(--guide-copper)] sm:scroll-mt-[calc(var(--site-header-h)+var(--category-dock-h)+3.25rem)]"
       id={props.group.cutId}
     >
       <div className="flex items-start justify-between gap-3">
@@ -504,7 +507,7 @@ function CutDetailDrawer(props: { group: SousVideCutGroup; info: string; locale:
     >
       <Button
         aria-label={m.more_info()}
-        className="size-11 scroll-mt-[calc(var(--site-header-h)+4.25rem)] sm:scroll-mt-[calc(var(--site-header-h)+7.75rem)]"
+        className="size-11 scroll-mt-[calc(var(--site-header-h)+4.25rem)] sm:scroll-mt-[calc(var(--site-header-h)+var(--category-dock-h)+4.25rem)]"
         id={infoHash(props.group.cutId)}
         onClick={() => {
           setInfoOpen(true);
@@ -596,7 +599,7 @@ function DonenessStep(props: {
 
   return (
     <li
-      className="grid scroll-mt-[calc(var(--site-header-h)+3.25rem)] grid-cols-[0.85rem_minmax(0,1fr)_auto_auto] items-baseline gap-x-3 py-2 target:rounded-lg target:bg-[color-mix(in_oklab,var(--guide-copper)_12%,transparent)] sm:scroll-mt-[calc(var(--site-header-h)+6.75rem)]"
+      className="grid scroll-mt-[calc(var(--site-header-h)+3.25rem)] grid-cols-[0.85rem_minmax(0,1fr)_auto_auto] items-baseline gap-x-3 py-2 target:rounded-lg target:bg-[color-mix(in_oklab,var(--guide-copper)_12%,transparent)] sm:scroll-mt-[calc(var(--site-header-h)+var(--category-dock-h)+3.25rem)]"
       id={entry.id}
     >
       <span
