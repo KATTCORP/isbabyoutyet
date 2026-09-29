@@ -119,8 +119,11 @@ input[type="search"]::-webkit-search-decoration {
   display: none;
 }
 
+/* Sticky bars break out of the content column with 100vw, which includes the
+   scrollbar; clip (not hidden) keeps sticky positioning working. */
 body {
   margin: 0;
+  overflow-x: clip;
   font-family: var(--font-sans);
   color: var(--foreground);
   background:

@@ -47,3 +47,24 @@ export function defaultTemperatureUnit(locale: string): TemperatureUnit {
   }
   return "c";
 }
+
+type UnitSearch = Partial<Record<"unit", TemperatureUnit>>;
+
+/**
+ * Root `search.middlewares` entry for `?unit=`. Navigations that don't mention
+ * the unit keep the current one; a unit equal to the active locale's default
+ * is dropped, so the URL only carries a unit the locale wouldn't pick. Set
+ * `unit: undefined` to go back to the locale default.
+ */
+export function unitSearchMiddleware(currentLocale: () => string) {
+  return (ctx: { next: (search: UnitSearch) => UnitSearch; search: UnitSearch }) => {
+    const result = { ...ctx.next(ctx.search) };
+    const unit = "unit" in result ? result.unit : ctx.search.unit;
+    if (unit === undefined || unit === defaultTemperatureUnit(currentLocale())) {
+      delete result.unit;
+    } else {
+      result.unit = unit;
+    }
+    return result;
+  };
+}

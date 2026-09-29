@@ -73,10 +73,13 @@ export function LocaleSwitcher(props: LocaleSwitcherProps) {
                 nextUnit === "f" ? m.toast_switched_to_fahrenheit() : m.toast_switched_to_celsius(),
               );
             }
+            // Even when the URL is unchanged, navigating re-runs the root
+            // `beforeLoad`, which pushes the new locale through route context.
             void setLocaleInPlace(value).then(() =>
               navigate({
                 replace: true,
-                search: { ...search, unit: nextUnit },
+                resetScroll: false,
+                search: { ...search, unit: undefined },
               }),
             );
           }}

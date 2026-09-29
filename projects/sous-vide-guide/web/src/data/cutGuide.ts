@@ -38,6 +38,9 @@ export function getCutGuide(cutId: string, t: ContentT): CutGuide | null {
             "Soft and jammy are longer KitchenLab equilibrium baths. Poached (75C / 13-14 min) is Anova / ChefSteps high-and-fast: set white, still-runny yolk.",
           ),
           t(
+            "Past about an hour on Onsen, Soft, or Jammy, the white barely changes; the yolk thickens toward a soft gel by the 2h max.",
+          ),
+          t(
             "Lower eggs in gently once the bath is at temperature. For make-ahead poached eggs, ice-bath immediately, refrigerate, then rewarm around 60C for a few minutes.",
           ),
         ],
@@ -47,16 +50,95 @@ export function getCutGuide(cutId: string, t: ContentT): CutGuide | null {
             label: "Anova — sous vide egg (75C / 13 min, from fridge)",
           },
           {
+            href: "https://anovaculinary.com/pages/sous-vide-egg-guide",
+            label: "Anova — egg guide (63C timing: 45 min to 2 h yolk thickening)",
+          },
+          {
             href: "https://www.chefsteps.com/activities/perfect-sous-vide-poached-eggs",
             label: "ChefSteps — perfect poached eggs (75C / 13 min)",
           },
           {
             href: "https://www.seriouseats.com/sous-vide-101-all-about-eggs",
-            label: "Serious Eats — guide to sous vide eggs (equilibrium baths)",
+            label: "Serious Eats — sous vide eggs (equilibrium baths; longer cooks thicken yolk)",
           },
           {
             href: KITCHENLAB_GUIDE_HREF,
             label: "KitchenLab — koksguide #9 (original table)",
+          },
+        ],
+      };
+    case "pork-fillet":
+    case "pork-chop":
+    case "pork-roast":
+    case "pork-shoulder":
+    case "pork-belly":
+      return {
+        cutId,
+        notes: [
+          t(
+            "Pink pork is normal at Rare and Medium. Colour is not a safety check — pathogen kill is time at temperature, not how red it looks.",
+          ),
+          t(
+            "USDA whole-muscle pork is 63C / 145F. Rare at 60C is a texture target; hold the full recommended time for pasteurisation.",
+          ),
+          t(
+            "Trichinella die at about 60C with slow heating and are very rare in inspected farmed pork, so these baths with the full hold cover them.",
+          ),
+          t(
+            "Wild boar and bear can carry Trichinella. Unless the meat is tested, cook it through (CDC: 74C / 165F) instead of using these pork temps.",
+          ),
+        ],
+        references: [
+          {
+            href: "https://www.fsis.usda.gov/food-safety/safe-food-handling-and-preparation/meat-fish/fresh-pork-farm-table",
+            label: "USDA FSIS — fresh pork (63C / 145F whole-muscle; pink can still be safe)",
+          },
+          {
+            href: "https://www.livsmedelsverket.se/livsmedel-och-innehall/bakterier-virus-parasiter-och-mogelsvampar1/parasiter/trikiner",
+            label: "Livsmedelsverket — trikiner (die around 60-65C; rare in Swedish farmed pigs)",
+          },
+          {
+            href: "https://www.cdc.gov/mmwr/volumes/73/wr/mm7320a2.htm",
+            label: "CDC MMWR — trichinellosis from bear meat (cook wild game to 74C / 165F)",
+          },
+          {
+            href: KITCHENLAB_GUIDE_HREF,
+            label: "KitchenLab — koksguide #9 (notes FDA lowered pork to 63C)",
+          },
+          {
+            href: "https://www.seriouseats.com/sous-vide-cooking-temperature-and-timing-charts",
+            label: "Serious Eats — sous vide temperature and timing charts",
+          },
+        ],
+      };
+    case "chicken-breast":
+    case "chicken-thigh":
+      return {
+        cutId,
+        notes: [
+          t(
+            "Sous vide chicken can stay pink even when pasteurised. Safety is time at temperature, not clear juices or white meat colour.",
+          ),
+          t(
+            "Breast at 60-63C needs the full recommended hold after the core is hot. Anova and Serious Eats publish poultry pasteurisation charts.",
+          ),
+        ],
+        references: [
+          {
+            href: "https://anovaculinary.com/pages/sous-vide-chicken-guide",
+            label: "Anova — chicken guide (pasteurisation below 74C / 165F)",
+          },
+          {
+            href: "https://www.seriouseats.com/the-food-lab-complete-guide-to-sous-vide-chicken-breast",
+            label: "Serious Eats — sous vide chicken breast (time-at-temp pasteurisation)",
+          },
+          {
+            href: "https://www.seriouseats.com/safe-chicken-temperature-time-and-temp-11948586",
+            label: "Serious Eats — safe chicken temperature (time and temp)",
+          },
+          {
+            href: KITCHENLAB_GUIDE_HREF,
+            label: "KitchenLab — koksguide #9 (extra time at 63C for juicier chicken)",
           },
         ],
       };

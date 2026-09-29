@@ -11,6 +11,7 @@ import { formatDurationMinutes, formatDurationRange } from "@/lib/duration";
 import type { SousVideCutGroup } from "@/lib/group-cuts";
 import { groupSousVideEntriesByCut } from "@/lib/group-cuts";
 import { scrollBehavior } from "@/lib/hash-scroll";
+import { infoHash } from "@/lib/info-hash";
 import { isSearchQuery } from "@/lib/search";
 import { useActiveSection } from "@/lib/use-active-section";
 import type { TemperatureUnit } from "@/lib/temperature";
@@ -42,7 +43,7 @@ const categoryMessage = {
 type BrowserProps = {
   allEntries: ReadonlyArray<SousVideEntry>;
   entries: ReadonlyArray<SousVideEntry>;
-  /** Cut id for the open More info drawer (`?info=`), or "" when closed. */
+  /** Cut id for the open More info drawer (`#info-<cutId>`), or "" when closed. */
   info: string;
   q: string;
   unit: TemperatureUnit;
@@ -218,7 +219,7 @@ function CategoryDock(props: {
   return (
     <nav
       aria-label={m.jump_to_category()}
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-[color-mix(in_oklab,var(--background)_86%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:sticky sm:top-[var(--site-header-h)] sm:z-10 sm:-mx-6 sm:h-[var(--category-dock-h)] sm:border-t-0 sm:border-b sm:pb-0"
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-[color-mix(in_oklab,var(--background)_86%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:sticky sm:top-[var(--site-header-h)] sm:z-10 sm:mx-[calc(50%-50vw)] sm:h-[var(--category-dock-h)] sm:border-t-0 sm:border-b sm:pb-0"
     >
       <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2 sm:h-full sm:px-6 sm:py-0">
         {props.searching ? (
@@ -312,7 +313,7 @@ function CategorySectionView(props: {
         padding) with `top` equal to the section's scroll-margin: a `#category`
         jump then lands the title exactly at its stuck position under the chrome.
       */}
-      <h2 className="sticky top-[var(--sticky-chrome-h)] z-[9] -mx-4 mb-3 flex items-baseline gap-2 border-b border-border/50 bg-[color-mix(in_oklab,var(--background)_88%,transparent)] px-4 py-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] backdrop-blur-md sm:-mx-6 sm:px-6">
+      <h2 className="sticky top-[var(--sticky-chrome-h)] z-[9] -mx-4 mb-3 flex items-baseline gap-2 border-b border-border/50 bg-[color-mix(in_oklab,var(--background)_88%,transparent)] px-4 py-2 font-display text-2xl font-semibold tracking-tight text-[var(--guide-ink)] backdrop-blur-md sm:mx-[calc(50%-50vw)] sm:px-[calc(50vw-50%)]">
         <a
           aria-label={m.category_permalink_label({ category: label })}
           className="underline-offset-4 hover:underline"
@@ -412,7 +413,7 @@ function IngredientCard(props: {
 
   return (
     <article
-      className="scroll-mt-[calc(var(--sticky-chrome-h)+3.25rem)] rounded-2xl border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,var(--surface-mix))] px-4 pt-3.5 pb-2 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] target:ring-2 target:ring-[var(--guide-copper)]"
+      className="scroll-mt-[calc(var(--sticky-chrome-h)+3.25rem)] rounded-2xl border border-border/70 bg-[color-mix(in_oklab,var(--card)_94%,var(--surface-mix))] px-4 pt-3.5 pb-2 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--guide-ink)_55%,transparent)] target:ring-2 target:ring-[var(--guide-copper)] has-[:target]:ring-2 has-[:target]:ring-[var(--guide-copper)]"
       id={props.group.cutId}
     >
       <div className="flex items-start justify-between gap-3">
@@ -490,14 +491,12 @@ function CutDetailDrawer(props: { group: SousVideCutGroup; info: string; locale:
 
   function setInfoOpen(nextOpen: boolean) {
     void navigate({
-      // Keep the cut permalink in the hash so shared `?info=` links also land on the card.
-      hash: props.group.cutId,
+      hash: nextOpen ? infoHash(props.group.cutId) : "",
+      // The user is already looking at this card; only shared links should jump to it.
+      hashScrollIntoView: false,
       replace: true,
       resetScroll: false,
-      search: (previous) => ({
-        ...previous,
-        info: nextOpen ? props.group.cutId : "",
-      }),
+      search: true,
     });
   }
 
@@ -513,7 +512,8 @@ function CutDetailDrawer(props: { group: SousVideCutGroup; info: string; locale:
     >
       <Button
         aria-label={m.more_info()}
-        className="size-11"
+        className="size-11 scroll-mt-[calc(var(--sticky-chrome-h)+4.25rem)]"
+        id={infoHash(props.group.cutId)}
         onClick={() => {
           setInfoOpen(true);
         }}
