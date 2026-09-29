@@ -13,6 +13,8 @@
     "i18n:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy cookie preferredLanguage baseLocale --output-structure message-modules --emit-ts-declarations --silent",
     "pretypecheck": "[ \"${SKIP_I18N_COMPILE:-}\" = 1 ] || pnpm i18n:compile",
     "test": "vitest run --project web",
+    "pretest:coverage": "pnpm i18n:compile",
+    "test:coverage": "vitest run --project web --coverage",
     "test:overflow": "vitest run --project web-browser",
     "lint": "oxlint",
     "lint-fix": "oxlint --fix",
