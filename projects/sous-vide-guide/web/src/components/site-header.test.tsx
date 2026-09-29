@@ -13,8 +13,10 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { SiteHeader } from "@/components/site-header";
-import { temperatureUnitSearchSchema } from "@/lib/temperature";
+import { setLocaleInPlace } from "@/lib/paraglide-setup";
+import { temperatureUnitSearchSchema, unitSearchMiddleware } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
+import { getLocale } from "@/paraglide/runtime";
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 
 function usingCleanup(dispose: () => void): Disposable {
@@ -50,6 +52,7 @@ function matchMediaResource() {
 }
 
 const rootRoute = createRootRoute({
+  beforeLoad: () => ({ locale: getLocale() }),
   component: () => (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <TooltipProvider>
@@ -58,12 +61,15 @@ const rootRoute = createRootRoute({
       </TooltipProvider>
     </ThemeProvider>
   ),
+  search: { middlewares: [unitSearchMiddleware(getLocale)] },
+  validateSearch: z.object({ unit: temperatureUnitSearchSchema }),
 });
 const indexRoute = createRoute({
-  component: () => null,
+  component: () => (
+    <main>{indexRoute.useRouteContext({ select: (context) => context.locale })}</main>
+  ),
   getParentRoute: () => rootRoute,
   path: "/",
-  validateSearch: z.object({ unit: temperatureUnitSearchSchema }),
 });
 
 async function renderHeader(initialUrl = "/") {
@@ -98,7 +104,7 @@ describe("SiteHeader unit and language scroll", () => {
     await using _scrollTo = usingCleanup(() => {
       scrollTo.mockRestore();
     });
-    await using header = await renderHeader("/?unit=c");
+    await using header = await renderHeader("/");
     scrollTo.mockClear();
 
     fireEvent.click(screen.getByRole("link", { name: m.unit_fahrenheit_short() }));
@@ -108,11 +114,23 @@ describe("SiteHeader unit and language scroll", () => {
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
-  it("does not reset scroll when switching language", async () => {
+  it("leaves ?unit= out of the URL for the locale's default unit", async () => {
+    await using _matchMedia = matchMediaResource();
+    await using header = await renderHeader("/?unit=f");
+
+    fireEvent.click(screen.getByRole("link", { name: m.unit_celsius_short() }));
+    await vi.waitFor(() => {
+      expect(header.router.state.location.href).toBe("/");
+    });
+  });
+
+  it("switches language in place without scrolling or a default ?unit=", async () => {
     await using _matchMedia = matchMediaResource();
     const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-    await using _scrollTo = usingCleanup(() => {
+    const previousLocale = getLocale();
+    await using _restore = usingCleanup(() => {
       scrollTo.mockRestore();
+      void setLocaleInPlace(previousLocale);
     });
     await using header = await renderHeader("/?unit=c");
     scrollTo.mockClear();
@@ -121,8 +139,9 @@ describe("SiteHeader unit and language scroll", () => {
     const menu = await screen.findByRole("menu");
     fireEvent.click(within(menu).getByRole("menuitemradio", { name: /US/i }));
     await vi.waitFor(() => {
-      expect(header.router.state.location.search.unit).toBe("f");
+      expect(screen.getByRole("main").textContent).toBe("en-US");
     });
+    expect(header.router.state.location.href).toBe("/");
     expect(scrollTo).not.toHaveBeenCalled();
   });
 });
