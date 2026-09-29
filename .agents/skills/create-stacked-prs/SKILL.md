@@ -25,6 +25,7 @@ Do **not** create stacked PRs unless the user asked for a stack or the work is c
 - The first PR is `1/N`. The last is `N/N`.
 - Every PR in the stack must be independently reviewable as much as possible.
 - Repeat the **full** stack table at the **top** of **every** PR body, not only the bottom PR.
+- Every stack must end up linked as a native GitHub stack (see [Link the stack on GitHub](#link-the-stack-on-github)).
 - Draft vs ready: follow the user. Add `--draft` only when they ask for drafts. Otherwise create ready PRs.
 - Do not put a demo-seed checklist in the PR body unless the user asks for one.
 
@@ -193,6 +194,10 @@ EOF
 ```
 
 Each edited body still highlights **that** PR in the PR column (`**👉 …**`). Keep the template sections (Why, How, What, Alternate approaches considered, Schema changes, Screenshots / video, Test plan) and anything the user asked for below the table. Fill Schema changes properly when `schema.ts` or related Convex migrations changed; otherwise `None`. Fill Screenshots / video according to root `AGENTS.md`; never omit it.
+
+## Link the stack on GitHub
+
+The [`link-stack`](../../../.github/workflows/link-stack.yml) workflow links every PR whose base is another open PR's branch into a native GitHub stack. Nothing to run. Verify with `gh api repos/KATTCORP/isbabyoutyet/pulls/<n> --jq .stack` (empty means unlinked); if a PR stays unlinked, check the `link-stack` run and give the user `gh stack link <bottom> … <top>` to run.
 
 ## Detect an existing stack
 
