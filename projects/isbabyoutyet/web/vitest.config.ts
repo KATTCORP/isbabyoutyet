@@ -76,6 +76,10 @@ export const webUnitProject = defineProject({
     environment: "jsdom",
     exclude: ["src/**/*.browser.test.{ts,tsx}"],
     include: ["src/**/*.test.{ts,tsx}"],
+    // Reuse one jsdom + module graph per worker instead of re-importing React,
+    // Convex, and the router for every file (about 3x faster). Tests must
+    // restore any global or prototype they touch; `await using` helpers do.
+    isolate: false,
     name: "web",
     // Loads better-auth host stubs (broadcast, focus, online) before that
     // package is imported. Window API stubs are opt-in via `stubJsdomWindow()`.

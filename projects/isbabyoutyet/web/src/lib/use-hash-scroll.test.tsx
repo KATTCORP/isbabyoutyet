@@ -24,10 +24,14 @@ function withHash(hash: string) {
 
 function withScrollSpy() {
   const scrollIntoView = vi.fn();
-  const originalScroll = HTMLElement.prototype.scrollIntoView;
+  const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
   HTMLElement.prototype.scrollIntoView = scrollIntoView;
   return makeResource(scrollIntoView, () => {
-    HTMLElement.prototype.scrollIntoView = originalScroll;
+    if (original) {
+      Object.defineProperty(HTMLElement.prototype, "scrollIntoView", original);
+      return;
+    }
+    Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
   });
 }
 
