@@ -138,9 +138,8 @@ jobs:
   codecov:
     if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
-    # Worst case: wait for the base tip's codecov job, time out, then measure
-    # base + head.
-    timeout-minutes: 20
+    # Stacked PRs often MISS the base cache and measure base + head (~5 min).
+    timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
@@ -222,14 +221,15 @@ jobs:
       # Stacked PRs: the inner PR saved its cache under refs/pull/<n>/merge,
       # which this ref cannot restore, and its job is usually still running.
       # Artifacts download across refs, so wait for the base tip's codecov job
-      # instead of remeasuring the base tip ourselves.
+      # instead of remeasuring the base tip ourselves. Cap the wait below what a
+      # base remeasure costs (~3 min) so the worst case still fits the timeout.
       - name: Wait for PR base coverage artifact
         id: baseline-artifact
         if: github.event_name == 'pull_request' && steps.baseline.outputs.cache-hit != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          WAIT_SECONDS: "480"
+          WAIT_SECONDS: "150"
         run: |
           set -euo pipefail
           NAME="coverage-baseline-${CI_BASE_SHA}"
