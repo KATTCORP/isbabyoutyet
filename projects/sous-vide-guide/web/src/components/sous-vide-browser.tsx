@@ -18,7 +18,7 @@ import type { TemperatureUnit } from "@/lib/temperature";
 import { formatTemperature } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
-import { Button } from "@workspace/ui/components/button";
+import { Button, buttonVariants } from "@workspace/ui/components/button";
 import {
   Drawer,
   DrawerContent,
@@ -523,19 +523,25 @@ function CutDetailDrawer(props: { group: SousVideCutGroup; info: string; locale:
       open={open}
       showSwipeHandle
     >
-      <Button
+      <Link
         aria-label={m.more_info()}
-        className="size-11 scroll-mt-[calc(var(--sticky-chrome-h)+4.25rem)]"
+        className={buttonVariants({
+          className: "size-11 scroll-mt-[calc(var(--sticky-chrome-h)+4.25rem)]",
+          size: "icon",
+          variant: "ghost",
+        })}
+        from="/"
+        hash={infoHash(props.group.cutId)}
+        // Same as `setInfoOpen`: only shared links should jump to the card.
+        hashScrollIntoView={false}
         id={infoHash(props.group.cutId)}
-        onClick={() => {
-          setInfoOpen(true);
-        }}
-        size="icon"
-        type="button"
-        variant="ghost"
+        replace
+        resetScroll={false}
+        search
+        to="/"
       >
         <InfoIcon />
-      </Button>
+      </Link>
       <DrawerContent className="mx-auto w-full max-w-3xl">
         <DrawerHeader className="text-left">
           <DrawerTitle>{props.group.name}</DrawerTitle>

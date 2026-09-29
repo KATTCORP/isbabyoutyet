@@ -1,0 +1,69 @@
+# Link stacked PRs as a native GitHub stack, so nobody (human or agent) has
+# to click "link as stack". A PR is stacked when its base branch is the head
+# of another open PR; this walks that chain down toward the default branch
+# and either appends the unlinked PRs to the existing stack or creates one.
+
+name: link-stack
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, ready_for_review]
+
+# Serialize across the repo: two PRs in the same stack opened together would
+# otherwise both try to create it.
+concurrency:
+  group: link-stack
+  cancel-in-progress: false
+
+jobs:
+  link:
+    # Fork PRs get a read-only token; they cannot be linked from here.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.base.ref != github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Link PR into its stack
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          api() { gh api -H "X-GitHub-Api-Version: 2026-03-10" "$@"; }
+          stack_of() { api "repos/${REPO}/pulls/$1" --jq '.stack.number // empty'; }
+
+          if [ -n "$(stack_of "$PR")" ]; then
+            echo "#${PR} is already in stack $(stack_of "$PR")"
+            exit 0
+          fi
+
+          # Bottom → top list of unlinked PRs ending at this one.
+          CHAIN=("$PR")
+          STACK=""
+          REF="$BASE_REF"
+          while [ "$REF" != "$DEFAULT_BRANCH" ]; do
+            BELOW="$(api "repos/${REPO}/pulls?state=open&head=${OWNER}:${REF}" --jq '.[0].number // empty')"
+            [ -z "$BELOW" ] && break
+            STACK="$(stack_of "$BELOW")"
+            [ -n "$STACK" ] && break
+            CHAIN=("$BELOW" "${CHAIN[@]}")
+            REF="$(api "repos/${REPO}/pulls/${BELOW}" --jq '.base.ref')"
+          done
+
+          BODY="$(printf '%s\n' "${CHAIN[@]}" | jq -cs '{pull_requests: .}')"
+          if [ -n "$STACK" ]; then
+            echo "Appending ${CHAIN[*]} to stack ${STACK}"
+            api -X POST "repos/${REPO}/stacks/${STACK}/add" --input - <<< "$BODY" --jq '.number'
+          elif [ "${#CHAIN[@]}" -gt 1 ]; then
+            echo "Creating stack from ${CHAIN[*]}"
+            api -X POST "repos/${REPO}/stacks" --input - <<< "$BODY" --jq '.number'
+          else
+            echo "Base ${BASE_REF} has no open PR; nothing to stack"
+          fi

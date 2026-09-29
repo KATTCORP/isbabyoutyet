@@ -85,13 +85,16 @@ body {
   plain `<a href="#…">`). TanStack hash Links still need
   `defaultHashScrollIntoView: { behavior: "smooth" }` (see
   `src/lib/hash-scroll.ts`) — CSS alone does not smooth those SPA jumps on iOS.
+
+  Scoped to `.smooth-scroll`, which `useSmoothScrollAfterMount` adds after the
+  first mount, so a `#hash` load or refresh snaps instead of animating down.
 */
-html {
+html.smooth-scroll {
   scroll-behavior: smooth;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html {
+  html.smooth-scroll {
     scroll-behavior: auto;
   }
 }
