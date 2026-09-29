@@ -178,6 +178,9 @@ export async function createConvexTestHarness(opts: { identity: Partial<UserIden
   };
 
   return makeAsyncResource(harness, async () => {
+    // Photo mutations schedule sharp thumbnail actions; let them finish while
+    // the module graph is still alive instead of after environment teardown.
+    await t.finishAllScheduledFunctions(() => {});
     queryClient.clear();
     jsdomWindow.restore();
   });

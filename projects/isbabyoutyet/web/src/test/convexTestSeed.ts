@@ -1,6 +1,7 @@
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { createAuth } from "@isbabyoutyet/backend/convex/auth";
+import { testPhotoBlob } from "@isbabyoutyet/backend/convex/test.setup";
 import type { FunctionArgs } from "convex/server";
 import type { ConvexTestHarness } from "@/test/convexTestHarness";
 
@@ -51,10 +52,17 @@ export async function signUpTestUser(
 
 export async function storeTestBlob(harness: ConvexTestHarness) {
   return await harness.t.run(async (ctx) => {
-    const buffer = new ArrayBuffer(8);
-    new Uint8Array(buffer).set([137, 80, 78, 71, 13, 10, 26, 10]);
-    return await ctx.storage.store(new Blob([buffer], { type: "image/png" }));
+    return await ctx.storage.store(testPhotoBlob());
   });
+}
+
+/**
+ * Runs the photo-derivative actions a photo mutation scheduled. convex-test
+ * rejects storage writes from overlapping actions, so seeds settle one photo
+ * before the next.
+ */
+export async function settleScheduledFunctions(harness: ConvexTestHarness) {
+  await harness.t.finishAllScheduledFunctions(() => {});
 }
 
 /** Creates a baby with a page photo stored in the in-memory Convex backend. */
@@ -71,6 +79,7 @@ export async function seedBabyWithPhoto(
     babyId: baby.babyId,
     photoId,
   });
+  await settleScheduledFunctions(harness);
   return {
     ...baby,
     photoId,
@@ -93,6 +102,7 @@ export async function seedTimelineUpdateWithPhoto(
     occurredAt: null,
     photoId,
   });
+  await settleScheduledFunctions(harness);
   return { photoId, updateId };
 }
 
