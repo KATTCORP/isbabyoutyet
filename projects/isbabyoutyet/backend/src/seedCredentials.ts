@@ -6,7 +6,7 @@
  * HOMEPAGE_DEMO_BABIES: seeded in every environment, including production — one live
  * demo page per supported locale, sharing photos and timeline shape.
  *
- * Keep AGENTS.md in sync when changing publicIds.
+ * Keep the demo logins in `projects/isbabyoutyet/README.md` in sync when changing them.
  */
 import type { SupportedLocale } from "./i18n";
 import { SUPPORTED_LOCALES } from "./i18n";
