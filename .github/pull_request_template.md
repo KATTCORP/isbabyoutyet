@@ -1,7 +1,8 @@
 <!--
 Stack: include only for stacked PRs. Add ## Stack at the top with a two-column
 table (PR | Description). Title suffix is (n/N). Current row: bold + 👉 in the
-PR column. PR cells are `#123 1/N` references — no markdown links or repo URLs.
+PR column. PR cells are full references, e.g. `KATTCORP/isbabyoutyet#123 1/N`
+(canonical KATTCORP owner) — no bare `#123`, no https:// URLs.
 If merge batches differ, split into ### subheadings (one table per batch) and
 put merge-when in the heading. Omit this entire section if this PR is not part
 of a stack — do not write n/a.

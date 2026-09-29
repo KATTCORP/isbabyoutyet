@@ -55,12 +55,12 @@ Put this at the **top** of every stacked PR description, under `## Stack`. Colum
 ```markdown
 | PR | Description |
 | --- | --- |
-| #123 1/3 | Backfill existing data |
-| **👉 #124 2/3** | Add the UI |
-| #125 3/3 | Follow-up cleanup |
+| KATTCORP/isbabyoutyet#123 1/3 | Backfill existing data |
+| **👉 KATTCORP/isbabyoutyet#124 2/3** | Add the UI |
+| KATTCORP/isbabyoutyet#125 3/3 | Follow-up cleanup |
 ```
 
-Use the actual PR numbers once known (`#123`, never a markdown link or repo URL — GitHub autolinks `#123` on the current repo, so the table cannot point at a stale owner path). Before numbers exist, still put the table at the top (use `(1/3)` in the PR cell) and update after `gh pr create`.
+Use the actual PR numbers once known, as full GitHub references: `KATTCORP/isbabyoutyet#123` (GitHub links it and shows it as `#123`). Always use the canonical `KATTCORP` owner (the repo moved from `kattcorp`), not the owner from a stale clone remote. No bare `#123` and no `https://` URLs. Before numbers exist, still put the table at the top (use `(1/3)` in the PR cell) and update after `gh pr create`.
 
 Mark the current PR in the **PR** column only: bold the cell and prefix `👉`. Do not add a third column. Do not put `← this PR` in Description.
 
@@ -71,9 +71,9 @@ When the stack cannot land in one batch, split into `###` subheadings — one ta
 
 | PR | Description |
 | --- | --- |
-| #123 1/4 | Lint + `@todo` |
-| **👉 #124 2/4** | Require RPC args |
-| #125 3/4 | Backfill omitted keys |
+| KATTCORP/isbabyoutyet#123 1/4 | Lint + `@todo` |
+| **👉 KATTCORP/isbabyoutyet#124 2/4** | Require RPC args |
+| KATTCORP/isbabyoutyet#125 3/4 | Backfill omitted keys |
 
 ### Hold until #125 backfill has run
 
@@ -81,12 +81,12 @@ Convex validates existing documents against the new schema before migrations run
 
 | PR | Description |
 | --- | --- |
-| #126 4/4 | Require schema keys |
+| KATTCORP/isbabyoutyet#126 4/4 | Require schema keys |
 ```
 
 If every PR in the stack can merge together, use a single table and skip the subheadings.
 
-After creating all PRs, edit earlier PR bodies so every table has real `#n` references for the whole stack.
+After creating all PRs, edit earlier PR bodies so every table has real `KATTCORP/isbabyoutyet#n` references for the whole stack.
 
 ## Plan the stack
 
@@ -149,7 +149,7 @@ EOF
 
 Capture each PR number from `gh pr create` output (or `gh pr view --json number,url`).
 
-Then rebuild the table with real `#n` references (no URLs), and write it to **every** PR:
+Then rebuild the table with real `KATTCORP/isbabyoutyet#n` references, and write it to **every** PR:
 
 ```bash
 gh pr edit <n> --body "$(cat <<'EOF'
@@ -157,9 +157,9 @@ gh pr edit <n> --body "$(cat <<'EOF'
 
 | PR | Description |
 | --- | --- |
-| #123 1/3 | Backfill existing data |
-| **👉 #124 2/3** | Add the UI |
-| #125 3/3 | Follow-up cleanup |
+| KATTCORP/isbabyoutyet#123 1/3 | Backfill existing data |
+| **👉 KATTCORP/isbabyoutyet#124 2/3** | Add the UI |
+| KATTCORP/isbabyoutyet#125 3/3 | Follow-up cleanup |
 
 ## Why
 
