@@ -82,11 +82,12 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      # PRs and merge groups: Vitest --changed only (no coverage).
-      # Merge queue compares against merge_group.base_sha — the previous queue
-      # commit — so later entries do not re-run the whole queue's tests.
+      # Merge queue only: Vitest --changed (no coverage), against
+      # merge_group.base_sha — the previous queue commit — so later entries do
+      # not re-run the whole queue's tests. PRs skip this: the codecov job
+      # already runs every affected workspace's tests.
       - name: Show changed-test range
-        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        if: github.event_name == 'merge_group'
         run: |
           set -euo pipefail
           if [ -z "${CI_BASE_SHA}" ]; then
@@ -99,14 +100,10 @@ jobs:
           {
             echo "## Changed-test range"
             echo ""
-            if [ "${{ github.event_name }}" = "merge_group" ]; then
-              echo "Merge queue: \`vitest --changed\` vs previous queue commit (\`merge_group.base_sha\`)."
-              echo "First parent of HEAD: \`${PARENT}\`"
-              if [ "${CI_BASE_SHA}" != "${PARENT}" ]; then
-                echo "Note: payload SHA differs from \`HEAD~1\`; using \`merge_group.base_sha\`."
-              fi
-            else
-              echo "PR: \`vitest --changed\` vs \`pull_request.base.sha\`."
+            echo "Merge queue: \`vitest --changed\` vs previous queue commit (\`merge_group.base_sha\`)."
+            echo "First parent of HEAD: \`${PARENT}\`"
+            if [ "${CI_BASE_SHA}" != "${PARENT}" ]; then
+              echo "Note: payload SHA differs from \`HEAD~1\`; using \`merge_group.base_sha\`."
             fi
             echo ""
             echo "- Base: \`${CI_BASE_SHA}\`"
@@ -123,7 +120,7 @@ jobs:
           } | tee -a "${GITHUB_STEP_SUMMARY}"
 
       - name: Test (changed vs base)
-        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        if: github.event_name == 'merge_group'
         run: |
           pnpm pretest
           pnpm exec vitest run --changed "$CI_BASE_SHA"
