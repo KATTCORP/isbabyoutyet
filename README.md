@@ -1,45 +1,46 @@
-# Is Baby Out Yet
+# Toy projects
 
-Monorepo for **Is Baby Out Yet?** and sibling products.
+A pnpm + Turborepo monorepo of personal toy projects and the libraries they
+share. `AGENTS.md` files are symlinks to the `README.md` beside them: one doc per
+directory, for humans and agents alike. Read the one closest to the code you
+are changing; each links further down.
 
-## Layout
-
-```
-projects/
-  isbabyoutyet/
-    web/       @isbabyoutyet/web       TanStack Start app
-    backend/   @isbabyoutyet/backend   Convex backend
-    email/     @isbabyoutyet/email     React Email templates
-  sous-vide-guide/                     (stacked PR) Sous Vide Guide web app
-packages/      Shared UI, form-guard, oxlint plugins, prefetch helpers, …
-```
-
-Each product under `projects/<name>/` owns its app code, hosting config, and
-(if any) backend. Cross-product code stays in `packages/`.
+| Path | What |
+| --- | --- |
+| [`projects/isbabyoutyet/`](projects/isbabyoutyet/README.md) | **Is Baby Out Yet?**: web app, Convex backend, email templates |
+| [`projects/sous-vide-guide/`](projects/sous-vide-guide/README.md) | **Sous Vide Guide**: web app |
+| [`projects/`](projects/README.md) | Rules shared by every `projects/*/web` |
+| [`packages/`](packages/) | Shared libraries: `ui` (vendored shadcn), [`form-guard`](packages/form-guard/README.md), [`convex-prefetch`](packages/convex-prefetch/README.md), [`query-prefetch`](packages/query-prefetch/README.md), `runtime`, `scripts`, `oxlint-plugins` |
+| [`.agents/skills/`](.agents/skills/) | Agent skills (third-party ones are pinned in `skills-lock.json`) |
 
 ## Setup
 
-Requires **Node.js 24** ([`.nvmrc`](.nvmrc)).
+Requires Node.js 24 ([`.nvmrc`](.nvmrc)).
 
 ```sh
 pnpm install
-pnpm dev          # all workspaces
-pnpm clean        # wipe install/build caches and reinstall
+pnpm dev                              # every workspace
+pnpm dev-isbaby                       # Is Baby Out Yet? only
+pnpm dev-sous                         # Sous Vide Guide only
+pnpm checks                           # format, typecheck, changed tests, knip; run before calling work done
+pnpm clean                            # wipe caches and reinstall
 ```
 
-Filter to one product:
+## Repo-wide rules
 
-```sh
-pnpm --filter '@isbabyoutyet/*' dev
-```
-
-## Products
-
-- **Is Baby Out Yet?** — [`projects/isbabyoutyet/README.md`](projects/isbabyoutyet/README.md)
-  (demo logins, Vercel root directory, Convex, email preview via `pnpm email`)
-- **Sous Vide Guide** — added in the stacked PR under `projects/sous-vide-guide/`
-
-## Agent notes
-
-Root [`AGENTS.md`](AGENTS.md) covers monorepo-wide rules (hooks ban, tests,
-PRs). Product-specific notes live under each project’s `AGENTS.md`.
+- **TypeScript:** follow
+  [`typescript-best-practices`](.agents/skills/typescript-best-practices/SKILL.md).
+  [`.oxlintrc.json`](.oxlintrc.json) enforces the rest (for example, at most
+  two params per function), and web apps add stricter rules.
+- **Tests:** prefer Vitest/jsdom over a browser. Only use a computer-use agent
+  if the user asks for a walkthrough or the change needs a real viewport.
+  `vi.mock` / `vi.hoisted` / `vi.doMock` are banned (`no-mock`). Build a seam
+  instead: inject the dependency as a parameter or prop. `vi.fn`, `vi.spyOn`,
+  and `vi.stubGlobal` (for host APIs) are fine. Use `await using` for cleanup,
+  not lifecycle hooks or `try/finally`.
+- **Pull requests:** fill every section of
+  [`.github/pull_request_template.md`](.github/pull_request_template.md).
+  For stacks, follow [`create-stacked-prs`](.agents/skills/create-stacked-prs/SKILL.md).
+  In **Screenshots / video**, attach screenshots for visible UI changes and a
+  short video for interactions. Otherwise write `None — <reason>`. Do not open
+  a browser just to fill this section.

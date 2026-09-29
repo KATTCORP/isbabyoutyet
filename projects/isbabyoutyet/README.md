@@ -1,68 +1,53 @@
-# Is Baby Out Yet
+# Is Baby Out Yet?
 
-Web app, Convex backend, and email templates for
-[isbabyoutyet.com](https://isbabyoutyet.com).
-
-## Workspaces
+Parents share a public page so friends and family can follow a baby's journey
+and send encouragement. Live at [isbabyoutyet.com](https://isbabyoutyet.com).
 
 | Path | Package | Role |
 | --- | --- | --- |
-| `web/` | `@isbabyoutyet/web` | TanStack Start application |
-| `backend/` | `@isbabyoutyet/backend` | Convex functions, schema, seed assets |
-| `email/` | `@isbabyoutyet/email` | React Email templates (password reset, …) |
+| [`web/`](web/README.md) | `@isbabyoutyet/web` | TanStack Start app: routes, overlays, i18n, Vercel deploy |
+| [`backend/`](backend/README.md) | `@isbabyoutyet/backend` | Convex schema and functions, migrations, demo seed |
+| `email/` | `@isbabyoutyet/email` | React Email templates, compiled into the backend send path |
 
-Shared libraries used by more than one product stay in the repo-level
-`packages/` directory.
+From the repo root: `pnpm dev-isbaby` runs every workspace here, `pnpm
+dev-convex` runs only the backend, and `pnpm email` runs the email preview.
 
-From the repository root, `pnpm dev` starts every workspace. Work on this
-product alone with:
-
-```sh
-pnpm --filter '@isbabyoutyet/*' dev
-```
-
-## Environment ownership
-
-The web app owns its local Vite environment files. The backend owns its Convex
-deployment and deployment-scoped environment variables. Email templates are
-compiled into the backend send path — they are not a separate deployable.
-Another product should use its own env files, hosting, and (if needed) Convex
-deployment rather than prefixing Is Baby Out Yet variables.
+The web app owns its Vite env files. The backend owns its Convex deployment and
+that deployment's env vars. Other products get their own env and deployments;
+they do not reuse these variables under a prefix.
 
 ## Demo logins
 
-Local and Vercel preview backends seed:
+Local and preview backends seed these (password `password`):
 
-- `test@example.com` / `password` — babies in every status
-- `test+newuser@example.com` / `password` — empty dashboard / first-run tour
-- `test+coparent@example.com` / `password` — co-parent on Milo (`/baby/baby-born`)
+- `test@example.com`: babies in every status
+- `test+newuser@example.com`: empty dashboard and first-run tour
+- `test+coparent@example.com`: co-parent on Milo (`/baby/baby-born`)
 
-Re-run with `pnpm --filter @isbabyoutyet/backend seed` (idempotent). Wipe the
-local anonymous Convex DB with `pnpm reset-dev`, then `pnpm dev`.
+`pnpm --filter @isbabyoutyet/backend seed` re-seeds (idempotent).
+`pnpm reset-dev` wipes the local anonymous Convex DB.
 
-Demo photos live in Git LFS (`backend/assets/homepage-demo/`). Enable Git LFS
-in the Vercel project Git settings so builds receive the actual images.
+## Domain language
 
-## Deploy (Vercel)
+Use these terms in code, tests, and copy. Avoid the alternatives listed.
 
-Update the **existing** Is Baby Out Yet Vercel project (do not create a second
-one for this product):
-
-1. **Settings → General → Root Directory** → `projects/isbabyoutyet/web`
-   (was `apps/web`). Keep “include source files outside Root Directory” on.
-2. **Framework Settings**
-   - Framework Preset: **TanStack Start**
-   - Build Command: override off, or `pnpm deploy-convex`
-   - Output Directory: empty (Nitro writes `.vercel/output`)
-   - Install Command: override off, or `cd ../../.. && pnpm install`
-3. **Environment Variables** — unchanged (`CONVEX_DEPLOY_KEY`, auth/email/VAPID, …).
-4. Redeploy Production.
-
-The deploy script resolves the Convex package at `../backend` and the email
-package via the workspace — no Convex dashboard path change.
-
-## Agents / Convex AI files
-
-See [`AGENTS.md`](AGENTS.md) and [`backend/AGENTS.md`](backend/AGENTS.md).
-Convex skills under `backend/.agents/skills/` are maintained with
-`npx convex ai-files install` from `backend/`.
+- **Baby page:** the shareable page tracking one baby from due date through
+  birth. _Avoid:_ listing, profile, event.
+- **Owner:** created the baby page. Only the owner can delete it or manage
+  co-parents. _Avoid:_ creator, primary parent.
+- **Co-parent:** authorized by the owner to post updates, change settings, and
+  moderate encouragements, but not to delete the page or manage co-parents.
+  _Avoid:_ administrator, collaborator, member.
+- **Update:** a message and/or photo posted to the feed, optionally marking a
+  milestone. _Avoid:_ post (as a noun), status update.
+- **Milestone:** labour started, gone to hospital, or born, marked on an
+  update.
+- **Status:** the baby page's current stage, inferred from the latest marked
+  milestones and never stored separately. _Avoid:_ state.
+- **Encouragement:** a message a visitor leaves on a baby page. _Avoid:_
+  comment, well-wish.
+- **Soft delete:** marking a record deleted but recoverable. This is the
+  default; hard deletes are not. _Avoid:_ archive.
+- **Public ID:** the `/baby/{publicId}` slug. Previous slugs are kept so old
+  links redirect, and staff transfers record who, when, and why.
+  _Avoid:_ handle, vanity URL.
