@@ -46,11 +46,13 @@ their sources live in `src/data/cutGuide.ts`.
 - **Scroll offsets:** `--sticky-chrome-h` in `src/styles/app.css` is
   everything pinned up top: `--site-header-h`, plus `--category-dock-h` on
   `sm+` (the dock's height is set from it too). A section's `scroll-mt` and its
-  title's sticky `top` are both `--sticky-chrome-h`, and the title is the
-  section's first box (spacing between sections is `mt-*`, never `pt-*`), so a
-  `#category` jump lands the title flush under the chrome. The active-section
-  spy (`useActiveSection`, the one audited hook seam here) reads the same
-  `scroll-margin-top`, so changing it moves both.
+  title's sticky `top` are both `calc(var(--sticky-chrome-h) - 1px)`, and the
+  title is the section's first box (spacing between sections is `mt-*`, never
+  `pt-*`), so a `#category` jump lands the title flush under the chrome. The
+  1px overlap plus an opaque `bg-background` (no backdrop-blur) on the title
+  (and on the sm+ dock) closes a mobile compositor page-bg slit under the site
+  header. The active-section spy (`useActiveSection`, the one audited hook
+  seam here) reads the same `scroll-margin-top`, so changing it moves both.
 - **Category links** (dock chips and title permalinks) are plain
   `<a href="#…">`: native fragment navigation re-scrolls even when the hash is
   already in the URL, where a router `Link` to the current URL does nothing.
