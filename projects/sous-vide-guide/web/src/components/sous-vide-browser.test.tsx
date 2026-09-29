@@ -235,9 +235,16 @@ describe("SousVideBrowser", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(m.guide_notes_heading())).toBeTruthy();
     expect(within(dialog).getByText(m.guide_references_heading())).toBeTruthy();
-    expect(within(dialog).getByRole("link", { name: /Anova/i }).getAttribute("href")).toMatch(
-      /^https:\/\//,
-    );
+    expect(
+      within(dialog)
+        .getByRole("link", { name: /Anova — sous vide egg/i })
+        .getAttribute("href"),
+    ).toMatch(/^https:\/\/anovaculinary\.com\/blogs\/recipes\/sous-vide-egg/);
+    expect(
+      within(dialog)
+        .getByRole("link", { name: /Anova — egg guide/i })
+        .getAttribute("href"),
+    ).toMatch(/^https:\/\/anovaculinary\.com\/pages\/sous-vide-egg-guide/);
 
     fireEvent.click(within(dialog).getByRole("button", { name: m.close_detail() }));
     await vi.waitFor(() => {
