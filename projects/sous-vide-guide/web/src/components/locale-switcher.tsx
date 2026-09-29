@@ -76,6 +76,7 @@ export function LocaleSwitcher(props: LocaleSwitcherProps) {
             void setLocaleInPlace(value).then(() =>
               navigate({
                 replace: true,
+                resetScroll: false,
                 search: { ...search, unit: nextUnit },
               }),
             );

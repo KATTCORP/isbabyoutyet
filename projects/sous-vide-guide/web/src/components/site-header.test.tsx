@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import {
   Outlet,
   RouterProvider,
@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { SiteHeader } from "@/components/site-header";
 import { temperatureUnitSearchSchema } from "@/lib/temperature";
+import { m } from "@/paraglide/messages";
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 
 function usingCleanup(dispose: () => void): Disposable {
@@ -65,17 +66,20 @@ const indexRoute = createRoute({
   validateSearch: z.object({ unit: temperatureUnitSearchSchema }),
 });
 
-async function renderHeader() {
+async function renderHeader(initialUrl = "/") {
   cleanup();
   const router = createRouter({
-    history: createMemoryHistory({ initialEntries: ["/"] }),
+    history: createMemoryHistory({ initialEntries: [initialUrl] }),
     routeTree: rootRoute.addChildren([indexRoute]),
   });
   render(<RouterProvider router={router} />);
   await screen.findByRole("banner");
-  return usingCleanup(() => {
-    cleanup();
-  });
+  return {
+    router,
+    [Symbol.dispose]() {
+      cleanup();
+    },
+  };
 }
 
 describe("SiteHeader theme toggle", () => {
@@ -84,5 +88,41 @@ describe("SiteHeader theme toggle", () => {
     await using _view = await renderHeader();
 
     expect(screen.getByRole("button", { name: "Toggle theme" })).toBeTruthy();
+  });
+});
+
+describe("SiteHeader unit and language scroll", () => {
+  it("does not reset scroll when switching temperature unit", async () => {
+    await using _matchMedia = matchMediaResource();
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    await using _scrollTo = usingCleanup(() => {
+      scrollTo.mockRestore();
+    });
+    await using header = await renderHeader("/?unit=c");
+    scrollTo.mockClear();
+
+    fireEvent.click(screen.getByRole("link", { name: m.unit_fahrenheit_short() }));
+    await vi.waitFor(() => {
+      expect(header.router.state.location.search.unit).toBe("f");
+    });
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("does not reset scroll when switching language", async () => {
+    await using _matchMedia = matchMediaResource();
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    await using _scrollTo = usingCleanup(() => {
+      scrollTo.mockRestore();
+    });
+    await using header = await renderHeader("/?unit=c");
+    scrollTo.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: m.language() }));
+    const menu = await screen.findByRole("menu");
+    fireEvent.click(within(menu).getByRole("menuitemradio", { name: /US/i }));
+    await vi.waitFor(() => {
+      expect(header.router.state.location.search.unit).toBe("f");
+    });
+    expect(scrollTo).not.toHaveBeenCalled();
   });
 });
