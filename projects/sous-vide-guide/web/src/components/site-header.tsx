@@ -13,7 +13,7 @@ export function SiteHeader() {
   const unit = search.unit ?? defaultTemperatureUnit(getLocale());
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border/70 bg-[color-mix(in_oklab,var(--background)_82%,transparent)] pt-[env(safe-area-inset-top)] backdrop-blur-md">
+    <header className="sticky top-0 z-20 border-b border-border/70 bg-background pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-2 px-3 sm:h-16 sm:gap-4 sm:px-6">
         <Link
           className="min-w-0 truncate font-display text-lg font-semibold tracking-tight text-[var(--guide-ink)] sm:text-xl"

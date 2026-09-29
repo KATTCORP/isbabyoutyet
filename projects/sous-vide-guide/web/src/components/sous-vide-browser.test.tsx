@@ -150,6 +150,10 @@ describe("SousVideBrowser", () => {
     expect(heading?.className).toContain("top-[calc(var(--sticky-chrome-h)-1px)]");
     expect(heading?.className).toContain("bg-background");
     expect(heading?.className).not.toContain("backdrop-blur");
+
+    const dock = screen.getByRole("navigation", { name: m.jump_to_category() });
+    expect(dock.className).toContain("bg-background");
+    expect(dock.className).not.toContain("backdrop-blur");
   });
 
   it("filters as you type, writes ?q= and shows ranked results instead of sections", async () => {

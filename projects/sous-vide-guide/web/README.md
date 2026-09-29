@@ -22,6 +22,9 @@ their sources live in `src/data/cutGuide.ts`.
   `next-themes` in `__root.tsx`), the °C/°F toggle, and the language dropdown
   (region codes GB / US / SE, no emoji flags). Dark tokens are in
   `src/styles/app.css`.
+- **Pinned bars** (site header, category dock, sticky category titles) all use
+  opaque `bg-background` with no `backdrop-blur`, so they look the same and
+  content never shows through.
 - **Unit:** an explicit `?unit=c|f` always wins. Otherwise the default is °F
   for `*-US` locales and °C elsewhere (`defaultTemperatureUnit`).
   `unitSearchMiddleware` removes `?unit=` when it matches the locale default.
@@ -49,9 +52,8 @@ their sources live in `src/data/cutGuide.ts`.
   title's sticky `top` are both `calc(var(--sticky-chrome-h) - 1px)`, and the
   title is the section's first box (spacing between sections is `mt-*`, never
   `pt-*`), so a `#category` jump lands the title flush under the chrome. The
-  1px overlap plus an opaque `bg-background` (no backdrop-blur) on the title
-  (and on the sm+ dock) closes a mobile compositor page-bg slit under the site
-  header. The active-section spy (`useActiveSection`, the one audited hook
+  1px overlap closes a mobile compositor page-bg slit under the site header.
+  The active-section spy (`useActiveSection`, the one audited hook
   seam here) reads the same `scroll-margin-top`, so changing it moves both.
 - **Category links** (dock chips and title permalinks) are plain
   `<a href="#…">`: native fragment navigation re-scrolls even when the hash is

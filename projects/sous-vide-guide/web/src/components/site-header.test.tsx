@@ -99,6 +99,15 @@ describe("SiteHeader theme toggle", () => {
 
     expect(screen.getByRole("button", { name: "Toggle theme" })).toBeTruthy();
   });
+
+  it("uses the same opaque fill as the other pinned bars", async () => {
+    await using _matchMedia = matchMediaResource();
+    await using _view = await renderHeader();
+
+    const header = screen.getByRole("banner");
+    expect(header.className).toContain("bg-background");
+    expect(header.className).not.toContain("backdrop-blur");
+  });
 });
 
 describe("SiteHeader unit and language scroll", () => {
