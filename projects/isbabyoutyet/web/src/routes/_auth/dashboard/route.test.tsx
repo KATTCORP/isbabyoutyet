@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import type { AnyRoute } from "@tanstack/react-router";
 import {
   createMemoryHistory,
@@ -12,7 +12,6 @@ import { ConvexProvider } from "convex/react";
 import { getFunctionName } from "convex/server";
 import type { FunctionReturnType } from "convex/server";
 import { expect, test, vi } from "vitest";
-import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
@@ -118,15 +117,12 @@ test("dashboard header groups add baby separately from theme and settings", asyn
 test("parent dashboard stays mounted while child routes render through its outlet", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const preloader = stubPreloader([babySmith]);
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
-  });
   // The real route re-parented onto a bare test root: its loader, component,
   // and `<Outlet />` all run, with a child route standing in for /dashboard/*.
   const rootRoute = createRootRoute({
     component: function TestRoot() {
       return (
-        <QueryClientProvider client={queryClient}>
+        <QueryClientProvider client={harness.queryClient}>
           <ConvexProvider
             // @ts-expect-error — integration client is not ConvexReactClient
             client={harness.convexClient}
@@ -158,10 +154,7 @@ test("parent dashboard stays mounted while child routes render through its outle
   });
   await router.load();
 
-  const rendered = renderResource(<RouterProvider router={router} />);
-  await using view = makeResource(rendered, () => {
-    queryClient.clear();
-  });
+  await using view = renderResource(<RouterProvider router={router} />);
 
   expect(view.getByRole("heading", { name: /Your babies/ })).toBeTruthy();
   expect(view.getByTestId("dashboard-outlet")).toBeTruthy();

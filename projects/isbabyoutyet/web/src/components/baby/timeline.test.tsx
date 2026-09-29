@@ -17,6 +17,7 @@ import {
   seedOwnedBaby,
   seedTimelineEncouragement,
   seedTimelineUpdateWithPhoto,
+  settleScheduledFunctions,
   signUpTestUser,
   storeTestBlob,
   postTestUpdate,
@@ -678,6 +679,7 @@ test("update delete and set-as-photo handlers toast on success and error", async
     babyId: baby.babyId,
     photoId: await storeTestBlob(harness),
   });
+  await settleScheduledFunctions(harness);
   await seedTimelineUpdateWithPhoto(harness, {
     babyId: baby.babyId,
     message: "Second photo",

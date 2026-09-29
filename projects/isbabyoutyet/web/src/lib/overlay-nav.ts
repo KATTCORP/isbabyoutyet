@@ -128,13 +128,9 @@ export function dismissOverlay(opts: {
   navigate: (closeLink: LinkProps) => void;
 }) {
   if (isOverlayHistoryState(opts.history.location.state) && opts.history.canGoBack()) {
-    // oxlint-disable-next-line no-console -- dismiss-flow debugging aid (see PR)
-    console.log("dismissOverlay: history.back", { ignoreBlocker: opts.ignoreBlocker });
     opts.history.back({ ignoreBlocker: opts.ignoreBlocker });
     return;
   }
-  // oxlint-disable-next-line no-console -- dismiss-flow debugging aid (see PR)
-  console.log("dismissOverlay: navigate", opts.closeLink, { ignoreBlocker: opts.ignoreBlocker });
   void opts.navigate({ ...opts.closeLink, ignoreBlocker: opts.ignoreBlocker });
 }
 

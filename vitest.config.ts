@@ -38,6 +38,10 @@ export default defineConfig({
         ? ["text-summary", "json-summary", "lcov"]
         : ["text-summary", "html", "json", "json-summary"],
     },
+    // Vitest's default includes every `package.json`, so `--changed` reran the
+    // whole monorepo whenever a script line moved. Dependency changes land in
+    // the lockfile, which still forces a full run.
+    forceRerunTriggers: ["**/pnpm-lock.yaml", "**/{vitest,vite}.config.*/**"],
     experimental: {
       fsModuleCache: true,
       fsModuleCachePath: "node_modules/.experimental-vitest-cache",

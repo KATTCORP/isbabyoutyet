@@ -110,7 +110,9 @@ async function sendPayloadToSubscriptionPages(
     cursor = subscriptions.continueCursor;
   }
 
-  console.log(`Sent notifications: ${successCount} succeeded, ${failureCount} failed`);
+  if (successCount + failureCount > 0) {
+    console.log(`Sent notifications: ${successCount} succeeded, ${failureCount} failed`);
+  }
 }
 
 export const sendNotification = internalAction({

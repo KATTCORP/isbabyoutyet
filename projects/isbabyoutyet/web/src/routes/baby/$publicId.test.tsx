@@ -22,7 +22,7 @@ import {
 import { LocaleProvider } from "@/lib/i18n";
 import { browserPushQueryOptions } from "@/components/baby/notification-subscribe";
 import { getBabySeo } from "@/lib/seo";
-import { renderResource } from "@/test/renderResource";
+import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { seedOwnedBaby } from "@/test/convexTestSeed";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
@@ -166,7 +166,7 @@ test("renders a baby detail page from local convex-test data", async () => {
     theme: "baby-blue",
   });
 
-  await using view = renderResource(<BabyDetailPage baby={baby} />);
+  await using view = await renderWithTestRouter(<BabyDetailPage baby={baby} />);
 
   expect(view.getByRole("heading", { name: "Is Baby Smith out yet?" })).toBeTruthy();
   expect(view.getByText("Not yet")).toBeTruthy();
@@ -205,7 +205,7 @@ test("renders optional public due date text without exposing the exact day", asy
     publicDueDateText: "Any day now",
   });
 
-  await using view = renderResource(<BabyDetailPage baby={baby} />);
+  await using view = await renderWithTestRouter(<BabyDetailPage baby={baby} />);
   expect(view.getByText("Any day now")).toBeTruthy();
   expect(view.queryByText(/until due date/)).toBeNull();
   expect(view.queryByText(/19 September/)).toBeNull();
@@ -234,7 +234,7 @@ test("hides the due date box when message mode has no public text", async () => 
   }
   expect(baby).not.toHaveProperty("dueDate");
 
-  await using view = renderResource(<BabyDetailPage baby={baby} />);
+  await using view = await renderWithTestRouter(<BabyDetailPage baby={baby} />);
   expect(view.getByText("Not yet")).toBeTruthy();
   expect(view.queryByText(/until due date/)).toBeNull();
   expect(view.queryByText(/Due date:/)).toBeNull();
@@ -253,7 +253,7 @@ test("renders the public baby status in the baby's Swedish override", async () =
     wentToHospital: null,
   };
 
-  await using view = renderResource(
+  await using view = await renderWithTestRouter(
     <LocaleProvider locale="sv">
       <StatusDisplay
         baby={baby}
@@ -285,7 +285,7 @@ test("renders the public baby status in Brazilian Portuguese", async () => {
     wentToHospital: null,
   };
 
-  await using view = renderResource(
+  await using view = await renderWithTestRouter(
     <LocaleProvider locale="pt-BR">
       <StatusDisplay
         baby={baby}
