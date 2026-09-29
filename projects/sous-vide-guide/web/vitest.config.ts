@@ -8,6 +8,5 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],
     name: "sous-vide-guide-web",
-    setupFiles: ["./vitest.setup.ts"],
   },
 });

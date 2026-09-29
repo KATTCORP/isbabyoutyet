@@ -17,6 +17,7 @@ import { setLocaleInPlace } from "@/lib/paraglide-setup";
 import { temperatureUnitSearchSchema, unitSearchMiddleware } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
+import { stubJsdomWindow } from "@/test/stubJsdomWindow";
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 
 function usingCleanup(dispose: () => void): Disposable {
@@ -74,6 +75,7 @@ const indexRoute = createRoute({
 
 async function renderHeader(initialUrl = "/") {
   cleanup();
+  const jsdomWindow = stubJsdomWindow();
   const router = createRouter({
     history: createMemoryHistory({ initialEntries: [initialUrl] }),
     routeTree: rootRoute.addChildren([indexRoute]),
@@ -82,8 +84,10 @@ async function renderHeader(initialUrl = "/") {
   await screen.findByRole("banner");
   return {
     router,
+    scrollTo: jsdomWindow.scrollTo,
     [Symbol.dispose]() {
       cleanup();
+      jsdomWindow[Symbol.dispose]();
     },
   };
 }
@@ -100,18 +104,14 @@ describe("SiteHeader theme toggle", () => {
 describe("SiteHeader unit and language scroll", () => {
   it("does not reset scroll when switching temperature unit", async () => {
     await using _matchMedia = matchMediaResource();
-    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-    await using _scrollTo = usingCleanup(() => {
-      scrollTo.mockRestore();
-    });
     await using header = await renderHeader("/");
-    scrollTo.mockClear();
+    header.scrollTo.mockClear();
 
     fireEvent.click(screen.getByRole("link", { name: m.unit_fahrenheit_short() }));
     await vi.waitFor(() => {
       expect(header.router.state.location.search.unit).toBe("f");
     });
-    expect(scrollTo).not.toHaveBeenCalled();
+    expect(header.scrollTo).not.toHaveBeenCalled();
   });
 
   it("leaves ?unit= out of the URL for the locale's default unit", async () => {
@@ -126,14 +126,12 @@ describe("SiteHeader unit and language scroll", () => {
 
   it("switches language in place without scrolling or a default ?unit=", async () => {
     await using _matchMedia = matchMediaResource();
-    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
     const previousLocale = getLocale();
     await using _restore = usingCleanup(() => {
-      scrollTo.mockRestore();
       void setLocaleInPlace(previousLocale);
     });
     await using header = await renderHeader("/?unit=c");
-    scrollTo.mockClear();
+    header.scrollTo.mockClear();
 
     fireEvent.click(screen.getByRole("button", { name: m.language() }));
     const menu = await screen.findByRole("menu");
@@ -142,6 +140,6 @@ describe("SiteHeader unit and language scroll", () => {
       expect(screen.getByRole("main").textContent).toBe("en-US");
     });
     expect(header.router.state.location.href).toBe("/");
-    expect(scrollTo).not.toHaveBeenCalled();
+    expect(header.scrollTo).not.toHaveBeenCalled();
   });
 });

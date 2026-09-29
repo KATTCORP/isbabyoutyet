@@ -20,6 +20,7 @@ import { infoCutIdFromHash } from "@/lib/info-hash";
 import { filterSousVideEntries } from "@/lib/search";
 import { temperatureUnitSearchSchema } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
+import { stubJsdomWindow } from "@/test/stubJsdomWindow";
 
 const ENTRIES = getSousVideEntries(createContentT("en-GB"));
 
@@ -50,25 +51,26 @@ function GuidePage() {
   );
 }
 
-function usingCleanup(dispose: () => void): Disposable {
-  return {
-    [Symbol.dispose]() {
-      dispose();
-    },
-  };
-}
-
 async function renderGuide(initialUrl: string) {
   cleanup();
+  const jsdomWindow = stubJsdomWindow();
   const router = createRouter({
     defaultHashScrollIntoView: hashScrollIntoViewOptions(),
     history: createMemoryHistory({ initialEntries: [initialUrl] }),
     routeTree: rootRoute.addChildren([indexRoute]),
   });
-  const view = render(<RouterProvider router={router} />);
+  render(<RouterProvider router={router} />);
   // An open `#info-…` drawer aria-hides the page chrome; still wait on the field.
   await screen.findByRole("searchbox", { hidden: true });
-  return { router, view };
+  return {
+    router,
+    scrollIntoView: jsdomWindow.scrollIntoView,
+    scrollTo: jsdomWindow.scrollTo,
+    [Symbol.dispose]() {
+      cleanup();
+      jsdomWindow[Symbol.dispose]();
+    },
+  };
 }
 
 function cardById(id: string) {
@@ -85,7 +87,7 @@ function currentQuery(router: Awaited<ReturnType<typeof renderGuide>>["router"])
 
 describe("SousVideBrowser", () => {
   it("renders one section per category with one card per cut", async () => {
-    const guide = await renderGuide("/");
+    using _guide = await renderGuide("/");
 
     expect(document.querySelectorAll("section[id]")).toHaveLength(8);
     expect(
@@ -96,12 +98,10 @@ describe("SousVideBrowser", () => {
     const quickLinks = within(dock).getAllByRole("link");
     expect(quickLinks).toHaveLength(8);
     expect(quickLinks[0]?.getAttribute("href")).toBe("#pork");
-
-    guide.view.unmount();
   });
 
   it("links categories with native in-page anchors and marks the URL-hash match current", async () => {
-    const guide = await renderGuide("/#fish");
+    using _guide = await renderGuide("/#fish");
 
     const dock = screen.getByRole("navigation", { name: m.jump_to_category() });
     const current = within(dock)
@@ -114,25 +114,10 @@ describe("SousVideBrowser", () => {
       name: m.category_permalink_label({ category: m.category_fish() }),
     });
     expect(permalink.getAttribute("href")).toBe("#fish");
-
-    guide.view.unmount();
   });
 
   it("smooth-scrolls cut permalink hash jumps via scrollIntoView options", async () => {
-    // jsdom does not implement scrollIntoView — define before spying.
-    Object.defineProperty(Element.prototype, "scrollIntoView", {
-      configurable: true,
-      value: () => {},
-      writable: true,
-    });
-    const scrollIntoView = vi
-      .spyOn(Element.prototype, "scrollIntoView")
-      .mockImplementation(() => {});
-    await using _spy = usingCleanup(() => {
-      scrollIntoView.mockRestore();
-    });
-
-    const guide = await renderGuide("/");
+    using guide = await renderGuide("/");
     const cutLink = cardById("pork-fillet").querySelector<HTMLElement>("h3 a");
     if (cutLink === null) {
       throw new Error("Expected pork fillet permalink");
@@ -143,16 +128,14 @@ describe("SousVideBrowser", () => {
       expect(guide.router.state.location.hash).toBe("pork-fillet");
     });
     await vi.waitFor(() => {
-      expect(scrollIntoView).toHaveBeenCalledWith(
+      expect(guide.scrollIntoView).toHaveBeenCalledWith(
         expect.objectContaining({ behavior: expect.stringMatching(/^(smooth|instant)$/) }),
       );
     });
-
-    guide.view.unmount();
   });
 
   it("keeps category titles sticky so Fish stays visible while browsing that section", async () => {
-    const guide = await renderGuide("/");
+    using _guide = await renderGuide("/");
 
     const fish = document.getElementById("fish");
     expect(fish).not.toBeNull();
@@ -164,12 +147,10 @@ describe("SousVideBrowser", () => {
     expect(heading?.tagName).toBe("H2");
     expect(heading?.className).toContain("sticky");
     expect(heading?.className).toContain("top-[var(--sticky-chrome-h)]");
-
-    guide.view.unmount();
   });
 
   it("filters as you type, writes ?q= and shows ranked results instead of sections", async () => {
-    const guide = await renderGuide("/");
+    using guide = await renderGuide("/");
     const input = screen.getByRole("searchbox");
 
     fireEvent.change(input, { target: { value: "salmon" } });
@@ -182,23 +163,21 @@ describe("SousVideBrowser", () => {
     expect(document.getElementById("salmon")).not.toBeNull();
     expect(screen.getAllByText(m.results_for_query({ count: 3, query: "salmon" })).length).toBe(2);
     expect(within(cardById("salmon")).getByText(m.category_fish())).toBeDefined();
-
-    guide.view.unmount();
   });
 
   it("ignores a single keystroke and shows the empty state for no matches", async () => {
-    const guide = await renderGuide("/?q=p");
-    expect(document.querySelectorAll("section[id]")).toHaveLength(8);
-    guide.view.unmount();
+    {
+      using _guide = await renderGuide("/?q=p");
+      expect(document.querySelectorAll("section[id]")).toHaveLength(8);
+    }
 
-    const empty = await renderGuide("/?q=zzzz");
+    using _empty = await renderGuide("/?q=zzzz");
     expect(document.querySelectorAll("article")).toHaveLength(0);
     expect(screen.getAllByText(m.no_results()).length).toBe(2);
-    empty.view.unmount();
   });
 
   it("clears the field and restores the sections", async () => {
-    const guide = await renderGuide("/?q=salmon");
+    using guide = await renderGuide("/?q=salmon");
     const input = screen.getByRole<HTMLInputElement>("searchbox");
     expect(input.value).toBe("salmon");
 
@@ -211,12 +190,10 @@ describe("SousVideBrowser", () => {
     expect(input.value).toBe("");
     expect(document.activeElement).toBe(input);
     expect(document.getElementById("pork")).not.toBeNull();
-
-    guide.view.unmount();
   });
 
   it("blurs the field on submit instead of navigating", async () => {
-    const guide = await renderGuide("/?q=salmon");
+    using guide = await renderGuide("/?q=salmon");
     const input = screen.getByRole<HTMLInputElement>("searchbox");
     input.focus();
     expect(document.activeElement).toBe(input);
@@ -225,43 +202,26 @@ describe("SousVideBrowser", () => {
 
     expect(document.activeElement).not.toBe(input);
     expect(currentQuery(guide.router)).toBe("salmon");
-    guide.view.unmount();
   });
 
   it("formats temperatures in the unit from the URL", async () => {
-    const guide = await renderGuide("/?unit=f");
+    using _guide = await renderGuide("/?unit=f");
     const duck = cardById("duck-breast");
     expect(within(duck).getByText(/°F$/)).toBeDefined();
     expect(within(duck).queryByText(/°C$/)).toBeNull();
-    guide.view.unmount();
   });
 
   it("shows a fridge-start label on egg cards", async () => {
-    const guide = await renderGuide("/");
+    using _guide = await renderGuide("/");
     const eggCard = cardById("egg");
     expect(within(eggCard).getByText(m.start_from_fridge())).toBeTruthy();
     expect(within(cardById("pork-fillet")).queryByText(m.start_from_fridge())).toBeNull();
-    guide.view.unmount();
   });
 
   it("opens the egg drawer via #info-egg without scrolling, and clears the hash on close", async () => {
-    Object.defineProperty(Element.prototype, "scrollIntoView", {
-      configurable: true,
-      value: () => {},
-      writable: true,
-    });
-    const scrollIntoView = vi
-      .spyOn(Element.prototype, "scrollIntoView")
-      .mockImplementation(() => {});
-    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-    await using _spies = usingCleanup(() => {
-      scrollIntoView.mockRestore();
-      scrollTo.mockRestore();
-    });
-
-    const guide = await renderGuide("/?q=egg");
-    scrollIntoView.mockClear();
-    scrollTo.mockClear();
+    using guide = await renderGuide("/?q=egg");
+    guide.scrollIntoView.mockClear();
+    guide.scrollTo.mockClear();
     const eggCard = cardById("egg");
     expect(within(eggCard).getByText(m.start_from_fridge())).toBeTruthy();
     fireEvent.click(within(eggCard).getByRole("button", { name: m.more_info() }));
@@ -279,22 +239,19 @@ describe("SousVideBrowser", () => {
     await vi.waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
-    expect(scrollIntoView).not.toHaveBeenCalled();
-    expect(scrollTo).not.toHaveBeenCalled();
-    guide.view.unmount();
+    expect(guide.scrollIntoView).not.toHaveBeenCalled();
+    expect(guide.scrollTo).not.toHaveBeenCalled();
   });
 
   it("opens the egg detail drawer from a #info-egg deep link, on the info button anchor", async () => {
-    const guide = await renderGuide("/#info-egg");
+    using _guide = await renderGuide("/#info-egg");
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(m.guide_notes_heading())).toBeTruthy();
     expect(document.getElementById("info-egg")?.closest("article")?.id).toBe("egg");
-    guide.view.unmount();
   });
 
   it("keeps plain card permalinks closed", async () => {
-    const guide = await renderGuide("/#egg");
+    using _guide = await renderGuide("/#egg");
     expect(screen.queryByRole("dialog")).toBeNull();
-    guide.view.unmount();
   });
 });
