@@ -25,7 +25,7 @@ Do **not** create stacked PRs unless the user asked for a stack or the work is c
 - The first PR is `1/N`. The last is `N/N`.
 - Every PR in the stack must be independently reviewable as much as possible.
 - Repeat the **full** stack table at the **top** of **every** PR body, not only the bottom PR.
-- Every stack must end up linked as a native GitHub stack. CI does this automatically; confirm it happened (see [Link the stack on GitHub](#link-the-stack-on-github)). Never leave it for the user to click in the GitHub UI.
+- Every stack must end up linked as a native GitHub stack (see [Link the stack on GitHub](#link-the-stack-on-github)).
 - Draft vs ready: follow the user. Add `--draft` only when they ask for drafts. Otherwise create ready PRs.
 - Do not put a demo-seed checklist in the PR body unless the user asks for one.
 
@@ -197,40 +197,7 @@ Each edited body still highlights **that** PR in the PR column (`**👉 …**`).
 
 ## Link the stack on GitHub
 
-GitHub has native stacked PRs: linked PRs get a stack navigator in the PR UI and stack-aware merging.
-
-The [`link-stack`](../../../.github/workflows/link-stack.yml) workflow links them for you. Whenever a PR is opened, reopened, or retargeted onto another open PR's branch, it walks the base-branch chain and appends the unlinked PRs to the existing stack, or creates the stack. Nothing to run: create the PRs with the right `--base` (above) and it works for every author, including cloud agents with a read-only `gh`.
-
-After creating the PRs, wait for `link-stack` and verify each one: `gh api repos/KATTCORP/isbabyoutyet/pulls/<n> --jq .stack` returns `{ number, position, size, … }` (empty when unlinked). If a PR is still unlinked (for example, it came from a fork, or the workflow failed), check the `link-stack` run, then link it by hand.
-
-### Linking by hand
-
-With the official [`gh stack`](https://github.com/github/gh-stack) extension:
-
-```bash
-gh extension install github/gh-stack   # once; no-op if already installed
-
-# New stack: PR numbers bottom → top. Each PR's base must be the previous PR's head.
-gh stack link 123 124 125
-
-# Grow an existing stack: pass its stack number first (additive only).
-gh stack link <stack-number> 126
-```
-
-`gh stack link` does not touch local branches, so it works with branches made by plain `git`. Without the extension, call the REST API directly:
-
-```bash
-gh api -X POST repos/KATTCORP/isbabyoutyet/stacks \
-  -H "X-GitHub-Api-Version: 2026-03-10" \
-  --input - <<< '{"pull_requests":[123,124,125]}'
-
-# Append to an existing stack
-gh api -X POST repos/KATTCORP/isbabyoutyet/stacks/<stack-number>/add \
-  -H "X-GitHub-Api-Version: 2026-03-10" \
-  --input - <<< '{"pull_requests":[126]}'
-```
-
-If you cannot write through `gh` in your environment (for example, a read-only token), say so when you report back and give the user the exact `gh stack link …` command to run.
+The [`link-stack`](../../../.github/workflows/link-stack.yml) workflow links every PR whose base is another open PR's branch into a native GitHub stack. Nothing to run. Verify with `gh api repos/KATTCORP/isbabyoutyet/pulls/<n> --jq .stack` (empty means unlinked); if a PR stays unlinked, check the `link-stack` run and give the user `gh stack link <bottom> … <top>` to run.
 
 ## Detect an existing stack
 
@@ -245,8 +212,6 @@ gh pr view <n> --json number,title,baseRefName,headRefName,body,url
 ```
 
 When adding to or rewriting an existing stack, reuse those branches and PR numbers. Refresh the table on every PR in the chain.
-
-Native stacks: `gh api repos/KATTCORP/isbabyoutyet/pulls/<n> --jq .stack.number` gives the stack number (list all with `gh api repos/KATTCORP/isbabyoutyet/stacks -H "X-GitHub-Api-Version: 2026-03-10"`). Append new PRs to that stack instead of creating a second one.
 
 ## Update a middle PR
 
@@ -283,4 +248,4 @@ gh pr edit <next-n> --base main
 
 ## Report back
 
-Return each PR's number, title (`… (n/N)`), URL, and base branch, plus the GitHub stack number. Note anything not yet in the stack.
+Return each PR's number, title (`… (n/N)`), URL, and base branch. Note anything not yet in the stack.
