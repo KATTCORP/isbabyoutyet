@@ -25,6 +25,7 @@
     "deploy-convex": "tsx scripts/deploy-convex.ts"
   },
   "dependencies": {
+    "@better-auth/passkey": "catalog:",
     "@convex-dev/better-auth": "catalog:",
     "@convex-dev/react-query": "catalog:",
     "@fontsource-variable/nunito": "catalog:",

@@ -6,6 +6,8 @@ import { requireActionCtx } from "@convex-dev/better-auth/utils";
 import authConfig from "./auth.config";
 import { convexTokenInAuthResponse } from "./authConvexToken";
 import { sendPasswordResetEmail } from "./authEmail";
+import { createPasskeyPlugin, passkeyRemovalGuard } from "./passkeyPlugin";
+import authSchema from "./betterAuth/schema";
 import { components, internal } from "./_generated/api";
 import { env, query } from "./_generated/server";
 import type { GenericCtx } from "@convex-dev/better-auth";
@@ -16,7 +18,9 @@ import { isJsonObjectValue, parseOptionalString } from "@workspace/runtime/json"
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
-export const authComponent = createClient<DataModel>(components.betterAuth);
+export const authComponent = createClient<DataModel, typeof authSchema>(components.betterAuth, {
+  local: { schema: authSchema },
+});
 
 export function resolveAuthBaseUrl(siteUrl: string | undefined, convexSiteUrl: string) {
   return siteUrl ?? convexSiteUrl;
@@ -66,7 +70,19 @@ function requireAuthMutationCtx(ctx: GenericCtx<DataModel>) {
   return ctx;
 }
 
-/** Parsed Better Auth email auth user extracted from middleware returned. */
+function passkeyRegistrationUserId<TReturned>(returned: TReturned) {
+  if (!isJsonObjectValue(returned) || !("userId" in returned)) {
+    return null;
+  }
+  return parseOptionalString(returned.userId);
+}
+
+const PROFILE_BOOTSTRAP_PATHS = new Set([
+  "/passkey/verify-authentication",
+  "/passkey/verify-registration",
+  "/sign-in/email",
+  "/sign-up/email",
+]);
 type AuthEndpointUser = {
   readonly email: string | null;
   readonly name: string | null;
@@ -153,11 +169,16 @@ export const createAuth = (convexCtx: GenericCtx<DataModel>) => {
     // endpoints are capped at 3 requests / 60s by Better Auth's built-ins.
     hooks: {
       after: createAuthMiddleware(async (ctx) => {
-        if (ctx.path !== "/sign-up/email" && ctx.path !== "/sign-in/email") {
+        if (!PROFILE_BOOTSTRAP_PATHS.has(ctx.path)) {
           return;
         }
         const authUser = parseAuthUserFromReturned(ctx.context.returned);
-        if (!authUser) {
+        const userId =
+          authUser?.userId ??
+          (ctx.path === "/passkey/verify-registration"
+            ? passkeyRegistrationUserId(ctx.context.returned)
+            : null);
+        if (userId === null) {
           return;
         }
         const headers = ctx.headers ?? ctx.request?.headers ?? null;
@@ -166,7 +187,7 @@ export const createAuth = (convexCtx: GenericCtx<DataModel>) => {
           {
             localeHint: headers?.get("accept-language") ?? null,
             timeZoneHint: headers?.get(TIME_ZONE_HINT_HEADER) ?? null,
-            userId: authUser.userId,
+            userId,
           },
         );
         const visitorId = parseVisitorIdHint(headers?.get(VISITOR_ID_HINT_HEADER) ?? null);
@@ -174,18 +195,33 @@ export const createAuth = (convexCtx: GenericCtx<DataModel>) => {
           await requireAuthMutationCtx(convexCtx).runMutation(
             internal.encouragements.claimVisitorEncouragementsForAuthUserMutation,
             {
-              userId: authUser.userId,
+              userId,
               visitorId,
             },
           );
         }
       }),
+      before: passkeyRemovalGuard(),
     },
     plugins: [
       // The Convex plugin is required for Convex compatibility
       convex({ authConfig }),
       // Order matters: reads the `convex_jwt` cookie the plugin above sets.
       convexTokenInAuthResponse(),
+      createPasskeyPlugin({
+        prepareSignup: async (input): Promise<string | null> => {
+          return await requireAuthMutationCtx(convexCtx).runMutation(
+            internal.passkeySignup.prepare,
+            input,
+          );
+        },
+        provisionSignup: async (input): Promise<string> => {
+          return await requireAuthMutationCtx(convexCtx).runMutation(
+            internal.passkeySignup.provision,
+            input,
+          );
+        },
+      }),
     ],
     rateLimit: {
       enabled: true,

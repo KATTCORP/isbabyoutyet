@@ -8,6 +8,7 @@ catalogMode: prefer
 
 catalog:
   "@base-ui/react": ^1.7.0
+  "@better-auth/passkey": 1.6.30
   "@convex-dev/better-auth": ^0.12.5
   "@convex-dev/migrations": ^0.3.6
   "@convex-dev/react-query": ^0.1.0

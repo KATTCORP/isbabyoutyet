@@ -1,6 +1,6 @@
 import { defineApp } from "convex/server";
 import { v } from "convex/values";
-import betterAuth from "@convex-dev/better-auth/convex.config";
+import betterAuth from "./betterAuth/convex.config";
 import migrations from "@convex-dev/migrations/convex.config";
 import tableHistory from "convex-table-history/convex.config";
 

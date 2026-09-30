@@ -1,7 +1,10 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import type { LinkProps } from "@tanstack/react-router";
+import { useTransition } from "react";
 import { z } from "zod";
-import { signInThenGo } from "@/lib/auth-client";
+import { signInThenGo, signInWithPasskeyThenGo } from "@/lib/auth-client";
+import { usePasskeyAutofill } from "@/lib/use-passkey-autofill";
+import { PasskeyOffer } from "@/components/passkey-offer";
 import { Input } from "@workspace/ui/components/input";
 import {
   Card,
@@ -83,6 +86,17 @@ export function LoginPage() {
         <Card className="rounded-[2rem] border-2 pop-shadow-strong">
           <LoginCard
             demoLoginEnabled={hasDemoLogin}
+            onPasskeySignIn={(opts) =>
+              signInWithPasskeyThenGo({
+                autoFill: opts.autoFill,
+                convexClient: context.convexClient,
+                convexQueryClient: context.convexQueryClient,
+                navigate: () => router.navigate(successTarget),
+                queryClient: context.queryClient,
+                signal: opts.signal,
+                t,
+              })
+            }
             onSignIn={(values) =>
               signInThenGo(values, {
                 convexClient: context.convexClient,
@@ -108,10 +122,16 @@ export function LoginPage() {
  */
 export function LoginCard(props: {
   demoLoginEnabled: boolean;
+  onPasskeySignIn: (opts: { autoFill: boolean; signal: AbortSignal | null }) => Promise<void>;
   onSignIn: (values: Credentials) => Promise<void>;
   signUpLink: LinkProps;
 }) {
   const { t } = useI18n();
+  const [passkeyPending, startPasskeyTransition] = useTransition();
+
+  usePasskeyAutofill({
+    onPasskey: (signal) => props.onPasskeySignIn({ autoFill: true, signal }),
+  });
 
   const form = useZodForm({
     defaultValues: props.demoLoginEnabled
@@ -125,6 +145,8 @@ export function LoginCard(props: {
         },
     schema: loginSchema(t),
   });
+
+  const rootMessage = form.formState.errors.root?.message ?? null;
 
   return (
     <>
@@ -146,6 +168,28 @@ export function LoginCard(props: {
             form.formRef.current?.requestSubmit();
           }}
         />
+        <PasskeyOffer
+          description={t("Fingerprint, face, or PIN. You can also approve it from your phone.")}
+          disabled={false}
+          errorMessage={rootMessage}
+          label={t("Use this device")}
+          onPress={() => {
+            form.clearErrors("root");
+            startPasskeyTransition(async () => {
+              try {
+                await props.onPasskeySignIn({ autoFill: false, signal: null });
+              } catch (error) {
+                form.setError("root", {
+                  message:
+                    error instanceof Error
+                      ? error.message
+                      : t("Couldn't use this device. Try again, or use your password."),
+                });
+              }
+            });
+          }}
+          pending={passkeyPending}
+        />
         <Form form={form} handleSubmit={(values) => props.onSignIn(values)}>
           <div className="space-y-5">
             <FormField
@@ -155,7 +199,12 @@ export function LoginCard(props: {
                 <FormItem>
                   <FormLabel>{t("Email")}</FormLabel>
                   <FormControl>
-                    <Input placeholder={t("you@example.com")} type="email" {...field} />
+                    <Input
+                      autoComplete="username webauthn"
+                      placeholder={t("you@example.com")}
+                      type="email"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -177,7 +226,7 @@ export function LoginCard(props: {
                     </Link>
                   </div>
                   <FormControl>
-                    <Input type="password" {...field} />
+                    <Input autoComplete="current-password webauthn" type="password" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

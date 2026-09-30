@@ -25,6 +25,7 @@ import { LanguageSettings } from "@/components/language-settings";
 import { signOutThenGo } from "@/lib/auth-client";
 import { useI18n } from "@/lib/i18n";
 import { useDashboardSettingsOverlay } from "@/lib/overlay-nav";
+import { useSignInMethodsHandle } from "@/lib/sign-in-methods-handle";
 import type { OverlayControl } from "@/lib/overlay-nav";
 import { ADMIN_DEFAULT_SEARCH } from "@/routes/_auth/dashboard_.admin";
 
@@ -34,6 +35,7 @@ export const Route = createFileRoute("/_auth/dashboard/settings")({
 
 export function DashboardSettingsRoute() {
   const context = Route.useRouteContext();
+  const signInMethods = useSignInMethodsHandle();
 
   return (
     <DashboardSettingsSheet
@@ -41,6 +43,7 @@ export function DashboardSettingsRoute() {
       convexQueryClient={context.convexQueryClient}
       profile={context.profile}
       queryClient={context.queryClient}
+      signInMethods={signInMethods}
     />
   );
 }
@@ -69,6 +72,7 @@ export function DashboardSettingsSheet(props: {
   convexQueryClient: ConvexQueryClient;
   profile: PreloadedConvexQuery<typeof api.profile.get>;
   queryClient: QueryClient;
+  signInMethods: PreloadedConvexQuery<typeof api.signInMethods.get>;
 }) {
   const profileQuery = usePreloadedConvexQuery(api.profile.get, props.profile);
   const settings = useDashboardSettingsOverlay();
@@ -77,7 +81,9 @@ export function DashboardSettingsSheet(props: {
 
   return (
     <DashboardSettingsSheetView
-      accountSettings={<AccountSettings profile={props.profile} />}
+      accountSettings={
+        <AccountSettings profile={props.profile} signInMethods={props.signInMethods} />
+      }
       isAdmin={profileQuery.data?.isAdmin === true}
       languageSettings={<LanguageSettings profile={props.profile} />}
       onSignOut={async () => {

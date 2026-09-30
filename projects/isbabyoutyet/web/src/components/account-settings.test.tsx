@@ -13,6 +13,7 @@ import {
   AccountSettings,
   AccountSettingsView,
   accountAuthAdapter,
+  type SignInMethods,
   accountSessionSnapshot,
   completeAccountAuthAction,
   type AccountSettingsHandlers,
@@ -33,9 +34,13 @@ function renderAccount(opts: {
   return renderWithTestRouter(
     <LocaleProvider locale="en-GB">
       <AccountSettingsView
+        onAddPasskey={vi.fn(async () => {})}
+        onAddPassword={null}
         onChangeEmail={opts.onChangeEmail}
         onChangePassword={opts.onChangePassword}
+        onRemovePasskey={vi.fn(async () => {})}
         onUpdateName={opts.onUpdateName}
+        signInMethods={{ hasPassword: true, passkeys: [] }}
         user={opts.user}
       />
     </LocaleProvider>,
@@ -272,6 +277,93 @@ test("account rows hide editors when handlers are null", async () => {
   expect(view.getByText("Ada")).toBeTruthy();
 });
 
+function renderDevices(opts: {
+  onAddPasskey: (() => Promise<void>) | null;
+  onAddPassword: (() => Promise<void>) | null;
+  onRemovePasskey: ((passkeyId: string) => Promise<void>) | null;
+  signInMethods: SignInMethods;
+}) {
+  return renderWithTestRouter(
+    <LocaleProvider locale="en-GB">
+      <AccountSettingsView
+        onAddPasskey={opts.onAddPasskey}
+        onAddPassword={opts.onAddPassword}
+        onChangeEmail={null}
+        onChangePassword={null}
+        onRemovePasskey={opts.onRemovePasskey}
+        onUpdateName={null}
+        signInMethods={opts.signInMethods}
+        user={sessionUser}
+      />
+    </LocaleProvider>,
+  );
+}
+
+test("add this device is offered when the account has none yet", async () => {
+  const onAddPasskey = vi.fn(async () => {});
+  await using view = await renderDevices({
+    onAddPasskey,
+    onAddPassword: null,
+    onRemovePasskey: null,
+    signInMethods: { hasPassword: true, passkeys: [] },
+  });
+
+  expect(view.getByText("Device sign-in")).toBeTruthy();
+  expect(view.getByText("No device yet. Add one to sign in without a password.")).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Add this device" }));
+  await vi.waitFor(() => {
+    expect(onAddPasskey).toHaveBeenCalledTimes(1);
+  });
+});
+
+test("the only device stays until another way to sign in exists", async () => {
+  const onAddPassword = vi.fn(async () => {});
+  const onRemovePasskey = vi.fn(async () => {});
+  const createdAt = Date.UTC(2026, 8, 30);
+  await using view = await renderDevices({
+    onAddPasskey: null,
+    onAddPassword,
+    onRemovePasskey,
+    signInMethods: {
+      hasPassword: false,
+      passkeys: [{ aaguid: null, createdAt, id: "pk1", name: "This device" }],
+    },
+  });
+
+  const date = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(createdAt);
+  expect(view.getByText(`Added ${date}`)).toBeTruthy();
+  expect(view.getByText("Add a password or another device before removing this one.")).toBeTruthy();
+  const remove = view.getByRole("button", { name: "Remove This device" });
+  expect(remove.hasAttribute("disabled") || remove.getAttribute("aria-disabled") === "true").toBe(
+    true,
+  );
+  fireEvent.click(remove);
+  expect(onRemovePasskey).not.toHaveBeenCalled();
+
+  fireEvent.click(view.getByRole("button", { name: "Add a password" }));
+  await vi.waitFor(() => {
+    expect(onAddPassword).toHaveBeenCalledTimes(1);
+  });
+});
+
+test("a password account can unlink a device", async () => {
+  const onRemovePasskey = vi.fn(async () => {});
+  await using view = await renderDevices({
+    onAddPasskey: vi.fn(async () => {}),
+    onAddPassword: null,
+    onRemovePasskey,
+    signInMethods: {
+      hasPassword: true,
+      passkeys: [{ aaguid: null, createdAt: null, id: "pk1", name: "Kitchen laptop" }],
+    },
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Remove Kitchen laptop" }));
+  await vi.waitFor(() => {
+    expect(onRemovePasskey).toHaveBeenCalledWith("pk1");
+  });
+});
+
 test("account section shows a loading spinner while the session is missing", async () => {
   await using view = await renderAccount({
     onChangeEmail: null,
@@ -353,9 +445,10 @@ async function renderSignedInAccountSettings(
   });
   harness.withIdentity({ subject: userId });
   const profile = await harness.convexPreloader.ensureQueryData(api.profile.get, {});
+  const signInMethods = await harness.convexPreloader.ensureQueryData(api.signInMethods.get, {});
   return renderWithConvexTest({
     harness,
-    ui: <AccountSettings profile={profile} />,
+    ui: <AccountSettings profile={profile} signInMethods={signInMethods} />,
     wrap: null,
   });
 }
@@ -396,6 +489,9 @@ test("AccountSettings password path toasts success", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
   await using view = await renderSignedInAccountSettings(harness);
 
+  await vi.waitFor(() => {
+    expect(view.getByRole("button", { name: "Edit password" })).toBeTruthy();
+  });
   fireEvent.click(view.getByRole("button", { name: "Edit password" }));
   fireEvent.change(htmlInput(view.getByLabelText("Current password")), {
     target: { value: "old-password" },
@@ -494,9 +590,10 @@ test("AccountSettings change-email path surfaces the adapter message", async () 
 test("AccountSettings shows loading when the profile query is logged out", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
   const profile = await harness.convexPreloader.ensureQueryData(api.profile.get, {});
+  const signInMethods = await harness.convexPreloader.ensureQueryData(api.signInMethods.get, {});
   await using view = await renderWithConvexTest({
     harness,
-    ui: <AccountSettings profile={profile} />,
+    ui: <AccountSettings profile={profile} signInMethods={signInMethods} />,
     wrap: null,
   });
 

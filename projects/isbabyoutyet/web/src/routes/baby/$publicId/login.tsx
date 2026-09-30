@@ -11,7 +11,7 @@ import { overlayLoginSuccessTarget } from "@/lib/baby-login-redirect";
 import { hasDemoLogin } from "@/lib/has-demo-login";
 import { useI18n } from "@/lib/i18n";
 import { openOverlayLink, useBabyLoginOverlay } from "@/lib/overlay-nav";
-import { signInThenGo } from "@/lib/auth-client";
+import { signInThenGo, signInWithPasskeyThenGo } from "@/lib/auth-client";
 import { LoginCard } from "@/routes/auth/login";
 
 export const Route = createFileRoute("/baby/$publicId/login")({
@@ -39,6 +39,18 @@ export function BabyLoginOverlay() {
         </DialogHeader>
         <LoginCard
           demoLoginEnabled={hasDemoLogin}
+          onPasskeySignIn={(opts) =>
+            signInWithPasskeyThenGo({
+              autoFill: opts.autoFill,
+              convexClient: context.convexClient,
+              convexQueryClient: context.convexQueryClient,
+              navigate: () =>
+                successTarget === null ? login.close() : router.navigate(successTarget),
+              queryClient: context.queryClient,
+              signal: opts.signal,
+              t,
+            })
+          }
           onSignIn={(values) =>
             signInThenGo(values, {
               convexClient: context.convexClient,
