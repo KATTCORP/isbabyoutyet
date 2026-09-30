@@ -6,6 +6,7 @@
     "predev": "run-s predev:*",
     "predev:kill": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true",
     "predev:setup-if-needed": "[ -f .env.local ] || pnpm setup-dev",
+    "predev:i18n": "pnpm i18n:compile",
     "dev": "vite dev --port 3000",
     "build": "vite build",
     "preview": "vite preview",
