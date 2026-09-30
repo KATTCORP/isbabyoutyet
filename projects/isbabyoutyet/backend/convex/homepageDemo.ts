@@ -362,9 +362,9 @@ async function insertFeedDocs(
 }
 
 /**
- * Upload URL for homepage-demo photos. Prefer `storePhoto` from the seed
- * script: `convex run` auto-starts the local backend, but the upload URL
- * points at 127.0.0.1:3210 which is gone once that process exits.
+ * Upload URL for homepage-demo photos. When `convex run` auto-starts the local
+ * backend, the URL points at 127.0.0.1:3210, which is gone once that process
+ * exits; the seed script then falls back to `storePhoto`.
  */
 export const generateUploadUrl = internalMutation({
   args: {},
