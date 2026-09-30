@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "lsof -ti:3002 | xargs kill -9 2>/dev/null || true",
+    "predev": "lsof -ti:3002 | xargs kill -9 2>/dev/null || true && pnpm i18n:compile",
     "dev": "vite dev --port 3002",
     "build": "vite build",
     "preview": "vite preview --port 3002",

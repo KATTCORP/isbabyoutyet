@@ -117,10 +117,11 @@ function isLoopbackUploadUrl(uploadUrl: string) {
 }
 
 /**
- * Cloud (Vercel/prod): POST to the upload URL. Local anonymous backends die
- * when `convex run` exits, so the URL's 127.0.0.1:3210 is gone — store bytes
- * through `storePhoto` instead. That path cannot be used on Linux/Vercel:
- * resized JPEGs exceed Linux MAX_ARG_STRLEN (~128KiB) as a `convex run` argv.
+ * POST to the upload URL. A local anonymous backend started by `convex run`
+ * dies when that command exits, so its 127.0.0.1:3210 URL refuses the POST;
+ * only then store bytes through `storePhoto`. That fallback cannot be used on
+ * Linux/Vercel: resized JPEGs exceed Linux MAX_ARG_STRLEN (~128KiB) as a
+ * `convex run` argv. Under `pnpm dev`, `convex dev` keeps the backend up.
  */
 async function uploadBytes(opts: { bytes: Buffer; extraConvexArgs: Array<string> }) {
   const uploadUrl = parseJsonString(
@@ -134,24 +135,35 @@ async function uploadBytes(opts: { bytes: Buffer; extraConvexArgs: Array<string>
     throw new Error(`Expected upload URL string, got invalid convex run output`);
   }
 
-  if (isLoopbackUploadUrl(uploadUrl)) {
-    const storageId = parseJsonString(
-      convexRun({
-        args: {
-          bytes: { $bytes: opts.bytes.toString("base64") },
-          contentType: "image/jpeg",
-        },
-        extraConvexArgs: opts.extraConvexArgs,
-        functionName: "homepageDemo:storePhoto",
-      }),
-    );
-    if (storageId === null) {
-      throw new Error(`Expected storage id string, got invalid convex run output`);
-    }
-    return storageId;
+  if (!isLoopbackUploadUrl(uploadUrl)) {
+    return await postBytes({ bytes: opts.bytes, uploadUrl });
   }
+  try {
+    return await postBytes({ bytes: opts.bytes, uploadUrl });
+  } catch (error) {
+    // `fetch` rejects with a TypeError when nothing is listening.
+    if (!(error instanceof TypeError)) {
+      throw error;
+    }
+  }
+  const storageId = parseJsonString(
+    convexRun({
+      args: {
+        bytes: { $bytes: opts.bytes.toString("base64") },
+        contentType: "image/jpeg",
+      },
+      extraConvexArgs: opts.extraConvexArgs,
+      functionName: "homepageDemo:storePhoto",
+    }),
+  );
+  if (storageId === null) {
+    throw new Error(`Expected storage id string, got invalid convex run output`);
+  }
+  return storageId;
+}
 
-  const response = await fetch(uploadUrl, {
+async function postBytes(opts: { bytes: Buffer; uploadUrl: string }) {
+  const response = await fetch(opts.uploadUrl, {
     body: new Uint8Array(opts.bytes),
     headers: { "Content-Type": "image/jpeg" },
     method: "POST",
