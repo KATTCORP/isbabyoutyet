@@ -71,7 +71,7 @@ test("blur placeholders are tiny JPEG data URLs of the same center-cover crop", 
 
 test("generateThumbnail stores a blur data URL on the baby and update", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,
@@ -120,7 +120,7 @@ test("generateThumbnail stores a blur data URL on the baby and update", async ()
 
 test("generateBlurDataUrl writes the placeholder without requiring a thumbnail", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,
@@ -151,7 +151,7 @@ test("generateBlurDataUrl writes the placeholder without requiring a thumbnail",
 
 test("updateBlurDataUrl ignores stale generation after the photo changes", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,
@@ -191,7 +191,7 @@ test("updateBlurDataUrl ignores stale generation after the photo changes", async
 
 test("send prefers the push image, then the page thumbnail, then the original", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,
@@ -280,7 +280,7 @@ test("send prefers the push image, then the page thumbnail, then the original", 
 
 test("push image backfill only schedules photo updates that still need a derivative", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,
@@ -365,7 +365,7 @@ test("push image backfill only schedules photo updates that still need a derivat
 
 test("blur data URL backfill only schedules photo updates that still need a placeholder", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,
@@ -447,7 +447,7 @@ test("blur data URL backfill only schedules photo updates that still need a plac
 
 test("baby photo blur backfill only schedules babies that still need a placeholder", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,
@@ -496,7 +496,7 @@ test("baby photo blur backfill only schedules babies that still need a placehold
 
 test("updateThumbnail ignores stale generation after the photo changes", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   const asAlice = t.withIdentity({ subject: "alice" });
   const created = await asAlice.mutation(
     api.baby.create,

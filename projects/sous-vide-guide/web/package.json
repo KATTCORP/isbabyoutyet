@@ -10,6 +10,8 @@
     "i18n:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy cookie custom-acceptLanguage baseLocale --output-structure message-modules --emit-ts-declarations --silent",
     "pretypecheck": "pnpm i18n:compile",
     "test": "vitest run",
+    "pretest:coverage": "pnpm i18n:compile",
+    "test:coverage": "vitest run --coverage",
     "lint": "oxlint",
     "lint-fix": "oxlint --fix",
     "format": "oxfmt && oxlint --fix",

@@ -125,20 +125,22 @@ jobs:
       - name: Test (changed vs base)
         if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
         run: |
-          pnpm pretest:coverage
+          pnpm pretest
           pnpm exec vitest run --changed "$CI_BASE_SHA"
 
       - name: Knip
         run: pnpm knip
 
-  # Parallel with `checks`. Full-suite coverage + local ratchet vs PR base SHA
+  # Parallel with `checks`. Per-workspace coverage (Turbo-cached, so untouched
+  # workspaces are restored, not rerun) + per-workspace ratchet vs PR base SHA
   # (main push or stacked inner-PR tip). Codecov.io upload is history-only.
   # Skip in the merge queue: coverage already ratcheted on the PR, and skipped
   # jobs still report success for required checks.
   codecov:
     if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
-    # Stacked PRs often MISS the base cache and measure base + head (~5 min).
+    # Worst case (no base baseline, nothing Turbo-cached) measures every
+    # workspace at base + head.
     timeout-minutes: 10
     permissions:
       contents: read
@@ -268,6 +270,9 @@ jobs:
 
       # Remasure runs the PR base tip — not this branch. Failures here are often
       # inherited from main (merge queue skips codecov). Always return to HEAD.
+      # Per-workspace Turbo cache: only workspaces the base tip changed (vs the
+      # last measured commit) actually run. collectCoverage.js is built from
+      # HEAD first; dist/ is gitignored, so it survives the base checkout.
       - name: Measure PR base coverage baseline
         id: measure-base
         if: >-
@@ -283,13 +288,13 @@ jobs:
             git checkout --force "$CI_HEAD_SHA"
             pnpm install --frozen-lockfile
           }
+          pnpm precoverage:collect
           trap restore_head EXIT
           git checkout --force "$CI_BASE_SHA"
           pnpm install --frozen-lockfile
+          rm -rf projects/*/*/coverage packages/*/coverage
           pnpm exec turbo run test:coverage
-          test -f coverage/coverage-summary.json
-          mkdir -p .coverage-baseline
-          cp coverage/coverage-summary.json .coverage-baseline/coverage-summary.json
+          node packages/scripts/dist/collectCoverage.js .coverage-baseline
           printf '%s\n' "$CI_BASE_SHA" > .coverage-baseline/source-sha.txt
           printf 'exact-remasure\n' > .coverage-baseline/source-kind.txt
           trap - EXIT
@@ -336,7 +341,7 @@ jobs:
           github.event_name == 'pull_request' &&
           steps.baseline.outputs.cache-hit != 'true' &&
           steps.measure-base.outcome == 'failure' &&
-          hashFiles('.coverage-baseline/coverage-summary.json') == ''
+          hashFiles('.coverage-baseline/**/coverage-summary.json') == ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -387,6 +392,9 @@ jobs:
           BASE_REF="${{ steps.baseline-ref.outputs.ref }}"
           ALIAS="${{ steps.baseline-ref.outputs.alias }}"
           SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          has_baseline() {
+            find .coverage-baseline -name coverage-summary.json 2>/dev/null | grep -q .
+          }
           {
             echo "## Coverage baseline"
             echo ""
@@ -401,7 +409,7 @@ jobs:
           elif [ "${{ steps.measure-base.outcome }}" = "success" ]; then
             KIND="exact-remasure"
             SOURCE_SHA="$CI_BASE_SHA"
-          elif [ -f .coverage-baseline/coverage-summary.json ]; then
+          elif has_baseline; then
             if [ "${{ steps.baseline-ancestor.outputs.hit }}" = "true" ]; then
               KIND="ancestor-fallback"
               SOURCE_SHA="${{ steps.baseline-ancestor.outputs.sha }}"
@@ -430,7 +438,7 @@ jobs:
             exit 1
           fi
 
-          if [ ! -f .coverage-baseline/coverage-summary.json ]; then
+          if ! has_baseline; then
             echo "::error::Baseline present according to restore/remasure, but coverage-summary.json is missing" >&2
             exit 1
           fi
@@ -463,23 +471,26 @@ jobs:
             } | tee -a "$SUMMARY"
           fi
 
-      - name: Full coverage (Turbo-cached)
+      # One Turbo task per workspace. Workspaces whose source and internal
+      # dependencies are unchanged restore from the (remote) Turbo cache.
+      - name: Coverage per workspace (Turbo-cached)
         run: |
+          set -euo pipefail
+          rm -rf projects/*/*/coverage packages/*/coverage
           pnpm exec turbo run test:coverage
-          test -f coverage/coverage-summary.json
+          pnpm coverage:collect
 
       - name: Compare coverage with PR base
         if: github.event_name == 'pull_request'
         run: |
-          test -f .coverage-baseline/coverage-summary.json
           pnpm coverage:compare
 
       # Cache this tip so stacked outer PRs can restore it as their base.
       - name: Prepare coverage baseline for cache
         run: |
           set -euo pipefail
-          mkdir -p .coverage-baseline
-          cp coverage/coverage-summary.json .coverage-baseline/coverage-summary.json
+          rm -rf .coverage-baseline
+          cp -R coverage/workspaces .coverage-baseline
           printf '%s\n' "$CI_HEAD_SHA" > .coverage-baseline/source-sha.txt
           printf 'head\n' > .coverage-baseline/source-kind.txt
 
@@ -514,11 +525,11 @@ jobs:
 
       # History only — codecov.yml disables GitHub statuses/comments/checks.
       - name: Upload coverage to Codecov
-        if: hashFiles('coverage/lcov.info') != ''
+        if: hashFiles('coverage/workspaces/**/lcov.info') != ''
         continue-on-error: true
         uses: codecov/codecov-action@v7
         with:
-          files: coverage/lcov.info
+          directory: coverage/workspaces
           flags: unit
           name: vitest
           override_commit: ${{ env.CI_HEAD_SHA }}

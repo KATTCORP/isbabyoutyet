@@ -19,7 +19,7 @@ type LegacyUserProfile = {
 
 async function setup() {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
   return t;
 }
 

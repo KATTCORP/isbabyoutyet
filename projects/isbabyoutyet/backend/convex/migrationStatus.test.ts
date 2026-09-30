@@ -6,7 +6,7 @@ import { modules, registerComponents, registerMigrationsComponent } from "./test
 
 test("deployment status waits for every required table migration", async () => {
   const t = convexTest(schema, modules);
-  await registerMigrationsComponent(t);
+  registerMigrationsComponent(t);
 
   expect(await t.query(internal.migrations.deploymentStatus, {})).toEqual({
     failed: [],
@@ -20,8 +20,8 @@ test("deployment status waits for every required table migration", async () => {
 
 test("deployment migrations have separate historical and newly-added runners", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
-  await registerMigrationsComponent(t);
+  registerComponents(t);
+  registerMigrationsComponent(t);
 
   await expect(
     t.mutation(internal.migrations.runAll, {

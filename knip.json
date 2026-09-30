@@ -11,7 +11,7 @@
   "tags": ["-@internal"],
   "workspaces": {
     ".": {
-      "entry": ["scripts/clean.mjs!"]
+      "entry": ["scripts/clean.mjs!", "vitest.coverage.ts!"]
     },
     "projects/isbabyoutyet/web": {
       "tanstack-router": {
@@ -73,7 +73,7 @@
       ]
     },
     "packages/scripts": {
-      "entry": ["src/compareCoverage.ts!"]
+      "entry": ["src/collectCoverage.ts!", "src/compareCoverage.ts!"]
     },
     "packages/runtime": {},
     "packages/form-guard": {},

@@ -5,7 +5,7 @@ export default defineConfig({
   deps: {
     alwaysBundle: [/^@workspace\/runtime(?:\/|$)/],
   },
-  entry: ["src/compareCoverage.ts"],
+  entry: ["src/collectCoverage.ts", "src/compareCoverage.ts"],
   format: "esm",
   outDir: "dist",
   outExtensions: () => ({ js: ".js" }),

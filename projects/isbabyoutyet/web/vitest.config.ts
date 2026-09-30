@@ -2,6 +2,7 @@ import { defineConfig, defineProject } from "vitest/config";
 import viteReact from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
 import type { BrowserCommand } from "vitest/node";
+import { workspaceCoverage } from "../../../vitest.coverage.ts";
 
 const VIEWPORT = { height: 924, width: 393 };
 const APP_BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
@@ -121,6 +122,7 @@ export const webBrowserProject = defineProject({
 
 export default defineConfig({
   test: {
+    coverage: workspaceCoverage(["src/**/*.{ts,tsx}"]),
     projects: [webUnitProject, webBrowserProject],
   },
 });

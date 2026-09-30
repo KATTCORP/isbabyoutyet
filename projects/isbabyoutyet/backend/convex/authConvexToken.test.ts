@@ -32,7 +32,7 @@ test("parseConvexTokenFromAuthResponse only accepts a string token", () => {
 
 test("email sign-up and sign-in responses carry the Convex JWT in the body", async () => {
   const t = convexTest(schema, modules);
-  await registerComponents(t);
+  registerComponents(t);
 
   const signUpToken = await t.run(async (ctx) => {
     const auth = createAuth(ctx);

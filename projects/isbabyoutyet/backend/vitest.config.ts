@@ -1,7 +1,9 @@
-import { defineProject } from "vitest/config";
+import { defineConfig } from "vitest/config";
+import { workspaceCoverage } from "../../../vitest.coverage.ts";
 
-export default defineProject({
+export default defineConfig({
   test: {
+    coverage: workspaceCoverage(["convex/**/*.ts", "src/**/*.ts"]),
     name: "convex",
     // Approximate the Convex runtime better than node
     env: {

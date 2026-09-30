@@ -1,4 +1,5 @@
-import { appendFile, readFile } from "node:fs/promises";
+import { appendFile, glob, readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type { JsonObject, JsonValue } from "@workspace/runtime/json";
 import { isJsonObjectValue, parseJsonNumber } from "@workspace/runtime/json";
 
@@ -6,19 +7,27 @@ const metrics = ["statements", "branches", "functions", "lines"] as const;
 
 type CoverageMetric = (typeof metrics)[number];
 type CoverageSummary = { total: JsonObject };
-type CoverageResult = {
-  baseline: number;
-  change: number;
+type MetricResult = {
+  baseline: number | null;
+  change: number | null;
   current: number;
   metric: CoverageMetric;
 };
+type WorkspaceResult = {
+  metrics: Array<MetricResult>;
+  workspace: string;
+};
 
-const baselinePath = process.argv[2];
-const currentPath = process.argv[3];
+const baselineDir = process.argv[2];
+const currentDir = process.argv[3];
 
-if (baselinePath === undefined || currentPath === undefined) {
-  throw new Error("Usage: compare-coverage <baseline-summary> <current-summary>");
+if (baselineDir === undefined || currentDir === undefined) {
+  throw new Error(
+    "Usage: compare-coverage <baseline-dir> <current-dir> (each holds <workspace>/coverage-summary.json)",
+  );
 }
+
+const MAX_REGRESSION_PCT = 0.3;
 
 function formatPct(value: number) {
   return `${value.toFixed(2)}%`;
@@ -44,6 +53,15 @@ async function readSummary(path: string) {
   return { total: summary["total"] };
 }
 
+/** Workspace path (e.g. `projects/isbabyoutyet/web`) → summary. */
+async function readSummaries(dir: string) {
+  const summaries = new Map<string, CoverageSummary>();
+  for await (const path of glob("**/coverage-summary.json", { cwd: dir })) {
+    summaries.set(dirname(path), await readSummary(join(dir, path)));
+  }
+  return summaries;
+}
+
 function getPercentage(
   summary: CoverageSummary,
   options: { metric: CoverageMetric; path: string },
@@ -61,90 +79,101 @@ function getPercentage(
   return percentage;
 }
 
-function buildStepSummary(results: Array<CoverageResult>) {
-  const rows = results
-    .map(
-      (result) =>
-        `| ${result.metric} | ${formatPct(result.baseline)} | ${formatPct(result.current)} | ${formatChange(result.change)} |`,
-    )
-    .join("\n");
+function isRegression(result: MetricResult) {
+  return result.change !== null && result.change < -MAX_REGRESSION_PCT;
+}
+
+function formatCell(result: MetricResult) {
+  const change = result.change === null ? "new" : formatChange(result.change);
+  const marker = isRegression(result) ? " ❌" : "";
+  return `${formatPct(result.current)} (${change})${marker}`;
+}
+
+function buildStepSummary(options: { missing: Array<string>; results: Array<WorkspaceResult> }) {
+  const rows = options.results.map(
+    (result) =>
+      `| \`${result.workspace}\` | ${result.metrics.map((metric) => formatCell(metric)).join(" | ")} |`,
+  );
+  const missing = options.missing.map((workspace) => `- \`${workspace}\``);
 
   return [
-    "## Coverage vs PR base",
+    "## Coverage vs PR base (per workspace)",
     "",
-    "| Metric | Baseline | Current | Change |",
-    "| --- | ---: | ---: | ---: |",
-    rows,
+    `| Workspace | ${metrics.join(" | ")} |`,
+    `| --- |${metrics.map(() => " ---: |").join("")}`,
+    ...rows,
     "",
+    ...(missing.length > 0 ? ["In the baseline but not measured now:", "", ...missing, ""] : []),
   ].join("\n");
 }
 
-function emitAnnotations(results: Array<CoverageResult>, regressions: Array<CoverageResult>) {
-  for (const result of results) {
-    console.log(
-      `::notice title=Coverage ${result.metric}::${formatPct(result.current)} (${formatChange(result.change)}) vs PR base ${formatPct(result.baseline)}`,
-    );
-  }
+const baseline = await readSummaries(baselineDir);
+const current = await readSummaries(currentDir);
 
-  if (regressions.length > 0) {
-    const details = regressions
-      .map(
-        (result) =>
-          `${result.metric} ${formatPct(result.current)} < base ${formatPct(result.baseline)}`,
-      )
-      .join("; ");
-    console.log(`::error title=Coverage regressed::${details}`);
-    return;
-  }
-
-  const lines = results.find((result) => result.metric === "lines");
-  if (lines) {
-    console.log(
-      `::notice title=Coverage::lines ${formatPct(lines.current)} (${formatChange(lines.change)}) vs PR base — meets or exceeds baseline`,
-    );
-  }
+if (current.size === 0) {
+  throw new Error(`No workspace coverage-summary.json under ${currentDir}`);
 }
 
-const baseline = await readSummary(baselinePath);
-const current = await readSummary(currentPath);
-const results = metrics.map((metric) => {
-  const baselinePercentage = getPercentage(baseline, {
-    metric,
-    path: baselinePath,
-  });
-  const currentPercentage = getPercentage(current, {
-    metric,
-    path: currentPath,
-  });
+const results = [...current.keys()].toSorted().map((workspace) => {
+  const currentSummary = current.get(workspace);
+  const baselineSummary = baseline.get(workspace);
+  if (currentSummary === undefined) {
+    throw new Error(`Missing current summary for ${workspace}`);
+  }
 
   return {
-    baseline: baselinePercentage,
-    change: currentPercentage - baselinePercentage,
-    current: currentPercentage,
-    metric,
+    metrics: metrics.map((metric) => {
+      const currentPercentage = getPercentage(currentSummary, {
+        metric,
+        path: join(currentDir, workspace),
+      });
+      const baselinePercentage =
+        baselineSummary === undefined
+          ? null
+          : getPercentage(baselineSummary, { metric, path: join(baselineDir, workspace) });
+
+      return {
+        baseline: baselinePercentage,
+        change: baselinePercentage === null ? null : currentPercentage - baselinePercentage,
+        current: currentPercentage,
+        metric,
+      };
+    }),
+    workspace,
   };
 });
+const missing = [...baseline.keys()].filter((workspace) => !current.has(workspace)).toSorted();
 
-console.table(results);
+console.table(
+  results.flatMap((result) =>
+    result.metrics.map((metric) => ({ workspace: result.workspace, ...metric })),
+  ),
+);
 
 const stepSummaryPath = process.env["GITHUB_STEP_SUMMARY"];
 if (stepSummaryPath !== undefined && stepSummaryPath !== "") {
-  await appendFile(stepSummaryPath, buildStepSummary(results), "utf8");
+  await appendFile(stepSummaryPath, buildStepSummary({ missing, results }), "utf8");
 }
 
-const MAX_REGRESSION_PCT = 0.3;
-const regressions = results.filter((result) => result.change < -MAX_REGRESSION_PCT);
-emitAnnotations(results, regressions);
+if (!results.some((result) => baseline.has(result.workspace))) {
+  console.log(
+    "::warning title=Coverage ratchet skipped::The baseline has no per-workspace summaries (it predates per-workspace coverage). Nothing to compare against.",
+  );
+  process.exit(0);
+}
+
+const regressions = results.flatMap((result) =>
+  result.metrics
+    .filter((metric) => isRegression(metric))
+    .map(
+      (metric) =>
+        `${result.workspace} ${metric.metric}: ${formatPct(metric.current)} is below PR base's ${formatPct(metric.baseline ?? 0)}`,
+    ),
+);
 
 if (regressions.length > 0) {
-  const details = regressions
-    .map(
-      (result) =>
-        `${result.metric}: ${formatPct(result.current)} is below PR base's ${formatPct(result.baseline)}`,
-    )
-    .join("\n- ");
-
-  throw new Error(`Coverage regressed:\n- ${details}`);
+  console.log(`::error title=Coverage regressed::${regressions.join("; ")}`);
+  throw new Error(`Coverage regressed:\n- ${regressions.join("\n- ")}`);
 }
 
-console.log("Coverage meets or exceeds the PR base baseline.");
+console.log("::notice title=Coverage::Every workspace meets or exceeds its PR base baseline.");
