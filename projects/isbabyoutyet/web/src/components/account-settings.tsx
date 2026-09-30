@@ -1,5 +1,14 @@
-import { CheckIcon, EnvelopeSimpleIcon, KeyIcon, UserIcon } from "@phosphor-icons/react";
+import {
+  CheckIcon,
+  EnvelopeSimpleIcon,
+  FingerprintIcon,
+  KeyIcon,
+  UserIcon,
+} from "@phosphor-icons/react";
+import { convexQuery } from "@convex-dev/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMutation } from "convex/react";
+import { useTransition } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
@@ -39,9 +48,23 @@ import {
   useFormGuard,
   useZodForm,
 } from "@/components/Form";
-import { authClient } from "@/lib/auth-client";
+import { authClient, addPasskeyToAccount, removePasskeyFromAccount } from "@/lib/auth-client";
+import { passkeyDisplayName } from "@/lib/passkey-label";
+import { passkeyRemovalBlockReason } from "@isbabyoutyet/backend/src/passkey";
 import type { TranslationFunction } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n";
+
+type SignInMethodPasskey = {
+  aaguid: string | null;
+  createdAt: number | null;
+  id: string;
+  name: string | null;
+};
+
+export type SignInMethods = {
+  hasPassword: boolean;
+  passkeys: Array<SignInMethodPasskey>;
+};
 
 export type AccountUser = {
   email: string;
@@ -176,11 +199,17 @@ function EditorActions() {
 /**
  * Convex-wired account rows for the dashboard settings sheet.
  */
-export function AccountSettings(props: { profile: PreloadedConvexQuery<typeof api.profile.get> }) {
+export function AccountSettings(props: {
+  profile: PreloadedConvexQuery<typeof api.profile.get>;
+  signInMethods: PreloadedConvexQuery<typeof api.signInMethods.get>;
+}) {
   const { t } = useI18n();
   const changeAccountEmail = useMutation(api.accountEmail.change);
+  const queryClient = useQueryClient();
   const profileQuery = usePreloadedConvexQuery(api.profile.get, props.profile);
+  const methodsQuery = usePreloadedConvexQuery(api.signInMethods.get, props.signInMethods);
   const profile = profileQuery.data;
+  const methods = methodsQuery.data;
 
   const sessionUser =
     profile === null || profile === undefined
@@ -190,8 +219,46 @@ export function AccountSettings(props: { profile: PreloadedConvexQuery<typeof ap
           name: profile.name,
         };
 
+  async function refreshMethods() {
+    await queryClient.invalidateQueries({
+      queryKey: convexQuery(api.signInMethods.get, {}).queryKey,
+    });
+  }
+
   return (
     <AccountSettingsView
+      onAddPasskey={
+        sessionUser === null
+          ? null
+          : async () => {
+              try {
+                await addPasskeyToAccount({ t });
+                await refreshMethods();
+                toast.success(t("This device can sign you in now."));
+              } catch (error) {
+                toast.error(
+                  error instanceof Error
+                    ? error.message
+                    : t("Couldn't use this device. Try again, or use your password."),
+                );
+              }
+            }
+      }
+      onAddPassword={
+        sessionUser && methods && !methods.hasPassword
+          ? async () => {
+              const result = await authClient.requestPasswordReset({
+                email: sessionUser.email,
+                redirectTo: `${import.meta.env.VITE_SITE_URL}/auth/reset-password`,
+              });
+              if (result.error) {
+                toast.error(result.error.message || t("Unable to request a password reset"));
+                return;
+              }
+              toast.success(t("Check your email for a link to set a password."));
+            }
+          : null
+      }
       onChangeEmail={
         sessionUser
           ? async (values) => {
@@ -215,7 +282,7 @@ export function AccountSettings(props: { profile: PreloadedConvexQuery<typeof ap
           : null
       }
       onChangePassword={
-        sessionUser
+        sessionUser && methods?.hasPassword
           ? async (values) => {
               const result = await accountAuthAdapter.changePassword({
                 currentPassword: values.currentPassword,
@@ -233,6 +300,23 @@ export function AccountSettings(props: { profile: PreloadedConvexQuery<typeof ap
               );
             }
           : null
+      }
+      onRemovePasskey={
+        sessionUser === null
+          ? null
+          : async (passkeyId) => {
+              try {
+                await removePasskeyFromAccount({ id: passkeyId, t });
+                await refreshMethods();
+                toast.success(t("This device can no longer sign you in."));
+              } catch (error) {
+                toast.error(
+                  error instanceof Error
+                    ? error.message
+                    : t("Add a password or another device before removing this one."),
+                );
+              }
+            }
       }
       onUpdateName={
         sessionUser
@@ -252,6 +336,7 @@ export function AccountSettings(props: { profile: PreloadedConvexQuery<typeof ap
             }
           : null
       }
+      signInMethods={methods}
       user={sessionUser}
     />
   );
@@ -272,9 +357,13 @@ export type AccountSettingsHandlers = {
  * submit without mocking the better-auth client.
  */
 export function AccountSettingsView(props: {
+  onAddPasskey: (() => Promise<void>) | null;
+  onAddPassword: (() => Promise<void>) | null;
   onChangeEmail: AccountSettingsHandlers["onChangeEmail"] | null;
   onChangePassword: AccountSettingsHandlers["onChangePassword"] | null;
+  onRemovePasskey: ((passkeyId: string) => Promise<void>) | null;
   onUpdateName: AccountSettingsHandlers["onUpdateName"] | null;
+  signInMethods: SignInMethods | null;
   user: AccountUser | null;
 }) {
   const { t } = useI18n();
@@ -333,15 +422,28 @@ export function AccountSettingsView(props: {
         <ItemContent>
           <ItemTitle>{t("Password")}</ItemTitle>
           <ItemDescription>
-            {t("Use at least eight characters for your new password.")}
+            {props.signInMethods !== null && !props.signInMethods.hasPassword
+              ? t("We'll email you a link so you can sign in on another device.")
+              : t("Use at least eight characters for your new password.")}
           </ItemDescription>
         </ItemContent>
         <ItemActions>
           {props.onChangePassword === null ? null : (
             <PasswordEditor onChangePassword={props.onChangePassword} />
           )}
+          {props.onAddPassword === null ? null : (
+            <AddPasswordButton onAddPassword={props.onAddPassword} />
+          )}
         </ItemActions>
       </Item>
+
+      <ItemSeparator />
+
+      <DeviceSignIn
+        onAddPasskey={props.onAddPasskey}
+        onRemovePasskey={props.onRemovePasskey}
+        signInMethods={props.signInMethods}
+      />
     </>
   );
 }
@@ -560,5 +662,177 @@ function PasswordForm(props: {
       </div>
       <EditorActions />
     </Form>
+  );
+}
+
+function AddPasswordButton(props: { onAddPassword: () => Promise<void> }) {
+  const { t } = useI18n();
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <Button
+      disabled={pending}
+      onClick={() => {
+        startTransition(async () => {
+          await props.onAddPassword();
+        });
+      }}
+      size="sm"
+      type="button"
+      variant="outline"
+    >
+      {pending ? <Spinner /> : null}
+      {t("Add a password")}
+    </Button>
+  );
+}
+
+function addedOnLabel(opts: { createdAt: number | null; locale: string; t: TranslationFunction }) {
+  if (opts.createdAt === null) {
+    return null;
+  }
+  const date = new Intl.DateTimeFormat(opts.locale, { dateStyle: "medium" }).format(opts.createdAt);
+  return opts.t("Added {{date}}", { date });
+}
+
+function AddDeviceButton(props: { onAddPasskey: () => Promise<void> }) {
+  const { t } = useI18n();
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <Button
+      disabled={pending}
+      onClick={() => {
+        startTransition(async () => {
+          await props.onAddPasskey();
+        });
+      }}
+      size="sm"
+      type="button"
+      variant="outline"
+    >
+      {pending ? <Spinner /> : <FingerprintIcon />}
+      {t("Add this device")}
+    </Button>
+  );
+}
+
+function RemoveDeviceButton(props: {
+  disabled: boolean;
+  label: string;
+  onRemove: () => Promise<void>;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <Button
+      disabled={props.disabled || pending}
+      onClick={() => {
+        startTransition(async () => {
+          await props.onRemove();
+        });
+      }}
+      size="sm"
+      type="button"
+      variant="destructive"
+    >
+      {pending ? <Spinner /> : null}
+      {props.label}
+    </Button>
+  );
+}
+
+function DeviceRow(props: {
+  blocked: boolean;
+  locale: string;
+  onRemove: ((passkeyId: string) => Promise<void>) | null;
+  passkey: SignInMethodPasskey;
+}) {
+  const { t } = useI18n();
+  const label = passkeyDisplayName(props.passkey, t);
+  const added = addedOnLabel({
+    createdAt: props.passkey.createdAt,
+    locale: props.locale,
+    t,
+  });
+  const onRemove = props.onRemove;
+  let removeButton = null;
+  if (onRemove !== null) {
+    removeButton = (
+      <RemoveDeviceButton
+        disabled={props.blocked}
+        label={t("Remove {{name}}", { name: label })}
+        onRemove={() => onRemove(props.passkey.id)}
+      />
+    );
+  }
+
+  return (
+    <li className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-bold">{label}</p>
+        {added === null ? null : (
+          <p className="text-xs font-medium text-muted-foreground">{added}</p>
+        )}
+      </div>
+      {removeButton}
+    </li>
+  );
+}
+
+function DeviceSignIn(props: {
+  onAddPasskey: (() => Promise<void>) | null;
+  onRemovePasskey: ((passkeyId: string) => Promise<void>) | null;
+  signInMethods: SignInMethods | null;
+}) {
+  const { locale, t } = useI18n();
+  const methods = props.signInMethods;
+  const blocked =
+    methods !== null &&
+    methods.passkeys.length > 0 &&
+    passkeyRemovalBlockReason({
+      hasPassword: methods.hasPassword,
+      remainingAfterRemoval: methods.passkeys.length - 1,
+    }) !== null;
+
+  return (
+    <Item>
+      <ItemMedia variant="icon">
+        <FingerprintIcon />
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle>{t("Device sign-in")}</ItemTitle>
+        <ItemDescription>
+          {t("Sign in with your fingerprint, face, or PIN on the devices you add.")}
+        </ItemDescription>
+        {methods === null ? (
+          <Spinner className="mt-2 size-4" />
+        ) : methods.passkeys.length === 0 ? (
+          <p className="mt-2 text-sm font-medium text-muted-foreground">
+            {t("No device yet. Add one to sign in without a password.")}
+          </p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-2">
+            {methods.passkeys.map((passkey) => (
+              <DeviceRow
+                blocked={blocked}
+                key={passkey.id}
+                locale={locale}
+                onRemove={props.onRemovePasskey}
+                passkey={passkey}
+              />
+            ))}
+          </ul>
+        )}
+        {blocked ? (
+          <p className="mt-2 text-sm font-medium text-muted-foreground">
+            {t("Add a password or another device before removing this one.")}
+          </p>
+        ) : null}
+      </ItemContent>
+      <ItemActions>
+        {props.onAddPasskey === null ? null : <AddDeviceButton onAddPasskey={props.onAddPasskey} />}
+      </ItemActions>
+    </Item>
   );
 }

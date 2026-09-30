@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import type { FunctionArgs } from "convex/server";
 import type { convexTest } from "convex-test";
-import betterAuthSchema from "../node_modules/@convex-dev/better-auth/dist/component/schema.js";
+import betterAuthSchema from "./betterAuth/schema";
 import migrationsSchema from "../node_modules/@convex-dev/migrations/dist/component/schema.js";
 import babyAuditLogSchema from "../node_modules/convex-table-history/src/component/schema";
 import type { api } from "./_generated/api";
@@ -59,12 +59,7 @@ export const babyAuditLogModules = preloaded(
  */
 export const betterAuthModules = preloaded(
   import.meta.glob(
-    [
-      "../node_modules/@convex-dev/better-auth/dist/component/**/*.{js,ts}",
-      "!../node_modules/@convex-dev/better-auth/dist/component/**/*.test.ts",
-      "!../node_modules/@convex-dev/better-auth/dist/component/**/*.d.ts",
-      "!../node_modules/@convex-dev/better-auth/dist/component/testProfiles/**",
-    ],
+    ["./betterAuth/**/*.{js,ts}", "!./betterAuth/**/*.test.ts", "!./betterAuth/**/*.d.ts"],
     { eager: true },
   ),
 );

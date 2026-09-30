@@ -12,6 +12,7 @@ import { OnboardingHost } from "@/components/onboarding/onboarding-host";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { useI18n } from "@/lib/i18n";
 import { useDashboardSettingsOverlayLinks } from "@/lib/overlay-nav";
+import { SignInMethodsHandleContext } from "@/lib/sign-in-methods-handle";
 
 export const Route = createFileRoute("/_auth/dashboard")({
   component: DashboardPageLayout,
@@ -20,16 +21,18 @@ export const Route = createFileRoute("/_auth/dashboard")({
     return await allKeyed({
       babies: preloader.ensureQueryData(api.baby.listByUser, {}),
       onboarding: preloader.ensureQueryData(api.onboarding.getMine, {}),
+      signInMethods: preloader.ensureQueryData(api.signInMethods.get, {}),
     });
   },
 });
 
 export function DashboardPageLayout() {
+  const loaderData = Route.useLoaderData();
   return (
-    <>
+    <SignInMethodsHandleContext.Provider value={loaderData.signInMethods}>
       <DashboardPage />
       <Outlet />
-    </>
+    </SignInMethodsHandleContext.Provider>
   );
 }
 

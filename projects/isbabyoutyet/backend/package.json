@@ -37,6 +37,7 @@
     "typecheck": "tsc --noEmit -p convex && tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@better-auth/passkey": "catalog:",
     "@convex-dev/better-auth": "catalog:",
     "@convex-dev/migrations": "catalog:",
     "@isbabyoutyet/email": "workspace:*",

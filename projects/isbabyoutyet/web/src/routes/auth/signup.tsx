@@ -1,7 +1,9 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import type { LinkProps } from "@tanstack/react-router";
+import { useTransition } from "react";
 import { z } from "zod";
-import { signUpThenGo } from "@/lib/auth-client";
+import { signUpThenGo, signUpWithPasskeyThenGo } from "@/lib/auth-client";
+import { PasskeyOffer } from "@/components/passkey-offer";
 import { Input } from "@workspace/ui/components/input";
 import {
   Card,
@@ -72,6 +74,15 @@ export function SignupPage() {
         </Link>
         <Card className="rounded-[2rem] border-2 pop-shadow-strong">
           <SignupCard
+            onPasskeySignUp={(values) =>
+              signUpWithPasskeyThenGo(values, {
+                convexClient: context.convexClient,
+                convexQueryClient: context.convexQueryClient,
+                navigate: () => router.navigate({ to: "/dashboard" }),
+                queryClient: context.queryClient,
+                t,
+              })
+            }
             onSignUp={(values) =>
               signUpThenGo(values, {
                 convexClient: context.convexClient,
@@ -96,10 +107,12 @@ export function SignupPage() {
  * @internal Exported for tests; production uses `SignupPage`.
  */
 export function SignupCard(props: {
+  onPasskeySignUp: (values: { email: string; name: string }) => Promise<void>;
   onSignUp: (values: NewAccount) => Promise<void>;
   signInLink: LinkProps;
 }) {
   const { t } = useI18n();
+  const [passkeyPending, startPasskeyTransition] = useTransition();
 
   const form = useZodForm({
     defaultValues: {
@@ -109,6 +122,8 @@ export function SignupCard(props: {
     },
     schema: signupSchema(t),
   });
+
+  const rootMessage = form.formState.errors.root?.message ?? null;
 
   return (
     <>
@@ -131,7 +146,7 @@ export function SignupCard(props: {
                 <FormItem>
                   <FormLabel>{t("Name")}</FormLabel>
                   <FormControl>
-                    <Input placeholder={t("Your name")} {...field} />
+                    <Input autoComplete="name" placeholder={t("Your name")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -145,11 +160,44 @@ export function SignupCard(props: {
                 <FormItem>
                   <FormLabel>{t("Email")}</FormLabel>
                   <FormControl>
-                    <Input placeholder={t("you@example.com")} type="email" {...field} />
+                    <Input
+                      autoComplete="email"
+                      placeholder={t("you@example.com")}
+                      type="email"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
+            />
+
+            <PasskeyOffer
+              description={t("Fingerprint, face, or PIN. You can also approve it from your phone.")}
+              disabled={passkeyPending}
+              errorMessage={rootMessage}
+              label={t("Create account with this device")}
+              onPress={() => {
+                form.clearErrors("root");
+                startPasskeyTransition(async () => {
+                  const valid = await form.trigger(["email", "name"]);
+                  if (!valid) {
+                    return;
+                  }
+                  const values = form.getValues();
+                  try {
+                    await props.onPasskeySignUp({ email: values.email, name: values.name });
+                  } catch (error) {
+                    form.setError("root", {
+                      message:
+                        error instanceof Error
+                          ? error.message
+                          : t("Couldn't use this device. Try again, or use your password."),
+                    });
+                  }
+                });
+              }}
+              pending={passkeyPending}
             />
 
             <FormField
@@ -159,7 +207,7 @@ export function SignupCard(props: {
                 <FormItem>
                   <FormLabel>{t("Password")}</FormLabel>
                   <FormControl>
-                    <Input type="password" {...field} />
+                    <Input autoComplete="new-password" type="password" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

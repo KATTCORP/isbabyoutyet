@@ -36,6 +36,9 @@ import type * as i18n from "../i18n.js";
 import type * as migrations from "../migrations.js";
 import type * as onboarding from "../onboarding.js";
 import type * as onboardingValidators from "../onboardingValidators.js";
+import type * as passkeyPlugin from "../passkeyPlugin.js";
+import type * as passkeyRecords from "../passkeyRecords.js";
+import type * as passkeySignup from "../passkeySignup.js";
 import type * as profile from "../profile.js";
 import type * as profileBootstrap from "../profileBootstrap.js";
 import type * as pushNotifications from "../pushNotifications.js";
@@ -43,6 +46,7 @@ import type * as pushSubscriptions from "../pushSubscriptions.js";
 import type * as pushValidators from "../pushValidators.js";
 import type * as requiredEnv from "../requiredEnv.js";
 import type * as seed from "../seed.js";
+import type * as signInMethods from "../signInMethods.js";
 import type * as softDelete from "../softDelete.js";
 import type * as timeline from "../timeline.js";
 import type * as triggers from "../triggers.js";
@@ -83,6 +87,9 @@ declare const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   onboarding: typeof onboarding;
   onboardingValidators: typeof onboardingValidators;
+  passkeyPlugin: typeof passkeyPlugin;
+  passkeyRecords: typeof passkeyRecords;
+  passkeySignup: typeof passkeySignup;
   profile: typeof profile;
   profileBootstrap: typeof profileBootstrap;
   pushNotifications: typeof pushNotifications;
@@ -90,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   pushValidators: typeof pushValidators;
   requiredEnv: typeof requiredEnv;
   seed: typeof seed;
+  signInMethods: typeof signInMethods;
   softDelete: typeof softDelete;
   timeline: typeof timeline;
   triggers: typeof triggers;
@@ -123,7 +131,7 @@ export declare const internal: FilterApi<
 >;
 
 export declare const components: {
-  betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
+  betterAuth: import("../betterAuth/_generated/component.js").ComponentApi<"betterAuth">;
   migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
   babyAuditLog: import("convex-table-history/_generated/component.js").ComponentApi<"babyAuditLog">;
 };

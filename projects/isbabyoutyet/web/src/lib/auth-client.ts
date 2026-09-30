@@ -2,6 +2,7 @@ import type { ConvexQueryClient } from "@convex-dev/react-query";
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import { hashKey, QueryObserver } from "@tanstack/react-query";
 import { createAuthClient } from "better-auth/react";
+import { passkeyClient } from "@better-auth/passkey/client";
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import type { FunctionReturnType } from "convex/server";
 import type { ConvexReactClient } from "convex/react";
@@ -9,6 +10,7 @@ import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { parseConvexTokenFromAuthResponse } from "@isbabyoutyet/backend/src/convexToken";
 import { isValidTimeZone, TIME_ZONE_HINT_HEADER } from "@isbabyoutyet/backend/src/timeZone";
 import { parseVisitorIdHint, VISITOR_ID_HINT_HEADER } from "@isbabyoutyet/backend/src/visitorId";
+import { passkeyAuthErrorMessage, passkeyRemovalErrorMessage } from "@/lib/passkey-errors";
 import type { TranslationFunction } from "@/lib/i18n";
 import { peekVisitorId } from "@/lib/use-visitor-id";
 
@@ -40,7 +42,7 @@ export function getBrowserAuthHeaders() {
 
 export const authClient = createAuthClient({
   baseURL: import.meta.env.VITE_SITE_URL,
-  plugins: [convexClient()],
+  plugins: [passkeyClient(), convexClient()],
 });
 
 /**
@@ -231,6 +233,127 @@ export async function signUpThenGo(
   setClientToken(opts.convexClient, parseConvexTokenFromAuthResponse(result.data));
   await settled;
   await opts.navigate();
+}
+
+function browserSupportsPasskey() {
+  return globalThis.window !== undefined && "PublicKeyCredential" in globalThis;
+}
+
+type PasskeySignInError = Exclude<
+  Awaited<ReturnType<(typeof authClient.signIn)["passkey"]>>,
+  { error: null }
+>["error"];
+
+type AddPasskeyError = Exclude<
+  Awaited<ReturnType<(typeof authClient.passkey)["addPasskey"]>>,
+  { error: null }
+>["error"];
+
+function readPasskeyClientError(error: PasskeySignInError | AddPasskeyError) {
+  if ("code" in error) {
+    return { code: error.code, message: error.message };
+  }
+  return { code: undefined, message: error.message };
+}
+
+/**
+ * Sign in with a passkey, then SPA-navigate. Autofill failures stay quiet:
+ * the password form is the fallback when the person dismisses the prompt.
+ */
+export async function signInWithPasskeyThenGo(
+  opts: AuthThenGoOpts & {
+    autoFill: boolean;
+    signal: AbortSignal | null;
+    t: TranslationFunction;
+  },
+) {
+  if (opts.signal?.aborted) {
+    return;
+  }
+  if (!browserSupportsPasskey()) {
+    if (opts.autoFill) {
+      return;
+    }
+    throw new Error(opts.t("This browser can't use device sign-in. Use a password instead."));
+  }
+  const result = await authClient.signIn.passkey({
+    autoFill: opts.autoFill,
+    fetchOptions: { headers: getBrowserAuthHeaders() },
+  });
+  if (opts.signal?.aborted) {
+    return;
+  }
+  if (result.error) {
+    if (opts.autoFill) {
+      return;
+    }
+    throw new Error(passkeyAuthErrorMessage(readPasskeyClientError(result.error), opts.t));
+  }
+  const settled = waitForMe({
+    convexQueryClient: opts.convexQueryClient,
+    presence: "present",
+    queryClient: opts.queryClient,
+  });
+  setClientToken(opts.convexClient, parseConvexTokenFromAuthResponse(result.data));
+  await settled;
+  await opts.navigate();
+}
+
+/**
+ * Create an account with a passkey, then SPA-navigate. The server refuses an
+ * email that already has a password so the device is added from settings.
+ */
+export async function signUpWithPasskeyThenGo(
+  values: { email: string; name: string },
+  opts: AuthThenGoOpts & { t: TranslationFunction },
+) {
+  if (!browserSupportsPasskey()) {
+    throw new Error(opts.t("This browser can't use device sign-in. Use a password instead."));
+  }
+  const result = await authClient.passkey.addPasskey(
+    {
+      context: JSON.stringify({
+        email: values.email.trim().toLowerCase(),
+        name: values.name.trim(),
+      }),
+    },
+    { headers: getBrowserAuthHeaders() },
+  );
+  if (result.error) {
+    throw new Error(passkeyAuthErrorMessage(readPasskeyClientError(result.error), opts.t));
+  }
+  const settled = waitForMe({
+    convexQueryClient: opts.convexQueryClient,
+    presence: "present",
+    queryClient: opts.queryClient,
+  });
+  setClientToken(opts.convexClient, parseConvexTokenFromAuthResponse(result.data));
+  await settled;
+  await opts.navigate();
+}
+
+/** Link this device to the signed-in account. */
+export async function addPasskeyToAccount(opts: { t: TranslationFunction }) {
+  if (!browserSupportsPasskey()) {
+    throw new Error(opts.t("This browser can't use device sign-in. Use a password instead."));
+  }
+  const result = await authClient.passkey.addPasskey({}, { headers: getBrowserAuthHeaders() });
+  if (result.error) {
+    throw new Error(passkeyAuthErrorMessage(readPasskeyClientError(result.error), opts.t));
+  }
+}
+
+/** Remove one device. The server refuses the last method when there is no password. */
+export async function removePasskeyFromAccount(opts: { id: string; t: TranslationFunction }) {
+  const result = await authClient.passkey.deletePasskey({ id: opts.id });
+  if (result.error) {
+    throw new Error(
+      passkeyRemovalErrorMessage(
+        { code: result.error.code, message: result.error.message },
+        opts.t,
+      ),
+    );
+  }
 }
 
 type GoOpts = {

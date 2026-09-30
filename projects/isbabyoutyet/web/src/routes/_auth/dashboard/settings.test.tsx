@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { expect, test, vi } from "vitest";
 import { AccountSettingsView } from "@/components/account-settings";
 import { LocaleProvider } from "@/lib/i18n";
+import { SignInMethodsHandleContext } from "@/lib/sign-in-methods-handle";
 import {
   DashboardSettingsRoute,
   DashboardSettingsSheet,
@@ -60,9 +61,13 @@ function renderSettings(opts: {
 function stubAccountRows() {
   return (
     <AccountSettingsView
+      onAddPasskey={vi.fn(async () => {})}
+      onAddPassword={null}
       onChangeEmail={vi.fn(async () => {})}
       onChangePassword={vi.fn(async () => {})}
+      onRemovePasskey={vi.fn(async () => {})}
       onUpdateName={vi.fn(async () => {})}
+      signInMethods={{ hasPassword: true, passkeys: [] }}
       user={{
         email: "ada@example.com",
         name: "Ada",
@@ -130,6 +135,7 @@ test("DashboardSettingsSheet wires the preloaded profile into the view", async (
   harness.withIdentity({ subject: userId });
 
   const profile = await harness.convexPreloader.ensureQueryData(api.profile.get, {});
+  const signInMethods = await harness.convexPreloader.ensureQueryData(api.signInMethods.get, {});
 
   await using view = await renderWithConvexTest({
     harness,
@@ -140,6 +146,7 @@ test("DashboardSettingsSheet wires the preloaded profile into the view", async (
         convexQueryClient={harness.convexQueryClient}
         profile={profile}
         queryClient={harness.queryClient}
+        signInMethods={signInMethods}
       />
     ),
     wrap: null,
@@ -162,6 +169,7 @@ test("discarding a dirty account editor from the sheet backdrop goes back to /da
   });
   harness.withIdentity({ subject: userId });
   const profile = await harness.convexPreloader.ensureQueryData(api.profile.get, {});
+  const signInMethods = await harness.convexPreloader.ensureQueryData(api.signInMethods.get, {});
 
   // Push-opened from the dashboard header, under jsdom's real window.history
   // so `back()` runs the router's navigation blockers on popstate.
@@ -172,7 +180,11 @@ test("discarding a dirty account editor from the sheet backdrop goes back to /da
     path: "/dashboard/settings",
     route: Route,
     routerContext: { profile },
-    wrap: null,
+    wrap: (children) => (
+      <SignInMethodsHandleContext.Provider value={signInMethods}>
+        {children}
+      </SignInMethodsHandleContext.Provider>
+    ),
   });
 
   await vi.waitFor(() => {

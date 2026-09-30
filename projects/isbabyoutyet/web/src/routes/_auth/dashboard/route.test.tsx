@@ -172,6 +172,7 @@ test("parent dashboard loader ensures auth-scoped reads without a waterfall", as
   expect(preloader.calls).toEqual([
     getFunctionName(api.baby.listByUser),
     getFunctionName(api.onboarding.getMine),
+    getFunctionName(api.signInMethods.get),
   ]);
   await expect(pending).resolves.toMatchObject({
     babies: { initialData: [] },

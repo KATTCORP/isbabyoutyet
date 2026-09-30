@@ -608,6 +608,15 @@
       }
     },
     {
+      // Mirrors the published Better Auth component schema (plus the passkey
+      // table). Field optionality is generated; do not document each one.
+      "files": ["projects/isbabyoutyet/backend/convex/betterAuth/schema.ts"],
+      "rules": {
+        "perfectionist/sort-objects": "off",
+        "workspace/no-undocumented-optional": "off"
+      }
+    },
+    {
       // query-prefetch overloads use an optional third `remixInput` param (KATT gist API).
       "files": ["packages/query-prefetch/src/**"],
       "rules": {

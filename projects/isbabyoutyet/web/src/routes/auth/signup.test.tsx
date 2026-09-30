@@ -16,7 +16,11 @@ const NEW_ACCOUNT: NewAccount = {
 function renderSignup(onSignUp: (values: NewAccount) => Promise<void>) {
   return renderWithTestRouter(
     <LocaleProvider locale="en-GB">
-      <SignupCard onSignUp={onSignUp} signInLink={{ to: "/auth/login" }} />
+      <SignupCard
+        onPasskeySignUp={vi.fn(async () => {})}
+        onSignUp={onSignUp}
+        signInLink={{ to: "/auth/login" }}
+      />
     </LocaleProvider>,
     { path: "/auth/signup" },
   );
@@ -47,6 +51,35 @@ test("submitting the form hands the new account to the signup flow", async () =>
   });
 });
 
+test("create account with this device sends the name and email", async () => {
+  const onPasskeySignUp = vi
+    .fn<(values: { email: string; name: string }) => Promise<void>>()
+    .mockResolvedValue(undefined);
+  const onSignUp = vi.fn<(values: NewAccount) => Promise<void>>().mockResolvedValue(undefined);
+  await using _view = await renderWithTestRouter(
+    <LocaleProvider locale="en-GB">
+      <SignupCard
+        onPasskeySignUp={onPasskeySignUp}
+        onSignUp={onSignUp}
+        signInLink={{ to: "/auth/login" }}
+      />
+    </LocaleProvider>,
+    { path: "/auth/signup" },
+  );
+
+  fireEvent.change(screen.getByLabelText("Name"), { target: { value: NEW_ACCOUNT.name } });
+  fireEvent.change(screen.getByLabelText("Email"), { target: { value: NEW_ACCOUNT.email } });
+  fireEvent.click(screen.getByRole("button", { name: "Create account with this device" }));
+
+  await vi.waitFor(() => {
+    expect(onPasskeySignUp).toHaveBeenCalledWith({
+      email: NEW_ACCOUNT.email,
+      name: NEW_ACCOUNT.name,
+    });
+  });
+  expect(onSignUp).not.toHaveBeenCalled();
+});
+
 test("SignupPage wires the signup form", async () => {
   await using _view = await renderWithTestRouter(
     <LocaleProvider locale="en-GB">
@@ -58,7 +91,8 @@ test("SignupPage wires the signup form", async () => {
   expect(screen.getByLabelText("Name")).toBeTruthy();
   expect(screen.getByLabelText("Email")).toBeTruthy();
   expect(screen.getByLabelText("Password")).toBeTruthy();
-  expect(screen.getByRole("button", { name: /sign up|create/i })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Sign Up" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Create account with this device" })).toBeTruthy();
 });
 
 test("signup route head sets the document title", () => {

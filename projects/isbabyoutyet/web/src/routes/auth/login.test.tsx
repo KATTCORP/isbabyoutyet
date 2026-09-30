@@ -14,6 +14,7 @@ function renderLogin(props: {
     <LocaleProvider locale="en-GB">
       <LoginCard
         demoLoginEnabled={props.demoLoginEnabled}
+        onPasskeySignIn={vi.fn(async () => {})}
         onSignIn={props.onSignIn}
         signUpLink={{ to: "/auth/signup" }}
       />
@@ -43,6 +44,33 @@ test("picking a test account prefills the form and submits it", async () => {
       password: DEMO_EMPTY_USER.password,
     });
   });
+});
+
+test("use this device hands the click to passkey sign-in", async () => {
+  const onPasskeySignIn = vi
+    .fn<(opts: { autoFill: boolean; signal: AbortSignal | null }) => Promise<void>>()
+    .mockResolvedValue(undefined);
+  const onSignIn = vi
+    .fn<(values: { email: string; password: string }) => Promise<void>>()
+    .mockResolvedValue(undefined);
+  await using _view = await renderWithTestRouter(
+    <LocaleProvider locale="en-GB">
+      <LoginCard
+        demoLoginEnabled={false}
+        onPasskeySignIn={onPasskeySignIn}
+        onSignIn={onSignIn}
+        signUpLink={{ to: "/auth/signup" }}
+      />
+    </LocaleProvider>,
+    { path: "/auth/login" },
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Use this device" }));
+
+  await vi.waitFor(() => {
+    expect(onPasskeySignIn).toHaveBeenCalledWith({ autoFill: false, signal: null });
+  });
+  expect(onSignIn).not.toHaveBeenCalled();
 });
 
 test("hides the test-account picker when demo login is disabled", async () => {

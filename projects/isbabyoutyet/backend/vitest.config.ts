@@ -28,6 +28,7 @@ export default defineConfig({
         // in tests via t.registerComponent
         inline: [
           "convex-table-history",
+          "@better-auth/passkey",
           "@convex-dev/better-auth",
           "@isbabyoutyet/email",
           "react-email",
