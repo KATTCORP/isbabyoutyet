@@ -146,7 +146,11 @@ const missing = [...baseline.keys()].filter((workspace) => !current.has(workspac
 
 console.table(
   results.flatMap((result) =>
-    result.metrics.map((metric) => ({ workspace: result.workspace, ...metric })),
+    result.metrics.map((metric) => ({
+      workspace: result.workspace,
+      ...metric,
+      change: metric.change === null ? "new" : formatChange(metric.change),
+    })),
   ),
 );
 

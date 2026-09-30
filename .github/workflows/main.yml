@@ -25,7 +25,9 @@ env:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # About 1 min on PRs; the merge queue adds `vitest --changed`. Do not raise
+    # this. If the job gets close, refactor or speed up the slow step or tests.
+    timeout-minutes: 4
     permissions:
       contents: read
       id-token: write
@@ -82,11 +84,12 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      # PRs and merge groups: Vitest --changed only (no coverage).
-      # Merge queue compares against merge_group.base_sha — the previous queue
-      # commit — so later entries do not re-run the whole queue's tests.
+      # Merge queue only: Vitest --changed (no coverage), against
+      # merge_group.base_sha — the previous queue commit — so later entries do
+      # not re-run the whole queue's tests. PRs skip this: the codecov job
+      # already runs every affected workspace's tests.
       - name: Show changed-test range
-        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        if: github.event_name == 'merge_group'
         run: |
           set -euo pipefail
           if [ -z "${CI_BASE_SHA}" ]; then
@@ -99,14 +102,10 @@ jobs:
           {
             echo "## Changed-test range"
             echo ""
-            if [ "${{ github.event_name }}" = "merge_group" ]; then
-              echo "Merge queue: \`vitest --changed\` vs previous queue commit (\`merge_group.base_sha\`)."
-              echo "First parent of HEAD: \`${PARENT}\`"
-              if [ "${CI_BASE_SHA}" != "${PARENT}" ]; then
-                echo "Note: payload SHA differs from \`HEAD~1\`; using \`merge_group.base_sha\`."
-              fi
-            else
-              echo "PR: \`vitest --changed\` vs \`pull_request.base.sha\`."
+            echo "Merge queue: \`vitest --changed\` vs previous queue commit (\`merge_group.base_sha\`)."
+            echo "First parent of HEAD: \`${PARENT}\`"
+            if [ "${CI_BASE_SHA}" != "${PARENT}" ]; then
+              echo "Note: payload SHA differs from \`HEAD~1\`; using \`merge_group.base_sha\`."
             fi
             echo ""
             echo "- Base: \`${CI_BASE_SHA}\`"
@@ -123,7 +122,7 @@ jobs:
           } | tee -a "${GITHUB_STEP_SUMMARY}"
 
       - name: Test (changed vs base)
-        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        if: github.event_name == 'merge_group'
         run: |
           pnpm pretest
           pnpm exec vitest run --changed "$CI_BASE_SHA"
@@ -139,9 +138,11 @@ jobs:
   codecov:
     if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
-    # Worst case (no base baseline, nothing Turbo-cached) measures every
-    # workspace at base + head.
-    timeout-minutes: 10
+    # Usually 35-100s. Worst case (no base baseline, nothing Turbo-cached)
+    # waits for the base artifact, then measures every workspace at base +
+    # head: about 5 min. Do not raise this. If the job gets close, refactor or
+    # speed up the slow tests instead.
+    timeout-minutes: 6
     permissions:
       contents: read
       id-token: write
@@ -224,14 +225,14 @@ jobs:
       # which this ref cannot restore, and its job is usually still running.
       # Artifacts download across refs, so wait for the base tip's codecov job
       # instead of remeasuring the base tip ourselves. Cap the wait below what a
-      # base remeasure costs (~3 min) so the worst case still fits the timeout.
+      # base remeasure costs (~1.5 min) so the worst case still fits the timeout.
       - name: Wait for PR base coverage artifact
         id: baseline-artifact
         if: github.event_name == 'pull_request' && steps.baseline.outputs.cache-hit != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          WAIT_SECONDS: "150"
+          WAIT_SECONDS: "90"
         run: |
           set -euo pipefail
           NAME="coverage-baseline-${CI_BASE_SHA}"
