@@ -1,11 +1,12 @@
 import { webcrypto } from "node:crypto";
 
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
-import { isFunction, isPlainObject, isString } from "@workspace/runtime/guards";
+import { isFunction, isPlainObject } from "@workspace/runtime/guards";
 import { expect, test, vi } from "vitest";
 import {
   createMatchMediaStub,
   installMatchMediaStub,
+  jsdomVirtualConsole,
   stubJsdomWindow,
 } from "@/test/stubJsdomWindow";
 
@@ -52,14 +53,19 @@ function restoreNamedDescriptor(options: {
 }
 
 async function notImplementedMessages(run: () => void) {
-  const spy = vi.spyOn(console, "error");
-  await using _spy = makeResource({}, () => {
-    spy.mockRestore();
+  const messages: Array<string> = [];
+  const virtualConsole = jsdomVirtualConsole();
+  function onJsdomError(error: unknown) {
+    if (error instanceof Error && error.message.startsWith("Not implemented:")) {
+      messages.push(error.message);
+    }
+  }
+  virtualConsole.on("jsdomError", onJsdomError);
+  await using _listener = makeResource({}, () => {
+    virtualConsole.off("jsdomError", onJsdomError);
   });
   run();
-  return spy.mock.calls
-    .map((call) => call[0])
-    .filter((message) => isString(message) && message.startsWith("Not implemented:"));
+  return messages;
 }
 
 test("window scroll APIs stay quiet while stubJsdomWindow is held", async () => {

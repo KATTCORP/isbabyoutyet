@@ -15,9 +15,10 @@
  */
 
 import { webcrypto } from "node:crypto";
+import { EventEmitter } from "node:events";
 
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
-import { isFunction, isPlainObject } from "@workspace/runtime/guards";
+import { isFunction } from "@workspace/runtime/guards";
 import { vi } from "vitest";
 
 const kAuthBroadcastChannel = Symbol.for("better-auth:broadcast-channel");
@@ -132,46 +133,48 @@ export function installMatchMediaStub(matches: (query: string) => boolean) {
 
 function stubWindowScroll() {}
 
-function jsdomLocationInternals() {
-  for (const symbol of Object.getOwnPropertySymbols(window.location)) {
-    const candidate = Object.getOwnPropertyDescriptor(window.location, symbol)?.value;
-    if (
-      isPlainObject(candidate) &&
-      isFunction(candidate.reload) &&
-      isFunction(candidate.assign) &&
-      isFunction(candidate.replace)
-    ) {
-      return candidate;
-    }
+const NAVIGATION_NOT_IMPLEMENTED = "Not implemented: navigation to another Document";
+
+/** @internal exported for tests */
+export function jsdomVirtualConsole() {
+  // Vitest's jsdom environment exposes the JSDOM instance as the `jsdom`
+  // global (see `vitest/jsdom`); jsdom itself ships no types.
+  const dom: unknown = Reflect.get(globalThis, "jsdom");
+  const virtualConsole: unknown =
+    typeof dom === "object" && dom !== null ? Reflect.get(dom, "virtualConsole") : undefined;
+  if (!(virtualConsole instanceof EventEmitter)) {
+    throw new Error("jsdom virtual console was not found");
   }
-  throw new Error("jsdom Location internals were not found");
+  return virtualConsole;
 }
 
-function patchJsdomLocation() {
-  const internals = jsdomLocationInternals();
-  const previousReload = internals.reload;
-  const previousAssign = internals.assign;
-  const previousReplace = internals.replace;
-  const previousNavigate = Object.getOwnPropertyDescriptor(internals, "_locationObjectNavigate");
+function isNavigationNotImplemented(error: unknown) {
+  return error instanceof Error && error.message.startsWith(NAVIGATION_NOT_IMPLEMENTED);
+}
 
-  internals.reload = stubWindowScroll;
-  internals.assign = stubWindowScroll;
-  internals.replace = stubWindowScroll;
-  Object.defineProperty(internals, "_locationObjectNavigate", {
-    configurable: true,
-    value: stubWindowScroll,
-    writable: true,
-  });
+/**
+ * jsdom cannot load another document, so `location.reload()` / `assign()` /
+ * `replace()` / `href =` already leave the URL alone and only report
+ * "Not implemented" through the virtual console. Drop just that report; every
+ * other event still reaches the listeners Vitest installed.
+ */
+function silenceJsdomNavigation() {
+  const virtualConsole = jsdomVirtualConsole();
+  const previousEmit = Object.getOwnPropertyDescriptor(virtualConsole, "emit");
+  const emit = virtualConsole.emit.bind(virtualConsole);
+  virtualConsole.emit = (eventName: string | symbol, ...args: Array<unknown>) => {
+    if (eventName === "jsdomError" && isNavigationNotImplemented(args[0])) {
+      return false;
+    }
+    return emit(eventName, ...args);
+  };
 
   return () => {
-    internals.reload = previousReload;
-    internals.assign = previousAssign;
-    internals.replace = previousReplace;
-    if (previousNavigate) {
-      Object.defineProperty(internals, "_locationObjectNavigate", previousNavigate);
-    } else {
-      Reflect.deleteProperty(internals, "_locationObjectNavigate");
+    if (previousEmit) {
+      Object.defineProperty(virtualConsole, "emit", previousEmit);
+      return;
     }
+    Reflect.deleteProperty(virtualConsole, "emit");
   };
 }
 
@@ -253,7 +256,7 @@ function installJsdomWindowStubs() {
     Element.prototype.scrollTo = stubWindowScroll;
   }
 
-  const restoreLocation = patchJsdomLocation();
+  const restoreLocation = silenceJsdomNavigation();
   const restoreCrypto = patchCryptoSubtle();
 
   return () => {
