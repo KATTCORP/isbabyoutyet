@@ -196,7 +196,7 @@ async function renderSubscribe(capability: BrowserPushCapability, audience: "vis
 test("reports unsupported when the browser has no push APIs", async () => {
   await using queryClient = queryClientResource();
 
-  const capability = await queryClient.fetchQuery(browserPushQueryOptions(queryClient, babyRef));
+  const capability = await queryClient.query(browserPushQueryOptions(queryClient, babyRef));
 
   expect(capability).toEqual({ kind: "unsupported" });
 });
@@ -212,7 +212,7 @@ test("asks iOS Safari to install as a PWA before offering push", async () => {
     userAgent: IPHONE_SAFARI_UA,
   });
 
-  const capability = await queryClient.fetchQuery(browserPushQueryOptions(queryClient, babyRef));
+  const capability = await queryClient.query(browserPushQueryOptions(queryClient, babyRef));
 
   expect(capability).toEqual({ kind: "needsIosInstall" });
 });
@@ -225,7 +225,7 @@ test("reports unsupported when PushManager is missing", async () => {
     hasServiceWorker: true,
   });
 
-  const capability = await queryClient.fetchQuery(browserPushQueryOptions(queryClient, babyRef));
+  const capability = await queryClient.query(browserPushQueryOptions(queryClient, babyRef));
 
   expect(capability).toEqual({ kind: "unsupported" });
 });
@@ -239,7 +239,7 @@ test("treats a ready browser with no push subscription as unsubscribed", async (
     subscription: null,
   });
 
-  const capability = await queryClient.fetchQuery(browserPushQueryOptions(queryClient, babyRef));
+  const capability = await queryClient.query(browserPushQueryOptions(queryClient, babyRef));
 
   expect(capability).toEqual({ kind: "unsubscribed" });
 });
@@ -257,7 +257,7 @@ test("returns the existing browser push subscription and Convex isSubscribed", a
     subscription,
   });
 
-  const capability = await queryClient.fetchQuery(browserPushQueryOptions(queryClient, babyRef));
+  const capability = await queryClient.query(browserPushQueryOptions(queryClient, babyRef));
 
   expect(capability).toEqual({
     family: true,
@@ -278,7 +278,7 @@ test("lets an installed iOS PWA subscribe instead of showing the install guide",
     userAgent: IPHONE_SAFARI_UA,
   });
 
-  const capability = await queryClient.fetchQuery(browserPushQueryOptions(queryClient, babyRef));
+  const capability = await queryClient.query(browserPushQueryOptions(queryClient, babyRef));
 
   expect(capability).toEqual({ kind: "unsubscribed" });
 });
@@ -296,7 +296,7 @@ test("times out if the service worker is not ready in 5 seconds", async () => {
     serviceWorkerReady: new Promise<ServiceWorkerRegistration>(() => {}),
   });
 
-  const pending = queryClient.fetchQuery(browserPushQueryOptions(queryClient, babyRef));
+  const pending = queryClient.query(browserPushQueryOptions(queryClient, babyRef));
   await vi.advanceTimersByTimeAsync(5000);
 
   expect(await pending).toEqual({ kind: "serviceWorkerTimeout" });
@@ -313,7 +313,7 @@ test("treats a service worker failure as unsubscribed", async () => {
     serviceWorkerReady,
   });
 
-  const capability = await queryClient.fetchQuery(browserPushQueryOptions(queryClient, babyRef));
+  const capability = await queryClient.query(browserPushQueryOptions(queryClient, babyRef));
 
   expect(capability).toEqual({ kind: "unsubscribed" });
 });
