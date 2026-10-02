@@ -25,17 +25,6 @@ pnpm dev-sous                         # Sous Vide Guide only
 pnpm checks                           # format, typecheck, changed tests, knip; run before calling work done
 pnpm clean                            # wipe caches and reinstall
 ```
-
-### Cursor Cloud agents
-
-Environment builds run [`.cursor/install.sh`](.cursor/install.sh) on `main`
-and snapshot the result: Node from `.nvmrc`, dependencies, and a seeded local
-Convex backend. On every boot, [`.cursor/start.sh`](.cursor/start.sh) starts
-tmux sessions `convex`, `web` (<http://localhost:3000>), and `sous`
-(<http://localhost:3002>), each logged to `/tmp/<session>.log`. The snapshot
-reflects `main`, so run `pnpm install` on a branch that changes
-`pnpm-lock.yaml`.
-
 ## Repo-wide rules
 
 - **TypeScript:** follow
