@@ -25,7 +25,6 @@ pnpm dev-sous                         # Sous Vide Guide only
 pnpm checks                           # format, typecheck, changed tests, knip; run before calling work done
 pnpm clean                            # wipe caches and reinstall
 ```
-
 ## Repo-wide rules
 
 - **TypeScript:** follow
