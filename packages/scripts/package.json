@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
-    "@workspace/runtime": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
