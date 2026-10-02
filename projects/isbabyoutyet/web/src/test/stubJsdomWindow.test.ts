@@ -3,6 +3,7 @@ import { webcrypto } from "node:crypto";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { isFunction, isPlainObject } from "@workspace/runtime/guards";
 import { expect, test, vi } from "vitest";
+import type { JsdomError } from "@/test/stubJsdomWindow";
 import {
   createMatchMediaStub,
   installMatchMediaStub,
@@ -52,80 +53,110 @@ function restoreNamedDescriptor(options: {
   Reflect.deleteProperty(options.target, options.key);
 }
 
-async function notImplementedMessages(run: () => void) {
-  const messages: Array<string> = [];
+/**
+ * Collects jsdom "Not implemented" reports instead of forwarding them to the
+ * console. Acquire before `stubJsdomWindow()`: the stub filters the listeners
+ * present when it installs.
+ */
+function captureNotImplemented() {
   const virtualConsole = jsdomVirtualConsole();
-  function onJsdomError(error: unknown) {
-    if (error instanceof Error && error.message.startsWith("Not implemented:")) {
+  const forwarders = virtualConsole.listeners("jsdomError");
+  const messages: Array<string> = [];
+  function onJsdomError(error: JsdomError) {
+    if (error.type === "not-implemented") {
       messages.push(error.message);
     }
   }
+  for (const forwarder of forwarders) {
+    virtualConsole.off("jsdomError", forwarder);
+  }
   virtualConsole.on("jsdomError", onJsdomError);
-  await using _listener = makeResource({}, () => {
+  return makeResource({ messages }, () => {
     virtualConsole.off("jsdomError", onJsdomError);
+    for (const forwarder of forwarders) {
+      virtualConsole.on("jsdomError", forwarder);
+    }
   });
-  run();
-  return messages;
 }
 
 test("window scroll APIs stay quiet while stubJsdomWindow is held", async () => {
+  await using reports = captureNotImplemented();
   await using _window = stubJsdomWindow();
-  expect(
-    await notImplementedMessages(() => {
-      window.scrollTo(0, 0);
-      window.scrollTo({ behavior: "auto", top: 0 });
-      window.scroll(0, 0);
-      window.scrollBy(0, 10);
-    }),
-  ).toEqual([]);
+  window.scrollTo(0, 0);
+  window.scrollTo({ behavior: "auto", top: 0 });
+  window.scroll(0, 0);
+  window.scrollBy(0, 10);
+  expect(reports.messages).toEqual([]);
 });
 
 test("location reload and href assignment stay on this document", async () => {
+  await using reports = captureNotImplemented();
   await using _window = stubJsdomWindow();
   const href = window.location.href;
-  expect(
-    await notImplementedMessages(() => {
-      window.location.reload();
-      window.location.assign("/elsewhere");
-      window.location.replace("/elsewhere");
-      window.location.href = "/elsewhere";
-    }),
-  ).toEqual([]);
+  window.location.reload();
+  window.location.assign("/elsewhere");
+  window.location.replace("/elsewhere");
+  window.location.href = "/elsewhere";
+  expect(reports.messages).toEqual([]);
   expect(window.location.href).toBe(href);
 });
 
+test("other jsdom reports still reach listeners while stubJsdomWindow is held", async () => {
+  await using reports = captureNotImplemented();
+  await using _window = stubJsdomWindow();
+  window.print();
+  expect(reports.messages).toEqual(["Not implemented: Window's print() method"]);
+});
+
+test("navigation reports reach listeners again after dispose", async () => {
+  await using reports = captureNotImplemented();
+  {
+    await using _window = stubJsdomWindow();
+    window.location.reload();
+  }
+  expect(reports.messages).toEqual([]);
+  window.location.reload();
+  expect(reports.messages).toEqual([
+    expect.stringMatching(/^Not implemented: navigation to another Document/),
+  ]);
+});
+
 test("nested stubJsdomWindow keeps stubs until the last resource disposes", async () => {
+  await using reports = captureNotImplemented();
   await using _outer = stubJsdomWindow();
   {
     await using _inner = stubJsdomWindow();
-    expect(await notImplementedMessages(() => window.scrollTo(0, 0))).toEqual([]);
+    window.scrollTo(0, 0);
+    window.location.reload();
   }
-  expect(await notImplementedMessages(() => window.scrollTo(0, 0))).toEqual([]);
+  window.scrollTo(0, 0);
+  window.location.reload();
+  expect(reports.messages).toEqual([]);
 });
 
 test("restores the previous window.scrollTo after dispose", async () => {
+  await using reports = captureNotImplemented();
   const original = window.scrollTo;
   {
     await using _window = stubJsdomWindow();
     expect(window.scrollTo).not.toBe(original);
-    expect(await notImplementedMessages(() => window.scrollTo(0, 0))).toEqual([]);
+    window.scrollTo(0, 0);
+    expect(reports.messages).toEqual([]);
   }
   expect(window.scrollTo).toBe(original);
 });
 
 test("element scroll APIs stay quiet while stubJsdomWindow is held", async () => {
+  await using reports = captureNotImplemented();
   await using _window = stubJsdomWindow();
   const element = document.createElement("div");
   document.body.append(element);
   await using _element = makeResource({}, () => {
     element.remove();
   });
-  expect(
-    await notImplementedMessages(() => {
-      element.scrollIntoView();
-      element.scrollTo(0, 0);
-    }),
-  ).toEqual([]);
+  element.scrollIntoView();
+  element.scrollTo(0, 0);
+  expect(reports.messages).toEqual([]);
 });
 
 test("crypto.subtle.digest hashes ArrayBuffer and typed-array views", async () => {
@@ -232,9 +263,12 @@ test("restore is safe to call twice and still allows a later install", async () 
   first.restore();
   expect(window.scrollTo).toBe(original);
 
+  await using reports = captureNotImplemented();
   await using _second = stubJsdomWindow();
   expect(window.scrollTo).not.toBe(original);
-  expect(await notImplementedMessages(() => window.scrollTo(0, 0))).toEqual([]);
+  window.scrollTo(0, 0);
+  window.location.reload();
+  expect(reports.messages).toEqual([]);
 });
 
 test("better-auth leftover session-refresh cleanup is a no-op without document", async () => {

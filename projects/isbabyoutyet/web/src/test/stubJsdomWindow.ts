@@ -15,7 +15,6 @@
  */
 
 import { webcrypto } from "node:crypto";
-import { EventEmitter } from "node:events";
 
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { isFunction } from "@workspace/runtime/guards";
@@ -133,48 +132,64 @@ export function installMatchMediaStub(matches: (query: string) => boolean) {
 
 function stubWindowScroll() {}
 
+/** An error jsdom reports on its virtual console; `type` names the failure kind. */
+export interface JsdomError {
+  readonly message: string;
+  readonly type: string;
+}
+
+type JsdomErrorListener = (error: JsdomError) => void;
+
+/** The `jsdomError` side of jsdom's `VirtualConsole`, a Node `EventEmitter`. */
+interface JsdomVirtualConsole {
+  listeners(eventName: "jsdomError"): Array<JsdomErrorListener>;
+  off(eventName: "jsdomError", listener: JsdomErrorListener): JsdomVirtualConsole;
+  on(eventName: "jsdomError", listener: JsdomErrorListener): JsdomVirtualConsole;
+}
+
 const NAVIGATION_NOT_IMPLEMENTED = "Not implemented: navigation to another Document";
 
 /** @internal exported for tests */
 export function jsdomVirtualConsole() {
-  // Vitest's jsdom environment exposes the JSDOM instance as the `jsdom`
-  // global (see `vitest/jsdom`); jsdom itself ships no types.
-  const dom: unknown = Reflect.get(globalThis, "jsdom");
-  const virtualConsole: unknown =
-    typeof dom === "object" && dom !== null ? Reflect.get(dom, "virtualConsole") : undefined;
-  if (!(virtualConsole instanceof EventEmitter)) {
-    throw new Error("jsdom virtual console was not found");
+  if (!globalThis.jsdom) {
+    throw new Error("Vitest's jsdom environment is not active");
   }
-  return virtualConsole;
+  return globalThis.jsdom.virtualConsole;
 }
 
-function isNavigationNotImplemented(error: unknown) {
-  return error instanceof Error && error.message.startsWith(NAVIGATION_NOT_IMPLEMENTED);
+function isNavigationNotImplemented(error: JsdomError) {
+  return error.type === "not-implemented" && error.message.startsWith(NAVIGATION_NOT_IMPLEMENTED);
 }
 
 /**
  * jsdom cannot load another document, so `location.reload()` / `assign()` /
  * `replace()` / `href =` already leave the URL alone and only report
- * "Not implemented" through the virtual console. Drop just that report; every
- * other event still reaches the listeners Vitest installed.
+ * "Not implemented" on the virtual console. Route the listeners registered at
+ * install time (Vitest's console forwarder) through a filter that drops just
+ * that report.
  */
 function silenceJsdomNavigation() {
   const virtualConsole = jsdomVirtualConsole();
-  const previousEmit = Object.getOwnPropertyDescriptor(virtualConsole, "emit");
-  const emit = virtualConsole.emit.bind(virtualConsole);
-  virtualConsole.emit = (eventName: string | symbol, ...args: Array<unknown>) => {
-    if (eventName === "jsdomError" && isNavigationNotImplemented(args[0])) {
-      return false;
-    }
-    return emit(eventName, ...args);
-  };
-
-  return () => {
-    if (previousEmit) {
-      Object.defineProperty(virtualConsole, "emit", previousEmit);
+  const listeners = virtualConsole.listeners("jsdomError");
+  function onJsdomError(error: JsdomError) {
+    if (isNavigationNotImplemented(error)) {
       return;
     }
-    Reflect.deleteProperty(virtualConsole, "emit");
+    for (const listener of listeners) {
+      listener(error);
+    }
+  }
+
+  for (const listener of listeners) {
+    virtualConsole.off("jsdomError", listener);
+  }
+  virtualConsole.on("jsdomError", onJsdomError);
+
+  return () => {
+    virtualConsole.off("jsdomError", onJsdomError);
+    for (const listener of listeners) {
+      virtualConsole.on("jsdomError", listener);
+    }
   };
 }
 
@@ -213,6 +228,9 @@ declare global {
   // is re-evaluated as a setup file for every test file, so module-scoped
   // counters would fork while earlier holders still own the install.
   var jsdomWindowStubInstall: InstallState | undefined;
+  // The JSDOM instance Vitest's jsdom environment exposes (see `vitest/jsdom`).
+  // jsdom ships no types, so only what these stubs read is declared.
+  var jsdom: { readonly virtualConsole: JsdomVirtualConsole } | undefined;
 }
 
 function installState() {
