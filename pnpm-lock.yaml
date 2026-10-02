@@ -476,9 +476,6 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0(effect@4.0.0)(redis@6.3.0)
-      '@workspace/runtime':
-        specifier: workspace:*
-        version: link:../runtime
       effect:
         specifier: 'catalog:'
         version: 4.0.0
