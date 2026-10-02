@@ -225,7 +225,7 @@ function RootComponent() {
 // failures — expired sessions, stale deploys, dropped connections — land here
 // instead of TanStack's raw default, and a full reload re-resolves everything
 // from a clean slate.
-export function RootErrorComponent(props: { error: Error }) {
+export function RootErrorComponent(props: { error: unknown }) {
   const { t } = useI18n();
   return (
     <div className="min-h-screen bg-background bg-dots flex items-center justify-center px-6">
@@ -239,7 +239,7 @@ export function RootErrorComponent(props: { error: Error }) {
         </p>
         {import.meta.env.DEV ? (
           <pre className="max-h-40 overflow-auto rounded-lg bg-muted p-3 text-left text-xs text-muted-foreground">
-            {props.error.message}
+            {props.error instanceof Error ? props.error.message : String(props.error)}
           </pre>
         ) : null}
         <div className="flex justify-center gap-3">
