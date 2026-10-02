@@ -1,8 +1,8 @@
 import path from "node:path";
-import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { Console, Effect, FileSystem, Layer, Schedule, Schema } from "effect";
+import { NodeRuntime } from "@effect/platform-node";
+import { Console, Effect, FileSystem, Schedule, Schema } from "effect";
 import { ConvexCli } from "./convexCli";
-import { seedHomepageDemoPhotos } from "./seedHomepageDemo";
+import { homepageDemoSeedLayer, seedHomepageDemoPhotos } from "./seedHomepageDemo";
 
 const convexPackageDir = path.resolve(import.meta.dirname, "..");
 export const HOMEPAGE_DEMO_PHOTOS_PENDING_MARKER = path.join(
@@ -17,11 +17,6 @@ class ConvexNotReadyError extends Schema.TaggedError<ConvexNotReadyError>()("Con
     return "Timed out waiting for Convex dev backend before seeding homepage photos";
   }
 }
-
-class HomepagePhotoSeedError extends Schema.TaggedError<HomepagePhotoSeedError>()(
-  "HomepagePhotoSeedError",
-  { cause: Schema.Defect() },
-) {}
 
 /** Polls a cheap query once a second, for up to 120 attempts, until `convex dev` serves it. */
 export const waitForConvexReady = Effect.gen(function* () {
@@ -50,13 +45,8 @@ export const seedHomepagePhotosDeferred = Effect.fn("seedHomepagePhotosDeferred"
 
 const isCli = process.argv[1] && path.resolve(process.argv[1]) === import.meta.filename;
 if (isCli) {
-  seedHomepagePhotosDeferred(
-    Effect.tryPromise({
-      catch: (cause) => new HomepagePhotoSeedError({ cause }),
-      try: () => seedHomepageDemoPhotos({}),
-    }),
-  ).pipe(
-    Effect.provide(ConvexCli.layer.pipe(Layer.provideMerge(NodeServices.layer))),
+  seedHomepagePhotosDeferred(seedHomepageDemoPhotos).pipe(
+    Effect.provide(homepageDemoSeedLayer),
     NodeRuntime.runMain,
   );
 }
