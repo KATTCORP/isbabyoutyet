@@ -14,6 +14,7 @@ anti-slop/
   index.ts          # Oxlint plugin entry (`meta.name: "anti-slop"`)
   rules/            # One file per rule (+ RuleTester tests)
   shared/           # Shared helpers (`dictionary-types`, etc.)
+  effect/           # Opt-in `anti-slop-effect` plugin (index.ts, rules/, shared/)
   LICENSE           # Upstream MIT license
   UPSTREAM.md       # Pinned upstream git revision
   README.md         # This file (AGENTS.md symlinks here)
@@ -57,8 +58,10 @@ diff -ru packages/oxlint-plugins/anti-slop/shared "$tmpdir/anti-slop/src/shared"
 rm -rf "$tmpdir"
 ```
 
-Upstream also ships Effect-specific rules under `src/effect/`; we do not vendor those unless
-we explicitly add them to `index.ts` and `.oxlintrc.json`.
+Upstream's Effect-specific rules (`src/effect/`) are vendored in `effect/` as a separate
+`anti-slop-effect` plugin (`effect/index.ts`, rule IDs `anti-slop-effect/<rule-name>`). They
+are opt-in per workspace in `.oxlintrc.json`. Diff `anti-slop/effect/` ↔ upstream
+`src/effect/` when syncing.
 
 ## Local conventions
 

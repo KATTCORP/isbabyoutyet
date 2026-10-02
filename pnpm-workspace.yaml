@@ -12,6 +12,7 @@ catalog:
   "@convex-dev/migrations": ^0.3.6
   "@convex-dev/react-query": ^0.1.0
   "@edge-runtime/vm": ^5.0.0
+  "@effect/platform-node": ^4.0.0
   "@fontsource-variable/nunito": ^5.3.0
   "@hookform/resolvers": ^5.9.1
   "@inlang/paraglide-js": ^2.24.1
@@ -51,6 +52,7 @@ catalog:
   convex-table-history: ^0.1.2
   convex-test: ^0.0.56
   date-fns: ^4.4.0
+  effect: ^4.0.0
   embla-carousel-react: ^8.6.0
   eslint-plugin-no-only-tests: ^3.4.0
   eslint-plugin-perfectionist: ^5.11.0
