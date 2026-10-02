@@ -17,7 +17,7 @@
 import { webcrypto } from "node:crypto";
 
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
-import { isFunction, isPlainObject } from "@workspace/runtime/guards";
+import { isFunction } from "@workspace/runtime/guards";
 import { vi } from "vitest";
 
 const kAuthBroadcastChannel = Symbol.for("better-auth:broadcast-channel");
@@ -132,45 +132,63 @@ export function installMatchMediaStub(matches: (query: string) => boolean) {
 
 function stubWindowScroll() {}
 
-function jsdomLocationInternals() {
-  for (const symbol of Object.getOwnPropertySymbols(window.location)) {
-    const candidate = Object.getOwnPropertyDescriptor(window.location, symbol)?.value;
-    if (
-      isPlainObject(candidate) &&
-      isFunction(candidate.reload) &&
-      isFunction(candidate.assign) &&
-      isFunction(candidate.replace)
-    ) {
-      return candidate;
-    }
-  }
-  throw new Error("jsdom Location internals were not found");
+/** An error jsdom reports on its virtual console; `type` names the failure kind. */
+export interface JsdomError {
+  readonly message: string;
+  readonly type: string;
 }
 
-function patchJsdomLocation() {
-  const internals = jsdomLocationInternals();
-  const previousReload = internals.reload;
-  const previousAssign = internals.assign;
-  const previousReplace = internals.replace;
-  const previousNavigate = Object.getOwnPropertyDescriptor(internals, "_locationObjectNavigate");
+type JsdomErrorListener = (error: JsdomError) => void;
 
-  internals.reload = stubWindowScroll;
-  internals.assign = stubWindowScroll;
-  internals.replace = stubWindowScroll;
-  Object.defineProperty(internals, "_locationObjectNavigate", {
-    configurable: true,
-    value: stubWindowScroll,
-    writable: true,
-  });
+/** The `jsdomError` side of jsdom's `VirtualConsole`, a Node `EventEmitter`. */
+interface JsdomVirtualConsole {
+  listeners(eventName: "jsdomError"): Array<JsdomErrorListener>;
+  off(eventName: "jsdomError", listener: JsdomErrorListener): JsdomVirtualConsole;
+  on(eventName: "jsdomError", listener: JsdomErrorListener): JsdomVirtualConsole;
+}
+
+const NAVIGATION_NOT_IMPLEMENTED = "Not implemented: navigation to another Document";
+
+/** @internal exported for tests */
+export function jsdomVirtualConsole() {
+  if (!globalThis.jsdom) {
+    throw new Error("Vitest's jsdom environment is not active");
+  }
+  return globalThis.jsdom.virtualConsole;
+}
+
+function isNavigationNotImplemented(error: JsdomError) {
+  return error.type === "not-implemented" && error.message.startsWith(NAVIGATION_NOT_IMPLEMENTED);
+}
+
+/**
+ * jsdom cannot load another document, so `location.reload()` / `assign()` /
+ * `replace()` / `href =` already leave the URL alone and only report
+ * "Not implemented" on the virtual console. Route the listeners registered at
+ * install time (Vitest's console forwarder) through a filter that drops just
+ * that report.
+ */
+function silenceJsdomNavigation() {
+  const virtualConsole = jsdomVirtualConsole();
+  const listeners = virtualConsole.listeners("jsdomError");
+  function onJsdomError(error: JsdomError) {
+    if (isNavigationNotImplemented(error)) {
+      return;
+    }
+    for (const listener of listeners) {
+      listener(error);
+    }
+  }
+
+  for (const listener of listeners) {
+    virtualConsole.off("jsdomError", listener);
+  }
+  virtualConsole.on("jsdomError", onJsdomError);
 
   return () => {
-    internals.reload = previousReload;
-    internals.assign = previousAssign;
-    internals.replace = previousReplace;
-    if (previousNavigate) {
-      Object.defineProperty(internals, "_locationObjectNavigate", previousNavigate);
-    } else {
-      Reflect.deleteProperty(internals, "_locationObjectNavigate");
+    virtualConsole.off("jsdomError", onJsdomError);
+    for (const listener of listeners) {
+      virtualConsole.on("jsdomError", listener);
     }
   };
 }
@@ -210,6 +228,9 @@ declare global {
   // is re-evaluated as a setup file for every test file, so module-scoped
   // counters would fork while earlier holders still own the install.
   var jsdomWindowStubInstall: InstallState | undefined;
+  // The JSDOM instance Vitest's jsdom environment exposes (see `vitest/jsdom`).
+  // jsdom ships no types, so only what these stubs read is declared.
+  var jsdom: { readonly virtualConsole: JsdomVirtualConsole } | undefined;
 }
 
 function installState() {
@@ -253,7 +274,7 @@ function installJsdomWindowStubs() {
     Element.prototype.scrollTo = stubWindowScroll;
   }
 
-  const restoreLocation = patchJsdomLocation();
+  const restoreLocation = silenceJsdomNavigation();
   const restoreCrypto = patchCryptoSubtle();
 
   return () => {
