@@ -46,8 +46,23 @@ git add -- "$lfs_assets"
 
 # Local anonymous Convex backend: provision, set its env vars and VAPID keys,
 # and seed the demo logins and homepage text. Gated on .env.local so it only
-# runs against a fresh backend.
-(cd projects/isbabyoutyet/backend && { [ -f .env.local ] || pnpm setup-dev; })
+# runs against a fresh backend. On a busy build pod, seeding can exceed
+# Convex's 1s mutation limit on the freshly started backend; every step is
+# idempotent, so retry. provision writes .env.local before seeding, so drop it
+# on final failure or the next run would skip the seed.
+setup_backend() {
+  cd projects/isbabyoutyet/backend
+  [ -f .env.local ] && return 0
+  local attempt
+  for attempt in 1 2 3; do
+    pnpm setup-dev && return 0
+    echo "Backend setup-dev attempt $attempt failed" >&2
+    sleep 5
+  done
+  rm -f .env.local
+  return 1
+}
+(setup_backend)
 
 # setup-dev defers the homepage photos to the first `pnpm dev`, because
 # uploads need a running `convex dev`. Upload them now so the snapshot is
