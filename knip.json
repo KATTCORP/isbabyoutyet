@@ -74,7 +74,8 @@
       ]
     },
     "packages/scripts": {
-      "entry": ["src/collectCoverage.ts!", "src/compareCoverage.ts!"]
+      "entry": ["src/collectCoverage.ts!", "src/compareCoverage.ts!"],
+      "ignoreDependencies": ["effect", "@effect/platform-node"]
     },
     "packages/runtime": {},
     "packages/form-guard": {},
