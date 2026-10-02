@@ -1,6 +1,9 @@
-import { execFileSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
+import { NodeRuntime, NodeServices } from "@effect/platform-node";
+import { Console, Context, Effect, FileSystem, Layer, Option, Schema } from "effect";
+import { Command, Flag } from "effect/cli";
+import { FetchHttpClient, HttpBody, HttpClient, HttpClientResponse } from "effect/http";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import sharp from "sharp";
 import { renderBlurDataUrl, renderPageThumbnail, renderPushImage } from "../src/photoDerivatives";
 import {
@@ -10,111 +13,165 @@ import {
 } from "../src/homepageDemoFeed";
 import type { HomepageDemoPhotoKey } from "../src/homepageDemoFeed";
 import { isConvexPreviewWithoutFunctions } from "../src/previewDeploy";
-import {
-  isJsonObjectValue,
-  parseJsonBoolean,
-  parseJsonString,
-  type JsonValue,
-} from "@workspace/runtime/json";
-import { z } from "zod";
+import { ConvexCli } from "./convexCli";
 
 const LFS_POINTER_PREFIX = "version https://git-lfs.github.com/spec/v1";
-const scriptsDir = import.meta.dirname;
-const convexPackageDir = path.resolve(scriptsDir, "..");
+const convexPackageDir = path.resolve(import.meta.dirname, "..");
 const assetsDir = path.join(convexPackageDir, "assets/homepage-demo");
 
-type UploadedPhotos = Record<
-  HomepageDemoPhotoKey,
-  { blurDataUrl: string; photoId: string; pushImageId: string; thumbnailId: string }
->;
+/** The Convex preview every `convex run` targets; `None` is the default deployment. */
+export const ConvexPreviewName = Context.Reference<Option.Option<string>>(
+  "@isbabyoutyet/backend/scripts/ConvexPreviewName",
+  { defaultValue: Option.none },
+);
 
-export function extraConvexArgsFromArgv(argv: Array<string>) {
-  const extra: Array<string> = [];
-  for (let i = 0; i < argv.length; i++) {
-    const flag = argv[i];
-    const value = argv[i + 1];
-    if (flag === "--preview-name" && value) {
-      extra.push("--preview-name", value);
-      i++;
-    }
+/** @internal Exported for tests. */
+export class ConvexRunOutputError extends Schema.TaggedError<ConvexRunOutputError>()(
+  "ConvexRunOutputError",
+  { functionName: Schema.String, stdout: Schema.String },
+) {
+  override get message() {
+    return `Could not decode \`convex run ${this.functionName}\` output:\n${this.stdout}`;
   }
-  return extra;
 }
 
-export function convexRun(opts: {
-  args: unknown;
-  extraConvexArgs: Array<string>;
-  functionName: string;
+class GitLfsPullError extends Schema.TaggedError<GitLfsPullError>()("GitLfsPullError", {
+  exitCode: Schema.Number,
 }) {
-  const result = execFileSync(
-    "pnpm",
-    ["convex", "run", opts.functionName, JSON.stringify(opts.args), ...opts.extraConvexArgs],
-    { cwd: convexPackageDir, encoding: "utf8", env: process.env },
-  );
-  return parseConvexRunOutput(result);
+  override get message() {
+    return `\`git lfs pull\` exited with code ${this.exitCode}`;
+  }
 }
 
-function parseConvexRunOutput(stdout: string): JsonValue {
+/** @internal Exported for tests. */
+export class LfsPointersError extends Schema.TaggedError<LfsPointersError>()(
+  "LfsPointersError",
+  {},
+) {
+  override get message() {
+    return "Homepage demo photos are still Git LFS pointers. Enable Git LFS for this checkout (Vercel: Project Settings → Git → Git LFS) and retry.";
+  }
+}
+
+class ImageProcessingError extends Schema.TaggedError<ImageProcessingError>()(
+  "ImageProcessingError",
+  { cause: Schema.Defect(), filePath: Schema.String },
+) {
+  override get message() {
+    return `Could not render derivatives of ${this.filePath}`;
+  }
+}
+
+/** `convex run` prints the return value as JSON, sometimes after log lines; take the last line that decodes. */
+function jsonCandidates(stdout: string) {
   const trimmed = stdout.trim();
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    const lines = trimmed.split("\n");
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i]?.trim();
-      if (!line) {
-        continue;
-      }
-      try {
-        return JSON.parse(line);
-      } catch {
-        // keep looking
-      }
-    }
-    throw new Error(`Could not parse convex run output:\n${stdout}`);
-  }
+  const lines = trimmed
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  return [trimmed, ...lines.toReversed()];
 }
 
-function isLfsPointer(buffer: Buffer) {
-  return buffer.subarray(0, LFS_POINTER_PREFIX.length).toString("utf8") === LFS_POINTER_PREFIX;
-}
-
-function pullLfsFiles() {
-  console.log("Git LFS pointer files detected — running git lfs pull");
-  execFileSync(
-    "git",
-    ["lfs", "pull", "--include", "projects/isbabyoutyet/backend/assets/homepage-demo/**"],
-    {
-      cwd: path.resolve(convexPackageDir, "../../.."),
-      stdio: "inherit",
-    },
+const convexRun = Effect.fn("convexRun")(function* <S extends Schema.Constraint>(opts: {
+  args: object;
+  functionName: string;
+  returns: S;
+}) {
+  const convex = yield* ConvexCli;
+  const previewName = yield* ConvexPreviewName;
+  const stdout = yield* convex.run([
+    "run",
+    opts.functionName,
+    JSON.stringify(opts.args),
+    ...Option.match(previewName, { onNone: () => [], onSome: (name) => ["--preview-name", name] }),
+  ]);
+  const decode = Schema.decodeUnknownEffect(Schema.fromJsonString(opts.returns));
+  return yield* Effect.firstSuccessOf(jsonCandidates(stdout).map((line) => decode(line))).pipe(
+    Effect.mapError(() => new ConvexRunOutputError({ functionName: opts.functionName, stdout })),
   );
+});
+
+const readPhotos = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  return yield* Effect.forEach(HOMEPAGE_DEMO_PHOTO_KEYS, (key) => {
+    const filePath = path.join(assetsDir, HOMEPAGE_DEMO_PHOTO_FILES[key]);
+    return fs
+      .readFile(filePath)
+      .pipe(Effect.map((bytes) => ({ bytes: Buffer.from(bytes), filePath, key })));
+  });
+});
+
+function isLfsPointer(photo: { bytes: Buffer }) {
+  return photo.bytes.subarray(0, LFS_POINTER_PREFIX.length).toString("utf8") === LFS_POINTER_PREFIX;
 }
 
-function readPhotoBuffer(filename: string) {
-  const filePath = path.join(assetsDir, filename);
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`Missing homepage demo photo: ${filePath}`);
+const pullLfsFiles = Effect.gen(function* () {
+  yield* Console.log("Git LFS pointer files detected — running git lfs pull");
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const exitCode = yield* spawner.exitCode(
+    ChildProcess.make(
+      "git",
+      ["lfs", "pull", "--include", "projects/isbabyoutyet/backend/assets/homepage-demo/**"],
+      { cwd: path.resolve(convexPackageDir, "../../.."), stderr: "inherit", stdout: "inherit" },
+    ),
+  );
+  if (exitCode !== ChildProcessSpawner.ExitCode(0)) {
+    return yield* new GitLfsPullError({ exitCode });
   }
-  return { buffer: fs.readFileSync(filePath), filePath };
-}
+});
 
-async function jpegAndDerivatives(buffer: Buffer) {
-  const photo = await sharp(buffer)
-    .rotate()
-    .resize({ fit: "inside", height: 1600, width: 1600, withoutEnlargement: true })
-    .jpeg({ quality: 85 })
-    .toBuffer();
-  const thumbnail = await renderPageThumbnail(buffer);
-  const pushImage = await renderPushImage(buffer);
-  const blurDataUrl = await renderBlurDataUrl(buffer);
-  return { blurDataUrl, photo, pushImage, thumbnail };
+const loadPhotosFromDisk = Effect.gen(function* () {
+  const photos = yield* readPhotos;
+  if (!photos.some(isLfsPointer)) {
+    return photos;
+  }
+  yield* pullLfsFiles;
+  const pulled = yield* readPhotos;
+  if (pulled.some(isLfsPointer)) {
+    return yield* new LfsPointersError();
+  }
+  return pulled;
+});
+
+/** The four sharp renders are independent, so they run at once on libuv's thread pool. */
+function renderDerivatives(photo: { bytes: Buffer; filePath: string }) {
+  const render = <A>(promise: () => Promise<A>) =>
+    Effect.tryPromise({
+      catch: (cause) => new ImageProcessingError({ cause, filePath: photo.filePath }),
+      try: promise,
+    });
+  return Effect.all(
+    {
+      blurDataUrl: render(() => renderBlurDataUrl(photo.bytes)),
+      photo: render(() =>
+        sharp(photo.bytes)
+          .rotate()
+          .resize({ fit: "inside", height: 1600, width: 1600, withoutEnlargement: true })
+          .jpeg({ quality: 85 })
+          .toBuffer(),
+      ),
+      pushImage: render(() => renderPushImage(photo.bytes)),
+      thumbnail: render(() => renderPageThumbnail(photo.bytes)),
+    },
+    { concurrency: "unbounded" },
+  );
 }
 
 function isLoopbackUploadUrl(uploadUrl: string) {
   const hostname = new URL(uploadUrl).hostname;
   return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
 }
+
+const UploadResponse = Schema.Struct({ storageId: Schema.NonEmptyString });
+
+const postBytes = Effect.fn("postBytes")(function* (opts: { bytes: Buffer; uploadUrl: string }) {
+  const client = HttpClient.filterStatusOk(yield* HttpClient.HttpClient);
+  const response = yield* client.post(opts.uploadUrl, {
+    body: HttpBody.uint8Array(new Uint8Array(opts.bytes), "image/jpeg"),
+  });
+  const payload = yield* HttpClientResponse.schemaBodyJson(UploadResponse)(response);
+  return payload.storageId;
+});
 
 /**
  * POST to the upload URL. A local anonymous backend started by `convex run`
@@ -123,227 +180,146 @@ function isLoopbackUploadUrl(uploadUrl: string) {
  * Linux/Vercel: resized JPEGs exceed Linux MAX_ARG_STRLEN (~128KiB) as a
  * `convex run` argv. Under `pnpm dev`, `convex dev` keeps the backend up.
  */
-async function uploadBytes(opts: { bytes: Buffer; extraConvexArgs: Array<string> }) {
-  const uploadUrl = parseJsonString(
-    convexRun({
-      args: {},
-      extraConvexArgs: opts.extraConvexArgs,
-      functionName: "homepageDemo:generateUploadUrl",
-    }),
-  );
-  if (uploadUrl === null) {
-    throw new Error(`Expected upload URL string, got invalid convex run output`);
-  }
-
-  if (!isLoopbackUploadUrl(uploadUrl)) {
-    return await postBytes({ bytes: opts.bytes, uploadUrl });
-  }
-  try {
-    return await postBytes({ bytes: opts.bytes, uploadUrl });
-  } catch (error) {
-    // `fetch` rejects with a TypeError when nothing is listening.
-    if (!(error instanceof TypeError)) {
-      throw error;
-    }
-  }
-  const storageId = parseJsonString(
-    convexRun({
-      args: {
-        bytes: { $bytes: opts.bytes.toString("base64") },
-        contentType: "image/jpeg",
-      },
-      extraConvexArgs: opts.extraConvexArgs,
-      functionName: "homepageDemo:storePhoto",
-    }),
-  );
-  if (storageId === null) {
-    throw new Error(`Expected storage id string, got invalid convex run output`);
-  }
-  return storageId;
-}
-
-async function postBytes(opts: { bytes: Buffer; uploadUrl: string }) {
-  const response = await fetch(opts.uploadUrl, {
-    body: new Uint8Array(opts.bytes),
-    headers: { "Content-Type": "image/jpeg" },
-    method: "POST",
+const uploadBytes = Effect.fn("uploadBytes")(function* (bytes: Buffer) {
+  const uploadUrl = yield* convexRun({
+    args: {},
+    functionName: "homepageDemo:generateUploadUrl",
+    returns: Schema.String,
   });
-  if (!response.ok) {
-    throw new Error(`Photo upload failed: ${response.status} ${await response.text()}`);
+  const post = postBytes({ bytes, uploadUrl });
+  if (!isLoopbackUploadUrl(uploadUrl)) {
+    return yield* post;
   }
-  const payload = await response.json();
-  if (!isJsonObjectValue(payload) || !("storageId" in payload)) {
-    throw new Error(`Upload response missing storageId: ${JSON.stringify(payload)}`);
-  }
-  const storageId = parseJsonString(payload.storageId);
-  if (storageId === null || !storageId) {
-    throw new Error(`Upload response missing storageId: ${JSON.stringify(payload)}`);
-  }
-  return storageId;
-}
-
-function hasAllHomepageDemoPhotos(photos: Partial<UploadedPhotos>): photos is UploadedPhotos {
-  return HOMEPAGE_DEMO_PHOTO_KEYS.every((key) => photos[key] !== undefined);
-}
-
-function refreshHomepageDemoLocales(opts: {
-  extraConvexArgs: Array<string>;
-  photos: UploadedPhotos | null;
-}) {
-  const results = [];
-  for (const locale of homepageDemoLocales()) {
-    const args = { locale, photos: opts.photos ?? {} };
-    const result = convexRun({
-      args,
-      extraConvexArgs: opts.extraConvexArgs,
-      functionName: "homepageDemo:refresh",
-    });
-    console.log(`Homepage demo seeded (${locale}):`, result);
-    results.push(result);
-  }
-  return results;
-}
-
-const execFileErrorSchema = z.object({
-  message: z.string(),
-  stderr: z.union([z.string(), z.null()]).optional(),
-  stdout: z.union([z.string(), z.null()]).optional(),
+  return yield* post.pipe(
+    Effect.catchReason("HttpClientError", "TransportError", () =>
+      convexRun({
+        args: { bytes: { $bytes: bytes.toString("base64") }, contentType: "image/jpeg" },
+        functionName: "homepageDemo:storePhoto",
+        returns: Schema.String,
+      }),
+    ),
+  );
 });
 
-function execFileErrorOutput(error: z.infer<typeof execFileErrorSchema>) {
-  return `${error.message}\n${error.stdout ?? ""}\n${error.stderr ?? ""}`;
-}
+/** Storage ids per photo; `refresh` with `{}` seeds the fixture text without photos. */
+type UploadedPhotos = Partial<
+  Record<
+    HomepageDemoPhotoKey,
+    { blurDataUrl: string; photoId: string; pushImageId: string; thumbnailId: string }
+  >
+>;
 
-function skipSeedWhenPreviewHasNoFunctions(cause: unknown) {
-  const parsed = execFileErrorSchema.safeParse(cause);
-  if (!parsed.success || !isConvexPreviewWithoutFunctions(execFileErrorOutput(parsed.data))) {
-    throw cause;
-  }
-  console.log(
-    "Convex preview has no functions — skipping photo seed (merge-queue skip or missing preview)",
-  );
-}
-
-function hasCompleteHomepageDemoPhotoSet(extraConvexArgs: Array<string>) {
-  const result = parseJsonBoolean(
-    convexRun({
-      args: {},
-      extraConvexArgs,
-      functionName: "homepageDemo:hasCompletePhotoSet",
+/** Uploads stay one at a time: concurrent `convex run`s would each try to start a local backend. */
+const uploadHomepageDemoPhotos = Effect.gen(function* () {
+  const photos = yield* loadPhotosFromDisk;
+  const uploaded = yield* Effect.forEach(photos, (photo) =>
+    Effect.gen(function* () {
+      const prepared = yield* renderDerivatives(photo);
+      const photoId = yield* uploadBytes(prepared.photo);
+      const thumbnailId = yield* uploadBytes(prepared.thumbnail);
+      const pushImageId = yield* uploadBytes(prepared.pushImage);
+      yield* Console.log(`Uploaded ${photo.key} (${photo.filePath})`);
+      const ids = { blurDataUrl: prepared.blurDataUrl, photoId, pushImageId, thumbnailId };
+      return [photo.key, ids] as const;
     }),
   );
-  if (result === null) {
-    throw new Error(`Expected homepage photo sentinel boolean, got invalid convex run output`);
+  return Object.fromEntries(uploaded);
+});
+
+const RefreshResult = Schema.Struct({
+  babyId: Schema.String,
+  locale: Schema.String,
+  publicId: Schema.String,
+});
+
+const refreshHomepageDemoLocales = Effect.fn("refreshHomepageDemoLocales")(function* (
+  photos: UploadedPhotos,
+) {
+  for (const locale of homepageDemoLocales()) {
+    const result = yield* convexRun({
+      args: { locale, photos },
+      functionName: "homepageDemo:refresh",
+      returns: RefreshResult,
+    });
+    yield* Console.log(`Homepage demo seeded (${locale}): /baby/${result.publicId}`);
   }
-  return result;
-}
+});
+
+/** Merge-queue Vercel builds never push Convex, so the preview may have no functions yet. */
+const photoSetStatus = convexRun({
+  args: {},
+  functionName: "homepageDemo:hasCompletePhotoSet",
+  returns: Schema.Boolean,
+}).pipe(
+  Effect.map((complete) => (complete ? ("complete" as const) : ("incomplete" as const))),
+  Effect.catchTag("ConvexCliError", (error) =>
+    isConvexPreviewWithoutFunctions(error.output)
+      ? Effect.succeed("no-functions" as const)
+      : Effect.fail(error),
+  ),
+);
+
+const logNoFunctionsSkip = Console.log(
+  "Convex preview has no functions — skipping photo seed (merge-queue skip or missing preview)",
+);
 
 /** Fixture babies + timeline text only — no sharp work or storage uploads. */
-export async function seedHomepageDemoContent(opts: { extraConvexArgs?: Array<string> }) {
-  const extraConvexArgs = opts.extraConvexArgs ?? [];
-  return refreshHomepageDemoLocales({ extraConvexArgs, photos: null });
-}
-
-async function loadPhotosFromDisk() {
-  let photosOnDisk = HOMEPAGE_DEMO_PHOTO_KEYS.map((key) => ({
-    key,
-    ...readPhotoBuffer(HOMEPAGE_DEMO_PHOTO_FILES[key]),
-  }));
-
-  if (photosOnDisk.some((photo) => isLfsPointer(photo.buffer))) {
-    pullLfsFiles();
-    photosOnDisk = HOMEPAGE_DEMO_PHOTO_KEYS.map((key) => ({
-      key,
-      ...readPhotoBuffer(HOMEPAGE_DEMO_PHOTO_FILES[key]),
-    }));
-  }
-
-  if (photosOnDisk.some((photo) => isLfsPointer(photo.buffer))) {
-    throw new Error(
-      "Homepage demo photos are still Git LFS pointers. Enable Git LFS for this checkout (Vercel: Project Settings → Git → Git LFS) and retry.",
-    );
-  }
-
-  return photosOnDisk;
-}
-
-async function uploadHomepageDemoPhotos(opts: { extraConvexArgs: Array<string> }) {
-  const photosOnDisk = await loadPhotosFromDisk();
-
-  const photos: Partial<UploadedPhotos> = {};
-
-  for (const photo of photosOnDisk) {
-    const prepared = await jpegAndDerivatives(photo.buffer);
-    const photoId = await uploadBytes({
-      bytes: prepared.photo,
-      extraConvexArgs: opts.extraConvexArgs,
-    });
-    const thumbnailId = await uploadBytes({
-      bytes: prepared.thumbnail,
-      extraConvexArgs: opts.extraConvexArgs,
-    });
-    const pushImageId = await uploadBytes({
-      bytes: prepared.pushImage,
-      extraConvexArgs: opts.extraConvexArgs,
-    });
-    photos[photo.key] = { blurDataUrl: prepared.blurDataUrl, photoId, pushImageId, thumbnailId };
-    console.log(`Uploaded ${photo.key} (${photo.filePath})`);
-  }
-
-  if (!hasAllHomepageDemoPhotos(photos)) {
-    throw new Error("Not all homepage demo photos were uploaded");
-  }
-  return photos;
-}
+export const seedHomepageDemoContent = refreshHomepageDemoLocales({});
 
 /** Resize, upload, and attach homepage demo photos to every locale baby. */
-export async function seedHomepageDemoPhotos(opts: { extraConvexArgs?: Array<string> }) {
-  const extraConvexArgs = opts.extraConvexArgs ?? [];
-  try {
-    if (hasCompleteHomepageDemoPhotoSet(extraConvexArgs)) {
-      console.log("Homepage demo photos already stored — skipping uploads.");
-      return [];
-    }
-  } catch (error) {
-    skipSeedWhenPreviewHasNoFunctions(error);
-    return [];
+export const seedHomepageDemoPhotos = Effect.gen(function* () {
+  switch (yield* photoSetStatus) {
+    case "complete":
+      return yield* Console.log("Homepage demo photos already stored — skipping uploads.");
+    case "no-functions":
+      return yield* logNoFunctionsSkip;
+    case "incomplete":
+      break;
   }
-  const photos = await uploadHomepageDemoPhotos({ extraConvexArgs });
-  return refreshHomepageDemoLocales({ extraConvexArgs, photos });
-}
+  yield* refreshHomepageDemoLocales(yield* uploadHomepageDemoPhotos);
+});
 
-export async function seedHomepageDemo(opts: { extraConvexArgs?: Array<string> }) {
-  const extraConvexArgs = opts.extraConvexArgs ?? [];
-  try {
-    if (hasCompleteHomepageDemoPhotoSet(extraConvexArgs)) {
-      console.log("Homepage demo already initialized — daily cron handles resets.");
-      return [];
-    }
-  } catch (error) {
-    skipSeedWhenPreviewHasNoFunctions(error);
-    return [];
+export const seedHomepageDemo = Effect.gen(function* () {
+  switch (yield* photoSetStatus) {
+    case "complete":
+      return yield* Console.log("Homepage demo already initialized — daily cron handles resets.");
+    case "no-functions":
+      return yield* logNoFunctionsSkip;
+    case "incomplete":
+      break;
   }
-  await seedHomepageDemoContent({ extraConvexArgs });
-  return await seedHomepageDemoPhotos({ extraConvexArgs });
-}
+  yield* seedHomepageDemoContent;
+  yield* seedHomepageDemoPhotos;
+});
+
+/** Everything the seeds need on a real machine. */
+export const homepageDemoSeedLayer = Layer.mergeAll(ConvexCli.layer, FetchHttpClient.layer).pipe(
+  Layer.provideMerge(NodeServices.layer),
+);
 
 const isCli = process.argv[1] && path.resolve(process.argv[1]) === import.meta.filename;
 if (isCli) {
-  const cliArgs = process.argv.slice(2);
-  const extraConvexArgs = extraConvexArgsFromArgv(cliArgs);
-  const modeFlags = cliArgs.filter((arg) => arg.startsWith("--"));
-  const contentOnly = modeFlags.includes("--content-only");
-  const photosOnly = modeFlags.includes("--photos-only");
-
-  if (contentOnly && photosOnly) {
-    throw new Error("Use only one of --content-only or --photos-only");
-  }
-
-  if (contentOnly) {
-    await seedHomepageDemoContent({ extraConvexArgs });
-  } else if (photosOnly) {
-    await seedHomepageDemoPhotos({ extraConvexArgs });
-  } else {
-    await seedHomepageDemo({ extraConvexArgs });
-  }
+  const seeds = { content: seedHomepageDemoContent, photos: seedHomepageDemoPhotos };
+  Command.make(
+    "seed-homepage-demo",
+    {
+      only: Flag.Literals("only", ["content", "photos"]).pipe(
+        Flag.optional,
+        Flag.withDescription("Seed only the fixture text or only the photos (default: both)"),
+      ),
+      previewName: Flag.String("preview-name").pipe(
+        Flag.optional,
+        Flag.withDescription("Convex preview deployment to seed"),
+      ),
+    },
+    (flags) =>
+      Option.match(flags.only, {
+        onNone: () => seedHomepageDemo,
+        onSome: (only) => seeds[only],
+      }).pipe(Effect.provideService(ConvexPreviewName, flags.previewName)),
+  ).pipe(
+    Command.run({ version: "0.0.0" }),
+    Effect.provide(homepageDemoSeedLayer),
+    NodeRuntime.runMain,
+  );
 }

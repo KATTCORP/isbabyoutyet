@@ -15,6 +15,11 @@ export class ConvexCliError extends Schema.TaggedError<ConvexCliError>()("Convex
   override get message() {
     return `\`convex ${this.command}\` exited with code ${this.exitCode}`;
   }
+
+  /** Everything the CLI printed, for matching known failures. */
+  get output() {
+    return `${this.stdout}\n${this.stderr}`;
+  }
 }
 
 function collectText(stream: Stream.Stream<Uint8Array, PlatformError.PlatformError>) {
