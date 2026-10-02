@@ -5,14 +5,14 @@ share. `AGENTS.md` files are symlinks to the `README.md` beside them: one doc pe
 directory, for humans and agents alike. Read the one closest to the code you
 are changing; each links further down.
 
-| Path | What |
-| --- | --- |
-| [`projects/isbabyoutyet/`](projects/isbabyoutyet/README.md) | **Is Baby Out Yet?**: web app, Convex backend, email templates |
-| [`projects/sous-vide-guide/`](projects/sous-vide-guide/README.md) | **Sous Vide Guide**: web app |
-| [`projects/`](projects/README.md) | Rules shared by every `projects/*/web` |
-| [`packages/`](packages/) | Shared libraries: `ui` (vendored shadcn), [`form-guard`](packages/form-guard/README.md), [`convex-prefetch`](packages/convex-prefetch/README.md), [`query-prefetch`](packages/query-prefetch/README.md), `runtime`, `scripts`, `oxlint-plugins` |
-| [`.agents/skills/`](.agents/skills/) | Agent skills (third-party ones are pinned in `skills-lock.json`) |
-| `repos/` | Read-only upstream sources vendored with `git subtree` (see below) |
+| Path                                                              | What                                                                                                                                                                                                                                            |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`projects/isbabyoutyet/`](projects/isbabyoutyet/README.md)       | **Is Baby Out Yet?**: web app, Convex backend, email templates                                                                                                                                                                                  |
+| [`projects/sous-vide-guide/`](projects/sous-vide-guide/README.md) | **Sous Vide Guide**: web app                                                                                                                                                                                                                    |
+| [`projects/`](projects/README.md)                                 | Rules shared by every `projects/*/web`                                                                                                                                                                                                          |
+| [`packages/`](packages/)                                          | Shared libraries: `ui` (vendored shadcn), [`form-guard`](packages/form-guard/README.md), [`convex-prefetch`](packages/convex-prefetch/README.md), [`query-prefetch`](packages/query-prefetch/README.md), `runtime`, `scripts`, `oxlint-plugins` |
+| [`.agents/skills/`](.agents/skills/)                              | Agent skills (third-party ones are pinned in `skills-lock.json`)                                                                                                                                                                                |
+| `repos/`                                                          | Read-only upstream sources vendored with `git subtree` (see below)                                                                                                                                                                              |
 
 ## Setup
 
@@ -59,8 +59,8 @@ reference material for humans and agents. Read them, but do not edit them,
 import from them, or treat them as part of this repo's code. Lint, format, and
 knip ignore `repos/**`, and it is not a pnpm workspace.
 
-| Path | Upstream |
-| --- | --- |
+| Path           | Upstream                                                                           |
+| -------------- | ---------------------------------------------------------------------------------- |
 | `repos/effect` | [`Effect-TS/effect`](https://github.com/Effect-TS/effect) `main` (4.0.0 at import) |
 
 Update one with a single squashed commit:
