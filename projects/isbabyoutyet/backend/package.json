@@ -39,12 +39,14 @@
   "dependencies": {
     "@convex-dev/better-auth": "catalog:",
     "@convex-dev/migrations": "catalog:",
+    "@effect/platform-node": "catalog:",
     "@isbabyoutyet/email": "workspace:*",
     "@workspace/runtime": "workspace:*",
     "better-auth": "catalog:",
     "convex": "catalog:",
     "convex-helpers": "catalog:",
     "convex-table-history": "catalog:",
+    "effect": "catalog:",
     "sharp": "catalog:",
     "web-push": "catalog:"
   },
