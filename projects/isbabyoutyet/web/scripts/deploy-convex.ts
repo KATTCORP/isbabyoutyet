@@ -286,7 +286,7 @@ if (plan.kind === "merge-queue-web-only") {
 
   for (const script of convexSeedNpmScripts(plan)) {
     console.log(`\n$ pnpm ${script}`);
-    execFileSync("pnpm", ["run", script, "--", ...previewArgs], {
+    execFileSync("pnpm", ["run", script, ...previewArgs], {
       cwd: convexPackageDir,
       env: process.env,
       stdio: "inherit",
