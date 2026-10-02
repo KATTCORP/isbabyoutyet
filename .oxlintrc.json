@@ -18,7 +18,12 @@
     "node": true
   },
   // Generated code is not ours to lint
-  "ignorePatterns": ["**/_generated/**", "**/routeTree.gen.ts", "packages/oxlint-plugins/**/*.ts"],
+  "ignorePatterns": [
+    "**/_generated/**",
+    "**/routeTree.gen.ts",
+    "packages/oxlint-plugins/**/*.ts",
+    "repos/**"
+  ],
   "jsPlugins": [
     // Off-the-shelf JSX copy guard: flags user-visible string/template literals
     // that are not passed through `t` / `translate` (and i18next-style aliases).
