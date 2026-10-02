@@ -18,7 +18,7 @@ export default defineConfig({
       VAPID_SUBJECT: "mailto:test@example.com",
     },
     environment: "edge-runtime",
-    include: ["convex/**/*.test.ts", "src/**/*.test.ts"],
+    include: ["convex/**/*.test.ts", "scripts/**/*.test.ts", "src/**/*.test.ts"],
     // Each file builds its own convexTest instance, so sharing the module graph
     // per worker is safe and halves the run by importing every module once.
     isolate: false,
