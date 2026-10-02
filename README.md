@@ -50,7 +50,9 @@ pnpm clean                            # wipe caches and reinstall
   [`repos/effect/LLMS.md`](repos/effect/LLMS.md), then treat `repos/effect/`
   (implementation, tests, and docs) as the source of truth for idiomatic
   usage. Prefer its patterns over guesses or web search, especially for APIs
-  that changed in v4.
+  that changed in v4. Code that uses Effect gets the `anti-slop-effect` lint
+  rules through an `.oxlintrc.json` override; add new Effect code to its
+  `files` list.
 
 ## Vendored repositories
 
