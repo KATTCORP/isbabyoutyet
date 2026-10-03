@@ -368,6 +368,44 @@ export function getSousVideEntries(t: ContentT): ReadonlyArray<SousVideEntry> {
     {
       category: "beef",
       doneness: t("Rare"),
+      id: "picanha-rare",
+      maxMinutes: 480,
+      name: t("Picanha"),
+      recommendedMinutes: { max: 240, min: 180 },
+      searchTerms: splitMessageList(
+        t("nöt, beef, picanha, culotte, rump cap, rostbiffslock, rostbifflock, fettkappa, Blodig"),
+      ),
+      temperatureC: 54,
+    },
+    {
+      category: "beef",
+      doneness: t("Medium"),
+      id: "picanha-medium",
+      maxMinutes: 480,
+      name: t("Picanha"),
+      recommendedMinutes: { max: 240, min: 180 },
+      searchTerms: splitMessageList(
+        t("nöt, beef, picanha, culotte, rump cap, rostbiffslock, rostbifflock, fettkappa"),
+      ),
+      temperatureC: 58,
+    },
+    {
+      category: "beef",
+      doneness: t("Well done"),
+      id: "picanha-well",
+      maxMinutes: 240,
+      name: t("Picanha"),
+      recommendedMinutes: { max: 180, min: 150 },
+      searchTerms: splitMessageList(
+        t(
+          "nöt, beef, picanha, culotte, rump cap, rostbiffslock, rostbifflock, fettkappa, Välstekt, Well-done",
+        ),
+      ),
+      temperatureC: 70,
+    },
+    {
+      category: "beef",
+      doneness: t("Rare"),
       id: "flank-rare",
       maxMinutes: 2880,
       name: t("Flank steak"),
