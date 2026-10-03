@@ -373,9 +373,7 @@ export function getSousVideEntries(t: ContentT): ReadonlyArray<SousVideEntry> {
       name: t("Picanha"),
       recommendedMinutes: { max: 240, min: 180 },
       searchTerms: splitMessageList(
-        t(
-          "nöt, beef, picanha, culotte, rump cap, rostbiffslock, rostbifflock, fettkappa, Blodig",
-        ),
+        t("nöt, beef, picanha, culotte, rump cap, rostbiffslock, rostbifflock, fettkappa, Blodig"),
       ),
       temperatureC: 54,
     },

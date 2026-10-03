@@ -249,7 +249,10 @@ export function getCutGuide(cutId: string, t: ContentT): CutGuide | null {
             "Picanha (Swedish rostbiffslock / rump cap) is a triangular roast with a thick fat cap. Leave the fat on for flavour; score it before the sear.",
           ),
           t(
-            "Times here are for a whole roast or thick steaks (~3–5 cm), not the guide's default ~25 mm. Rare (54C) and Medium (58C) run about 3–4 h; Well done (70C) about 2.5–3 h. Toward the max (6–8 h) softens further — prefer baths at or above 54–55C for multi-hour cooks.",
+            "Times are for a whole roast or thick steaks (~3–5 cm), not the guide's default ~25 mm. Rare and Medium run about 3–4 h; Well done about 2.5–3 h.",
+          ),
+          t(
+            "Toward the 6–8 h max softens further. Prefer baths at or above 54–55C for multi-hour cooks.",
           ),
           t(
             "Pat very dry and sear fat-side first in a ripping-hot pan or on the grill. Slice against the grain.",
