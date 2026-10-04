@@ -53,7 +53,7 @@ test("Got it completes the step when completeOnDismiss is set", async () => {
   await using _view = renderResource(
     <Coachmark
       completeOnDismiss
-      description="Themes, names, and language — all in Settings."
+      description="Themes, names, and language: all in Settings."
       onComplete={onComplete}
       onDismiss={onDismiss}
       targetId="explore_settings"

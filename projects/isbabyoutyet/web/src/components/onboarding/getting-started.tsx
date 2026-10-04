@@ -387,7 +387,7 @@ function ChecklistContents(props: ChecklistContentsProps) {
       ) : (
         <div className="flex flex-col gap-2">
           <p className="text-xs text-muted-foreground">
-            {t("Nice work — share your page and enjoy the quiet inbox.")}
+            {t("Nice work. Share your page and enjoy the quiet inbox.")}
           </p>
           <Button onClick={props.onDismiss} size="sm" variant="outline">
             {t("Close checklist")}

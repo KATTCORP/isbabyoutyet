@@ -78,13 +78,13 @@ export function babyPageDescription(
     case "gone_to_hospital":
       return translate(
         locale,
-        "{{name}}'s family has gone to hospital — follow live updates on the baby page.",
+        "{{name}}'s family has gone to hospital. Follow live updates on the baby page.",
         { name: baby.name },
       );
     case "labor_started":
       return translate(
         locale,
-        "{{name}}'s labour has started — follow live updates on the baby page.",
+        "{{name}}'s labour has started. Follow live updates on the baby page.",
         { name: baby.name },
       );
     case "not_yet":
