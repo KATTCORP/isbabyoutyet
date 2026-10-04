@@ -646,6 +646,18 @@
       }
     },
     {
+      // Code built on Effect (see AGENTS.md). Opt-in, because these rules
+      // would push Effect idioms into code that doesn't use it.
+      "files": ["packages/scripts/src/**"],
+      "rules": {
+        "anti-slop-effect/no-manual-effect-error-tag": "error",
+        "anti-slop-effect/no-manual-tag-comparison": "error",
+        "anti-slop-effect/no-manual-tagged-construction": "error",
+        "anti-slop-effect/no-service-constructor-imports": "error",
+        "anti-slop-effect/prefer-effect-match": "error"
+      }
+    },
+    {
       // Latest dismiss is an Effect Event assigned onto the external store
       // each render; the compiler rule forbids passing Effect Events, but the
       // click handler is outside React and cannot be an Effect.
