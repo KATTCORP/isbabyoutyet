@@ -35,7 +35,7 @@ export const ONBOARDING_STEPS = [
   {
     ctaLabel: undefined,
     description:
-      "One link for everyone. Tap Share on the baby page to copy it — no group chat spam.",
+      "One link for everyone. Tap Share on the baby page to copy it. No group chat spam.",
     icon: ShareNetworkIcon,
     id: "share_link",
     surface: "baby",
@@ -54,7 +54,7 @@ export const ONBOARDING_STEPS = [
   },
   {
     ctaLabel: undefined,
-    description: "Themes, names, and language — all in Settings.",
+    description: "Themes, names, and language: all in Settings.",
     icon: GearSixIcon,
     id: "explore_settings",
     surface: "baby",
@@ -64,7 +64,7 @@ export const ONBOARDING_STEPS = [
   {
     ctaLabel: undefined,
     description:
-      "Anyone with the link can leave a short supportive note — no account needed. They show up in your timeline.",
+      "Anyone with the link can leave a short supportive note. No account needed. They show up in your timeline.",
     icon: HeartIcon,
     id: "learn_encouragements",
     surface: "baby",

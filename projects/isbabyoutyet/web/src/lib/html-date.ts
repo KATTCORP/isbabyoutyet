@@ -133,7 +133,7 @@ export function optionalHtmlDateTime(t: TranslationFunction, timeZone: string) {
         payload.issues.push({
           code: "custom",
           input: value,
-          message: t("Pick a valid time — or leave it blank for now"),
+          message: t("Pick a valid time, or leave it blank for now"),
         });
         return z.NEVER;
       }

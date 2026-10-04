@@ -32,7 +32,7 @@ test("keeps British and American English copy distinct", () => {
   expect(
     translate(
       "en-US",
-      "Pick a theme that matches your style. From soft pastels to bold colours — your page, your vibe.",
+      "Pick a theme that matches your style. From soft pastels to bold colours. Your page, your vibe.",
     ),
   ).toBe("Pick soft pastels, bold colors or whatever feels like you.");
 });
