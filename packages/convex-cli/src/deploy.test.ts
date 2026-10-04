@@ -57,6 +57,7 @@ describe("deploy", () => {
       const error = yield* deploy([]).pipe(Effect.provide(convex.layer), Effect.flip);
 
       expect(error).toStrictEqual(new ConvexDeployOutputError({ stdout: "done\n" }));
+      expect(error.message).toBe("`convex deploy` did not print the deployment URL:\ndone\n");
     }),
   );
 
@@ -73,6 +74,7 @@ describe("deploy", () => {
       const error = yield* deploy([]).pipe(Effect.provide(convex.layer), Effect.flip);
 
       expect(error).toStrictEqual(new ConvexPushTimeoutError());
+      expect(error.message).toBe("`convex deploy` timed out pushing functions (start_push 408)");
     }),
   );
 
