@@ -33,7 +33,7 @@ export const Route = createFileRoute("/")({
   component: SousVideGuidePage,
   head: () => ({
     meta: [
-      { title: `${m.sous_vide_title()} — ${m.app_name()}` },
+      { title: `${m.sous_vide_title()} · ${m.app_name()}` },
       { content: m.sous_vide_summary(), name: "description" },
     ],
   }),

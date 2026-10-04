@@ -46,7 +46,7 @@ test("shows a persistent demo toast on the homepage demo baby", async () => {
   // English locale maps the key "This is a demo baby" → "This is a demo page"
   expect(await screen.findByText("This is a demo page")).toBeTruthy();
   expect(
-    screen.getByText("Feel free to post test messages — we reset this demo daily."),
+    screen.getByText("Feel free to post test messages. We reset this demo daily."),
   ).toBeTruthy();
   expect(screen.getByRole("button", { name: "Got it" })).toBeTruthy();
 });
