@@ -51,8 +51,11 @@ linked from the homepage. The source of truth is
   runtime env, runs migrations, and seeds the homepage demo (text and
   photos) on production and previews alike. A complete demo is left alone; a
   failed photo upload only warns, and the next deploy retries it.
-- Previews reuse the branch backend unless `schema.ts` / `convex.config.ts`
-  changed; a wipe gets the demo logins and the whole homepage demo again.
+- Each branch keeps one preview backend (`--preview-name <branch>`) and its
+  data. Every deploy re-runs the demo-login seed, which tops up what's
+  missing and resets the empty user's first-run tour. The preview is wiped
+  and recreated only when Convex rejects the push because stored documents
+  don't match the new schema.
 - `crons.ts` resets each locale's homepage baby daily, unless it received real
   visitor encouragement in the previous hour.
 

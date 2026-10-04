@@ -11,20 +11,21 @@
  * emit the Vercel Build Output API (functions + static).
  * https://vercel.com/kb/guide/deploy-a-tanstack-start-app-to-vercel
  *
- * `planConvexDeploy` decides what to do; this program runs it:
- *
  * 1. Merge-queue refs (`gh-readonly-queue/…`) only build the web app: the
  *    required Vercel check needs nothing more, and a queue-specific backend
  *    would be created and thrown away.
- * 2. `convex deploy` pushes the functions and returns the deployment URL. A
- *    fresh preview can answer `start_push` with a 408; the preview is claimed
- *    by then, so the retry reuses it instead of wiping it again.
+ * 2. `convex deploy` pushes the functions and returns the deployment URL.
+ *    A preview deploys with `--preview-name <branch>`, which creates the
+ *    branch's backend if it is missing and keeps its data otherwise. Only if
+ *    the push is rejected because stored documents don't fit the new schema
+ *    is the preview recreated (`--preview-create`, a wipe).
  * 3. Two things then run at once, since neither needs the other:
  *    - the web app is built against that URL;
  *    - the backend is configured: runtime environment variables in one
  *      `convex env set` (stdin, so secrets never reach argv or the build log),
- *      pending migrations, the demo login on new previews, and the homepage
- *      demo. A failed photo upload only warns; the next deploy retries it.
+ *      pending migrations, the demo logins on previews, and the homepage demo.
+ *      Every step is idempotent, so each deploy runs all of them. A failed
+ *      photo upload only warns; the next deploy retries it.
  */
 import path from "node:path";
 import { NodeRuntime } from "@effect/platform-node";
@@ -32,26 +33,16 @@ import {
   ConvexCli,
   ConvexPreviewName,
   deploy,
-  listEnv,
   previewNameArgs,
   runFunction,
   setEnv,
 } from "@workspace/convex-cli";
-import type { ConvexEnvVars } from "@workspace/convex-cli";
-import { Config, Console, Effect, FileSystem, Option, Schedule, Schema } from "effect";
+import { Config, Console, Effect, Option, Schedule, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import {
   MERGE_QUEUE_PLACEHOLDER_CONVEX_URL,
-  SCHEMA_FINGERPRINT_ENV,
-  SCHEMA_FINGERPRINT_RELATIVE_PATHS,
-  computeSchemaFingerprint,
-  convexDeployCliArgs,
-  convexDeployRetryCliArgs,
-  convexPostPushRunFunctions,
   describeConvexDeployPlan,
   planConvexDeploy,
-  planPreviewName,
-  shouldPushConvexBackend,
 } from "../src/previewDeploy";
 import type { ConvexDeployPlan } from "../src/previewDeploy";
 import { homepageDemoSeedLayer, seedHomepageDemo } from "./seedHomepageDemo";
@@ -107,28 +98,35 @@ class MigrationsTimeoutError extends Schema.TaggedError<MigrationsTimeoutError>(
   }
 }
 
-const readCurrentFingerprint = Effect.gen(function* () {
-  const fs = yield* FileSystem.FileSystem;
-  const files = yield* Effect.forEach(SCHEMA_FINGERPRINT_RELATIVE_PATHS, (relativePath) =>
-    fs
-      .readFileString(path.join(convexPackageDir, relativePath))
-      .pipe(Effect.map((contents) => ({ contents, path: relativePath }))),
-  );
-  return computeSchemaFingerprint(files);
-});
-
-/** `env list` fails when the preview does not exist yet. */
-const readStoredFingerprint = (previewName: string) =>
-  listEnv.pipe(
-    Effect.map((env) => ({
-      fingerprint: env[SCHEMA_FINGERPRINT_ENV] ?? null,
-      previewExists: true,
-    })),
-    Effect.catchTag("ConvexCliError", () =>
-      Effect.succeed({ fingerprint: null, previewExists: false }),
+/**
+ * A fresh deployment can answer `start_push` with a 408. It is claimed by
+ * then, so `retryArgs` must target it without wiping it again.
+ */
+function deployRetryingTimeout(opts: {
+  args: ReadonlyArray<string>;
+  retryArgs: ReadonlyArray<string>;
+}) {
+  return deploy(opts.args).pipe(
+    Effect.catchTag("ConvexPushTimeoutError", (timeout) =>
+      Console.log(`${timeout.message} — retrying without a wipe`).pipe(
+        Effect.andThen(deploy(opts.retryArgs)),
+      ),
     ),
-    Effect.provideService(ConvexPreviewName, Option.some(previewName)),
   );
+}
+
+function deployPreview(previewName: string) {
+  const reuse = ["--preview-name", previewName];
+  return deployRetryingTimeout({ args: reuse, retryArgs: reuse }).pipe(
+    Effect.catchTag("ConvexSchemaValidationError", (rejected) =>
+      Console.log(`${rejected.message} — recreating Convex preview "${previewName}"`).pipe(
+        Effect.andThen(
+          deployRetryingTimeout({ args: ["--preview-create", previewName], retryArgs: reuse }),
+        ),
+      ),
+    ),
+  );
+}
 
 const buildWeb = Effect.fn("buildWeb")(function* (opts: {
   convexUrl: string;
@@ -198,51 +196,40 @@ const runMigrations = Effect.gen(function* () {
   }
 });
 
-const pushAndSeed = Effect.fn("pushAndSeed")(function* (opts: {
-  currentFingerprint: string;
-  isPreview: boolean;
-  plan: Exclude<ConvexDeployPlan, { kind: "merge-queue-web-only" }>;
+const deployBackendAndWeb = Effect.fn("deployBackendAndWeb")(function* (opts: {
+  plan: Exclude<ConvexDeployPlan, { kind: "merge-queue" }>;
   siteUrl: string;
-  vercelEnv: "production" | "preview";
 }) {
   const plan = opts.plan;
+  const isPreview = plan.kind === "preview";
   const runtime = yield* ConvexRuntimeConfig;
 
-  const convexUrl = yield* deploy(convexDeployCliArgs(plan)).pipe(
-    Effect.catchTag("ConvexPushTimeoutError", (timeout) =>
-      Console.log(`${timeout.message} — retrying without a wipe`).pipe(
-        Effect.andThen(deploy(convexDeployRetryCliArgs(plan))),
-      ),
+  const convexUrl = yield* plan.kind === "preview"
+    ? deployPreview(plan.previewName)
+    : deployRetryingTimeout({ args: [], retryArgs: [] });
+
+  const configureBackend = Effect.gen(function* () {
+    yield* setEnv({
+      ...runtime,
+      SITE_URL: opts.siteUrl,
+      VERCEL_ENV: isPreview ? "preview" : "production",
+    });
+    yield* runMigrations;
+    if (isPreview) {
+      yield* runAndLog("seed:seedDemoData");
+    }
+    yield* seedHomepageDemo({ photos: "best-effort" });
+  }).pipe(
+    Effect.provideService(
+      ConvexPreviewName,
+      plan.kind === "preview" ? Option.some(plan.previewName) : Option.none(),
     ),
   );
 
-  const configureBackend = Effect.gen(function* () {
-    if (plan.writeEnv) {
-      const vars: ConvexEnvVars = {
-        ...runtime,
-        SITE_URL: opts.siteUrl,
-        VERCEL_ENV: opts.vercelEnv,
-      };
-      if (plan.kind !== "production") {
-        vars[SCHEMA_FINGERPRINT_ENV] = opts.currentFingerprint;
-      }
-      yield* setEnv(vars);
-    } else {
-      yield* Console.log("Convex env already set on this preview — skipping env sync");
-    }
-
-    yield* runMigrations;
-
-    for (const functionName of convexPostPushRunFunctions(plan)) {
-      yield* runAndLog(functionName);
-    }
-    yield* seedHomepageDemo({ photos: "best-effort" });
-  }).pipe(Effect.provideService(ConvexPreviewName, Option.fromNullOr(planPreviewName(plan))));
-
-  yield* Effect.all(
-    [buildWeb({ convexUrl, isPreview: opts.isPreview, siteUrl: opts.siteUrl }), configureBackend],
-    { concurrency: "unbounded", discard: true },
-  );
+  yield* Effect.all([buildWeb({ convexUrl, isPreview, siteUrl: opts.siteUrl }), configureBackend], {
+    concurrency: "unbounded",
+    discard: true,
+  });
 });
 
 export const deployVercel = Effect.gen(function* () {
@@ -250,24 +237,13 @@ export const deployVercel = Effect.gen(function* () {
   const isPreview = vercel.env === "preview";
   const siteUrl = `https://${isPreview ? vercel.branchUrl : vercel.productionUrl}`;
 
-  const pushConvex = shouldPushConvexBackend(vercel.gitRef);
-  const currentFingerprint = pushConvex ? yield* readCurrentFingerprint : "";
-  const stored =
-    isPreview && pushConvex
-      ? yield* readStoredFingerprint(vercel.gitRef)
-      : { fingerprint: null, previewExists: false };
-  const plan = planConvexDeploy({
-    currentFingerprint,
-    gitRef: vercel.gitRef,
-    stored,
-    vercelEnv: vercel.env,
-  });
+  const plan = planConvexDeploy({ gitRef: vercel.gitRef, vercelEnv: vercel.env });
   yield* Console.log(describeConvexDeployPlan(plan));
 
-  if (plan.kind === "merge-queue-web-only") {
+  if (plan.kind === "merge-queue") {
     return yield* buildWeb({ convexUrl: MERGE_QUEUE_PLACEHOLDER_CONVEX_URL, isPreview, siteUrl });
   }
-  yield* pushAndSeed({ currentFingerprint, isPreview, plan, siteUrl, vercelEnv: vercel.env });
+  yield* deployBackendAndWeb({ plan, siteUrl });
 });
 
 const isCli = process.argv[1] && path.resolve(process.argv[1]) === import.meta.filename;

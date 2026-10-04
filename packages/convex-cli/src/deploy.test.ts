@@ -1,7 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { ConvexCliError } from "./convexCli";
-import { ConvexDeployOutputError, ConvexPushTimeoutError, deploy } from "./deploy";
+import {
+  ConvexDeployOutputError,
+  ConvexPushTimeoutError,
+  ConvexSchemaValidationError,
+  deploy,
+} from "./deploy";
 import { fakeConvexCli } from "./testing";
 
 function deployFailure(stderr: string) {
@@ -73,6 +78,25 @@ describe("deploy", () => {
       const error = yield* deploy([]).pipe(Effect.provide(convex.layer), Effect.flip);
 
       expect(error).toStrictEqual(new ConvexPushTimeoutError());
+    }),
+  );
+
+  it.effect("turns a rejected schema into ConvexSchemaValidationError", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvexCli(() =>
+        Effect.fail(
+          deployFailure(
+            '✖ Schema validation failed.\nDocument with ID "j57…" in table "baby" does not match the schema: Object is missing the required field `lastActivityAt`.',
+          ),
+        ),
+      );
+
+      const error = yield* deploy(["--preview-name", "feat/demo"]).pipe(
+        Effect.provide(convex.layer),
+        Effect.flip,
+      );
+
+      expect(error).toStrictEqual(new ConvexSchemaValidationError());
     }),
   );
 

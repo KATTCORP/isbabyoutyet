@@ -1,5 +1,6 @@
 import { Effect, Schema } from "effect";
 import { ConvexCli } from "./convexCli";
+import type { ConvexCliError } from "./convexCli";
 
 /** `convex deploy` hands its `--cmd` the deployment URL in this variable. */
 const URL_ENV_VAR = "CONVEX_DEPLOY_URL";
@@ -10,6 +11,15 @@ export class ConvexPushTimeoutError extends Schema.TaggedError<ConvexPushTimeout
 ) {
   override get message() {
     return "`convex deploy` timed out pushing functions (start_push 408)";
+  }
+}
+
+export class ConvexSchemaValidationError extends Schema.TaggedError<ConvexSchemaValidationError>()(
+  "ConvexSchemaValidationError",
+  {},
+) {
+  override get message() {
+    return "`convex deploy` was rejected: existing documents do not match the pushed schema";
   }
 }
 
@@ -25,6 +35,24 @@ export class ConvexDeployOutputError extends Schema.TaggedError<ConvexDeployOutp
 /** A fresh deployment can hang on `start_push` and answer 408 after about five minutes. */
 function isStartPushTimeout(output: string) {
   return /\/api\/deploy2\/start_push\s+408\b/i.test(output);
+}
+
+/**
+ * The push checks every document against the new schema and changes nothing
+ * if one doesn't match; the CLI then logs this line and exits 1.
+ */
+function isSchemaValidationFailure(output: string) {
+  return /Schema validation failed/.test(output);
+}
+
+function classifyDeployFailure(error: ConvexCliError) {
+  if (isStartPushTimeout(error.output)) {
+    return new ConvexPushTimeoutError();
+  }
+  if (isSchemaValidationFailure(error.output)) {
+    return new ConvexSchemaValidationError();
+  }
+  return error;
 }
 
 /**
@@ -45,11 +73,7 @@ export const deploy = Effect.fn("deploy")(function* (args: ReadonlyArray<string>
       `printenv ${URL_ENV_VAR}`,
       ...args,
     ])
-    .pipe(
-      Effect.catchTag("ConvexCliError", (error) =>
-        Effect.fail(isStartPushTimeout(error.output) ? new ConvexPushTimeoutError() : error),
-      ),
-    );
+    .pipe(Effect.catchTag("ConvexCliError", (error) => Effect.fail(classifyDeployFailure(error))));
   const url = stdout
     .split("\n")
     .map((line) => line.trim())
