@@ -1,11 +1,11 @@
 // @vitest-environment node
+import { describe, expect, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Option, Result, Schema, Sink, Stream } from "effect";
 import { HttpClient, HttpClientError, HttpClientResponse } from "effect/http";
 import type { HttpClientRequest } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { TestConsole } from "effect/testing";
 import sharp from "sharp";
-import { describe, expect, it } from "vitest";
 import { HOMEPAGE_DEMO_PHOTO_KEYS, homepageDemoLocales } from "../src/homepageDemoFeed";
 import { ConvexCli, ConvexCliError } from "./convexCli";
 import {
@@ -156,10 +156,8 @@ function seed<A, E>(
         services.files ?? photoFiles([jpeg]),
         services.spawner ?? fakeSpawner().layer,
         services.uploads ?? fakeUploads({ reachable: true }).layer,
-        TestConsole.layer,
       ),
     ),
-    Effect.runPromise,
   );
 }
 
@@ -179,191 +177,217 @@ const RefreshArgs = Schema.fromJsonString(
 );
 
 describe("seedHomepageDemoPhotos", () => {
-  it("skips uploads when every photo is already stored", async () => {
-    const convex = fakeConvexCli({
-      "homepageDemo:hasCompletePhotoSet": () => Effect.succeed("[CONVEX Q] log line\ntrue\n"),
-    });
+  it.effect("skips uploads when every photo is already stored", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvexCli({
+        "homepageDemo:hasCompletePhotoSet": () => Effect.succeed("[CONVEX Q] log line\ntrue\n"),
+      });
 
-    const run = await seed(seedHomepageDemoPhotos, { convex: convex.layer });
+      const run = yield* seed(seedHomepageDemoPhotos, { convex: convex.layer });
 
-    expect(run.result).toStrictEqual(Result.succeed(undefined));
-    expect(run.logs).toStrictEqual(["Homepage demo photos already stored — skipping uploads."]);
-    expect(convex.calls).toStrictEqual([
-      ["run", "homepageDemo:hasCompletePhotoSet", "{}", "--preview-name", "pr-123"],
-    ]);
-  });
-
-  it("skips a preview that has no functions yet", async () => {
-    const convex = fakeConvexCli({
-      "homepageDemo:hasCompletePhotoSet": () =>
-        Effect.fail(cliFailure("✖ No functions found for this deployment")),
-    });
-
-    const run = await seed(seedHomepageDemoPhotos, { convex: convex.layer });
-
-    expect(run.result).toStrictEqual(Result.succeed(undefined));
-    expect(run.logs).toStrictEqual([
-      "Convex preview has no functions — skipping photo seed (merge-queue skip or missing preview)",
-    ]);
-  });
-
-  it("fails on any other Convex CLI error", async () => {
-    const failure = cliFailure("✖ Network error");
-    const convex = fakeConvexCli({
-      "homepageDemo:hasCompletePhotoSet": () => Effect.fail(failure),
-    });
-
-    const run = await seed(seedHomepageDemoPhotos, { convex: convex.layer });
-
-    expect(run.result).toStrictEqual(Result.fail(failure));
-  });
-
-  it("fails with the raw output when `convex run` prints something undecodable", async () => {
-    const convex = fakeConvexCli({
-      "homepageDemo:hasCompletePhotoSet": () => Effect.succeed("maybe"),
-    });
-
-    const run = await seed(seedHomepageDemoPhotos, { convex: convex.layer });
-
-    expect(run.result).toStrictEqual(
-      Result.fail(
-        new ConvexRunOutputError({
-          functionName: "homepageDemo:hasCompletePhotoSet",
-          stdout: "maybe",
-        }),
-      ),
-    );
-  });
-
-  it("uploads three renders per photo, then refreshes every locale with their storage ids", async () => {
-    const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
-    const uploads = fakeUploads({ reachable: true });
-
-    const run = await seed(seedHomepageDemoPhotos, {
-      convex: convex.layer,
-      uploads: uploads.layer,
-    });
-
-    expect(run.result).toStrictEqual(Result.succeed(undefined));
-    expect(uploads.requests).toHaveLength(HOMEPAGE_DEMO_PHOTO_KEYS.length * 3);
-    for (const request of uploads.requests) {
-      const contentType = "contentType" in request.body ? request.body.contentType : null;
-      expect([request.method, request.url, contentType]).toStrictEqual([
-        "POST",
-        REMOTE_UPLOAD_URL,
-        "image/jpeg",
+      expect(run.result).toStrictEqual(Result.succeed(undefined));
+      expect(run.logs).toStrictEqual(["Homepage demo photos already stored — skipping uploads."]);
+      expect(convex.calls).toStrictEqual([
+        ["run", "homepageDemo:hasCompletePhotoSet", "{}", "--preview-name", "pr-123"],
       ]);
-    }
-    expect(convex.calls.every((args) => args.slice(-2).join(" ") === "--preview-name pr-123")).toBe(
-      true,
-    );
+    }),
+  );
 
-    const refreshes = convex
-      .callsTo("homepageDemo:refresh")
-      .map((args) => Schema.decodeUnknownSync(RefreshArgs)(args[2]));
-    expect(refreshes.map((args) => args.locale)).toStrictEqual(homepageDemoLocales());
-    expect(refreshes[0]?.photos.bump).toMatchObject({
-      blurDataUrl: expect.stringMatching(/^data:image\/jpeg;base64,/),
-      photoId: "upload-1",
-      pushImageId: "upload-3",
-      thumbnailId: "upload-2",
-    });
-    expect(Object.keys(refreshes[0]?.photos ?? {})).toStrictEqual([...HOMEPAGE_DEMO_PHOTO_KEYS]);
-    expect(run.logs.filter((line) => String(line).startsWith("Uploaded "))).toHaveLength(
-      HOMEPAGE_DEMO_PHOTO_KEYS.length,
-    );
-  });
+  it.effect("skips a preview that has no functions yet", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvexCli({
+        "homepageDemo:hasCompletePhotoSet": () =>
+          Effect.fail(cliFailure("✖ No functions found for this deployment")),
+      });
 
-  it("stores through `storePhoto` when the local upload URL refuses connections", async () => {
-    const convex = fakeConvexCli(seedingReplies({ uploadUrl: LOCAL_UPLOAD_URL }));
+      const run = yield* seed(seedHomepageDemoPhotos, { convex: convex.layer });
 
-    const run = await seed(seedHomepageDemoPhotos, {
-      convex: convex.layer,
-      uploads: fakeUploads({ reachable: false }).layer,
-    });
+      expect(run.result).toStrictEqual(Result.succeed(undefined));
+      expect(run.logs).toStrictEqual([
+        "Convex preview has no functions — skipping photo seed (merge-queue skip or missing preview)",
+      ]);
+    }),
+  );
 
-    expect(run.result).toStrictEqual(Result.succeed(undefined));
-    expect(convex.callsTo("homepageDemo:storePhoto")).toHaveLength(
-      HOMEPAGE_DEMO_PHOTO_KEYS.length * 3,
-    );
-    expect(convex.callsTo("homepageDemo:storePhoto")[0]?.[2]).toContain('"$bytes":');
-  });
+  it.effect("fails on any other Convex CLI error", () =>
+    Effect.gen(function* () {
+      const failure = cliFailure("✖ Network error");
+      const convex = fakeConvexCli({
+        "homepageDemo:hasCompletePhotoSet": () => Effect.fail(failure),
+      });
 
-  it("does not fall back to `storePhoto` for a remote upload URL", async () => {
-    const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
+      const run = yield* seed(seedHomepageDemoPhotos, { convex: convex.layer });
 
-    const run = await seed(seedHomepageDemoPhotos, {
-      convex: convex.layer,
-      uploads: fakeUploads({ reachable: false }).layer,
-    });
+      expect(run.result).toStrictEqual(Result.fail(failure));
+    }),
+  );
 
-    const error = Option.getOrThrow(Result.getFailure(run.result));
-    expect(HttpClientError.isHttpClientError(error)).toBe(true);
-    expect(convex.callsTo("homepageDemo:storePhoto")).toStrictEqual([]);
-  });
+  it.effect("fails with the raw output when `convex run` prints something undecodable", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvexCli({
+        "homepageDemo:hasCompletePhotoSet": () => Effect.succeed("maybe"),
+      });
 
-  it("pulls Git LFS objects when the checkout only has pointers", async () => {
-    const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
-    const spawner = fakeSpawner();
-    const pointers = HOMEPAGE_DEMO_PHOTO_KEYS.map(() => LFS_POINTER);
+      const run = yield* seed(seedHomepageDemoPhotos, { convex: convex.layer });
 
-    const run = await seed(seedHomepageDemoPhotos, {
-      convex: convex.layer,
-      files: photoFiles([...pointers, jpeg]),
-      spawner: spawner.layer,
-    });
+      expect(run.result).toStrictEqual(
+        Result.fail(
+          new ConvexRunOutputError({
+            functionName: "homepageDemo:hasCompletePhotoSet",
+            stdout: "maybe",
+          }),
+        ),
+      );
+    }),
+  );
 
-    expect(run.result).toStrictEqual(Result.succeed(undefined));
-    expect(
-      spawner.commands.map((command) =>
-        ChildProcess.isStandardCommand(command)
-          ? [command.command, ...command.args.slice(0, 2)]
-          : [],
-      ),
-    ).toStrictEqual([["git", "lfs", "pull"]]);
-    expect(run.logs[0]).toBe("Git LFS pointer files detected — running git lfs pull");
-  });
+  it.effect(
+    "uploads three renders per photo, then refreshes every locale with their storage ids",
+    () =>
+      Effect.gen(function* () {
+        const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
+        const uploads = fakeUploads({ reachable: true });
 
-  it("fails when photos are still Git LFS pointers after pulling", async () => {
-    const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
+        const run = yield* seed(seedHomepageDemoPhotos, {
+          convex: convex.layer,
+          uploads: uploads.layer,
+        });
 
-    const run = await seed(seedHomepageDemoPhotos, {
-      convex: convex.layer,
-      files: photoFiles([LFS_POINTER]),
-    });
+        expect(run.result).toStrictEqual(Result.succeed(undefined));
+        expect(uploads.requests).toHaveLength(HOMEPAGE_DEMO_PHOTO_KEYS.length * 3);
+        for (const request of uploads.requests) {
+          const contentType = "contentType" in request.body ? request.body.contentType : null;
+          expect([request.method, request.url, contentType]).toStrictEqual([
+            "POST",
+            REMOTE_UPLOAD_URL,
+            "image/jpeg",
+          ]);
+        }
+        expect(
+          convex.calls.every((args) => args.slice(-2).join(" ") === "--preview-name pr-123"),
+        ).toBe(true);
 
-    expect(run.result).toStrictEqual(Result.fail(new LfsPointersError()));
-    expect(convex.callsTo("homepageDemo:generateUploadUrl")).toStrictEqual([]);
-  });
+        const refreshes = convex
+          .callsTo("homepageDemo:refresh")
+          .map((args) => Schema.decodeUnknownSync(RefreshArgs)(args[2]));
+        expect(refreshes.map((args) => args.locale)).toStrictEqual(homepageDemoLocales());
+        expect(refreshes[0]?.photos.bump).toMatchObject({
+          blurDataUrl: expect.stringMatching(/^data:image\/jpeg;base64,/),
+          photoId: "upload-1",
+          pushImageId: "upload-3",
+          thumbnailId: "upload-2",
+        });
+        expect(Object.keys(refreshes[0]?.photos ?? {})).toStrictEqual([
+          ...HOMEPAGE_DEMO_PHOTO_KEYS,
+        ]);
+        expect(run.logs.filter((line) => String(line).startsWith("Uploaded "))).toHaveLength(
+          HOMEPAGE_DEMO_PHOTO_KEYS.length,
+        );
+      }),
+  );
+
+  it.effect("stores through `storePhoto` when the local upload URL refuses connections", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvexCli(seedingReplies({ uploadUrl: LOCAL_UPLOAD_URL }));
+
+      const run = yield* seed(seedHomepageDemoPhotos, {
+        convex: convex.layer,
+        uploads: fakeUploads({ reachable: false }).layer,
+      });
+
+      expect(run.result).toStrictEqual(Result.succeed(undefined));
+      expect(convex.callsTo("homepageDemo:storePhoto")).toHaveLength(
+        HOMEPAGE_DEMO_PHOTO_KEYS.length * 3,
+      );
+      expect(convex.callsTo("homepageDemo:storePhoto")[0]?.[2]).toContain('"$bytes":');
+    }),
+  );
+
+  it.effect("does not fall back to `storePhoto` for a remote upload URL", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
+
+      const run = yield* seed(seedHomepageDemoPhotos, {
+        convex: convex.layer,
+        uploads: fakeUploads({ reachable: false }).layer,
+      });
+
+      const error = Option.getOrThrow(Result.getFailure(run.result));
+      expect(HttpClientError.isHttpClientError(error)).toBe(true);
+      expect(convex.callsTo("homepageDemo:storePhoto")).toStrictEqual([]);
+    }),
+  );
+
+  it.effect("pulls Git LFS objects when the checkout only has pointers", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
+      const spawner = fakeSpawner();
+      const pointers = HOMEPAGE_DEMO_PHOTO_KEYS.map(() => LFS_POINTER);
+
+      const run = yield* seed(seedHomepageDemoPhotos, {
+        convex: convex.layer,
+        files: photoFiles([...pointers, jpeg]),
+        spawner: spawner.layer,
+      });
+
+      expect(run.result).toStrictEqual(Result.succeed(undefined));
+      expect(
+        spawner.commands.map((command) =>
+          ChildProcess.isStandardCommand(command)
+            ? [command.command, ...command.args.slice(0, 2)]
+            : [],
+        ),
+      ).toStrictEqual([["git", "lfs", "pull"]]);
+      expect(run.logs[0]).toBe("Git LFS pointer files detected — running git lfs pull");
+    }),
+  );
+
+  it.effect("fails when photos are still Git LFS pointers after pulling", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
+
+      const run = yield* seed(seedHomepageDemoPhotos, {
+        convex: convex.layer,
+        files: photoFiles([LFS_POINTER]),
+      });
+
+      expect(run.result).toStrictEqual(Result.fail(new LfsPointersError()));
+      expect(convex.callsTo("homepageDemo:generateUploadUrl")).toStrictEqual([]);
+    }),
+  );
 });
 
 describe("seedHomepageDemo", () => {
-  it("leaves an initialized demo to the daily cron", async () => {
-    const convex = fakeConvexCli({
-      "homepageDemo:hasCompletePhotoSet": () => Effect.succeed("true"),
-    });
+  it.effect("leaves an initialized demo to the daily cron", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvexCli({
+        "homepageDemo:hasCompletePhotoSet": () => Effect.succeed("true"),
+      });
 
-    const run = await seed(seedHomepageDemo, { convex: convex.layer });
+      const run = yield* seed(seedHomepageDemo, { convex: convex.layer });
 
-    expect(run.logs).toStrictEqual([
-      "Homepage demo already initialized — daily cron handles resets.",
-    ]);
-    expect(convex.calls).toHaveLength(1);
-  });
+      expect(run.logs).toStrictEqual([
+        "Homepage demo already initialized — daily cron handles resets.",
+      ]);
+      expect(convex.calls).toHaveLength(1);
+    }),
+  );
 
-  it("seeds the fixture text first, then the photos", async () => {
-    const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
+  it.effect("seeds the fixture text first, then the photos", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
 
-    const run = await seed(seedHomepageDemo, { convex: convex.layer });
+      const run = yield* seed(seedHomepageDemo, { convex: convex.layer });
 
-    expect(run.result).toStrictEqual(Result.succeed(undefined));
-    const photoCounts = convex
-      .callsTo("homepageDemo:refresh")
-      .map((args) => Object.keys(Schema.decodeUnknownSync(RefreshArgs)(args[2]).photos).length);
-    const locales = homepageDemoLocales().length;
-    expect(photoCounts).toStrictEqual([
-      ...Array.from({ length: locales }, () => 0),
-      ...Array.from({ length: locales }, () => HOMEPAGE_DEMO_PHOTO_KEYS.length),
-    ]);
-  });
+      expect(run.result).toStrictEqual(Result.succeed(undefined));
+      const photoCounts = convex
+        .callsTo("homepageDemo:refresh")
+        .map((args) => Object.keys(Schema.decodeUnknownSync(RefreshArgs)(args[2]).photos).length);
+      const locales = homepageDemoLocales().length;
+      expect(photoCounts).toStrictEqual([
+        ...Array.from({ length: locales }, () => 0),
+        ...Array.from({ length: locales }, () => HOMEPAGE_DEMO_PHOTO_KEYS.length),
+      ]);
+    }),
+  );
 });

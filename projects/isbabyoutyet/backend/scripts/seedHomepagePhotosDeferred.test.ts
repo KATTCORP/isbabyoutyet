@@ -1,7 +1,7 @@
 // @vitest-environment node
-import { Effect, Fiber, FileSystem, Layer, Option, Result } from "effect";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Fiber, FileSystem, Layer } from "effect";
 import { TestClock, TestConsole } from "effect/testing";
-import { describe, expect, it } from "vitest";
 import { ConvexCli, ConvexCliError } from "./convexCli";
 import {
   HOMEPAGE_DEMO_PHOTOS_PENDING_MARKER,
@@ -45,98 +45,93 @@ function markerFileSystem(markerExists: boolean) {
 }
 
 describe("waitForConvexReady", () => {
-  it("retries once a second until Convex answers", async () => {
-    const convex = convexReadyAfter(3);
+  it.effect("retries once a second until Convex answers", () =>
+    Effect.gen(function* () {
+      const convex = convexReadyAfter(3);
+      const fiber = yield* Effect.forkChild(waitForConvexReady.pipe(Effect.provide(convex.layer)));
 
-    const result = await Effect.gen(function* () {
-      const fiber = yield* Effect.forkChild(Effect.result(waitForConvexReady));
       yield* TestClock.adjust("2 seconds");
       expect(fiber.pollUnsafe()).toBeUndefined();
       expect(convex.calls).toHaveLength(3);
+
       yield* TestClock.adjust("1 second");
-      return yield* Fiber.join(fiber);
-    }).pipe(Effect.provide(Layer.merge(convex.layer, TestClock.layer())), Effect.runPromise);
+      yield* Fiber.join(fiber);
+      expect(convex.calls).toHaveLength(4);
+    }),
+  );
 
-    expect(result).toStrictEqual(Result.succeed(undefined));
-    expect(convex.calls).toHaveLength(4);
-  });
+  it.effect("gives up after 120 attempts and keeps the last CLI error as the cause", () =>
+    Effect.gen(function* () {
+      const convex = convexReadyAfter(Number.POSITIVE_INFINITY);
+      const fiber = yield* Effect.forkChild(
+        waitForConvexReady.pipe(Effect.flip, Effect.provide(convex.layer)),
+      );
 
-  it("gives up after 120 attempts and keeps the last CLI error as the cause", async () => {
-    const convex = convexReadyAfter(Number.POSITIVE_INFINITY);
-
-    const result = await Effect.gen(function* () {
-      const fiber = yield* Effect.forkChild(Effect.result(waitForConvexReady));
       yield* TestClock.adjust("2 minutes");
-      return yield* Fiber.join(fiber);
-    }).pipe(Effect.provide(Layer.merge(convex.layer, TestClock.layer())), Effect.runPromise);
+      const error = yield* Fiber.join(fiber);
 
-    const error = Option.getOrThrow(Result.getFailure(result));
-    expect(error.message).toBe(
-      "Timed out waiting for Convex dev backend before seeding homepage photos",
-    );
-    expect(error.cause).toBe(notReady);
-    expect(convex.calls).toHaveLength(120);
-  });
+      expect(error.message).toBe(
+        "Timed out waiting for Convex dev backend before seeding homepage photos",
+      );
+      expect(error.cause).toBe(notReady);
+      expect(convex.calls).toHaveLength(120);
+    }),
+  );
 });
 
 describe("seedHomepagePhotosDeferred", () => {
-  it("does nothing without the pending marker", async () => {
-    const convex = convexReadyAfter(0);
-    const fs = markerFileSystem(false);
-    let seeded = false;
+  it.effect("does nothing without the pending marker", () =>
+    Effect.gen(function* () {
+      const convex = convexReadyAfter(0);
+      let seeded = false;
 
-    await seedHomepagePhotosDeferred(
-      Effect.sync(() => {
-        seeded = true;
-      }),
-    ).pipe(
-      Effect.provide(Layer.mergeAll(convex.layer, fs.layer, TestConsole.layer)),
-      Effect.runPromise,
-    );
+      yield* seedHomepagePhotosDeferred(
+        Effect.sync(() => {
+          seeded = true;
+        }),
+      ).pipe(Effect.provide(Layer.merge(convex.layer, markerFileSystem(false).layer)));
 
-    expect(convex.calls).toStrictEqual([]);
-    expect(seeded).toBe(false);
-  });
+      expect(convex.calls).toStrictEqual([]);
+      expect(seeded).toBe(false);
+    }),
+  );
 
-  it("waits for Convex, seeds, then removes the marker", async () => {
-    const convex = convexReadyAfter(1);
-    const fs = markerFileSystem(true);
-    const order: Array<string> = [];
+  it.effect("waits for Convex, seeds, then removes the marker", () =>
+    Effect.gen(function* () {
+      const convex = convexReadyAfter(1);
+      const fs = markerFileSystem(true);
+      const order: Array<string> = [];
 
-    const logs = await Effect.gen(function* () {
       const fiber = yield* Effect.forkChild(
         seedHomepagePhotosDeferred(
           Effect.sync(() => {
             order.push(`seed after ${convex.calls.length} calls`);
           }),
-        ),
+        ).pipe(Effect.provide(Layer.merge(convex.layer, fs.layer))),
       );
       yield* TestClock.adjust("1 second");
       yield* Fiber.join(fiber);
-      return yield* TestConsole.logLines;
-    }).pipe(
-      Effect.provide(Layer.mergeAll(convex.layer, fs.layer, TestConsole.layer, TestClock.layer())),
-      Effect.runPromise,
-    );
 
-    expect(order).toStrictEqual(["seed after 2 calls"]);
-    expect(fs.removed).toStrictEqual([HOMEPAGE_DEMO_PHOTOS_PENDING_MARKER]);
-    expect(logs).toStrictEqual([
-      "Homepage demo photos pending — waiting for Convex dev backend...",
-      "Homepage demo photos seeded.",
-    ]);
-  });
+      expect(order).toStrictEqual(["seed after 2 calls"]);
+      expect(fs.removed).toStrictEqual([HOMEPAGE_DEMO_PHOTOS_PENDING_MARKER]);
+      expect(yield* TestConsole.logLines).toStrictEqual([
+        "Homepage demo photos pending — waiting for Convex dev backend...",
+        "Homepage demo photos seeded.",
+      ]);
+    }),
+  );
 
-  it("keeps the marker when seeding fails, so the next `pnpm dev` retries", async () => {
-    const fs = markerFileSystem(true);
+  it.effect("keeps the marker when seeding fails, so the next `pnpm dev` retries", () =>
+    Effect.gen(function* () {
+      const fs = markerFileSystem(true);
 
-    const result = await seedHomepagePhotosDeferred(Effect.fail("upload failed")).pipe(
-      Effect.result,
-      Effect.provide(Layer.mergeAll(convexReadyAfter(0).layer, fs.layer, TestConsole.layer)),
-      Effect.runPromise,
-    );
+      const error = yield* seedHomepagePhotosDeferred(Effect.fail("upload failed")).pipe(
+        Effect.flip,
+        Effect.provide(Layer.merge(convexReadyAfter(0).layer, fs.layer)),
+      );
 
-    expect(result).toStrictEqual(Result.fail("upload failed"));
-    expect(fs.removed).toStrictEqual([]);
-  });
+      expect(error).toBe("upload failed");
+      expect(fs.removed).toStrictEqual([]);
+    }),
+  );
 });

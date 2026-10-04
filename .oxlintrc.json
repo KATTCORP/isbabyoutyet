@@ -72,6 +72,11 @@
   "rules": {
     // Project-specific (keep):
     "vitest/no-hooks": "error",
+    // `@effect/vitest` testers run their Effect as the test body.
+    "vitest/no-standalone-expect": [
+      "error",
+      { "additionalTestBlockFunctions": ["it.effect", "it.effect.each", "it.live"] }
+    ],
     // Ban module mocking everywhere — tests *and* shared test helpers, so a
     // helper cannot reintroduce it behind a seam.
     "workspace/no-mock": "error",

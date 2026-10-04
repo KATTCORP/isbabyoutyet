@@ -52,6 +52,7 @@
   },
   "devDependencies": {
     "@edge-runtime/vm": "catalog:",
+    "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
     "@types/web-push": "catalog:",
     "@workspace/tsconfig": "workspace:*",
