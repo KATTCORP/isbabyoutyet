@@ -99,6 +99,9 @@ describe("deploy", () => {
       );
 
       expect(error).toStrictEqual(new ConvexSchemaValidationError());
+      expect(error.message).toBe(
+        "`convex deploy` was rejected: existing documents do not match the pushed schema",
+      );
     }),
   );
 
