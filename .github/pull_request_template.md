@@ -1,6 +1,8 @@
 <!--
-Stack: include only for stacked PRs. Add ## Stack at the top with a two-column
-table (PR | Description). Title suffix is (n/N). Current row: bold + 👉 in the
+Stack: include only for stacked PRs. Add ## Stack at the top. The first PR gets
+a two-column table (PR | Description) of the whole stack; later PRs get a short
+bullet list linking the first PR and the PR they build on (see the
+create-stacked-prs skill). Title suffix is (n/N). Current row: bold + 👉 in the
 PR column. PR cells are markdown links, e.g.
 `[#123](https://github.com/KATTCORP/isbabyoutyet/pull/123) 1/N` (canonical
 KATTCORP owner). Link every PR you mention elsewhere in the body the same way:

@@ -3,7 +3,7 @@ import { defineConfig } from "tsdown";
 export default defineConfig({
   clean: true,
   deps: {
-    alwaysBundle: [/^@workspace\/runtime(?:\/|$)/],
+    alwaysBundle: [/^effect(?:\/|$)/, /^@effect\//],
   },
   entry: ["src/collectCoverage.ts", "src/compareCoverage.ts"],
   format: "esm",

@@ -42,6 +42,19 @@ describe("filterSousVideEntries", () => {
     expect(salmon[0]?.id).toBe(lax[0]?.id);
   });
 
+  it("matches picanha and Swedish rostbiffslock aliases", () => {
+    const picanha = filterSousVideEntries({
+      entries: SOUS_VIDE_ENTRIES,
+      query: "picanha",
+    });
+    const rostbiffslock = filterSousVideEntries({
+      entries: SOUS_VIDE_ENTRIES,
+      query: "rostbiffslock",
+    });
+    expect(picanha.some((entry) => entry.id.startsWith("picanha-"))).toBe(true);
+    expect(rostbiffslock.some((entry) => entry.id.startsWith("picanha-"))).toBe(true);
+  });
+
   it("fuzzy-matches typos and American tenderloin wording", () => {
     const typo = filterSousVideEntries({
       entries: SOUS_VIDE_ENTRIES,

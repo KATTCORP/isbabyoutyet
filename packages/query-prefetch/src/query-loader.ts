@@ -128,7 +128,8 @@ function ensureFactoryQueryData<TFactory extends QueryOptionsFactory>(
   options: ReturnType<TFactory>,
 ): Promise<QueryDataOf<ReturnType<TFactory>>>;
 function ensureFactoryQueryData(queryClient: QueryClient, options: AnyQueryOptions) {
-  return queryClient.ensureQueryData(options);
+  // Handles carry raw query data as `initialData`, so a factory's `select` must not run here.
+  return queryClient.query({ ...options, select: undefined, staleTime: "static" });
 }
 
 function isInfiniteQueryOptions(options: AnyQueryOptions): options is AnyInfiniteQueryOptions {
@@ -147,7 +148,7 @@ function ensureFactoryInfiniteQueryData(queryClient: QueryClient, options: AnyQu
   if (!isInfiniteQueryOptions(options)) {
     throw new TypeError("Infinite query options require page parameters");
   }
-  return queryClient.ensureInfiniteQueryData(options);
+  return queryClient.infiniteQuery({ ...options, select: undefined, staleTime: "static" });
 }
 
 /**
@@ -178,7 +179,7 @@ export function getQueryInitiator(
 
   return {
     /**
-     * Starts `queryClient.ensureQueryData(...)` in the background and returns an
+     * Starts a cached `queryClient.query(...)` in the background and returns an
      * {@link InitiatedQuery} handle for route data.
      *
      * @example
@@ -203,7 +204,7 @@ export function getQueryInitiator(
     },
 
     /**
-     * Starts `queryClient.ensureInfiniteQueryData(...)` in the background and
+     * Starts a cached `queryClient.infiniteQuery(...)` in the background and
      * returns an {@link InitiatedInfiniteQuery} handle.
      *
      * @example
@@ -250,7 +251,7 @@ export function getQueryInitiator(
 export function getQueryPreloader(queryClient: QueryClient) {
   return {
     /**
-     * Awaits `queryClient.ensureQueryData(...)` and returns a
+     * Awaits a cached `queryClient.query(...)` and returns a
      * {@link PreloadedQuery} handle with `initialData`.
      *
      * @example
@@ -276,7 +277,7 @@ export function getQueryPreloader(queryClient: QueryClient) {
     },
 
     /**
-     * Awaits `queryClient.ensureInfiniteQueryData(...)` and returns a
+     * Awaits a cached `queryClient.infiniteQuery(...)` and returns a
      * {@link PreloadedInfiniteQuery} handle with `initialData`.
      *
      * @example

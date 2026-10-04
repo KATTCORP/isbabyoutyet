@@ -21,4 +21,12 @@ describe("getCutGuide", () => {
       .map((guide) => guide.cutId);
     expect(violations).toEqual([]);
   });
+
+  it("includes a picanha detail sheet", () => {
+    const guide = getCutGuide("picanha", t);
+    expect(guide).not.toBeNull();
+    expect(guide?.notes.length).toBeGreaterThan(0);
+    expect(guide?.references.length).toBeGreaterThan(0);
+    expect(cutIds).toContain("picanha");
+  });
 });

@@ -1,8 +1,8 @@
 ---
 name: create-stacked-prs
 description: >-
-  Create and update stacked GitHub pull requests with a full-stack table at
-  the top of every PR and titles suffixed (n/total). Use when the user asks
+  Create and update stacked GitHub pull requests with a full-stack table on
+  the first PR and titles suffixed (n/total). Use when the user asks
   for stacked PRs, a stack of PRs, create stacked PRs, stacking PRs, stacked
   pull requests, or to open dependent PRs in sequence.
 ---
@@ -24,7 +24,7 @@ Do **not** create stacked PRs unless the user asked for a stack or the work is c
 - Never force-push `main`. Never force-push any branch unless you are updating a stack branch after a rebase; then use `--force-with-lease` on that stack branch only.
 - The first PR is `1/N`. The last is `N/N`.
 - Every PR in the stack must be independently reviewable as much as possible.
-- Repeat the **full** stack table at the **top** of **every** PR body, not only the bottom PR.
+- Only the **first** PR (the root) carries the full stack table. Later PRs get a short free-form Stack list that points at the root and the PR they build on (see [Later PRs](#later-prs)). GitHub's native stack view shows the live order, so don't sync tables across PRs.
 - Every stack must end up linked as a native GitHub stack (see [Link the stack on GitHub](#link-the-stack-on-github)).
 - Draft vs ready: follow the user. Add `--draft` only when they ask for drafts. Otherwise create ready PRs.
 - Do not put a demo-seed checklist in the PR body unless the user asks for one.
@@ -39,11 +39,13 @@ Examples from this repo: `Backfill due date display mode (1/2)`, `Require exact-
 
 The suffix is `(1/2)` in parentheses, never a bare `1/2`.
 
+Set the suffix when you open each PR. In a long stack that grows or gets reordered, don't retitle earlier PRs to keep `N` current; the native stack shows the real order.
+
 ## PR body
 
 Fill `.github/pull_request_template.md`. Do not duplicate the template here.
 
-- **Stacked PRs:** `## Stack` first, with the full two-column table (PR | Description). Mark the current PR in the PR column as `**👉 …**` (bold plus emoji). Do not use `← this PR` in Description. Then follow the rest of `.github/pull_request_template.md`.
+- **Stacked PRs:** `## Stack` first. On the first PR, that's the full two-column table (PR | Description) with the PR marked `**👉 …**` (bold plus emoji); do not use `← this PR` in Description. On later PRs, it's the short list from [Later PRs](#later-prs). Then follow the rest of `.github/pull_request_template.md`.
 - **Non-stack PRs:** omit the Stack section entirely. Do not write `n/a`.
 - **Why / How / What / Alternate approaches considered:** titled `##` sections with concise bullets under each. Do not use a single Summary with labeled `Why:` bullets. See `.github/pull_request_template.md` (do not duplicate it here).
 - **Schema changes** is required and covers schema **and** related Convex migrations (for example `projects/isbabyoutyet/backend/convex/migrations.ts` or migration functions). If neither changed, write `None`. If either did, fill the schema, why, migrations, and follow-up bullets in `.github/pull_request_template.md` (do not duplicate them here).
@@ -51,7 +53,7 @@ Fill `.github/pull_request_template.md`. Do not duplicate the template here.
 
 ## Stack table
 
-Put this at the **top** of every stacked PR description, under `## Stack`. Columns are only **PR** and **Description**. Omit this section on non-stack PRs.
+Put this at the **top** of the first PR's description, under `## Stack`. It's the plan for the whole stack and may not list every PR that ends up in it. Columns are only **PR** and **Description**. Omit this section on non-stack PRs.
 
 ```markdown
 | PR | Description |
@@ -87,7 +89,18 @@ Convex validates existing documents against the new schema before migrations run
 
 If every PR in the stack can merge together, use a single table and skip the subheadings.
 
-After creating all PRs, edit earlier PR bodies so every table links every PR in the stack.
+After creating the PRs, update the first PR's table with links. If the stack grows or changes, update that one table; later PRs don't need editing.
+
+### Later PRs
+
+Every PR after the first starts with a short, free-form `## Stack` bullet list instead of the table. Link the root PR and the PR this one builds on, and say what it reuses from that PR. Add a bullet for anything else a reviewer needs, such as merge ordering:
+
+```markdown
+## Stack
+
+- Part of the stack rooted at [#123](https://github.com/KATTCORP/isbabyoutyet/pull/123), which has the full plan.
+- Builds on [#124](https://github.com/KATTCORP/isbabyoutyet/pull/124): reuses its `ConvexCli` service and test layer.
+```
 
 ## Plan the stack
 
@@ -105,17 +118,14 @@ For slice `i` of `N`:
 1. Branch `i=1` from `main`. Branch `i>1` from slice `i-1`'s branch.
 2. Commit only that slice.
 3. Push: `git push -u origin HEAD`
-4. Open the PR with `--base` set to the previous branch (`main` for `1/N`):
+4. Open the PR with `--base` set to the previous branch (`main` for `1/N`). `1/N` opens with the [stack table](#stack-table) (use `(1/N)` cells until numbers exist); later slices use the [short list](#later-prs):
 
 ```bash
 gh pr create --base <previous-branch> --head <this-branch> --title "{imperative title} ({i}/{N})" --body "$(cat <<'EOF'
 ## Stack
 
-| PR | Description |
-| --- | --- |
-| (1/N) | … |
-| **👉 (i/N)** | … |
-| (N/N) | … |
+- Part of the stack rooted at [#123](https://github.com/KATTCORP/isbabyoutyet/pull/123), which has the full plan.
+- Builds on [#124](https://github.com/KATTCORP/isbabyoutyet/pull/124): …
 
 ## Why
 
@@ -150,16 +160,16 @@ EOF
 
 Capture each PR number from `gh pr create` output (or `gh pr view --json number,url`).
 
-Then rebuild the table with a link to every PR, and write it to **every** PR:
+Then rebuild the first PR's table with a link to every PR:
 
 ```bash
-gh pr edit <n> --body "$(cat <<'EOF'
+gh pr edit <first-n> --body "$(cat <<'EOF'
 ## Stack
 
 | PR | Description |
 | --- | --- |
-| [#123](https://github.com/KATTCORP/isbabyoutyet/pull/123) 1/3 | Backfill existing data |
-| **👉 [#124](https://github.com/KATTCORP/isbabyoutyet/pull/124) 2/3** | Add the UI |
+| **👉 [#123](https://github.com/KATTCORP/isbabyoutyet/pull/123) 1/3** | Backfill existing data |
+| [#124](https://github.com/KATTCORP/isbabyoutyet/pull/124) 2/3 | Add the UI |
 | [#125](https://github.com/KATTCORP/isbabyoutyet/pull/125) 3/3 | Follow-up cleanup |
 
 ## Why
@@ -193,7 +203,7 @@ EOF
 )"
 ```
 
-Each edited body still highlights **that** PR in the PR column (`**👉 …**`). Keep the template sections (Why, How, What, Alternate approaches considered, Schema changes, Screenshots / video, Test plan) and anything the user asked for below the table. Fill Schema changes properly when `schema.ts` or related Convex migrations changed; otherwise `None`. Fill Screenshots / video according to root `AGENTS.md`; never omit it.
+Keep the template sections (Why, How, What, Alternate approaches considered, Schema changes, Screenshots / video, Test plan) and anything the user asked for below the table. Fill Schema changes properly when `schema.ts` or related Convex migrations changed; otherwise `None`. Fill Screenshots / video according to root `AGENTS.md`; never omit it.
 
 ## Link the stack on GitHub
 
@@ -205,13 +215,13 @@ The [`link-stack`](../../../.github/workflows/link-stack.yml) workflow links eve
 gh pr list --state open --json number,title,baseRefName,headRefName,url
 ```
 
-A stack is related branches whose titles contain `(n/N)` and whose `--base` values chain: `1/N` → `main`, `2/N` → `1/N`'s head, and so on.
+A stack is related branches whose `--base` values chain: `1/N` → `main`, `2/N` → `1/N`'s head, and so on. Titles usually contain `(n/N)`, but `N` can be stale in long stacks.
 
 ```bash
 gh pr view <n> --json number,title,baseRefName,headRefName,body,url
 ```
 
-When adding to or rewriting an existing stack, reuse those branches and PR numbers. Refresh the table on every PR in the chain.
+When adding to or rewriting an existing stack, reuse those branches and PR numbers. Refresh the first PR's table.
 
 ## Update a middle PR
 
@@ -225,7 +235,7 @@ git push --force-with-lease
 ```
 
 3. Never rebase or force-push `main`.
-4. If titles, count, or descriptions changed, `gh pr edit` every PR in the stack so the top table stays complete and current.
+4. If the plan changed, update the first PR's table. Edit a later PR's Stack list only when the PR it builds on changed.
 
 Ask before `--force-with-lease` unless the user already asked to update the stack.
 
@@ -244,7 +254,7 @@ git push --force-with-lease
 gh pr edit <next-n> --base main
 ```
 
-2. Refresh the stack table on every remaining open PR (mark merged rows as merged in the Description cell if useful, still using only the two columns).
+2. The table stays on the merged first PR, and later PRs keep linking to it. Mark merged rows as merged in its Description cell if useful, still using only the two columns.
 
 ## Report back
 

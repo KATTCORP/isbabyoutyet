@@ -9,6 +9,8 @@
     // Vendor Convex skills from `npx convex ai-files update` — oxfmt would
     // rewrite their fenced TS and undo the CLI install.
     "projects/isbabyoutyet/backend/.agents/skills/**",
-    "projects/isbabyoutyet/backend/.claude/skills/**"
+    "projects/isbabyoutyet/backend/.claude/skills/**",
+    // Read-only `git subtree` reference sources (see AGENTS.md).
+    "repos/**"
   ]
 }

@@ -103,7 +103,7 @@ test("convexInfiniteQuery leaves fetching to the QueryClient's default queryFn",
   });
   expect("queryFn" in options).toBe(false);
 
-  const data = await queryClient.ensureInfiniteQueryData(options);
+  const data = await queryClient.infiniteQuery({ ...options, staleTime: "static" });
 
   expect(query).toHaveBeenCalledWith("admin:listBabies", {
     hideDemo: true,
@@ -137,10 +137,10 @@ test("concurrent SSR QueryClients each fetch pages through their own Convex clie
 
   const [alice, bob] = await withoutWindow(async () => {
     const requestA = ssrClient("alice");
-    const pendingA = requestA.queryClient.ensureInfiniteQueryData(options);
+    const pendingA = requestA.queryClient.infiniteQuery({ ...options, staleTime: "static" });
     // Request B starts (and would have re-registered a global) while A is in flight.
     const requestB = ssrClient("bob");
-    const pendingB = requestB.queryClient.ensureInfiniteQueryData(options);
+    const pendingB = requestB.queryClient.infiniteQuery({ ...options, staleTime: "static" });
     const [dataA, dataB] = await Promise.all([pendingA, pendingB]);
     return [
       { ...requestA, data: dataA },

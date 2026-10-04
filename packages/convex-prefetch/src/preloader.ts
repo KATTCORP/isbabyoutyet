@@ -11,6 +11,8 @@ import type {
   QueryReference,
 } from "./handles.js";
 
+function noop(): void {}
+
 /**
  * Awaits Convex queries in a route loader and returns serializable handles.
  * The Convex function reference IS the interface — no per-query factory:
@@ -44,7 +46,7 @@ export function getConvexQueryPreloader(queryClient: QueryClient) {
       args: FunctionArgs<TQuery>,
     ): Promise<PreloadedConvexQuery<TQuery>> {
       const options = convexQuery(funcRef, args);
-      const initialData = await queryClient.ensureQueryData(options);
+      const initialData = await queryClient.query({ ...options, staleTime: "static" });
       return { initialData, input: args };
     },
 
@@ -57,7 +59,7 @@ export function getConvexQueryPreloader(queryClient: QueryClient) {
       args: FunctionArgs<TQuery>,
     ): Promise<PreloadedConvexQuery<TQuery>> {
       const options = convexQuery(funcRef, args);
-      const initialData = await queryClient.fetchQuery({
+      const initialData = await queryClient.query({
         ...options,
         staleTime: 0,
       });
@@ -79,7 +81,7 @@ export function getConvexQueryPreloader(queryClient: QueryClient) {
         args: opts.args,
         initialNumItems: opts.numItems,
       });
-      const initialData = await queryClient.ensureInfiniteQueryData(options);
+      const initialData = await queryClient.infiniteQuery({ ...options, staleTime: "static" });
       return {
         initialData,
         input: opts.args,
@@ -99,7 +101,7 @@ export function getConvexQueryPreloader(queryClient: QueryClient) {
       args: FunctionArgs<TQuery>,
     ): InitiatedConvexQuery<TQuery> {
       const options = convexQuery(funcRef, args);
-      void queryClient.prefetchQuery(options);
+      queryClient.query(options).catch(noop);
       return { input: args };
     },
 
@@ -118,7 +120,7 @@ export function getConvexQueryPreloader(queryClient: QueryClient) {
         args: opts.args,
         initialNumItems: opts.numItems,
       });
-      void queryClient.prefetchInfiniteQuery(options);
+      queryClient.infiniteQuery(options).catch(noop);
       return { input: opts.args, numItems: opts.numItems };
     },
   };

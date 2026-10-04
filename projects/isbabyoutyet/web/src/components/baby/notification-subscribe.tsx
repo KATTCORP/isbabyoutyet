@@ -672,7 +672,7 @@ function fetchFamilyIsSubscribed(opts: {
   endpoint: string;
   queryClient: QueryClient;
 }) {
-  return opts.queryClient.fetchQuery(
+  return opts.queryClient.query(
     convexQuery(api.pushSubscriptions.isSubscribed, {
       babyId: opts.babyRef,
       endpoint: opts.endpoint,
@@ -685,7 +685,7 @@ function fetchOwnerIsSubscribed(opts: {
   endpoint: string;
   queryClient: QueryClient;
 }) {
-  return opts.queryClient.fetchQuery(
+  return opts.queryClient.query(
     convexQuery(api.pushSubscriptions.isOwnerSubscribed, {
       babyId: opts.babyRef,
       endpoint: opts.endpoint,

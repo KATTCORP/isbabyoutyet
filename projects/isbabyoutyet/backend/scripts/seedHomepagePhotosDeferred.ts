@@ -1,6 +1,8 @@
-import fs from "node:fs";
 import path from "node:path";
-import { convexRun, seedHomepageDemoPhotos } from "./seedHomepageDemo";
+import { NodeRuntime } from "@effect/platform-node";
+import { Console, Effect, FileSystem, Schedule, Schema } from "effect";
+import { ConvexCli } from "./convexCli";
+import { homepageDemoSeedLayer, seedHomepageDemoPhotos } from "./seedHomepageDemo";
 
 const convexPackageDir = path.resolve(import.meta.dirname, "..");
 export const HOMEPAGE_DEMO_PHOTOS_PENDING_MARKER = path.join(
@@ -8,40 +10,43 @@ export const HOMEPAGE_DEMO_PHOTOS_PENDING_MARKER = path.join(
   ".seed-photos-pending.local",
 );
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForConvexReady(extraConvexArgs: Array<string>) {
-  const maxAttempts = 120;
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    try {
-      convexRun({
-        args: {},
-        extraConvexArgs,
-        functionName: "homepageDemo:hasCompletePhotoSet",
-      });
-      return;
-    } catch {
-      await sleep(1000);
-    }
+class ConvexNotReadyError extends Schema.TaggedError<ConvexNotReadyError>()("ConvexNotReadyError", {
+  cause: Schema.Defect(),
+}) {
+  override get message() {
+    return "Timed out waiting for Convex dev backend before seeding homepage photos";
   }
-  throw new Error("Timed out waiting for Convex dev backend before seeding homepage photos");
 }
 
-export async function seedHomepagePhotosDeferred() {
-  if (!fs.existsSync(HOMEPAGE_DEMO_PHOTOS_PENDING_MARKER)) {
+/** Polls a cheap query once a second, for up to 120 attempts, until `convex dev` serves it. */
+export const waitForConvexReady = Effect.gen(function* () {
+  const convex = yield* ConvexCli;
+  yield* convex.run(["run", "homepageDemo:hasCompletePhotoSet", "{}"]).pipe(
+    Effect.retry({ schedule: Schedule.spaced("1 second"), times: 119 }),
+    Effect.mapError((cause) => new ConvexNotReadyError({ cause })),
+  );
+});
+
+/** Runs `seedPhotos` once Convex is up, if `seed:mark-photos-pending` left a marker. */
+export const seedHomepagePhotosDeferred = Effect.fn("seedHomepagePhotosDeferred")(function* <E, R>(
+  seedPhotos: Effect.Effect<unknown, E, R>,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  if (!(yield* fs.exists(HOMEPAGE_DEMO_PHOTOS_PENDING_MARKER))) {
     return;
   }
 
-  console.log("Homepage demo photos pending — waiting for Convex dev backend...");
-  await waitForConvexReady([]);
-  await seedHomepageDemoPhotos({});
-  fs.unlinkSync(HOMEPAGE_DEMO_PHOTOS_PENDING_MARKER);
-  console.log("Homepage demo photos seeded.");
-}
+  yield* Console.log("Homepage demo photos pending — waiting for Convex dev backend...");
+  yield* waitForConvexReady;
+  yield* seedPhotos;
+  yield* fs.remove(HOMEPAGE_DEMO_PHOTOS_PENDING_MARKER);
+  yield* Console.log("Homepage demo photos seeded.");
+});
 
 const isCli = process.argv[1] && path.resolve(process.argv[1]) === import.meta.filename;
 if (isCli) {
-  await seedHomepagePhotosDeferred();
+  seedHomepagePhotosDeferred(seedHomepageDemoPhotos).pipe(
+    Effect.provide(homepageDemoSeedLayer),
+    NodeRuntime.runMain,
+  );
 }

@@ -12,6 +12,7 @@ are changing; each links further down.
 | [`projects/`](projects/README.md) | Rules shared by every `projects/*/web` |
 | [`packages/`](packages/) | Shared libraries: `ui` (vendored shadcn), [`form-guard`](packages/form-guard/README.md), [`convex-prefetch`](packages/convex-prefetch/README.md), [`query-prefetch`](packages/query-prefetch/README.md), `runtime`, `scripts`, `oxlint-plugins` |
 | [`.agents/skills/`](.agents/skills/) | Agent skills (third-party ones are pinned in `skills-lock.json`) |
+| [`repos/`](#vendored-repositories) | Read-only upstream sources vendored with `git subtree` |
 
 ## Setup
 
@@ -44,3 +45,30 @@ pnpm clean                            # wipe caches and reinstall
   In **Screenshots / video**, attach screenshots for visible UI changes and a
   short video for interactions. Otherwise write `None — <reason>`. Do not open
   a browser just to fill this section.
+- **Effect:** before writing Effect code, read
+  [`repos/effect/LLMS.md`](repos/effect/LLMS.md), then treat `repos/effect/`
+  (implementation, tests, and docs) as the source of truth for idiomatic
+  usage. Prefer its patterns over guesses or web search, especially for APIs
+  that changed in v4. Code that uses Effect gets the `anti-slop-effect` lint
+  rules through an `.oxlintrc.json` override; add new Effect code to its
+  `files` list.
+
+## Vendored repositories
+
+`repos/` holds upstream source trees added with `git subtree --squash`, as
+reference material for humans and agents. Read them, but do not edit them,
+import from them, or treat them as part of this repo's code. Lint, format, and
+knip ignore `repos/**`, and it is not a pnpm workspace.
+
+| Path | Upstream |
+| --- | --- |
+| `repos/effect` | [`Effect-TS/effect`](https://github.com/Effect-TS/effect) `main` (4.0.0 at import) |
+
+PRs are squash-merged, so the subtree's own squash commit never reaches `main`
+and `git subtree pull` cannot find it. Re-import instead (the PR squashes this
+into one commit):
+
+```sh
+git rm -rq repos/effect && git commit -qm "Remove vendored Effect"
+git subtree add --prefix=repos/effect https://github.com/Effect-TS/effect.git main --squash
+```

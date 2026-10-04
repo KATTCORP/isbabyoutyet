@@ -1,29 +1,53 @@
-import { copyFile, glob, mkdir, rm } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
-
-const outDir = process.argv[2];
-
-if (outDir === undefined) {
-  throw new Error("Usage: collect-coverage <out-dir>");
-}
+import { NodeRuntime, NodeServices } from "@effect/platform-node";
+import { Console, Effect, FileSystem, Path, Schema } from "effect";
+import { Argument, Command } from "effect/cli";
 
 const REPORTS = "{projects/*/*,packages/*}/coverage/{coverage-summary.json,lcov.info}";
 
-await rm(outDir, { force: true, recursive: true });
-
-const workspaces = new Set<string>();
-for await (const report of glob(REPORTS)) {
-  const workspace = dirname(dirname(report));
-  const target = join(outDir, workspace);
-  await mkdir(target, { recursive: true });
-  await copyFile(report, join(target, basename(report)));
-  workspaces.add(workspace);
+class NoReportsError extends Schema.TaggedError<NoReportsError>()("NoReportsError", {}) {
+  override get message() {
+    return "No workspace coverage reports found. Run `turbo run test:coverage` first.";
+  }
 }
 
-for (const workspace of [...workspaces].toSorted()) {
-  console.log(`Collected ${workspace}`);
-}
+const collectCoverage = Command.make(
+  "collect-coverage",
+  {
+    outDir: Argument.String("out-dir").pipe(
+      Argument.withDescription("Destination; replaced with <workspace>/<report> copies"),
+    ),
+  },
+  Effect.fn(function* (args) {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
 
-if (workspaces.size === 0) {
-  throw new Error("No workspace coverage reports found. Run `turbo run test:coverage` first.");
-}
+    yield* fs.remove(args.outDir, { force: true, recursive: true });
+
+    const reports = yield* fs.glob(REPORTS);
+    const workspaces = yield* Effect.forEach(
+      reports,
+      Effect.fnUntraced(function* (report) {
+        const workspace = path.dirname(path.dirname(report));
+        const target = path.join(args.outDir, workspace);
+        yield* fs.makeDirectory(target, { recursive: true });
+        yield* fs.copyFile(report, path.join(target, path.basename(report)));
+        return workspace;
+      }),
+      { concurrency: "unbounded" },
+    );
+
+    if (workspaces.length === 0) {
+      return yield* new NoReportsError();
+    }
+
+    for (const workspace of new Set(workspaces.toSorted())) {
+      yield* Console.log(`Collected ${workspace}`);
+    }
+  }),
+);
+
+collectCoverage.pipe(
+  Command.run({ version: "0.0.0" }),
+  Effect.provide(NodeServices.layer),
+  NodeRuntime.runMain,
+);

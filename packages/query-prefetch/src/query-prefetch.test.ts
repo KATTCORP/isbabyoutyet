@@ -81,7 +81,7 @@ test("getQueryInitiator starts ensureQueryData without awaiting and returns a ha
   expect(handle.input).toEqual({ postId: "1" });
 
   const options = preloadedQueryOptions(postById, handle);
-  const data = await queryClient.ensureQueryData(options);
+  const data = await queryClient.query({ ...options, staleTime: "static" });
   expect(data).toEqual({ id: "1", title: "Post 1" });
   expect(onError).not.toHaveBeenCalled();
 });
@@ -122,7 +122,7 @@ test("getQueryInitiator starts infinite queries in the background", async () => 
   expect(handle.input).toEqual({ tag: "news" });
 
   const options = preloadedInfiniteQueryOptions(postsInfinite, handle);
-  const data = await queryClient.ensureInfiniteQueryData(options);
+  const data = await queryClient.infiniteQuery({ ...options, staleTime: "static" });
   expect(data.pages[0]?.page[0]?.tag).toBe("news");
 });
 
@@ -161,7 +161,7 @@ test("preloadedQueryOptions rebuilds a no-arg factory from an initiated handle",
   const initiator = getQueryInitiator(queryClient);
   const handle = initiator.ensureQueryData(accountSettings);
   const options = preloadedQueryOptions(accountSettings, handle);
-  const data = await queryClient.ensureQueryData(options);
+  const data = await queryClient.query({ ...options, staleTime: "static" });
   expect(data).toEqual({ theme: "dark" });
 });
 
@@ -171,7 +171,7 @@ test("preloadedQueryOptions supports remixInput on initiated handles", async () 
   const options = preloadedQueryOptions(postById, handle, (input) => ({
     postId: `${input.postId}-remixed`,
   }));
-  const data = await queryClient.ensureQueryData(options);
+  const data = await queryClient.query({ ...options, staleTime: "static" });
   expect(data).toEqual({ id: "a-remixed", title: "Post a-remixed" });
 });
 
@@ -189,7 +189,7 @@ test("preloadedInfiniteQueryOptions supports remixInput on initiated handles", a
   const options = preloadedInfiniteQueryOptions(postsInfinite, handle, (input) => ({
     tag: `${input.tag}-remixed`,
   }));
-  const data = await queryClient.ensureInfiniteQueryData(options);
+  const data = await queryClient.infiniteQuery({ ...options, staleTime: "static" });
   expect(data.pages[0]?.page[0]?.tag).toBe("a-remixed");
 });
 
