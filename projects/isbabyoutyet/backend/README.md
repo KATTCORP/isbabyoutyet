@@ -40,8 +40,12 @@ linked from the homepage. The source of truth is
 
 - Demo babies have `demo: true`. Resetting deletes only their feed documents,
   never storage objects, because storage IDs may be shared with real data.
-- Locally, `setup-dev` seeds text first. Photos upload in the background after
-  `pnpm dev` starts (`dev:seed-photos-deferred`).
+- Locally, `setup-dev` seeds the demo logins. `pnpm dev` seeds the homepage
+  demo (text, then photos) through
+  [`convex dev --start`](https://docs.convex.dev/cli/reference/dev) once the
+  first push lands, so uploads reach a backend that stays up. Once the demo
+  is complete, later runs only check for it. A failed seed only prints a
+  warning. Retry with `pnpm seed:homepage` while `pnpm dev` runs.
 - Production runs `seed:homepage` in the Vercel build (idempotent).
 - Previews reuse the branch backend unless `schema.ts` / `convex.config.ts`
   changed. A wipe reseeds text in the build, and photos upload from

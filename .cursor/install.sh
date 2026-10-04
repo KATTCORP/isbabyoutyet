@@ -28,8 +28,9 @@ pnpm install --frozen-lockfile
 (cd projects/isbabyoutyet/web && [ -f .env.local ] || pnpm setup-dev)
 
 # Provision the local anonymous Convex backend, set its env vars, generate
-# VAPID keys, and seed demo data (login + babies in every status + homepage
-# demo text). Gated on .env.local so it only runs on a fresh backend.
+# VAPID keys, and seed the demo logins (babies in every status). The homepage
+# demo seeds when `pnpm dev` starts. Gated on .env.local so it only runs on a
+# fresh backend.
 (cd projects/isbabyoutyet/backend && [ -f .env.local ] || pnpm setup-dev)
 
 echo "Install complete."

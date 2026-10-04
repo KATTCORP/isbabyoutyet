@@ -18,4 +18,4 @@ case "$name" in
 "" | "." | "..") name=anonymous-agent ;;
 esac
 
-rm -rf "$HOME/.convex/anonymous-convex-backend-state/$name" .env.local .convex .seed-photos-pending.local
+rm -rf "$HOME/.convex/anonymous-convex-backend-state/$name" .env.local .convex

@@ -4,8 +4,8 @@
   "terminals": [
     {
       "name": "convex",
-      "description": "Local anonymous Convex backend (ports 3210/3211).",
-      "command": "export NVM_DIR=\"$HOME/.nvm\"; . \"$NVM_DIR/nvm.sh\"; export PATH=\"$(dirname \"$(nvm which default)\"):$PATH\"; cd projects/isbabyoutyet/backend && CONVEX_AGENT_MODE=anonymous pnpm dev:convex"
+      "description": "Local anonymous Convex backend (ports 3210/3211); seeds the homepage demo on start.",
+      "command": "export NVM_DIR=\"$HOME/.nvm\"; . \"$NVM_DIR/nvm.sh\"; export PATH=\"$(dirname \"$(nvm which default)\"):$PATH\"; cd projects/isbabyoutyet/backend && pnpm dev"
     },
     {
       "name": "web",

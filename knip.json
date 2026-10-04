@@ -44,8 +44,7 @@
     "projects/isbabyoutyet/backend": {
       "entry": [
         "scripts/ensureLocalEnv.ts!",
-        "scripts/seedHomepageDemo.ts!",
-        "scripts/seedHomepagePhotosDeferred.ts!"
+        "scripts/seedHomepageDemo.ts!"
       ]
     },
     "packages/oxlint-plugins": {
