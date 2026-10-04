@@ -37,6 +37,11 @@
       "specifier": "./packages/oxlint-plugins/dist/anti-slop/index.js"
     },
     {
+      // Effect conventions; enabled per Effect workspace in `overrides`.
+      "name": "anti-slop-effect",
+      "specifier": "./packages/oxlint-plugins/dist/anti-slop/effect/index.js"
+    },
+    {
       "name": "nkzw",
       "specifier": "./packages/oxlint-plugins/dist/nkzw/index.js"
     },
