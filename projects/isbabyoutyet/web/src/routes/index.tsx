@@ -156,19 +156,19 @@ function useCurrentDate() {
 const FEATURES = [
   {
     description:
-      "One tap to update everyone — labour started, at the hospital, baby's here! No group texts, no repeated calls.",
+      "One tap to update everyone: labour started, at the hospital, baby's here! No group texts, no repeated calls.",
     emoji: "📣",
     title: "Update your status",
   },
   {
     description:
-      'Everyone can see how many days are left — plus a friendly "overdue" counter when baby takes their time.',
+      'Everyone can see how many days are left, plus a friendly "overdue" counter when baby takes their time.',
     emoji: "📅",
     title: "Countdown to due date",
   },
   {
     description:
-      "Pick a theme that matches your style. From soft pastels to bold colours — your page, your vibe.",
+      "Pick a theme that matches your style. From soft pastels to bold colours. Your page, your vibe.",
     emoji: "🎨",
     title: "Make it yours",
   },
@@ -463,7 +463,7 @@ export function HomePageView(props: { isSignedIn: boolean }) {
               {t("See it in action")}
             </h2>
             <p className="mt-2 font-semibold text-muted-foreground">
-              {t("{{name}}'s page is a live demo — leave a note, look around, try it out", {
+              {t("{{name}}'s page is a live demo. Leave a note, look around, try it out", {
                 name: demoBaby.name,
               })}
             </p>
@@ -482,7 +482,7 @@ export function HomePageView(props: { isSignedIn: boolean }) {
               </h3>
               <p className="mx-auto mt-2 max-w-lg font-medium text-muted-foreground">
                 {t(
-                  "A live demo with a two-day labour story, photos, and messages. Send a test encouragement — this is the full experience.",
+                  "A live demo with a two-day labour story, photos, and messages. Send a test encouragement. This is the full experience.",
                 )}
               </p>
               <p className="mt-4 text-sm font-extrabold text-primary">

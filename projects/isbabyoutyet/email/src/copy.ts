@@ -1,6 +1,6 @@
 export const emailBrandCopy = {
   ignore: "If you did not request this, you can safely ignore this email.",
-  previewBanner: "Preview deployment — this message is not from production.",
+  previewBanner: "Preview deployment. This message is not from production.",
   wordmark: "isbabyoutyet",
 } as const;
 
