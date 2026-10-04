@@ -76,6 +76,7 @@
     "packages/scripts": {
       "entry": ["src/collectCoverage.ts!", "src/compareCoverage.ts!"]
     },
+    "packages/convex-cli": {},
     "packages/runtime": {},
     "packages/form-guard": {},
     "projects/isbabyoutyet/email": {

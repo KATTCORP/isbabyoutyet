@@ -1,0 +1,4 @@
+{
+  "extends": "@workspace/tsconfig/node.json",
+  "include": ["src"]
+}
