@@ -52,7 +52,9 @@ pnpm clean                            # wipe caches and reinstall
   usage. Prefer its patterns over guesses or web search, especially for APIs
   that changed in v4. Code that uses Effect gets the `anti-slop-effect` lint
   rules through an `.oxlintrc.json` override; add new Effect code to its
-  `files` list.
+  `files` list. Test it with `@effect/vitest`: `it.effect` gives each test a
+  fresh `TestConsole` and `TestClock`, while `layer(...)` shares one set of
+  services across its whole block, so keep per-test fakes in `it.effect`.
 
 ## Vendored repositories
 
