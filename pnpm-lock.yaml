@@ -652,6 +652,9 @@ importers:
       '@isbabyoutyet/email':
         specifier: workspace:*
         version: link:../email
+      '@workspace/convex-cli':
+        specifier: workspace:*
+        version: link:../../../packages/convex-cli
       '@workspace/runtime':
         specifier: workspace:*
         version: link:../../../packages/runtime
@@ -695,6 +698,9 @@ importers:
       convex-test:
         specifier: 'catalog:'
         version: 0.0.56(convex@1.45.0(react@19.2.8))
+      dotenv:
+        specifier: 'catalog:'
+        version: 16.6.1
       npm-run-all:
         specifier: 'catalog:'
         version: 4.1.5

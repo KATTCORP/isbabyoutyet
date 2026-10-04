@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from "@effect/vitest";
+import { ConvexCli, ConvexCliError } from "@workspace/convex-cli";
 import { Effect, Fiber, FileSystem, Layer } from "effect";
 import { TestClock, TestConsole } from "effect/testing";
-import { ConvexCli, ConvexCliError } from "./convexCli";
 import {
   HOMEPAGE_DEMO_PHOTOS_PENDING_MARKER,
   seedHomepagePhotosDeferred,

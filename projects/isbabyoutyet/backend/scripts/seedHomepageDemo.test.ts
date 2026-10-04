@@ -1,5 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from "@effect/vitest";
+import { ConvexCliError, ConvexPreviewName, ConvexRunOutputError } from "@workspace/convex-cli";
+import type { ConvexCli } from "@workspace/convex-cli";
+import { fakeConvexCli as fakeConvexCliFrom } from "@workspace/convex-cli/testing";
 import { Effect, FileSystem, Layer, Option, Result, Schema, Sink, Stream } from "effect";
 import { HttpClient, HttpClientError, HttpClientResponse } from "effect/http";
 import type { HttpClientRequest } from "effect/http";
@@ -7,14 +10,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { TestConsole } from "effect/testing";
 import sharp from "sharp";
 import { HOMEPAGE_DEMO_PHOTO_KEYS, homepageDemoLocales } from "../src/homepageDemoFeed";
-import { ConvexCli, ConvexCliError } from "./convexCli";
-import {
-  ConvexPreviewName,
-  ConvexRunOutputError,
-  LfsPointersError,
-  seedHomepageDemo,
-  seedHomepageDemoPhotos,
-} from "./seedHomepageDemo";
+import { LfsPointersError, seedHomepageDemo, seedHomepageDemoPhotos } from "./seedHomepageDemo";
 
 const REMOTE_UPLOAD_URL = "https://upload.convex.test/api/storage/upload";
 const LOCAL_UPLOAD_URL = "http://127.0.0.1:3210/api/storage/upload";
@@ -27,22 +23,15 @@ const jpeg = await sharp({
 
 type Reply = (args: ReadonlyArray<string>) => Effect.Effect<string, ConvexCliError>;
 
-/** A `ConvexCli` that answers `convex run <function>` from `replies`, recording every call. */
+/** A `ConvexCli` that answers `convex run <function>` from `replies`, recording every call's args. */
 function fakeConvexCli(replies: Partial<Record<string, Reply>>) {
-  const calls: Array<ReadonlyArray<string>> = [];
-  const layer = Layer.succeed(
-    ConvexCli,
-    ConvexCli.of({
-      run: (args) =>
-        Effect.suspend(() => {
-          calls.push(args);
-          const reply = replies[args[1] ?? ""];
-          return reply ? reply(args) : Effect.die(`unexpected convex ${args.join(" ")}`);
-        }),
-    }),
-  );
-  const callsTo = (functionName: string) => calls.filter((args) => args[1] === functionName);
-  return { calls, callsTo, layer };
+  const convex = fakeConvexCliFrom((call) => {
+    const reply = replies[call.args[1] ?? ""];
+    return reply ? reply(call.args) : Effect.die(`unexpected convex ${call.args.join(" ")}`);
+  });
+  const calls = () => convex.calls.map((call) => call.args);
+  const callsTo = (functionName: string) => calls().filter((args) => args[1] === functionName);
+  return { calls, callsTo, layer: convex.layer };
 }
 
 function seedingReplies(opts: { uploadUrl: string }) {
@@ -187,7 +176,7 @@ describe("seedHomepageDemoPhotos", () => {
 
       expect(run.result).toStrictEqual(Result.succeed(undefined));
       expect(run.logs).toStrictEqual(["Homepage demo photos already stored — skipping uploads."]);
-      expect(convex.calls).toStrictEqual([
+      expect(convex.calls()).toStrictEqual([
         ["run", "homepageDemo:hasCompletePhotoSet", "{}", "--preview-name", "pr-123"],
       ]);
     }),
@@ -264,7 +253,7 @@ describe("seedHomepageDemoPhotos", () => {
           ]);
         }
         expect(
-          convex.calls.every((args) => args.slice(-2).join(" ") === "--preview-name pr-123"),
+          convex.calls().every((args) => args.slice(-2).join(" ") === "--preview-name pr-123"),
         ).toBe(true);
 
         const refreshes = convex
@@ -369,7 +358,7 @@ describe("seedHomepageDemo", () => {
       expect(run.logs).toStrictEqual([
         "Homepage demo already initialized — daily cron handles resets.",
       ]);
-      expect(convex.calls).toHaveLength(1);
+      expect(convex.calls()).toHaveLength(1);
     }),
   );
 
