@@ -53,8 +53,8 @@ function InviteCoParentForm(props: {
         form.reset({ email: "" });
         toast.success(
           result.status === "added"
-            ? t("Co-parent added — they can manage this page now")
-            : t("Invite sent — they'll get access after signing up with that email"),
+            ? t("Co-parent added. They can manage this page now")
+            : t("Invite sent. They'll get access after signing up with that email"),
         );
       }}
     >
