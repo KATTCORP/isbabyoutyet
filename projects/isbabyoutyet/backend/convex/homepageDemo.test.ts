@@ -401,19 +401,6 @@ test("generateUploadUrl returns a storage upload URL", async () => {
   expect(url.length).toBeGreaterThan(0);
 });
 
-test("storePhoto stores JPEG bytes and returns a storage id", async () => {
-  const t = await setup();
-  const bytes = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]).buffer;
-  const storageId = await t.action(internal.homepageDemo.storePhoto, {
-    bytes,
-    contentType: "image/jpeg",
-  });
-  expect(storageId).toEqual(expect.any(String));
-
-  const url = await t.run(async (ctx) => await ctx.storage.getUrl(storageId));
-  expect(url).toEqual(expect.any(String));
-});
-
 test("clearFeedBatch reports hasMore until the feed is empty", async () => {
   const t = await setup();
   const { babyId } = await t.mutation(internal.homepageDemo.refresh, { locale: null, photos: {} });

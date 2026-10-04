@@ -112,11 +112,6 @@ function renderDerivatives(photo: { bytes: Buffer; filePath: string }) {
   );
 }
 
-function isLoopbackUploadUrl(uploadUrl: string) {
-  const hostname = new URL(uploadUrl).hostname;
-  return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
-}
-
 const UploadResponse = Schema.Struct({ storageId: Schema.NonEmptyString });
 
 const postBytes = Effect.fn("postBytes")(function* (opts: { bytes: Buffer; uploadUrl: string }) {
@@ -129,11 +124,8 @@ const postBytes = Effect.fn("postBytes")(function* (opts: { bytes: Buffer; uploa
 });
 
 /**
- * POST to the upload URL. A local anonymous backend started by `convex run`
- * dies when that command exits, so its 127.0.0.1:3210 URL refuses the POST;
- * only then store bytes through `storePhoto`. That fallback cannot be used on
- * Linux/Vercel: resized JPEGs exceed Linux MAX_ARG_STRLEN (~128KiB) as a
- * `convex run` argv. Under `pnpm dev`, `convex dev` keeps the backend up.
+ * A local backend must outlive this script for the POST to land, so run it
+ * under `convex dev` (`pnpm dev` does, via `--start`), not a bare `convex run`.
  */
 const uploadBytes = Effect.fn("uploadBytes")(function* (bytes: Buffer) {
   const uploadUrl = yield* runFunction({
@@ -141,19 +133,7 @@ const uploadBytes = Effect.fn("uploadBytes")(function* (bytes: Buffer) {
     functionName: "homepageDemo:generateUploadUrl",
     returns: Schema.String,
   });
-  const post = postBytes({ bytes, uploadUrl });
-  if (!isLoopbackUploadUrl(uploadUrl)) {
-    return yield* post;
-  }
-  return yield* post.pipe(
-    Effect.catchReason("HttpClientError", "TransportError", () =>
-      runFunction({
-        args: { bytes: { $bytes: bytes.toString("base64") }, contentType: "image/jpeg" },
-        functionName: "homepageDemo:storePhoto",
-        returns: Schema.String,
-      }),
-    ),
-  );
+  return yield* postBytes({ bytes, uploadUrl });
 });
 
 /** Storage ids per photo; `refresh` with `{}` seeds the fixture text without photos. */

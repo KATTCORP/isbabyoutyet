@@ -12,8 +12,7 @@ import sharp from "sharp";
 import { HOMEPAGE_DEMO_PHOTO_KEYS, homepageDemoLocales } from "../src/homepageDemoFeed";
 import { LfsPointersError, seedHomepageDemo, seedHomepageDemoPhotos } from "./seedHomepageDemo";
 
-const REMOTE_UPLOAD_URL = "https://upload.convex.test/api/storage/upload";
-const LOCAL_UPLOAD_URL = "http://127.0.0.1:3210/api/storage/upload";
+const UPLOAD_URL = "https://upload.convex.test/api/storage/upload";
 const LFS_POINTER = new TextEncoder().encode("version https://git-lfs.github.com/spec/v1\n");
 const jpeg = await sharp({
   create: { background: "#f80", channels: 3, height: 16, width: 16 },
@@ -34,16 +33,12 @@ function fakeConvexCli(replies: Partial<Record<string, Reply>>) {
   return { calls, callsTo, layer: convex.layer };
 }
 
-function seedingReplies(opts: { uploadUrl: string }) {
-  let stored = 0;
-  return {
-    "homepageDemo:generateUploadUrl": () => Effect.succeed(JSON.stringify(opts.uploadUrl)),
-    "homepageDemo:hasCompletePhotoSet": () => Effect.succeed("false"),
-    "homepageDemo:refresh": () =>
-      Effect.succeed(JSON.stringify({ babyId: "baby", locale: "en", publicId: "demo" })),
-    "homepageDemo:storePhoto": () => Effect.sync(() => JSON.stringify(`stored-${++stored}`)),
-  } satisfies Record<string, Reply>;
-}
+const seedingReplies = {
+  "homepageDemo:generateUploadUrl": () => Effect.succeed(JSON.stringify(UPLOAD_URL)),
+  "homepageDemo:hasCompletePhotoSet": () => Effect.succeed("false"),
+  "homepageDemo:refresh": () =>
+    Effect.succeed(JSON.stringify({ babyId: "baby", locale: "en", publicId: "demo" })),
+} satisfies Record<string, Reply>;
 
 function cliFailure(stderr: string) {
   return new ConvexCliError({
@@ -234,7 +229,7 @@ describe("seedHomepageDemoPhotos", () => {
     "uploads three renders per photo, then refreshes every locale with their storage ids",
     () =>
       Effect.gen(function* () {
-        const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
+        const convex = fakeConvexCli(seedingReplies);
         const uploads = fakeUploads({ reachable: true });
 
         const run = yield* seed(seedHomepageDemoPhotos, {
@@ -248,7 +243,7 @@ describe("seedHomepageDemoPhotos", () => {
           const contentType = "contentType" in request.body ? request.body.contentType : null;
           expect([request.method, request.url, contentType]).toStrictEqual([
             "POST",
-            REMOTE_UPLOAD_URL,
+            UPLOAD_URL,
             "image/jpeg",
           ]);
         }
@@ -275,26 +270,9 @@ describe("seedHomepageDemoPhotos", () => {
       }),
   );
 
-  it.effect("stores through `storePhoto` when the local upload URL refuses connections", () =>
+  it.effect("fails when an upload POST cannot reach the backend", () =>
     Effect.gen(function* () {
-      const convex = fakeConvexCli(seedingReplies({ uploadUrl: LOCAL_UPLOAD_URL }));
-
-      const run = yield* seed(seedHomepageDemoPhotos, {
-        convex: convex.layer,
-        uploads: fakeUploads({ reachable: false }).layer,
-      });
-
-      expect(run.result).toStrictEqual(Result.succeed(undefined));
-      expect(convex.callsTo("homepageDemo:storePhoto")).toHaveLength(
-        HOMEPAGE_DEMO_PHOTO_KEYS.length * 3,
-      );
-      expect(convex.callsTo("homepageDemo:storePhoto")[0]?.[2]).toContain('"$bytes":');
-    }),
-  );
-
-  it.effect("does not fall back to `storePhoto` for a remote upload URL", () =>
-    Effect.gen(function* () {
-      const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
+      const convex = fakeConvexCli(seedingReplies);
 
       const run = yield* seed(seedHomepageDemoPhotos, {
         convex: convex.layer,
@@ -303,13 +281,13 @@ describe("seedHomepageDemoPhotos", () => {
 
       const error = Option.getOrThrow(Result.getFailure(run.result));
       expect(HttpClientError.isHttpClientError(error)).toBe(true);
-      expect(convex.callsTo("homepageDemo:storePhoto")).toStrictEqual([]);
+      expect(convex.callsTo("homepageDemo:refresh")).toStrictEqual([]);
     }),
   );
 
   it.effect("pulls Git LFS objects when the checkout only has pointers", () =>
     Effect.gen(function* () {
-      const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
+      const convex = fakeConvexCli(seedingReplies);
       const spawner = fakeSpawner();
       const pointers = HOMEPAGE_DEMO_PHOTO_KEYS.map(() => LFS_POINTER);
 
@@ -333,7 +311,7 @@ describe("seedHomepageDemoPhotos", () => {
 
   it.effect("fails when photos are still Git LFS pointers after pulling", () =>
     Effect.gen(function* () {
-      const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
+      const convex = fakeConvexCli(seedingReplies);
 
       const run = yield* seed(seedHomepageDemoPhotos, {
         convex: convex.layer,
@@ -364,7 +342,7 @@ describe("seedHomepageDemo", () => {
 
   it.effect("seeds the fixture text first, then the photos", () =>
     Effect.gen(function* () {
-      const convex = fakeConvexCli(seedingReplies({ uploadUrl: REMOTE_UPLOAD_URL }));
+      const convex = fakeConvexCli(seedingReplies);
 
       const run = yield* seed(seedHomepageDemo, { convex: convex.layer });
 

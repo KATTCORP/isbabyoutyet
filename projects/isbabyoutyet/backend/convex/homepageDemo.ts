@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -361,34 +361,13 @@ async function insertFeedDocs(
   return { babyId, locale, publicId: demo.publicId };
 }
 
-/**
- * Upload URL for homepage-demo photos. When `convex run` auto-starts the local
- * backend, the URL points at 127.0.0.1:3210, which is gone once that process
- * exits; the seed script then falls back to `storePhoto`.
- */
+/** Upload URL for homepage-demo photos; the seed script POSTs the JPEG to it. */
 export const generateUploadUrl = internalMutation({
   args: {},
   handler: async (ctx) => {
     return await ctx.storage.generateUploadUrl();
   },
   returns: v.string(),
-});
-
-/**
- * Store a homepage-demo JPEG via `convex run` so the CLI keeps the local
- * backend alive for the whole call (no HTTP POST to 3210).
- */
-export const storePhoto = internalAction({
-  args: {
-    bytes: v.bytes(),
-    contentType: v.literal("image/jpeg"),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.storage.store(
-      new Blob([new Uint8Array(args.bytes)], { type: args.contentType }),
-    );
-  },
-  returns: v.id("_storage"),
 });
 
 /**
