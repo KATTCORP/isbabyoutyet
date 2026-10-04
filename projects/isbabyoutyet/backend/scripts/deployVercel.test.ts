@@ -3,10 +3,20 @@ import { describe, expect, it } from "@effect/vitest";
 import { ConvexCliError } from "@workspace/convex-cli";
 import type { ConvexCliCall } from "@workspace/convex-cli/testing";
 import { fakeConvexCli } from "@workspace/convex-cli/testing";
-import { ConfigProvider, Effect, Fiber, FileSystem, Layer, Result, Sink, Stream } from "effect";
+import {
+  ConfigProvider,
+  Deferred,
+  Effect,
+  Fiber,
+  FileSystem,
+  Layer,
+  Result,
+  Sink,
+  Stream,
+} from "effect";
 import { HttpClient } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { TestClock } from "effect/testing";
+import { TestClock, TestConsole } from "effect/testing";
 import { homepageDemoLocales } from "../src/homepageDemoFeed";
 import {
   MERGE_QUEUE_PLACEHOLDER_CONVEX_URL,
@@ -84,8 +94,8 @@ function fakeConvex(overrides: Partial<Record<keyof typeof happyReplies, Reply>>
   return { ...convex, subcommands: () => convex.calls.map(subcommand) };
 }
 
-/** Records every spawned command; each one exits with `exitCode`. */
-function fakeSpawner(exitCode = 0) {
+/** Records every spawned command; each one exits with what `exit` returns. */
+function fakeSpawner(exit: Effect.Effect<number> = Effect.succeed(0)) {
   const commands: Array<ChildProcess.StandardCommand> = [];
   const layer = Layer.succeed(
     ChildProcessSpawner.ChildProcessSpawner,
@@ -96,7 +106,7 @@ function fakeSpawner(exitCode = 0) {
         }
         return ChildProcessSpawner.makeHandle({
           all: Stream.empty,
-          exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(exitCode)),
+          exitCode: Effect.map(exit, ChildProcessSpawner.ExitCode),
           getInputFd: () => Sink.drain,
           getOutputFd: () => Stream.empty,
           isRunning: Effect.succeed(false),
@@ -186,6 +196,7 @@ describe("deployVercel", () => {
       let deploys = 0;
       const convex = fakeConvex({
         deploy: () => (deploys++ === 0 ? Effect.fail(START_PUSH_408) : Effect.succeed(CONVEX_URL)),
+        "run homepageDemo:hasCompletePhotoSet": () => Effect.succeed("false"),
       });
       const spawner = fakeSpawner();
 
@@ -199,6 +210,7 @@ describe("deployVercel", () => {
         ["run", "migrations:runAll", "{}", "--preview-name", "feat/demo"],
         ["run", "migrations:deploymentStatus", "{}", "--preview-name", "feat/demo"],
         ["run", "seed:seedDemoData", "{}", "--preview-name", "feat/demo"],
+        ["run", "homepageDemo:hasCompletePhotoSet", "{}", "--preview-name", "feat/demo"],
         ["run", "homepageDemo:refreshAll", '{"photos":{}}', "--preview-name", "feat/demo"],
       ]);
       expect(convex.calls[3]?.stdin).toContain(`PREVIEW_SCHEMA_FINGERPRINT='${FINGERPRINT}'`);
@@ -209,7 +221,7 @@ describe("deployVercel", () => {
     }),
   );
 
-  it.effect("unchanged preview: pushes functions and skips env sync and seeds", () =>
+  it.effect("unchanged preview: skips env sync, and the seed finds the demo complete", () =>
     Effect.gen(function* () {
       const convex = fakeConvex({
         "env list": () => Effect.succeed(`PREVIEW_SCHEMA_FINGERPRINT=${FINGERPRINT}\n`),
@@ -223,7 +235,42 @@ describe("deployVercel", () => {
         "deploy",
         "run migrations:runAll",
         "run migrations:deploymentStatus",
+        "run homepageDemo:hasCompletePhotoSet",
       ]);
+    }),
+  );
+
+  it.effect("a failed photo upload only warns: the text is seeded and the build succeeds", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvex({
+        "run homepageDemo:hasCompletePhotoSet": () => Effect.succeed("false"),
+      });
+
+      yield* deployWith({ convex, env: productionEnv, spawner: fakeSpawner() });
+
+      expect(convex.subcommands().slice(-2)).toStrictEqual([
+        "run homepageDemo:hasCompletePhotoSet",
+        "run homepageDemo:refreshAll",
+      ]);
+      expect(yield* TestConsole.errorLines).toStrictEqual([
+        expect.stringContaining("Homepage demo photos were not stored"),
+      ]);
+    }),
+  );
+
+  it.effect("builds the web app while it configures and seeds the backend", () =>
+    Effect.gen(function* () {
+      const seeded = yield* Deferred.make<void>();
+      const convex = fakeConvex({
+        "run homepageDemo:hasCompletePhotoSet": () =>
+          Deferred.succeed(seeded, undefined).pipe(Effect.as("true")),
+      });
+      // The web build only exits once the seed has started, so running the two in sequence would hang.
+      const spawner = fakeSpawner(Deferred.await(seeded).pipe(Effect.as(0)));
+
+      yield* deployWith({ convex, env: productionEnv, spawner });
+
+      expect(spawner.commands).toHaveLength(1);
     }),
   );
 
@@ -275,9 +322,11 @@ describe("deployVercel", () => {
     Effect.gen(function* () {
       const convex = fakeConvex({});
 
-      const error = yield* deployWith({ convex, env: productionEnv, spawner: fakeSpawner(1) }).pipe(
-        Effect.flip,
-      );
+      const error = yield* deployWith({
+        convex,
+        env: productionEnv,
+        spawner: fakeSpawner(Effect.succeed(1)),
+      }).pipe(Effect.flip);
 
       expect(error.message).toBe("The web build exited with code 1");
       expect(convex.subcommands()).toStrictEqual(["deploy"]);

@@ -18,29 +18,22 @@ export const MERGE_QUEUE_PLACEHOLDER_CONVEX_URL = "https://merge-queue.invalid.c
 const HEADS_PREFIX = "refs/heads/";
 const MERGE_QUEUE_REF = /^gh-readonly-queue\/.+\/pr-\d+-[0-9a-f]+$/i;
 
-/** Marker Vercel/GitHub put on merge-queue refs, aliases, and `github.ref`. */
-export const MERGE_QUEUE_REF_MARKER = "gh-readonly-queue";
-
-/** `seed`: the homepage demo's fixture text (`content`) or text and photos (`all`). */
 export type ConvexDeployPlan =
   | { kind: "merge-queue-web-only" }
-  | { kind: "production"; seed: "all"; writeEnv: true }
+  | { kind: "production"; writeEnv: true }
   | {
       kind: "preview-create";
       previewName: string;
-      seed: "content";
       writeEnv: true;
     }
   | {
       kind: "preview-recreate";
       previewName: string;
-      seed: "content";
       writeEnv: true;
     }
   | {
       kind: "preview-reuse";
       previewName: string;
-      seed: null;
       writeEnv: boolean;
     };
 
@@ -70,26 +63,6 @@ export function isMergeQueueGitRef(ref: string) {
 /** Merge-queue Vercel checks only need a web build — do not push or wipe a backend. */
 export function shouldPushConvexBackend(gitRef: string) {
   return !isMergeQueueGitRef(gitRef);
-}
-
-/**
- * `seed-homepage-photos` must not run for merge-queue Vercel deploys.
- * Those builds never push a Convex backend, and Vercel sets
- * `deployment.ref` to a SHA. Resolving that SHA to a PR head would
- * seed the PR preview. Actions still sets `github.ref` to
- * `refs/heads/gh-readonly-queue/…`.
- */
-export function shouldSkipPreviewPhotoSeed(opts: {
-  deploymentEnvironment: string;
-  deploymentRef: string;
-  githubRef: string;
-  resolvedBranch: string | null;
-}) {
-  const refs = [opts.githubRef, opts.deploymentRef, opts.deploymentEnvironment];
-  if (opts.resolvedBranch !== null) {
-    refs.push(opts.resolvedBranch);
-  }
-  return refs.some((ref) => ref.includes(MERGE_QUEUE_REF_MARKER));
 }
 
 /** Vercel GitHub deployments set `ref` to a SHA, not `refs/heads/<branch>`. */
@@ -125,14 +98,13 @@ export function planConvexDeploy(opts: {
     return { kind: "merge-queue-web-only" };
   }
   if (opts.vercelEnv === "production") {
-    return { kind: "production", seed: "all", writeEnv: true };
+    return { kind: "production", writeEnv: true };
   }
   const previewName = previewNameFromGitRef(opts.gitRef) ?? opts.gitRef;
   if (!opts.stored.previewExists) {
     return {
       kind: "preview-create",
       previewName,
-      seed: "content",
       writeEnv: true,
     };
   }
@@ -146,14 +118,12 @@ export function planConvexDeploy(opts: {
     return {
       kind: "preview-recreate",
       previewName,
-      seed: "content",
       writeEnv: true,
     };
   }
   return {
     kind: "preview-reuse",
     previewName,
-    seed: null,
     writeEnv: opts.stored.fingerprint === null,
   };
 }
@@ -229,12 +199,4 @@ export function planPreviewName(plan: ConvexDeployPlan) {
     case "preview-reuse":
       return plan.previewName;
   }
-}
-
-/**
- * Merge-queue Vercel builds never push Convex, so `seed-homepage-photos`
- * can run against a missing preview or a backend with no functions.
- */
-export function isConvexPreviewWithoutFunctions(output: string) {
-  return /No functions found/i.test(output) || /Preview deployment not found/i.test(output);
 }
