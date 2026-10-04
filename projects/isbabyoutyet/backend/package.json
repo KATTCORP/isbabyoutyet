@@ -20,6 +20,7 @@
     "setup-dev": "CI=true CONVEX_AGENT_MODE=anonymous run-s setup-dev:provision setup-dev:env seed:demo-login && echo '✅ Setup complete, you can now run `pnpm dev` (it seeds the homepage demo once Convex is up)'",
     "setup-dev:provision": "convex dev --once --local-force-upgrade",
     "setup-dev:env": "CONVEX_AGENT_MODE=anonymous tsx scripts/ensureLocalEnv.ts",
+    "deploy:vercel": "tsx scripts/deployVercel.ts",
     "seed": "CONVEX_AGENT_MODE=anonymous run-s seed:demo-login seed:homepage",
     "seed:demo-login": "CONVEX_AGENT_MODE=anonymous convex run seed:seedDemoData",
     "seed:homepage": "CONVEX_AGENT_MODE=anonymous tsx scripts/seedHomepageDemo.ts",

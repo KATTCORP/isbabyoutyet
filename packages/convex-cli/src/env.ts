@@ -28,14 +28,15 @@ export const listEnv = Effect.gen(function* () {
   return dotenv.parse(yield* convex.run(["env", "list", ...(yield* previewNameArgs)]));
 });
 
+/** Variables for `setEnv`; wrap secrets in `Redacted` so they print as `<redacted>` if logged. */
+export type ConvexEnvVars = Record<string, string | Redacted.Redacted<string>>;
+
 /**
  * Sets every variable in one `convex env set --force`, overwriting changed
  * values. Values travel as dotenv text on stdin, so they never reach argv or
  * the logs; only names are printed.
  */
-export const setEnv = Effect.fn("setEnv")(function* (
-  vars: Readonly<Record<string, string | Redacted.Redacted<string>>>,
-) {
+export const setEnv = Effect.fn("setEnv")(function* (vars: Readonly<ConvexEnvVars>) {
   const names = Object.keys(vars);
   if (names.length === 0) {
     return;

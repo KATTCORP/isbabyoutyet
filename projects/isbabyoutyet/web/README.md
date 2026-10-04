@@ -64,9 +64,9 @@ Use `createConvexTestHarness` with `renderWithConvexTest` /
 ## Deploy (Vercel)
 
 [`vercel.json`](vercel.json) sets the framework, install command, and build
-command. The build runs `pnpm deploy-convex`, which pushes `../backend` and
-then builds; the decision logic is documented in
-[`scripts/deploy-convex.ts`](scripts/deploy-convex.ts). In the dashboard, set
+command. The build runs the backend's `deploy:vercel` script, which pushes
+`../backend` and then builds this app against it; the steps are documented in
+[`backend/scripts/deployVercel.ts`](../backend/scripts/deployVercel.ts). In the dashboard, set
 Root Directory to `projects/isbabyoutyet/web`, turn on "include source files
 outside Root Directory", leave the output directory empty, and enable Git LFS
 so the demo photos in `backend/assets/` are downloaded.

@@ -21,19 +21,20 @@ const MERGE_QUEUE_REF = /^gh-readonly-queue\/.+\/pr-\d+-[0-9a-f]+$/i;
 /** Marker Vercel/GitHub put on merge-queue refs, aliases, and `github.ref`. */
 export const MERGE_QUEUE_REF_MARKER = "gh-readonly-queue";
 
+/** `seed`: the homepage demo's fixture text (`content`) or text and photos (`all`). */
 export type ConvexDeployPlan =
   | { kind: "merge-queue-web-only" }
-  | { kind: "production"; seed: "seed:homepage"; writeEnv: true }
+  | { kind: "production"; seed: "all"; writeEnv: true }
   | {
       kind: "preview-create";
       previewName: string;
-      seed: "seed:homepage:content";
+      seed: "content";
       writeEnv: true;
     }
   | {
       kind: "preview-recreate";
       previewName: string;
-      seed: "seed:homepage:content";
+      seed: "content";
       writeEnv: true;
     }
   | {
@@ -124,14 +125,14 @@ export function planConvexDeploy(opts: {
     return { kind: "merge-queue-web-only" };
   }
   if (opts.vercelEnv === "production") {
-    return { kind: "production", seed: "seed:homepage", writeEnv: true };
+    return { kind: "production", seed: "all", writeEnv: true };
   }
   const previewName = previewNameFromGitRef(opts.gitRef) ?? opts.gitRef;
   if (!opts.stored.previewExists) {
     return {
       kind: "preview-create",
       previewName,
-      seed: "seed:homepage:content",
+      seed: "content",
       writeEnv: true,
     };
   }
@@ -145,7 +146,7 @@ export function planConvexDeploy(opts: {
     return {
       kind: "preview-recreate",
       previewName,
-      seed: "seed:homepage:content",
+      seed: "content",
       writeEnv: true,
     };
   }
@@ -180,10 +181,9 @@ export function convexDeployCliArgs(plan: ConvexDeployPlan) {
     case "merge-queue-web-only":
     case "production":
       return [];
-    case "preview-create":
-      return ["--preview-name", plan.previewName, "--preview-run", "seed:seedDemoData"];
     case "preview-recreate":
-      return ["--preview-create", plan.previewName, "--preview-run", "seed:seedDemoData"];
+      return ["--preview-create", plan.previewName];
+    case "preview-create":
     case "preview-reuse":
       return ["--preview-name", plan.previewName];
   }
@@ -193,7 +193,6 @@ export function convexDeployCliArgs(plan: ConvexDeployPlan) {
 export function convexDeployRetryCliArgs(plan: ConvexDeployPlan) {
   switch (plan.kind) {
     case "merge-queue-web-only":
-      return [];
     case "production":
       return [];
     case "preview-create":
@@ -204,23 +203,9 @@ export function convexDeployRetryCliArgs(plan: ConvexDeployPlan) {
 }
 
 /**
- * Tiny `--cmd` so Convex `start_push` runs immediately after claim.
- * The real Vite build runs after a successful push (see deploy-convex.ts).
+ * Run after the push rather than as `--preview-run`, which Convex skips when
+ * a 408 retry reuses the just-claimed preview.
  */
-export const CONVEX_DEPLOY_URL_CMD = "node ../web/scripts/write-convex-url.mjs";
-
-export function convexDeployArgv(extraArgs: Array<string>) {
-  return [
-    "deploy",
-    "--cmd-url-env-var-name",
-    "VITE_CONVEX_URL",
-    "--cmd",
-    CONVEX_DEPLOY_URL_CMD,
-    ...extraArgs,
-  ];
-}
-
-/** `--preview-run` is skipped on retry (`isNewDeployment` is then false). */
 export function convexPostPushRunFunctions(plan: ConvexDeployPlan) {
   switch (plan.kind) {
     case "merge-queue-web-only":
@@ -233,44 +218,17 @@ export function convexPostPushRunFunctions(plan: ConvexDeployPlan) {
   }
 }
 
-export function convexSeedNpmScripts(plan: ConvexDeployPlan) {
-  switch (plan.kind) {
-    case "merge-queue-web-only":
-    case "preview-reuse":
-      return [];
-    case "production":
-      return [plan.seed];
-    case "preview-create":
-    case "preview-recreate":
-      return [plan.seed];
-  }
-}
-
-export function previewNameCliArgs(plan: ConvexDeployPlan) {
+/** The preview that `env`, `run`, and the seeds target after the push. */
+export function planPreviewName(plan: ConvexDeployPlan) {
   switch (plan.kind) {
     case "merge-queue-web-only":
     case "production":
-      return [];
+      return null;
     case "preview-create":
     case "preview-recreate":
     case "preview-reuse":
-      return ["--preview-name", plan.previewName];
+      return plan.previewName;
   }
-}
-
-export function interpretEnvGetResult(opts: { ok: boolean; stderr: string; stdout: string }) {
-  if (opts.ok) {
-    return { fingerprint: parseEnvGetOutput(opts.stdout), previewExists: true };
-  }
-  if (/Environment variable .* not found/i.test(opts.stderr)) {
-    return { fingerprint: null, previewExists: true };
-  }
-  return { fingerprint: null, previewExists: false };
-}
-
-/** Fresh Convex previews can hang on `start_push` for 5 minutes and 408. */
-export function isConvexStartPushTimeout(output: string) {
-  return /\/api\/deploy2\/start_push\s+408\b/i.test(output);
 }
 
 /**
@@ -279,17 +237,4 @@ export function isConvexStartPushTimeout(output: string) {
  */
 export function isConvexPreviewWithoutFunctions(output: string) {
   return /No functions found/i.test(output) || /Preview deployment not found/i.test(output);
-}
-
-export function parseEnvGetOutput(stdout: string) {
-  const lines = stdout
-    .trim()
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-  const value = lines.at(-1);
-  if (value === undefined) {
-    return null;
-  }
-  return value;
 }
