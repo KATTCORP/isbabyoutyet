@@ -26,7 +26,7 @@ export function useDemoToast(opts: { enabled: boolean; publicId: string }) {
   const shouldShow = opts.enabled && isHomepageDemoPublicId(opts.publicId) && !dismissed;
   const toastId = demoToastId(opts.publicId);
   const title = t("This is a demo baby");
-  const description = t("Feel free to post test messages — we reset this demo daily.");
+  const description = t("Feel free to post test messages. We reset this demo daily.");
   const actionLabel = t("Got it");
 
   useEffect(() => {

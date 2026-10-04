@@ -155,7 +155,7 @@ export function AddBabyPageView(props: {
               </span>
             </h1>
             <p className="mt-2 font-semibold text-muted-foreground">
-              {t("A name and a due date — that's all it takes!")}
+              {t("A name and a due date. That's all it takes!")}
             </p>
           </div>
 
@@ -195,7 +195,7 @@ export function AddBabyPageView(props: {
                         </FormControl>
                         <FormDescription>
                           {t(
-                            "Optional — leave blank for now. You can change the time later in settings.",
+                            "Optional. Leave blank for now. You can change the time later in settings.",
                           )}
                         </FormDescription>
                         <FormMessage />
