@@ -1,20 +1,10 @@
 {
   "name": "isbabyoutyet",
   "install": "bash .cursor/install.sh",
-  "terminals": [
-    {
-      "name": "convex",
-      "description": "Local anonymous Convex backend (ports 3210/3211); seeds the homepage demo on start.",
-      "command": "export NVM_DIR=\"$HOME/.nvm\"; . \"$NVM_DIR/nvm.sh\"; export PATH=\"$(dirname \"$(nvm which default)\"):$PATH\"; cd projects/isbabyoutyet/backend && pnpm dev"
-    },
-    {
-      "name": "web",
-      "description": "Vite dev server for the web app (http://localhost:3000).",
-      "command": "export NVM_DIR=\"$HOME/.nvm\"; . \"$NVM_DIR/nvm.sh\"; export PATH=\"$(dirname \"$(nvm which default)\"):$PATH\"; cd projects/isbabyoutyet/web && pnpm dev"
-    }
-  ],
+  "start": "bash .cursor/start.sh",
   "ports": [
-    { "name": "web", "port": 3000 },
+    { "name": "isbabyoutyet-web", "port": 3000 },
+    { "name": "sous-vide-guide-web", "port": 3002 },
     { "name": "convex-api", "port": 3210 },
     { "name": "convex-site", "port": 3211 }
   ]

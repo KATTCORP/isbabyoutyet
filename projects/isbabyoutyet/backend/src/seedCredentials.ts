@@ -34,15 +34,15 @@ export const DEMO_COPARENT_USER = {
 export const DEMO_ACCOUNTS = [
   {
     ...DEMO_USER,
-    label: "test@example.com — with babies",
+    label: "test@example.com: with babies",
   },
   {
     ...DEMO_EMPTY_USER,
-    label: "test+newuser@example.com — no babies",
+    label: "test+newuser@example.com: no babies",
   },
   {
     ...DEMO_COPARENT_USER,
-    label: "test+coparent@example.com — co-parent on Milo",
+    label: "test+coparent@example.com: co-parent on Milo",
   },
 ] as const;
 
