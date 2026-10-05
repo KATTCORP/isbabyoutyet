@@ -75,3 +75,19 @@ project. [`vercel.json`](vercel.json) sets the framework, install command,
 and build command. In the dashboard, set Root Directory to
 `projects/sous-vide-guide/web`, turn on "include source files outside Root
 Directory", and leave the output directory empty. No env vars are needed.
+
+The page is server-rendered, but the HTML is cached on Vercel's CDN for a day
+and served stale while it revalidates (cache keys are per deployment, so a
+deploy never serves old HTML). Browsers always revalidate. The page's locale
+decides the cache key, and Vercel will not vary on `Cookie`:
+
+- Visitors without the locale cookie share one entry per `Accept-Language`
+  (`Vary: Accept-Language`).
+- Visitors with the cookie are rewritten by the CDN routes in
+  [`src/lib/locale-cache-key.ts`](src/lib/locale-cache-key.ts) to
+  `/?__locale=<cookie>`. The server strips the param before routing.
+- [`withCdnCache`](src/lib/cdn-cache.ts) only marks a response cacheable when
+  its rendered locale matches its key, so a forged `__locale` cannot poison
+  the cache.
+
+Fingerprinted `/assets/*` are `immutable` (Nitro's default).
