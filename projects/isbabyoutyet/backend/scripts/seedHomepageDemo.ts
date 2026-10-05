@@ -9,7 +9,6 @@ import sharp from "sharp";
 import { renderBlurDataUrl, renderPageThumbnail, renderPushImage } from "../src/photoDerivatives";
 import { HOMEPAGE_DEMO_PHOTO_FILES, HOMEPAGE_DEMO_PHOTO_KEYS } from "../src/homepageDemoFeed";
 import type { HomepageDemoPhotoKey } from "../src/homepageDemoFeed";
-import { isConvexPreviewWithoutFunctions } from "../src/previewDeploy";
 
 const LFS_POINTER_PREFIX = "version https://git-lfs.github.com/spec/v1";
 const convexPackageDir = path.resolve(import.meta.dirname, "..");
@@ -198,51 +197,49 @@ const refreshHomepageDemoLocales = Effect.fn("refreshHomepageDemoLocales")(funct
   }
 });
 
-/** Merge-queue Vercel builds never push Convex, so the preview may have no functions yet. */
-const photoSetStatus = runFunction({
+const isPhotoSetComplete = runFunction({
   args: {},
   functionName: "homepageDemo:hasCompletePhotoSet",
   returns: Schema.Boolean,
-}).pipe(
-  Effect.map((complete) => (complete ? ("complete" as const) : ("incomplete" as const))),
-  Effect.catchTag("ConvexCliError", (error) =>
-    isConvexPreviewWithoutFunctions(error.output)
-      ? Effect.succeed("no-functions" as const)
-      : Effect.fail(error),
-  ),
-);
+});
 
-const logNoFunctionsSkip = Console.log(
-  "Convex preview has no functions — skipping photo seed (merge-queue skip or missing preview)",
-);
+const attachPhotos = Effect.gen(function* () {
+  yield* refreshHomepageDemoLocales(yield* uploadHomepageDemoPhotos);
+});
 
 /** Fixture babies + timeline text only — no sharp work or storage uploads. */
 export const seedHomepageDemoContent = refreshHomepageDemoLocales({});
 
 /** Resize, upload, and attach homepage demo photos to every locale baby. */
 export const seedHomepageDemoPhotos = Effect.gen(function* () {
-  switch (yield* photoSetStatus) {
-    case "complete":
-      return yield* Console.log("Homepage demo photos already stored — skipping uploads.");
-    case "no-functions":
-      return yield* logNoFunctionsSkip;
-    case "incomplete":
-      break;
+  if (yield* isPhotoSetComplete) {
+    return yield* Console.log("Homepage demo photos already stored — skipping uploads.");
   }
-  yield* refreshHomepageDemoLocales(yield* uploadHomepageDemoPhotos);
+  yield* attachPhotos;
 });
 
-export const seedHomepageDemo = Effect.gen(function* () {
-  switch (yield* photoSetStatus) {
-    case "complete":
-      return yield* Console.log("Homepage demo already initialized — daily cron handles resets.");
-    case "no-functions":
-      return yield* logNoFunctionsSkip;
-    case "incomplete":
-      break;
+/**
+ * The fixture text, then the photos, unless the demo is already complete.
+ * `photos: "best-effort"` turns a failed photo upload into a warning: the
+ * text is seeded by then, and the next run retries the photos.
+ */
+export const seedHomepageDemo = Effect.fn("seedHomepageDemo")(function* (opts: {
+  photos: "best-effort" | "required";
+}) {
+  if (yield* isPhotoSetComplete) {
+    return yield* Console.log("Homepage demo already initialized — daily cron handles resets.");
   }
   yield* seedHomepageDemoContent;
-  yield* seedHomepageDemoPhotos;
+  if (opts.photos === "required") {
+    return yield* attachPhotos;
+  }
+  yield* attachPhotos.pipe(
+    Effect.catch((error) =>
+      Console.error(
+        `⚠️  Homepage demo photos were not stored (${error.message}). The text is seeded; the next run retries the photos.`,
+      ),
+    ),
+  );
 });
 
 /** Everything the seeds need on a real machine. */
@@ -268,7 +265,7 @@ if (isCli) {
     },
     (flags) =>
       Option.match(flags.only, {
-        onNone: () => seedHomepageDemo,
+        onNone: () => seedHomepageDemo({ photos: "required" }),
         onSome: (only) => seeds[only],
       }).pipe(Effect.provideService(ConvexPreviewName, flags.previewName)),
   ).pipe(

@@ -47,12 +47,12 @@ linked from the homepage. The source of truth is
   is complete, later runs only check for it. A failed seed only prints a
   warning. Retry with `pnpm seed:homepage` while `pnpm dev` runs.
 - [`scripts/deployVercel.ts`](scripts/deployVercel.ts) is the Vercel build
-  command: it deploys Convex, builds the web app, sets the runtime env, runs
-  migrations, and seeds. Production seeds the whole homepage demo there
-  (idempotent).
+  command: it deploys Convex, then builds the web app while it sets the
+  runtime env, runs migrations, and seeds the homepage demo (text and
+  photos) on production and previews alike. A complete demo is left alone; a
+  failed photo upload only warns, and the next deploy retries it.
 - Previews reuse the branch backend unless `schema.ts` / `convex.config.ts`
-  changed. A wipe reseeds text in the build, and photos upload from
-  [`seed-preview.yml`](../../../.github/workflows/seed-preview.yml).
+  changed; a wipe gets the demo logins and the whole homepage demo again.
 - `crons.ts` resets each locale's homepage baby daily, unless it received real
   visitor encouragement in the previous hour.
 

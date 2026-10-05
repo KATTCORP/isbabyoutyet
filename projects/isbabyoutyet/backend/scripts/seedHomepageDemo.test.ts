@@ -146,7 +146,8 @@ function seed<A, E>(
   return Effect.gen(function* () {
     const result = yield* Effect.result(program);
     const logs = yield* TestConsole.logLines;
-    return { logs, result };
+    const errors = yield* TestConsole.errorLines;
+    return { errors, logs, result };
   }).pipe(
     Effect.provideService(ConvexPreviewName, Option.some("pr-123")),
     Effect.provide(
@@ -191,23 +192,7 @@ describe("seedHomepageDemoPhotos", () => {
     }),
   );
 
-  it.effect("skips a preview that has no functions yet", () =>
-    Effect.gen(function* () {
-      const convex = fakeConvexCli({
-        "homepageDemo:hasCompletePhotoSet": () =>
-          Effect.fail(cliFailure("✖ No functions found for this deployment")),
-      });
-
-      const run = yield* seed(seedHomepageDemoPhotos, { convex: convex.layer });
-
-      expect(run.result).toStrictEqual(Result.succeed(undefined));
-      expect(run.logs).toStrictEqual([
-        "Convex preview has no functions — skipping photo seed (merge-queue skip or missing preview)",
-      ]);
-    }),
-  );
-
-  it.effect("fails on any other Convex CLI error", () =>
+  it.effect("fails when the Convex CLI fails", () =>
     Effect.gen(function* () {
       const failure = cliFailure("✖ Network error");
       const convex = fakeConvexCli({
@@ -359,7 +344,7 @@ describe("seedHomepageDemo", () => {
         "homepageDemo:hasCompletePhotoSet": () => Effect.succeed("true"),
       });
 
-      const run = yield* seed(seedHomepageDemo, { convex: convex.layer });
+      const run = yield* seed(seedHomepageDemo({ photos: "required" }), { convex: convex.layer });
 
       expect(run.logs).toStrictEqual([
         "Homepage demo already initialized — daily cron handles resets.",
@@ -372,7 +357,7 @@ describe("seedHomepageDemo", () => {
     Effect.gen(function* () {
       const convex = fakeConvexCli(seedingReplies);
 
-      const run = yield* seed(seedHomepageDemo, { convex: convex.layer });
+      const run = yield* seed(seedHomepageDemo({ photos: "required" }), { convex: convex.layer });
 
       expect(run.result).toStrictEqual(Result.succeed(undefined));
       const photoCounts = convex
@@ -381,6 +366,38 @@ describe("seedHomepageDemo", () => {
           (args) => Object.keys(Schema.decodeUnknownSync(RefreshAllArgs)(args[2]).photos).length,
         );
       expect(photoCounts).toStrictEqual([0, HOMEPAGE_DEMO_PHOTO_KEYS.length]);
+    }),
+  );
+
+  it.effect("best-effort: a failed photo upload leaves the text seeded and warns", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvexCli(seedingReplies);
+
+      const run = yield* seed(seedHomepageDemo({ photos: "best-effort" }), {
+        convex: convex.layer,
+        uploads: fakeUploads({ reachable: false }).layer,
+      });
+
+      expect(run.result).toStrictEqual(Result.succeed(undefined));
+      expect(convex.callsTo("homepageDemo:refreshAll")).toHaveLength(1);
+      expect(run.errors).toStrictEqual([
+        expect.stringMatching(
+          /^⚠️ {2}Homepage demo photos were not stored \(.+\)\. The text is seeded/,
+        ),
+      ]);
+    }),
+  );
+
+  it.effect("required: a failed photo upload fails the seed", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvexCli(seedingReplies);
+
+      const run = yield* seed(seedHomepageDemo({ photos: "required" }), {
+        convex: convex.layer,
+        uploads: fakeUploads({ reachable: false }).layer,
+      });
+
+      expect(Result.isFailure(run.result)).toBe(true);
     }),
   );
 });

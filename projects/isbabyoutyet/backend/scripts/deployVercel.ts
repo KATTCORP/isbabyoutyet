@@ -19,11 +19,12 @@
  * 2. `convex deploy` pushes the functions and returns the deployment URL. A
  *    fresh preview can answer `start_push` with a 408; the preview is claimed
  *    by then, so the retry reuses it instead of wiping it again.
- * 3. The web app is built against that URL.
- * 4. Runtime environment variables are set in one `convex env set` (stdin, so
- *    secrets never reach argv or the build log).
- * 5. Pending migrations run, and the build waits for them.
- * 6. New previews get the demo login; then the homepage demo is seeded.
+ * 3. Two things then run at once, since neither needs the other:
+ *    - the web app is built against that URL;
+ *    - the backend is configured: runtime environment variables in one
+ *      `convex env set` (stdin, so secrets never reach argv or the build log),
+ *      pending migrations, the demo login on new previews, and the homepage
+ *      demo. A failed photo upload only warns; the next deploy retries it.
  */
 import path from "node:path";
 import { NodeRuntime } from "@effect/platform-node";
@@ -53,11 +54,7 @@ import {
   shouldPushConvexBackend,
 } from "../src/previewDeploy";
 import type { ConvexDeployPlan } from "../src/previewDeploy";
-import {
-  homepageDemoSeedLayer,
-  seedHomepageDemo,
-  seedHomepageDemoContent,
-} from "./seedHomepageDemo";
+import { homepageDemoSeedLayer, seedHomepageDemo } from "./seedHomepageDemo";
 
 const convexPackageDir = path.resolve(import.meta.dirname, "..");
 const workspaceRoot = path.resolve(convexPackageDir, "../../..");
@@ -201,8 +198,6 @@ const runMigrations = Effect.gen(function* () {
   }
 });
 
-const seeds = { all: seedHomepageDemo, content: seedHomepageDemoContent };
-
 const pushAndSeed = Effect.fn("pushAndSeed")(function* (opts: {
   currentFingerprint: string;
   isPreview: boolean;
@@ -221,9 +216,7 @@ const pushAndSeed = Effect.fn("pushAndSeed")(function* (opts: {
     ),
   );
 
-  yield* buildWeb({ convexUrl, isPreview: opts.isPreview, siteUrl: opts.siteUrl });
-
-  yield* Effect.gen(function* () {
+  const configureBackend = Effect.gen(function* () {
     if (plan.writeEnv) {
       const vars: ConvexEnvVars = {
         ...runtime,
@@ -243,10 +236,13 @@ const pushAndSeed = Effect.fn("pushAndSeed")(function* (opts: {
     for (const functionName of convexPostPushRunFunctions(plan)) {
       yield* runAndLog(functionName);
     }
-    if (plan.seed !== null) {
-      yield* seeds[plan.seed];
-    }
+    yield* seedHomepageDemo({ photos: "best-effort" });
   }).pipe(Effect.provideService(ConvexPreviewName, Option.fromNullOr(planPreviewName(plan))));
+
+  yield* Effect.all(
+    [buildWeb({ convexUrl, isPreview: opts.isPreview, siteUrl: opts.siteUrl }), configureBackend],
+    { concurrency: "unbounded", discard: true },
+  );
 });
 
 export const deployVercel = Effect.gen(function* () {
