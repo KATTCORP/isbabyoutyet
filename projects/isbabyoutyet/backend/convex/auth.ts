@@ -92,7 +92,7 @@ function parseAuthUserFromReturned<TReturned>(returned: TReturned): AuthEndpoint
 
 export const createAuth = (convexCtx: GenericCtx<DataModel>) => {
   return betterAuth({
-    // A fresh preview serves functions before deployVercel.ts sets its
+    // A fresh preview serves functions before configureVercel.ts sets its
     // branch URL. The Convex site URL is a safe bootstrap origin;
     // subsequent requests use the synced web preview URL.
     baseURL: resolveAuthBaseUrl(env.SITE_URL, env.CONVEX_SITE_URL),

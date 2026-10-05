@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "tanstack-start",
-  "buildCommand": "pnpm --filter @isbabyoutyet/backend deploy:vercel",
+  "buildCommand": "cd ../../.. && pnpm turbo run build:vercel configure:vercel --filter=@isbabyoutyet/web... --env-mode=loose",
   "installCommand": "cd ../../.. && pnpm install",
   "trailingSlash": false
 }
