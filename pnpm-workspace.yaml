@@ -53,10 +53,10 @@ catalog:
   class-variance-authority: ^0.7.1
   cn: ^0.4.0
   cmdk: ^1.1.1
-  convex: ^1.45.0
-  convex-helpers: ^0.1.123
+  convex: ^1.46.0
+  convex-helpers: ^0.1.126
   convex-table-history: ^0.1.2
-  convex-test: ^0.0.56
+  convex-test: ^0.0.60
   date-fns: ^4.4.0
   # Same major the Convex CLI parses `env set` / `env list` dotenv text with.
   dotenv: ^16.6.1
