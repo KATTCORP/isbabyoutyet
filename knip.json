@@ -29,10 +29,7 @@
         "src/test/renderWithConvexTest.tsx!",
         "src/test/renderMountedFileRoute.tsx!",
         "src/test/routeTestContext.ts!",
-        "vite.config.ts!",
-        "scripts/deploy-convex.ts!",
-        "scripts/build-web.mjs!",
-        "scripts/write-convex-url.mjs!"
+        "vite.config.ts!"
       ]
     },
     "projects/sous-vide-guide/web": {
@@ -43,6 +40,7 @@
     },
     "projects/isbabyoutyet/backend": {
       "entry": [
+        "scripts/deployVercel.ts!",
         "scripts/ensureLocalEnv.ts!",
         "scripts/seedHomepageDemo.ts!"
       ]

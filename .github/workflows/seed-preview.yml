@@ -1,6 +1,6 @@
 # Seed Convex preview homepage photos after Vercel is Ready.
 #
-# Preview photo uploads (sharp + storage) used to run inside `deploy-convex.ts`
+# Preview photo uploads (sharp + storage) used to run inside the Vercel build
 # and dominated Vercel build time. Demo login + fixture text still seed during
 # the Vercel build when the preview backend is recreated; photos follow here.
 #

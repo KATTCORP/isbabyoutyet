@@ -38,6 +38,7 @@ program.pipe(
 | `runFunction`       | `convex run <fn> <json args>`, decoding the printed result with a `Schema` (`ConvexRunOutputError` if nothing decodes).                                          |
 | `listEnv`           | `convex env list`, parsed into a record.                                                                                                                         |
 | `setEnv`            | One `convex env set --force` for many variables, sent as dotenv text on stdin.                                                                                   |
+| `deploy`            | `convex deploy <flags>`, returning the deployment URL. A `start_push` 408 fails with `ConvexPushTimeoutError`, so callers can retry it.                          |
 
 ## Secrets stay out of argv and logs
 
@@ -51,6 +52,14 @@ Values are quoted the way `dotenv.parse` (the parser `convex env set` uses)
 reads them back unchanged. The few values no quoting can carry, such as ones
 containing a carriage return, fail with `ConvexEnvEncodingError`, which names
 the variables but not their values.
+
+## Getting the deployment URL from `convex deploy`
+
+`convex deploy --cmd <command>` runs the command after claiming the
+deployment and before pushing, with the URL in `--cmd-url-env-var-name`, and
+inherits stdio. `deploy` passes `--cmd 'printenv CONVEX_DEPLOY_URL'`, so the
+URL is the only thing on stdout (the CLI logs to stderr). That avoids temp
+files, and slow build steps don't have to run inside `--cmd`.
 
 ## Testing
 
@@ -73,6 +82,7 @@ it.effect("sets SITE_URL", () =>
 
 ## References
 
-- [`convex env`](https://docs.convex.dev/cli/reference/env) and
+- [`convex deploy`](https://docs.convex.dev/cli/reference/deploy),
+  [`convex env`](https://docs.convex.dev/cli/reference/env), and
   [`convex run`](https://docs.convex.dev/cli/reference/run) CLI reference
 - [Environment variables](https://docs.convex.dev/production/environment-variables)

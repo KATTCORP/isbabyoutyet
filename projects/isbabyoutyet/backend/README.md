@@ -46,7 +46,10 @@ linked from the homepage. The source of truth is
   first push lands, so uploads reach a backend that stays up. Once the demo
   is complete, later runs only check for it. A failed seed only prints a
   warning. Retry with `pnpm seed:homepage` while `pnpm dev` runs.
-- Production runs `seed:homepage` in the Vercel build (idempotent).
+- [`scripts/deployVercel.ts`](scripts/deployVercel.ts) is the Vercel build
+  command: it deploys Convex, builds the web app, sets the runtime env, runs
+  migrations, and seeds. Production seeds the whole homepage demo there
+  (idempotent).
 - Previews reuse the branch backend unless `schema.ts` / `convex.config.ts`
   changed. A wipe reseeds text in the build, and photos upload from
   [`seed-preview.yml`](../../../.github/workflows/seed-preview.yml).

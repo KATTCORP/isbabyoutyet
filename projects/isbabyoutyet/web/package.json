@@ -21,8 +21,7 @@
     "format": "oxfmt && oxlint --fix",
     "typecheck": "tsc --noEmit",
     "setup-dev": "cp .env.example .env.local",
-    "format:check": "oxfmt --check",
-    "deploy-convex": "tsx scripts/deploy-convex.ts"
+    "format:check": "oxfmt --check"
   },
   "dependencies": {
     "@convex-dev/better-auth": "catalog:",

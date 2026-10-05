@@ -46,6 +46,7 @@ describe("runFunction", () => {
       expect(error).toStrictEqual(
         new ConvexRunOutputError({ functionName: "demo:isComplete", stdout: "maybe" }),
       );
+      expect(error.message).toBe("Could not decode `convex run demo:isComplete` output:\nmaybe");
     }),
   );
 });
