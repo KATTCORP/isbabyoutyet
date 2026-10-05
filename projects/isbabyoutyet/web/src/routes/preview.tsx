@@ -98,7 +98,7 @@ export const Route = createFileRoute("/preview")({
 
 function noop() {}
 
-export function PreviewPage() {
+function PreviewPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const { locale, t } = useI18n();

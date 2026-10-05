@@ -56,10 +56,7 @@ export const Route = createFileRoute("/auth/reset-password")({
   }),
 });
 
-/**
- * @internal Exported for smoke tests; production mounts it via `Route`.
- */
-export function ResetPasswordPage() {
+function ResetPasswordPage() {
   const { t } = useI18n();
   const router = useRouter();
   const search = Route.useSearch();
