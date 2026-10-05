@@ -2,7 +2,6 @@ import type { Plugin } from "vite";
 import { defineConfig } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
-import viteTsConfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
@@ -104,14 +103,14 @@ const config = defineConfig({
       },
     }),
     patchLeakedReactRequire(),
-    viteTsConfigPaths({
-      projects: ["./tsconfig.json"],
-    }),
     tailwindcss(),
     // Server entry is the default `src/server.ts` (paraglideMiddleware + Accept-Language).
     tanstackStart(),
     viteReact(),
   ],
+  resolve: {
+    tsconfigPaths: true,
+  },
 });
 
 export default config;
