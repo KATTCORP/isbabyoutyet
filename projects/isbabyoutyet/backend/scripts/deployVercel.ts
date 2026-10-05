@@ -48,7 +48,7 @@ import type { ConvexDeployPlan } from "../src/previewDeploy";
 import { homepageDemoSeedLayer, seedHomepageDemo } from "./seedHomepageDemo";
 
 const convexPackageDir = path.resolve(import.meta.dirname, "..");
-const webPackageDir = path.resolve(convexPackageDir, "../web");
+const workspaceRoot = path.resolve(convexPackageDir, "../../..");
 
 /** https://vercel.com/docs/environment-variables/system-environment-variables */
 const VercelConfig = Config.all({
@@ -135,8 +135,8 @@ const buildWeb = Effect.fn("buildWeb")(function* (opts: {
 }) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const exitCode = yield* spawner.exitCode(
-    ChildProcess.make("pnpm", ["run", "build"], {
-      cwd: webPackageDir,
+    ChildProcess.make("pnpm", ["turbo", "build", "--filter=@isbabyoutyet/web"], {
+      cwd: workspaceRoot,
       env: {
         VITE_CONVEX_SITE_URL: opts.convexUrl.replace(".convex.cloud", ".convex.site"),
         VITE_CONVEX_URL: opts.convexUrl,

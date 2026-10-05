@@ -142,9 +142,8 @@ function deployWith(services: {
 
 function webBuildEnv(spawner: ReturnType<typeof fakeSpawner>) {
   expect(spawner.commands.map((command) => [command.command, ...command.args])).toStrictEqual([
-    ["pnpm", "run", "build"],
+    ["pnpm", "turbo", "build", "--filter=@isbabyoutyet/web"],
   ]);
-  expect(spawner.commands[0]?.options.cwd).toMatch(/projects\/isbabyoutyet\/web$/);
   return spawner.commands[0]?.options.env;
 }
 
