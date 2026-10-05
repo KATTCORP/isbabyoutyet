@@ -1,5 +1,5 @@
 import type { Plugin } from "vite";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
@@ -140,7 +140,7 @@ function patchLeakedReactRequire(): Plugin {
   };
 }
 
-const config = defineConfig({
+const config = defineConfig((env) => ({
   optimizeDeps: {
     exclude: ["@resvg/resvg-js"],
   },
@@ -149,9 +149,11 @@ const config = defineConfig({
     // https://tanstack.com/devtools/latest/docs/quick-start#vite-plugin
     // Preview sets VITE_HAS_DEMO_LOGIN so `vite build` keeps the UI; production
     // leaves it unset and the plugin strips every TanStack Devtools import.
-    // Local `vite dev` never runs the strip pass.
+    // Local `vite dev` never runs the strip pass. On Vercel it comes from
+    // `.env.production.local`, so read it the way `import.meta.env` does.
     devtools({
-      removeDevtoolsOnBuild: process.env.VITE_HAS_DEMO_LOGIN !== "true",
+      removeDevtoolsOnBuild:
+        loadEnv(env.mode, import.meta.dirname, "VITE_").VITE_HAS_DEMO_LOGIN !== "true",
     }),
     stubTanstackDevtoolsOnServer(),
     aliasUseSyncExternalStoreShim(),
@@ -217,6 +219,6 @@ const config = defineConfig({
       exclude: ["@resvg/resvg-js"],
     },
   },
-});
+}));
 
 export default config;

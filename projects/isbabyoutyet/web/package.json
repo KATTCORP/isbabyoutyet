@@ -9,6 +9,7 @@
     "predev:i18n": "pnpm i18n:compile",
     "dev": "vite dev --port 3000",
     "build": "vite build",
+    "build:vercel": "vite build",
     "preview": "vite preview",
     "i18n:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy cookie preferredLanguage baseLocale --output-structure message-modules --emit-ts-declarations --silent",
     "pretypecheck": "[ \"${SKIP_I18N_COMPILE:-}\" = 1 ] || pnpm i18n:compile",

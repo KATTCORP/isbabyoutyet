@@ -64,9 +64,23 @@ Use `createConvexTestHarness` with `renderWithConvexTest` /
 ## Deploy (Vercel)
 
 [`vercel.json`](vercel.json) sets the framework, install command, and build
-command. The build runs the backend's `deploy:vercel` script, which pushes
-`../backend` and then builds this app against it; the steps are documented in
-[`backend/scripts/deployVercel.ts`](../backend/scripts/deployVercel.ts). In the dashboard, set
+command. The build is a Turbo run of three uncached tasks:
+
+- `@isbabyoutyet/backend#deploy:vercel` pushes `../backend` and writes its URL
+  to `.env.production.local` here
+  ([`deployVercel.ts`](../backend/scripts/deployVercel.ts)).
+- Then two run side by side: `build:vercel` builds this app with `vite build`,
+  and `@isbabyoutyet/backend#configure:vercel` sets the backend's env, runs
+  migrations, and seeds it
+  ([`configureVercel.ts`](../backend/scripts/configureVercel.ts)).
+
+Turbo hashes a task's files before its dependencies run, so a cached web build
+could point at the wrong backend; that is why nothing in the run is cached. It
+also runs with `--env-mode=loose`: every task sees the Vercel project's
+variables, so `turbo.json` doesn't list the ones only the deploy reads. The
+`build` task stays strict and cached for local and CI builds.
+
+In the dashboard, set
 Root Directory to `projects/isbabyoutyet/web`, turn on "include source files
 outside Root Directory", leave the output directory empty, and enable Git LFS
 so the demo photos in `backend/assets/` are downloaded.
