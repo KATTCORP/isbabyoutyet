@@ -6,11 +6,6 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".output/**", ".vercel/output/**"],
       "env": [
-        "BETTER_AUTH_SECRET",
-        "CONVEX_DEPLOY_KEY",
-        "VAPID_PRIVATE_KEY",
-        "VAPID_PUBLIC_KEY",
-        "VAPID_SUBJECT",
         "VITE_CONVEX_URL",
         "VITE_CONVEX_SITE_URL",
         "VITE_SITE_URL",

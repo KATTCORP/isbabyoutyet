@@ -61,7 +61,7 @@ const VercelConfig = Config.all({
 const secret = (name: string) => Config.schema(Schema.Redacted(Schema.NonEmptyString), name);
 
 /** Set on the Convex deployment, where `convex/` reads them through `convexEnv`. */
-const ConvexRuntimeConfig = Config.all({
+const convexRuntimeVars = {
   BETTER_AUTH_SECRET: secret("BETTER_AUTH_SECRET"),
   EMAIL_FROM: Config.NonEmptyString("EMAIL_FROM"),
   RESEND_API_KEY: secret("RESEND_API_KEY"),
@@ -70,7 +70,25 @@ const ConvexRuntimeConfig = Config.all({
   VAPID_SUBJECT: Config.NonEmptyString("VAPID_SUBJECT").pipe(
     Config.withDefault("mailto:admin@isbabyoutyet.com"),
   ),
-});
+};
+const ConvexRuntimeConfig = Config.all(convexRuntimeVars);
+
+/**
+ * Vercel project variables that only this script reads. On Vercel, `turbo`
+ * warns about every name in `TURBO_PLATFORM_ENV` that its task can't see, so
+ * the web build gets that list without these.
+ */
+const DEPLOY_ONLY_ENV = new Set(["CONVEX_DEPLOY_KEY", ...Object.keys(convexRuntimeVars)]);
+
+/** https://turborepo.dev/docs/crafting-your-repository/using-environment-variables#platform-environment-variables */
+const TurboPlatformEnv = Config.String("TURBO_PLATFORM_ENV").pipe(Config.withDefault(""));
+
+function webBuildPlatformEnv(platformEnv: string) {
+  return platformEnv
+    .split(",")
+    .filter((name) => name.length > 0 && !DEPLOY_ONLY_ENV.has(name))
+    .join(",");
+}
 
 class WebBuildError extends Schema.TaggedError<WebBuildError>()("WebBuildError", {
   exitCode: Schema.Number,
@@ -134,10 +152,12 @@ const buildWeb = Effect.fn("buildWeb")(function* (opts: {
   siteUrl: string;
 }) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const platformEnv = yield* TurboPlatformEnv;
   const exitCode = yield* spawner.exitCode(
     ChildProcess.make("pnpm", ["turbo", "build", "--filter=@isbabyoutyet/web"], {
       cwd: workspaceRoot,
       env: {
+        TURBO_PLATFORM_ENV: webBuildPlatformEnv(platformEnv),
         VITE_CONVEX_SITE_URL: opts.convexUrl.replace(".convex.cloud", ".convex.site"),
         VITE_CONVEX_URL: opts.convexUrl,
         // Previews are seeded with the demo login, so the login form prefills it.

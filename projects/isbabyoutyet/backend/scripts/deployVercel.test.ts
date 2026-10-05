@@ -162,7 +162,23 @@ describe("deployVercel", () => {
       const convex = fakeConvex({});
       const spawner = fakeSpawner();
 
-      yield* deployWith({ convex, env: productionEnv, spawner });
+      yield* deployWith({
+        convex,
+        env: {
+          ...productionEnv,
+          TURBO_PLATFORM_ENV: [
+            "BETTER_AUTH_SECRET",
+            "CONVEX_DEPLOY_KEY",
+            "EMAIL_FROM",
+            "NEW_BUILD_FLAG",
+            "RESEND_API_KEY",
+            "VAPID_PRIVATE_KEY",
+            "VAPID_PUBLIC_KEY",
+            "VAPID_SUBJECT",
+          ].join(","),
+        },
+        spawner,
+      });
 
       expect(convex.subcommands()).toStrictEqual([
         "deploy",
@@ -173,6 +189,8 @@ describe("deployVercel", () => {
       ]);
       expect(convex.calls[0]?.args.slice(4)).toStrictEqual(["printenv CONVEX_DEPLOY_URL"]);
       expect(webBuildEnv(spawner)).toStrictEqual({
+        // Turbo keeps warning about project variables the web build is meant to read.
+        TURBO_PLATFORM_ENV: "NEW_BUILD_FLAG",
         VITE_CONVEX_SITE_URL: "https://happy-otter-123.convex.site",
         VITE_CONVEX_URL: CONVEX_URL,
         VITE_HAS_DEMO_LOGIN: "false",
