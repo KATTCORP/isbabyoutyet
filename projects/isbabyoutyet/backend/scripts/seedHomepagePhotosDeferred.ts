@@ -1,7 +1,7 @@
 import path from "node:path";
 import { NodeRuntime } from "@effect/platform-node";
+import { ConvexCli } from "@workspace/convex-cli";
 import { Console, Effect, FileSystem, Schedule, Schema } from "effect";
-import { ConvexCli } from "./convexCli";
 import { homepageDemoSeedLayer, seedHomepageDemoPhotos } from "./seedHomepageDemo";
 
 const convexPackageDir = path.resolve(import.meta.dirname, "..");

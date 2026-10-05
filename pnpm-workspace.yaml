@@ -58,6 +58,8 @@ catalog:
   convex-table-history: ^0.1.2
   convex-test: ^0.0.56
   date-fns: ^4.4.0
+  # Same major the Convex CLI parses `env set` / `env list` dotenv text with.
+  dotenv: ^16.6.1
   effect: ^4.0.0
   embla-carousel-react: ^8.6.0
   eslint-plugin-no-only-tests: ^3.4.0

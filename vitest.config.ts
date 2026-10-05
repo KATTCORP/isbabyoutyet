@@ -21,6 +21,7 @@ export default defineConfig({
       "packages/scripts",
       "packages/oxlint-plugins",
       "packages/query-prefetch",
+      "packages/convex-cli",
       "packages/convex-prefetch",
       "packages/form-guard",
       "projects/isbabyoutyet/email",

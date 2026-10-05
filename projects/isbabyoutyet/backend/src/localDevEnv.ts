@@ -21,23 +21,6 @@ const LOCAL_DEV_PARSE_PLACEHOLDERS = {
 const VAPID_PUBLIC_KEY = "VAPID_PUBLIC_KEY";
 const VAPID_PRIVATE_KEY = "VAPID_PRIVATE_KEY";
 
-export function parseConvexEnvList(stdout: string) {
-  const env: Record<string, string> = {};
-  for (const line of stdout.split("\n")) {
-    const trimmed = line.trim();
-    const separator = trimmed.indexOf("=");
-    if (separator <= 0) {
-      continue;
-    }
-    const key = trimmed.slice(0, separator);
-    if (!/^[A-Z][A-Z0-9_]*$/.test(key)) {
-      continue;
-    }
-    env[key] = trimmed.slice(separator + 1);
-  }
-  return env;
-}
-
 function localFieldNeedsSet(key: keyof typeof LOCAL_DEV_CONVEX_ENV, existing: string | undefined) {
   return !convexEnvSchema.safeParse({
     ...LOCAL_DEV_PARSE_PLACEHOLDERS,

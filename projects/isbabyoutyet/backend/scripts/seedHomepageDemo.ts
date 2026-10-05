@@ -1,6 +1,7 @@
 import path from "node:path";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { Console, Context, Effect, FileSystem, Layer, Option, Schema } from "effect";
+import { ConvexCli, ConvexPreviewName, runFunction } from "@workspace/convex-cli";
+import { Console, Effect, FileSystem, Layer, Option, Schema } from "effect";
 import { Command, Flag } from "effect/cli";
 import { FetchHttpClient, HttpBody, HttpClient, HttpClientResponse } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
@@ -13,27 +14,10 @@ import {
 } from "../src/homepageDemoFeed";
 import type { HomepageDemoPhotoKey } from "../src/homepageDemoFeed";
 import { isConvexPreviewWithoutFunctions } from "../src/previewDeploy";
-import { ConvexCli } from "./convexCli";
 
 const LFS_POINTER_PREFIX = "version https://git-lfs.github.com/spec/v1";
 const convexPackageDir = path.resolve(import.meta.dirname, "..");
 const assetsDir = path.join(convexPackageDir, "assets/homepage-demo");
-
-/** The Convex preview every `convex run` targets; `None` is the default deployment. */
-export const ConvexPreviewName = Context.Reference<Option.Option<string>>(
-  "@isbabyoutyet/backend/scripts/ConvexPreviewName",
-  { defaultValue: Option.none },
-);
-
-/** @internal Exported for tests. */
-export class ConvexRunOutputError extends Schema.TaggedError<ConvexRunOutputError>()(
-  "ConvexRunOutputError",
-  { functionName: Schema.String, stdout: Schema.String },
-) {
-  override get message() {
-    return `Could not decode \`convex run ${this.functionName}\` output:\n${this.stdout}`;
-  }
-}
 
 class GitLfsPullError extends Schema.TaggedError<GitLfsPullError>()("GitLfsPullError", {
   exitCode: Schema.Number,
@@ -61,35 +45,6 @@ class ImageProcessingError extends Schema.TaggedError<ImageProcessingError>()(
     return `Could not render derivatives of ${this.filePath}`;
   }
 }
-
-/** `convex run` prints the return value as JSON, sometimes after log lines; take the last line that decodes. */
-function jsonCandidates(stdout: string) {
-  const trimmed = stdout.trim();
-  const lines = trimmed
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-  return [trimmed, ...lines.toReversed()];
-}
-
-const convexRun = Effect.fn("convexRun")(function* <S extends Schema.Constraint>(opts: {
-  args: object;
-  functionName: string;
-  returns: S;
-}) {
-  const convex = yield* ConvexCli;
-  const previewName = yield* ConvexPreviewName;
-  const stdout = yield* convex.run([
-    "run",
-    opts.functionName,
-    JSON.stringify(opts.args),
-    ...Option.match(previewName, { onNone: () => [], onSome: (name) => ["--preview-name", name] }),
-  ]);
-  const decode = Schema.decodeUnknownEffect(Schema.fromJsonString(opts.returns));
-  return yield* Effect.firstSuccessOf(jsonCandidates(stdout).map((line) => decode(line))).pipe(
-    Effect.mapError(() => new ConvexRunOutputError({ functionName: opts.functionName, stdout })),
-  );
-});
 
 const readPhotos = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
@@ -181,7 +136,7 @@ const postBytes = Effect.fn("postBytes")(function* (opts: { bytes: Buffer; uploa
  * `convex run` argv. Under `pnpm dev`, `convex dev` keeps the backend up.
  */
 const uploadBytes = Effect.fn("uploadBytes")(function* (bytes: Buffer) {
-  const uploadUrl = yield* convexRun({
+  const uploadUrl = yield* runFunction({
     args: {},
     functionName: "homepageDemo:generateUploadUrl",
     returns: Schema.String,
@@ -192,7 +147,7 @@ const uploadBytes = Effect.fn("uploadBytes")(function* (bytes: Buffer) {
   }
   return yield* post.pipe(
     Effect.catchReason("HttpClientError", "TransportError", () =>
-      convexRun({
+      runFunction({
         args: { bytes: { $bytes: bytes.toString("base64") }, contentType: "image/jpeg" },
         functionName: "homepageDemo:storePhoto",
         returns: Schema.String,
@@ -236,7 +191,7 @@ const refreshHomepageDemoLocales = Effect.fn("refreshHomepageDemoLocales")(funct
   photos: UploadedPhotos,
 ) {
   for (const locale of homepageDemoLocales()) {
-    const result = yield* convexRun({
+    const result = yield* runFunction({
       args: { locale, photos },
       functionName: "homepageDemo:refresh",
       returns: RefreshResult,
@@ -246,7 +201,7 @@ const refreshHomepageDemoLocales = Effect.fn("refreshHomepageDemoLocales")(funct
 });
 
 /** Merge-queue Vercel builds never push Convex, so the preview may have no functions yet. */
-const photoSetStatus = convexRun({
+const photoSetStatus = runFunction({
   args: {},
   functionName: "homepageDemo:hasCompletePhotoSet",
   returns: Schema.Boolean,
@@ -293,9 +248,10 @@ export const seedHomepageDemo = Effect.gen(function* () {
 });
 
 /** Everything the seeds need on a real machine. */
-export const homepageDemoSeedLayer = Layer.mergeAll(ConvexCli.layer, FetchHttpClient.layer).pipe(
-  Layer.provideMerge(NodeServices.layer),
-);
+export const homepageDemoSeedLayer = Layer.mergeAll(
+  ConvexCli.layer({ cwd: convexPackageDir }),
+  FetchHttpClient.layer,
+).pipe(Layer.provideMerge(NodeServices.layer));
 
 const isCli = process.argv[1] && path.resolve(process.argv[1]) === import.meta.filename;
 if (isCli) {

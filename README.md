@@ -10,7 +10,7 @@ are changing; each links further down.
 | [`projects/isbabyoutyet/`](projects/isbabyoutyet/README.md) | **Is Baby Out Yet?**: web app, Convex backend, email templates |
 | [`projects/sous-vide-guide/`](projects/sous-vide-guide/README.md) | **Sous Vide Guide**: web app |
 | [`projects/`](projects/README.md) | Rules shared by every `projects/*/web` |
-| [`packages/`](packages/) | Shared libraries: `ui` (vendored shadcn), [`form-guard`](packages/form-guard/README.md), [`convex-prefetch`](packages/convex-prefetch/README.md), [`query-prefetch`](packages/query-prefetch/README.md), `runtime`, `scripts`, `oxlint-plugins` |
+| [`packages/`](packages/) | Shared libraries: `ui` (vendored shadcn), [`form-guard`](packages/form-guard/README.md), [`convex-prefetch`](packages/convex-prefetch/README.md), [`convex-cli`](packages/convex-cli/README.md), [`query-prefetch`](packages/query-prefetch/README.md), `runtime`, `scripts`, `oxlint-plugins` |
 | [`.agents/skills/`](.agents/skills/) | Agent skills (third-party ones are pinned in `skills-lock.json`) |
 | [`repos/`](#vendored-repositories) | Read-only upstream sources vendored with `git subtree` |
 

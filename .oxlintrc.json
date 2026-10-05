@@ -653,7 +653,11 @@
     {
       // Code built on Effect (see AGENTS.md). Opt-in, because these rules
       // would push Effect idioms into code that doesn't use it.
-      "files": ["packages/scripts/src/**", "projects/isbabyoutyet/backend/scripts/**"],
+      "files": [
+        "packages/convex-cli/src/**",
+        "packages/scripts/src/**",
+        "projects/isbabyoutyet/backend/scripts/**"
+      ],
       "rules": {
         "anti-slop-effect/no-manual-effect-error-tag": "error",
         "anti-slop-effect/no-manual-tag-comparison": "error",
