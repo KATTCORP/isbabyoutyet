@@ -5,15 +5,7 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".output/**", ".vercel/output/**"],
-      "env": [
-        "VITE_CONVEX_URL",
-        "VITE_CONVEX_SITE_URL",
-        "VITE_SITE_URL",
-        "VITE_HAS_DEMO_LOGIN",
-        "VERCEL",
-        "VERCEL_ENV"
-      ],
-      "passThroughEnv": ["VERCEL", "VERCEL_ENV", "VERCEL_URL", "VERCEL_GIT_COMMIT_REF", "VERCEL_BRANCH_URL", "VERCEL_PROJECT_PRODUCTION_URL"]
+      "env": ["VITE_CONVEX_URL", "VITE_CONVEX_SITE_URL", "VITE_SITE_URL", "VITE_HAS_DEMO_LOGIN"]
     },
     "dev": {
       "cache": false,
