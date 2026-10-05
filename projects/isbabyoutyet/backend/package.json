@@ -21,6 +21,7 @@
     "setup-dev:provision": "convex dev --once --local-force-upgrade",
     "setup-dev:env": "CONVEX_AGENT_MODE=anonymous tsx scripts/ensureLocalEnv.ts",
     "deploy:vercel": "tsx scripts/deployVercel.ts",
+    "configure:vercel": "tsx scripts/configureVercel.ts",
     "seed": "CONVEX_AGENT_MODE=anonymous run-s seed:demo-login seed:homepage",
     "seed:demo-login": "CONVEX_AGENT_MODE=anonymous convex run seed:seedDemoData",
     "seed:homepage": "CONVEX_AGENT_MODE=anonymous tsx scripts/seedHomepageDemo.ts",

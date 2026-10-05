@@ -40,6 +40,7 @@
     },
     "projects/isbabyoutyet/backend": {
       "entry": [
+        "scripts/configureVercel.ts!",
         "scripts/deployVercel.ts!",
         "scripts/ensureLocalEnv.ts!",
         "scripts/seedHomepageDemo.ts!"

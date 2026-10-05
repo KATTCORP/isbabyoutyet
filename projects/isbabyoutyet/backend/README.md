@@ -46,11 +46,13 @@ linked from the homepage. The source of truth is
   first push lands, so uploads reach a backend that stays up. Once the demo
   is complete, later runs only check for it. A failed seed only prints a
   warning. Retry with `pnpm seed:homepage` while `pnpm dev` runs.
-- [`scripts/deployVercel.ts`](scripts/deployVercel.ts) is the Vercel build
-  command: it deploys Convex, then builds the web app while it sets the
-  runtime env, runs migrations, and seeds the homepage demo (text and
-  photos) on production and previews alike. A complete demo is left alone; a
-  failed photo upload only warns, and the next deploy retries it.
+- On Vercel, [`scripts/deployVercel.ts`](scripts/deployVercel.ts) deploys
+  Convex. Then, while the web app builds,
+  [`scripts/configureVercel.ts`](scripts/configureVercel.ts) sets the runtime
+  env, runs migrations, and seeds the homepage demo (text and photos) on
+  production and previews alike. A complete demo is left alone; a failed
+  photo upload only warns, and the next deploy retries it. The task graph is
+  described in [the web README](../web/README.md#deploy-vercel).
 - Each branch keeps one preview backend (`--preview-name <branch>`) and its
   data. Every deploy re-runs the demo-login seed, which tops up what's
   missing and resets the empty user's first-run tour. The preview is wiped

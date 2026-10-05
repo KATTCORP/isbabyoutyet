@@ -5,20 +5,18 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".output/**", ".vercel/output/**"],
-      "env": [
-        "BETTER_AUTH_SECRET",
-        "CONVEX_DEPLOY_KEY",
-        "VAPID_PRIVATE_KEY",
-        "VAPID_PUBLIC_KEY",
-        "VAPID_SUBJECT",
-        "VITE_CONVEX_URL",
-        "VITE_CONVEX_SITE_URL",
-        "VITE_SITE_URL",
-        "VITE_HAS_DEMO_LOGIN",
-        "VERCEL",
-        "VERCEL_ENV"
-      ],
-      "passThroughEnv": ["VERCEL", "VERCEL_ENV", "VERCEL_URL", "VERCEL_GIT_COMMIT_REF", "VERCEL_BRANCH_URL", "VERCEL_PROJECT_PRODUCTION_URL"]
+      "env": ["VITE_CONVEX_URL", "VITE_CONVEX_SITE_URL", "VITE_SITE_URL", "VITE_HAS_DEMO_LOGIN"]
+    },
+    "@isbabyoutyet/backend#deploy:vercel": {
+      "cache": false
+    },
+    "@isbabyoutyet/backend#configure:vercel": {
+      "dependsOn": ["deploy:vercel"],
+      "cache": false
+    },
+    "@isbabyoutyet/web#build:vercel": {
+      "dependsOn": ["^build", "@isbabyoutyet/backend#deploy:vercel"],
+      "cache": false
     },
     "dev": {
       "cache": false,
