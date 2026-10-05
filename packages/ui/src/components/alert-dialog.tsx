@@ -1,9 +1,7 @@
-"use client";
-
 import * as React from "react";
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
+import { cn } from "cn";
 
-import { cn } from "@workspace/ui/lib/utils";
 import { Button } from "@workspace/ui/components/button";
 
 function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
@@ -20,6 +18,7 @@ function AlertDialogPortal({ ...props }: AlertDialogPrimitive.Portal.Props) {
 
 function AlertDialogOverlay({
   className,
+  // local addition — keep on shadcn re-sync: nested dialogs skip backdrops unless forced
   forceRender = true,
   ...props
 }: AlertDialogPrimitive.Backdrop.Props) {
