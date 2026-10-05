@@ -1,5 +1,7 @@
 "use client";
 
+// Local (not registry): @shadcn/form for base-nova ships no files now; apps still
+// use the react-hook-form FormField/FormItem helpers. Prefer Field for new UI.
 import * as React from "react";
 import { useRender } from "@base-ui/react/use-render";
 import {
@@ -11,8 +13,8 @@ import {
   type FieldPath,
   type FieldValues,
 } from "react-hook-form";
+import { cn } from "cn";
 
-import { cn } from "@workspace/ui/lib/utils";
 import { Label } from "@workspace/ui/components/label";
 
 const Form = FormProvider;

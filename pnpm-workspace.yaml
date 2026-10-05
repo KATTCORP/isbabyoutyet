@@ -51,7 +51,7 @@ catalog:
   "@vitest/coverage-v8": ^5.0.3
   better-auth: ~1.6.30
   class-variance-authority: ^0.7.1
-  clsx: ^2.1.1
+  cn: ^0.4.0
   cmdk: ^1.1.1
   convex: ^1.45.0
   convex-helpers: ^0.1.123
@@ -77,7 +77,7 @@ catalog:
   oxlint-tsgolint: ^7.0.2001
   playwright: ^1.62.1
   react: ^19.2.8
-  react-day-picker: ^10.0.1
+  react-day-picker: ^10.0.2
   react-email: ^6.11.0
   react-dom: ^19.2.8
   react-hook-form: ^7.85.0
@@ -87,7 +87,6 @@ catalog:
   sharp: ^0.35.5
   sonner: ^2.0.8
   streamdown: ^2.5.0
-  tailwind-merge: ^3.6.0
   tailwindcss: ^4.3.3
   tsdown: ^0.22.14
   tsx: ^4.23.12

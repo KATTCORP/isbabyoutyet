@@ -1,13 +1,11 @@
+"use client";
+
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import { cn } from "cn";
 
-import { cn } from "@workspace/ui/lib/utils";
 import { Button } from "@workspace/ui/components/button";
 import { XIcon } from "lucide-react";
-
-/** Imperative actions exposed via `Dialog` `actionsRef` (close / unmount). */
-// local addition — keep on shadcn/Base UI re-sync
-type DialogActions = DialogPrimitive.Root.Actions;
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
@@ -27,6 +25,7 @@ function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
 
 function DialogOverlay({
   className,
+  // local addition — keep on shadcn re-sync: nested dialogs skip backdrops unless forced
   forceRender = true,
   ...props
 }: DialogPrimitive.Backdrop.Props) {
@@ -143,4 +142,3 @@ export {
   DialogTitle,
   DialogTrigger,
 };
-export type { DialogActions };

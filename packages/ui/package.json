@@ -20,8 +20,8 @@
     "@base-ui/react": "catalog:",
     "@shadcn/react": "catalog:",
     "class-variance-authority": "catalog:",
-    "clsx": "catalog:",
     "cmdk": "catalog:",
+    "cn": "catalog:",
     "date-fns": "catalog:",
     "embla-carousel-react": "catalog:",
     "input-otp": "catalog:",
@@ -33,8 +33,7 @@
     "react-hook-form": "catalog:",
     "react-resizable-panels": "catalog:",
     "recharts": "catalog:",
-    "sonner": "catalog:",
-    "tailwind-merge": "catalog:"
+    "sonner": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/vite": "catalog:",
