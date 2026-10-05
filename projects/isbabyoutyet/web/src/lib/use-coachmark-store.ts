@@ -32,6 +32,10 @@ function createCoachmarkStore(opts: { targetId: string }) {
   let snapshot: CoachmarkSnapshot | null = null;
   let onDismiss = noop;
 
+  function onTargetClick() {
+    onDismiss();
+  }
+
   return {
     getSnapshot: () => snapshot,
     setOnDismiss: (next: () => void) => {
@@ -42,10 +46,6 @@ function createCoachmarkStore(opts: { targetId: string }) {
       let resizeObserver: ResizeObserver | null = null;
       let scrolledTarget: HTMLElement | null = null;
       const mediaQuery = mobileMediaQuery();
-
-      function onTargetClick() {
-        onDismiss();
-      }
 
       function resolveTarget() {
         const element = document.querySelector(`[data-tour-id="${opts.targetId}"]`);

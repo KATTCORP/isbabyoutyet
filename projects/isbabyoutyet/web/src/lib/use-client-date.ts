@@ -1,20 +1,21 @@
-import { useRef, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
 /**
- * Stable client ISO date for SSR-safe demos. Server snapshot is fixed; client
- * caches the first client-side date so the store identity stays stable.
+ * Stable client ISO date for SSR-safe demos. Server snapshot is fixed; the
+ * client snapshot is filled once on first read so the store identity stays
+ * stable across re-renders.
  */
-export function useClientDate(opts: { serverSnapshot: string }) {
-  const clientDateRef = useRef<string | null>(null);
-  if (clientDateRef.current === null) {
-    clientDateRef.current = new Date().toISOString();
+let clientDateSnapshot: string | null = null;
+
+function getClientDateSnapshot() {
+  if (clientDateSnapshot === null) {
+    clientDateSnapshot = new Date().toISOString();
   }
-  const clientDate = clientDateRef.current;
-  return useSyncExternalStore(
-    noopSubscribe,
-    () => clientDate,
-    () => opts.serverSnapshot,
-  );
+  return clientDateSnapshot;
+}
+
+export function useClientDate(opts: { serverSnapshot: string }) {
+  return useSyncExternalStore(noopSubscribe, getClientDateSnapshot, () => opts.serverSnapshot);
 }
 
 const noopSubscribe = () => () => undefined;
