@@ -13,6 +13,10 @@ const LOCALE_CACHE_KEY_PARAM = "__locale";
 /** Key for a locale cookie holding anything but a locale; never cached. */
 const UNKNOWN_LOCALE_CACHE_KEY = "_";
 
+function escapeRegExp(value: string) {
+  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
 type LocaleCacheKeyRoutesOptions = {
   cookieName: string;
   locales: ReadonlyArray<string>;
@@ -24,20 +28,29 @@ type LocaleCacheKeyRoutesOptions = {
  * the page itself, so assets and other paths are untouched. `check` sends the
  * rewritten request on through the filesystem phase to the server function.
  *
+ * After a `check` rewrite misses the filesystem, Vercel keeps matching the
+ * routes that follow, and a later `dest` param overwrites an earlier one, so
+ * at most one of these routes may match any request.
+ *
  * @internal Consumed by `vite.config.ts`, which `knip --production` does not trace.
  */
 export function localeCacheKeyRoutes(opts: LocaleCacheKeyRoutesOptions) {
+  const localeCookies = opts.locales.map((locale) => ({
+    locale,
+    match: { key: opts.cookieName, type: "cookie", value: `^${escapeRegExp(locale)}$` },
+  }));
   return [
-    ...opts.locales.map((locale) => ({
+    ...localeCookies.map((cookie) => ({
       check: true,
-      dest: `/?${LOCALE_CACHE_KEY_PARAM}=${encodeURIComponent(locale)}`,
-      has: [{ key: opts.cookieName, type: "cookie", value: { eq: locale } }],
+      dest: `/?${LOCALE_CACHE_KEY_PARAM}=${encodeURIComponent(cookie.locale)}`,
+      has: [cookie.match],
       src: "^/$",
     })),
     {
       check: true,
       dest: `/?${LOCALE_CACHE_KEY_PARAM}=${UNKNOWN_LOCALE_CACHE_KEY}`,
       has: [{ key: opts.cookieName, type: "cookie" }],
+      missing: localeCookies.map((cookie) => cookie.match),
       src: "^/$",
     },
   ];
