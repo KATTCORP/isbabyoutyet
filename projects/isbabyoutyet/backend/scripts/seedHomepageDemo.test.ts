@@ -33,11 +33,26 @@ function fakeConvexCli(replies: Partial<Record<string, Reply>>) {
   return { calls, callsTo, layer: convex.layer };
 }
 
+const CountArgs = Schema.fromJsonString(Schema.Struct({ count: Schema.Number }));
+
+/** `<UPLOAD_URL>/<photo index>/<render>`, so each upload's storage id names its slot. */
 const seedingReplies = {
-  "homepageDemo:generateUploadUrl": () => Effect.succeed(JSON.stringify(UPLOAD_URL)),
+  "homepageDemo:generatePhotoUploadUrls": (args) => {
+    const count = Schema.decodeUnknownSync(CountArgs)(args[2]).count;
+    const urls = Array.from({ length: count }, (_, i) => ({
+      photo: `${UPLOAD_URL}/${i}/photo`,
+      pushImage: `${UPLOAD_URL}/${i}/pushImage`,
+      thumbnail: `${UPLOAD_URL}/${i}/thumbnail`,
+    }));
+    return Effect.succeed(JSON.stringify(urls));
+  },
   "homepageDemo:hasCompletePhotoSet": () => Effect.succeed("false"),
-  "homepageDemo:refresh": () =>
-    Effect.succeed(JSON.stringify({ babyId: "baby", locale: "en", publicId: "demo" })),
+  "homepageDemo:refreshAll": () =>
+    Effect.succeed(
+      JSON.stringify(
+        homepageDemoLocales().map((locale) => ({ babyId: "baby", locale, publicId: locale })),
+      ),
+    ),
 } satisfies Record<string, Reply>;
 
 function cliFailure(stderr: string) {
@@ -49,7 +64,7 @@ function cliFailure(stderr: string) {
   });
 }
 
-/** An `HttpClient` that answers each upload with `{ storageId: "upload-<n>" }`. */
+/** An `HttpClient` that answers each upload with `{ storageId: "stored:<photo index>/<render>" }`. */
 function fakeUploads(opts: { reachable: boolean }) {
   const requests: Array<HttpClientRequest.HttpClientRequest> = [];
   const layer = Layer.succeed(
@@ -61,7 +76,7 @@ function fakeUploads(opts: { reachable: boolean }) {
           ? Effect.succeed(
               HttpClientResponse.fromWeb(
                 request,
-                Response.json({ storageId: `upload-${requests.length}` }),
+                Response.json({ storageId: `stored:${request.url.slice(UPLOAD_URL.length + 1)}` }),
               ),
             )
           : Effect.fail(
@@ -145,9 +160,8 @@ function seed<A, E>(
   );
 }
 
-const RefreshArgs = Schema.fromJsonString(
+const RefreshAllArgs = Schema.fromJsonString(
   Schema.Struct({
-    locale: Schema.String,
     photos: Schema.Record(
       Schema.String,
       Schema.Struct({
@@ -226,7 +240,7 @@ describe("seedHomepageDemoPhotos", () => {
   );
 
   it.effect(
-    "uploads three renders per photo, then refreshes every locale with their storage ids",
+    "uploads three renders per photo with one URL batch, then refreshes every locale in one call",
     () =>
       Effect.gen(function* () {
         const convex = fakeConvexCli(seedingReplies);
@@ -238,34 +252,48 @@ describe("seedHomepageDemoPhotos", () => {
         });
 
         expect(run.result).toStrictEqual(Result.succeed(undefined));
-        expect(uploads.requests).toHaveLength(HOMEPAGE_DEMO_PHOTO_KEYS.length * 3);
-        for (const request of uploads.requests) {
-          const contentType = "contentType" in request.body ? request.body.contentType : null;
-          expect([request.method, request.url, contentType]).toStrictEqual([
-            "POST",
-            UPLOAD_URL,
-            "image/jpeg",
-          ]);
-        }
+        expect(convex.calls().map((args) => args[1])).toStrictEqual([
+          "homepageDemo:hasCompletePhotoSet",
+          "homepageDemo:generatePhotoUploadUrls",
+          "homepageDemo:refreshAll",
+        ]);
+        expect(convex.callsTo("homepageDemo:generatePhotoUploadUrls")[0]?.[2]).toBe(
+          JSON.stringify({ count: HOMEPAGE_DEMO_PHOTO_KEYS.length }),
+        );
         expect(
           convex.calls().every((args) => args.slice(-2).join(" ") === "--preview-name pr-123"),
         ).toBe(true);
 
+        expect(uploads.requests).toHaveLength(HOMEPAGE_DEMO_PHOTO_KEYS.length * 3);
+        for (const request of uploads.requests) {
+          const contentType = "contentType" in request.body ? request.body.contentType : null;
+          expect([request.method, contentType]).toStrictEqual(["POST", "image/jpeg"]);
+        }
+
         const refreshes = convex
-          .callsTo("homepageDemo:refresh")
-          .map((args) => Schema.decodeUnknownSync(RefreshArgs)(args[2]));
-        expect(refreshes.map((args) => args.locale)).toStrictEqual(homepageDemoLocales());
-        expect(refreshes[0]?.photos.bump).toMatchObject({
-          blurDataUrl: expect.stringMatching(/^data:image\/jpeg;base64,/),
-          photoId: "upload-1",
-          pushImageId: "upload-3",
-          thumbnailId: "upload-2",
-        });
+          .callsTo("homepageDemo:refreshAll")
+          .map((args) => Schema.decodeUnknownSync(RefreshAllArgs)(args[2]));
+        expect(refreshes).toHaveLength(1);
         expect(Object.keys(refreshes[0]?.photos ?? {})).toStrictEqual([
           ...HOMEPAGE_DEMO_PHOTO_KEYS,
         ]);
+        HOMEPAGE_DEMO_PHOTO_KEYS.forEach((key, index) => {
+          expect(refreshes[0]?.photos[key]).toStrictEqual({
+            blurDataUrl: expect.stringMatching(/^data:image\/jpeg;base64,/),
+            photoId: `stored:${index}/photo`,
+            pushImageId: `stored:${index}/pushImage`,
+            thumbnailId: `stored:${index}/thumbnail`,
+          });
+        });
         expect(run.logs.filter((line) => String(line).startsWith("Uploaded "))).toHaveLength(
           HOMEPAGE_DEMO_PHOTO_KEYS.length,
+        );
+        expect(
+          run.logs.filter((line) => String(line).startsWith("Homepage demo seeded")),
+        ).toStrictEqual(
+          homepageDemoLocales().map(
+            (locale) => `Homepage demo seeded (${locale}): /baby/${locale}`,
+          ),
         );
       }),
   );
@@ -281,7 +309,7 @@ describe("seedHomepageDemoPhotos", () => {
 
       const error = Option.getOrThrow(Result.getFailure(run.result));
       expect(HttpClientError.isHttpClientError(error)).toBe(true);
-      expect(convex.callsTo("homepageDemo:refresh")).toStrictEqual([]);
+      expect(convex.callsTo("homepageDemo:refreshAll")).toStrictEqual([]);
     }),
   );
 
@@ -319,7 +347,7 @@ describe("seedHomepageDemoPhotos", () => {
       });
 
       expect(run.result).toStrictEqual(Result.fail(new LfsPointersError()));
-      expect(convex.callsTo("homepageDemo:generateUploadUrl")).toStrictEqual([]);
+      expect(convex.callsTo("homepageDemo:generatePhotoUploadUrls")).toStrictEqual([]);
     }),
   );
 });
@@ -348,13 +376,11 @@ describe("seedHomepageDemo", () => {
 
       expect(run.result).toStrictEqual(Result.succeed(undefined));
       const photoCounts = convex
-        .callsTo("homepageDemo:refresh")
-        .map((args) => Object.keys(Schema.decodeUnknownSync(RefreshArgs)(args[2]).photos).length);
-      const locales = homepageDemoLocales().length;
-      expect(photoCounts).toStrictEqual([
-        ...Array.from({ length: locales }, () => 0),
-        ...Array.from({ length: locales }, () => HOMEPAGE_DEMO_PHOTO_KEYS.length),
-      ]);
+        .callsTo("homepageDemo:refreshAll")
+        .map(
+          (args) => Object.keys(Schema.decodeUnknownSync(RefreshAllArgs)(args[2]).photos).length,
+        );
+      expect(photoCounts).toStrictEqual([0, HOMEPAGE_DEMO_PHOTO_KEYS.length]);
     }),
   );
 });

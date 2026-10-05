@@ -394,11 +394,21 @@ test("daily reset does not wipe a demo when its complete photo sentinel is missi
   expect(after.page.map((item) => item._id)).toEqual(before.page.map((item) => item._id));
 });
 
-test("generateUploadUrl returns a storage upload URL", async () => {
+test("generatePhotoUploadUrls returns an upload URL for every render of each photo", async () => {
   const t = await setup();
-  const url = await t.mutation(internal.homepageDemo.generateUploadUrl, {});
-  expect(url).toEqual(expect.any(String));
-  expect(url.length).toBeGreaterThan(0);
+  const urls = await t.mutation(internal.homepageDemo.generatePhotoUploadUrls, { count: 2 });
+  expect(urls).toStrictEqual([
+    { photo: expect.any(String), pushImage: expect.any(String), thumbnail: expect.any(String) },
+    { photo: expect.any(String), pushImage: expect.any(String), thumbnail: expect.any(String) },
+  ]);
+  expect(new Set(urls.flatMap((set) => Object.values(set))).size).toBe(6);
+});
+
+test.each([0, 1.5, 17])("generatePhotoUploadUrls rejects count %s", async (count) => {
+  const t = await setup();
+  await expect(
+    t.mutation(internal.homepageDemo.generatePhotoUploadUrls, { count }),
+  ).rejects.toThrow("count must be an integer from 1 to 16");
 });
 
 test("clearFeedBatch reports hasMore until the feed is empty", async () => {
@@ -457,7 +467,7 @@ test("refresh({ locale: 'sv' }) creates Ella Holm with Swedish copy", async () =
   expect(bornUpdate?.kind === "update" && bornUpdate.update.message).toContain("Ella Linnea Holm");
 });
 
-test("each locale gets its own baby with the same feed shape and shared photos", async () => {
+test("refreshAll gives each locale its own baby with the same feed shape and shared photos", async () => {
   const t = await setup();
 
   const photos: Record<
@@ -478,10 +488,7 @@ test("each locale gets its own baby with the same feed shape and shared photos",
     };
   }
 
-  const results = [];
-  for (const locale of SUPPORTED_LOCALES) {
-    results.push(await t.mutation(internal.homepageDemo.refresh, { locale, photos }));
-  }
+  const results = await t.action(internal.homepageDemo.refreshAll, { photos });
 
   expect(new Set(results.map((result) => result.babyId)).size).toBe(SUPPORTED_LOCALES.length);
   expect(results.map((result) => result.publicId)).toEqual(

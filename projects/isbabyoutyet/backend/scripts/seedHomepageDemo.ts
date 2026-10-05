@@ -1,17 +1,13 @@
 import path from "node:path";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { ConvexCli, ConvexPreviewName, runFunction } from "@workspace/convex-cli";
-import { Console, Effect, FileSystem, Layer, Option, Schema } from "effect";
+import { Array as Arr, Console, Effect, FileSystem, Layer, Option, Schema } from "effect";
 import { Command, Flag } from "effect/cli";
 import { FetchHttpClient, HttpBody, HttpClient, HttpClientResponse } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import sharp from "sharp";
 import { renderBlurDataUrl, renderPageThumbnail, renderPushImage } from "../src/photoDerivatives";
-import {
-  HOMEPAGE_DEMO_PHOTO_FILES,
-  HOMEPAGE_DEMO_PHOTO_KEYS,
-  homepageDemoLocales,
-} from "../src/homepageDemoFeed";
+import { HOMEPAGE_DEMO_PHOTO_FILES, HOMEPAGE_DEMO_PHOTO_KEYS } from "../src/homepageDemoFeed";
 import type { HomepageDemoPhotoKey } from "../src/homepageDemoFeed";
 import { isConvexPreviewWithoutFunctions } from "../src/previewDeploy";
 
@@ -123,20 +119,7 @@ const postBytes = Effect.fn("postBytes")(function* (opts: { bytes: Buffer; uploa
   return payload.storageId;
 });
 
-/**
- * A local backend must outlive this script for the POST to land, so run it
- * under `convex dev` (`pnpm dev` does, via `--start`), not a bare `convex run`.
- */
-const uploadBytes = Effect.fn("uploadBytes")(function* (bytes: Buffer) {
-  const uploadUrl = yield* runFunction({
-    args: {},
-    functionName: "homepageDemo:generateUploadUrl",
-    returns: Schema.String,
-  });
-  return yield* postBytes({ bytes, uploadUrl });
-});
-
-/** Storage ids per photo; `refresh` with `{}` seeds the fixture text without photos. */
+/** Storage ids per photo; `refreshAll` with `{}` seeds the fixture text without photos. */
 type UploadedPhotos = Partial<
   Record<
     HomepageDemoPhotoKey,
@@ -144,39 +127,74 @@ type UploadedPhotos = Partial<
   >
 >;
 
-/** Uploads stay one at a time: concurrent `convex run`s would each try to start a local backend. */
+const PhotoUploadUrls = Schema.Array(
+  Schema.Struct({ photo: Schema.String, pushImage: Schema.String, thumbnail: Schema.String }),
+);
+
+/**
+ * Renders every photo while one `convex run` fetches all the upload URLs, then
+ * POSTs every render at once.
+ * A local backend must outlive this script for the POSTs to land, so run it
+ * under `convex dev` (`pnpm dev` does, via `--start`), not a bare `convex run`.
+ */
 const uploadHomepageDemoPhotos = Effect.gen(function* () {
   const photos = yield* loadPhotosFromDisk;
-  const uploaded = yield* Effect.forEach(photos, (photo) =>
-    Effect.gen(function* () {
-      const prepared = yield* renderDerivatives(photo);
-      const photoId = yield* uploadBytes(prepared.photo);
-      const thumbnailId = yield* uploadBytes(prepared.thumbnail);
-      const pushImageId = yield* uploadBytes(prepared.pushImage);
-      yield* Console.log(`Uploaded ${photo.key} (${photo.filePath})`);
-      const ids = { blurDataUrl: prepared.blurDataUrl, photoId, pushImageId, thumbnailId };
-      return [photo.key, ids] as const;
-    }),
+  const [rendered, uploadUrls] = yield* Effect.all(
+    [
+      Effect.forEach(
+        photos,
+        (photo) => renderDerivatives(photo).pipe(Effect.map((renders) => ({ photo, renders }))),
+        { concurrency: "unbounded" },
+      ),
+      runFunction({
+        args: { count: photos.length },
+        functionName: "homepageDemo:generatePhotoUploadUrls",
+        returns: PhotoUploadUrls,
+      }),
+    ],
+    { concurrency: "unbounded" },
+  );
+  const uploads = Arr.zipWith(rendered, uploadUrls, (item, urls) => ({ ...item, urls }));
+  const uploaded = yield* Effect.forEach(
+    uploads,
+    (upload) =>
+      Effect.all(
+        {
+          blurDataUrl: Effect.succeed(upload.renders.blurDataUrl),
+          photoId: postBytes({ bytes: upload.renders.photo, uploadUrl: upload.urls.photo }),
+          pushImageId: postBytes({
+            bytes: upload.renders.pushImage,
+            uploadUrl: upload.urls.pushImage,
+          }),
+          thumbnailId: postBytes({
+            bytes: upload.renders.thumbnail,
+            uploadUrl: upload.urls.thumbnail,
+          }),
+        },
+        { concurrency: "unbounded" },
+      ).pipe(
+        Effect.tap(() => Console.log(`Uploaded ${upload.photo.key} (${upload.photo.filePath})`)),
+        Effect.map((ids) => [upload.photo.key, ids] as const),
+      ),
+    { concurrency: "unbounded" },
   );
   return Object.fromEntries(uploaded);
 });
 
-const RefreshResult = Schema.Struct({
-  babyId: Schema.String,
-  locale: Schema.String,
-  publicId: Schema.String,
-});
+const RefreshResults = Schema.Array(
+  Schema.Struct({ babyId: Schema.String, locale: Schema.String, publicId: Schema.String }),
+);
 
 const refreshHomepageDemoLocales = Effect.fn("refreshHomepageDemoLocales")(function* (
   photos: UploadedPhotos,
 ) {
-  for (const locale of homepageDemoLocales()) {
-    const result = yield* runFunction({
-      args: { locale, photos },
-      functionName: "homepageDemo:refresh",
-      returns: RefreshResult,
-    });
-    yield* Console.log(`Homepage demo seeded (${locale}): /baby/${result.publicId}`);
+  const results = yield* runFunction({
+    args: { photos },
+    functionName: "homepageDemo:refreshAll",
+    returns: RefreshResults,
+  });
+  for (const result of results) {
+    yield* Console.log(`Homepage demo seeded (${result.locale}): /baby/${result.publicId}`);
   }
 });
 

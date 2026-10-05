@@ -1,5 +1,7 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "./_generated/server";
+import type { Infer } from "convex/values";
+import { internal } from "./_generated/api";
+import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -25,6 +27,7 @@ import { insertEncouragementTimelineItem, insertUpdateWithTimelineItem } from ".
 import { internalMutationWithTriggers } from "./triggers";
 
 const CLEAR_BATCH_SIZE = 32;
+const MAX_PHOTO_UPLOADS = 16;
 const RESET_INACTIVITY_MS = 60 * 60_000;
 
 const photoIdsValidator = v.object({
@@ -37,6 +40,14 @@ const photoIdsValidator = v.object({
 const photosValidator = v.record(v.string(), photoIdsValidator);
 
 const localeArg = v.union(supportedLocaleValidator, v.null());
+
+const refreshResultValidator = v.object({
+  babyId: v.id("baby"),
+  locale: supportedLocaleValidator,
+  publicId: v.string(),
+});
+
+type RefreshResult = Infer<typeof refreshResultValidator>;
 
 type DemoPhotos = Record<
   string,
@@ -361,13 +372,24 @@ async function insertFeedDocs(
   return { babyId, locale, publicId: demo.publicId };
 }
 
-/** Upload URL for homepage-demo photos; the seed script POSTs the JPEG to it. */
-export const generateUploadUrl = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.storage.generateUploadUrl();
+/** One upload URL per render of `count` photos; the seed script POSTs one JPEG to each. */
+export const generatePhotoUploadUrls = internalMutation({
+  args: { count: v.number() },
+  handler: async (ctx, args) => {
+    if (!Number.isInteger(args.count) || args.count < 1 || args.count > MAX_PHOTO_UPLOADS) {
+      throw new Error(`count must be an integer from 1 to ${MAX_PHOTO_UPLOADS}, got ${args.count}`);
+    }
+    const urls = [];
+    for (let i = 0; i < args.count; i++) {
+      urls.push({
+        photo: await ctx.storage.generateUploadUrl(),
+        pushImage: await ctx.storage.generateUploadUrl(),
+        thumbnail: await ctx.storage.generateUploadUrl(),
+      });
+    }
+    return urls;
   },
-  returns: v.string(),
+  returns: v.array(v.object({ photo: v.string(), pushImage: v.string(), thumbnail: v.string() })),
 });
 
 /**
@@ -421,8 +443,8 @@ export const insertFeed = internalMutationWithTriggers({
  * Idempotent upsert: creates the public demo baby for one locale (or reuses
  * it), wipes the feed — including visitor encouragements — and restores the
  * fixture story with timestamps relative to now. Does not send push
- * notifications. Call once per locale from the seed script so each baby stays
- * under mutation limits.
+ * notifications. One locale per transaction keeps each baby under mutation
+ * limits; `refreshAll` runs it for every locale.
  *
  * Never touches a baby outside the reserved homepage-demo identity. Storage
  * objects are retained because Convex storage IDs have no ownership metadata;
@@ -441,6 +463,22 @@ export const refresh = internalMutationWithTriggers({
     await clearAllFeed(ctx, babyId);
     return await insertFeedDocs(ctx, { babyId, locale, now, photos });
   },
+  returns: refreshResultValidator,
+});
+
+/** `refresh` for every locale, one transaction each, so the seed makes one `convex run`. */
+export const refreshAll = internalAction({
+  args: { photos: photosValidator },
+  handler: async (ctx, args): Promise<Array<RefreshResult>> => {
+    const results: Array<RefreshResult> = [];
+    for (const locale of homepageDemoLocales()) {
+      results.push(
+        await ctx.runMutation(internal.homepageDemo.refresh, { locale, photos: args.photos }),
+      );
+    }
+    return results;
+  },
+  returns: v.array(refreshResultValidator),
 });
 
 /**
