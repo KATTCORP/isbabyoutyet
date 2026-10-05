@@ -48,7 +48,7 @@ wait_for() {
 
 status=0
 
-# Backend `pnpm dev` also uploads any pending homepage demo photos.
+# Backend `pnpm dev` also seeds the homepage demo once Convex is up.
 start_session convex projects/isbabyoutyet/backend "pnpm dev"
 wait_for convex http://127.0.0.1:3210/version || status=1
 

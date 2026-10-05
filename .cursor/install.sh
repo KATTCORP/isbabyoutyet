@@ -45,8 +45,8 @@ git add -- "$lfs_assets"
 (cd projects/isbabyoutyet/web && { [ -f .env.local ] || pnpm setup-dev; })
 
 # Local anonymous Convex backend: provision, set its env vars and VAPID keys,
-# and seed the demo logins and homepage text. Gated on .env.local so it only
-# runs against a fresh backend. On a busy build pod, seeding can exceed
+# and seed the demo logins. Gated on .env.local so it only runs against a
+# fresh backend. On a busy build pod, seeding can exceed
 # Convex's 1s mutation limit on the freshly started backend; every step is
 # idempotent, so retry. provision writes .env.local before seeding, so drop it
 # on final failure or the next run would skip the seed.
@@ -64,23 +64,34 @@ setup_backend() {
 }
 (setup_backend)
 
-# setup-dev defers the homepage photos to the first `pnpm dev`, because
-# uploads need a running `convex dev`. Upload them now so the snapshot is
-# complete and agent boots skip it.
-seed_pending_photos() {
+# `pnpm dev` seeds the homepage demo once `convex dev` has pushed functions,
+# and the seed skips work that is already stored. Seed now so the snapshot is
+# complete and agent boots skip the photo uploads. `--start` only runs after
+# the first successful push, so its marker means the functions are live.
+seed_homepage_demo() {
   cd projects/isbabyoutyet/backend
-  [ -f .seed-photos-pending.local ] || return 0
-  setsid pnpm dev:convex > /tmp/convex-install.log 2>&1 &
+  local ready=/tmp/convex-install-ready log=/tmp/convex-install.log
+  rm -f "$ready"
+  CONVEX_AGENT_MODE=anonymous setsid pnpm exec convex dev --local-force-upgrade \
+    --start "touch $ready && sleep infinity" > "$log" 2>&1 &
   local convex_pgid=$!
-  local status=0
-  pnpm dev:seed-photos-deferred || status=$?
+  local status=1
+  for _ in $(seq 1 180); do
+    [ -f "$ready" ] && break
+    kill -0 "$convex_pgid" 2>/dev/null || break
+    sleep 1
+  done
+  if [ -f "$ready" ]; then
+    status=0
+    pnpm seed:homepage || status=$?
+  fi
   kill -- "-$convex_pgid" 2>/dev/null || true
   wait "$convex_pgid" 2>/dev/null || true
   if [ "$status" -ne 0 ]; then
-    cat /tmp/convex-install.log >&2
+    cat "$log" >&2
   fi
   return "$status"
 }
-(seed_pending_photos)
+(seed_homepage_demo)
 
 echo "Install complete."
