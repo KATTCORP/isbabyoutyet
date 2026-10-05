@@ -38,7 +38,7 @@ program.pipe(
 | `runFunction`       | `convex run <fn> <json args>`, decoding the printed result with a `Schema` (`ConvexRunOutputError` if nothing decodes).                                          |
 | `listEnv`           | `convex env list`, parsed into a record.                                                                                                                         |
 | `setEnv`            | One `convex env set --force` for many variables, sent as dotenv text on stdin.                                                                                   |
-| `deploy`            | `convex deploy <flags>`, returning the deployment URL. A `start_push` 408 fails with `ConvexPushTimeoutError`, so callers can retry it.                          |
+| `deploy`            | `convex deploy <flags>`, returning the URL. Fails with `ConvexPushTimeoutError` on a `start_push` 408, `ConvexSchemaValidationError` on a rejected schema.       |
 
 ## Secrets stay out of argv and logs
 

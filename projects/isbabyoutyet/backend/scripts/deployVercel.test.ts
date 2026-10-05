@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "@effect/vitest";
-import { ConvexCliError } from "@workspace/convex-cli";
+import { ConvexCliError, ConvexSchemaValidationError } from "@workspace/convex-cli";
 import type { ConvexCliCall } from "@workspace/convex-cli/testing";
 import { fakeConvexCli } from "@workspace/convex-cli/testing";
 import {
@@ -18,18 +18,10 @@ import { HttpClient } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { TestClock, TestConsole } from "effect/testing";
 import { homepageDemoLocales } from "../src/homepageDemoFeed";
-import {
-  MERGE_QUEUE_PLACEHOLDER_CONVEX_URL,
-  SCHEMA_FINGERPRINT_RELATIVE_PATHS,
-  computeSchemaFingerprint,
-} from "../src/previewDeploy";
+import { MERGE_QUEUE_PLACEHOLDER_CONVEX_URL } from "../src/previewDeploy";
 import { deployVercel } from "./deployVercel";
 
 const CONVEX_URL = "https://happy-otter-123.convex.cloud";
-const SCHEMA_SOURCE = "export default defineSchema({});";
-const FINGERPRINT = computeSchemaFingerprint(
-  SCHEMA_FINGERPRINT_RELATIVE_PATHS.map((path) => ({ contents: SCHEMA_SOURCE, path })),
-);
 
 const SECRETS = {
   BETTER_AUTH_SECRET: "auth-secret-value",
@@ -62,12 +54,15 @@ const START_PUSH_408 = cliFailure(
   "✖ Error fetching POST  https://happy-otter-123.convex.cloud/api/deploy2/start_push 408 Request Timeout",
 );
 
+const SCHEMA_REJECTED = cliFailure(
+  '✖ Schema validation failed.\nDocument with ID "j57…" in table "baby" does not match the schema',
+);
+
 type Reply = (call: ConvexCliCall) => Effect.Effect<string, ConvexCliError>;
 
 /** `convex <subcommand>` (`deploy`, `env set`, `run seed:seedDemoData`) → reply. */
 const happyReplies = {
   deploy: () => Effect.succeed(`${CONVEX_URL}\n`),
-  "env list": () => Effect.fail(cliFailure("✖ Preview deployment not found")),
   "env set": () => Effect.succeed(""),
   "run homepageDemo:hasCompletePhotoSet": () => Effect.succeed("true"),
   "run homepageDemo:refreshAll": () =>
@@ -133,7 +128,8 @@ function deployWith(services: {
       Layer.mergeAll(
         services.convex.layer,
         services.spawner.layer,
-        FileSystem.layerNoop({ readFileString: () => Effect.succeed(SCHEMA_SOURCE) }),
+        // Photo reads fail, so a seed that needs photos takes its best-effort path.
+        FileSystem.layerNoop({}),
         Layer.succeed(
           HttpClient.HttpClient,
           HttpClient.make(() => Effect.die("unexpected upload")),
@@ -149,6 +145,11 @@ function webBuildEnv(spawner: ReturnType<typeof fakeSpawner>) {
     ["pnpm", "turbo", "build", "--filter=@isbabyoutyet/web"],
   ]);
   return spawner.commands[0]?.options.env;
+}
+
+/** The flags each `convex deploy` got after the `--cmd` that prints the URL. */
+function deployFlags(convex: ReturnType<typeof fakeConvex>) {
+  return convex.calls.filter((call) => call.args[0] === "deploy").map((call) => call.args.slice(5));
 }
 
 function argvOf(convex: ReturnType<typeof fakeConvex>) {
@@ -187,7 +188,6 @@ describe("deployVercel", () => {
       expect(envSet?.stdin).toContain("SITE_URL='https://isbabyoutyet.com'");
       expect(envSet?.stdin).toContain("VERCEL_ENV='production'");
       expect(envSet?.stdin).toContain("VAPID_SUBJECT='mailto:admin@isbabyoutyet.com'");
-      expect(envSet?.stdin).not.toContain("PREVIEW_SCHEMA_FINGERPRINT");
     }),
   );
 
@@ -203,7 +203,6 @@ describe("deployVercel", () => {
       yield* deployWith({ convex, env: previewEnv, spawner });
 
       expect(convex.calls.map((call) => call.args)).toStrictEqual([
-        ["env", "list", "--preview-name", "feat/demo"],
         expect.arrayContaining(["deploy", "--preview-name", "feat/demo"]),
         expect.arrayContaining(["deploy", "--preview-name", "feat/demo"]),
         ["env", "set", "--force", "--preview-name", "feat/demo"],
@@ -213,30 +212,28 @@ describe("deployVercel", () => {
         ["run", "homepageDemo:hasCompletePhotoSet", "{}", "--preview-name", "feat/demo"],
         ["run", "homepageDemo:refreshAll", '{"photos":{}}', "--preview-name", "feat/demo"],
       ]);
-      expect(convex.calls[3]?.stdin).toContain(`PREVIEW_SCHEMA_FINGERPRINT='${FINGERPRINT}'`);
-      expect(convex.calls[3]?.stdin).toContain(
+      expect(convex.calls[2]?.stdin).toContain(
         "SITE_URL='https://isbabyoutyet-git-feat-demo.vercel.app'",
       );
       expect(webBuildEnv(spawner)).toMatchObject({ VITE_HAS_DEMO_LOGIN: "true" });
     }),
   );
 
-  it.effect("unchanged preview: skips env sync, and the seed finds the demo complete", () =>
+  it.effect("existing preview: keeps its data and re-runs every idempotent step", () =>
     Effect.gen(function* () {
-      const convex = fakeConvex({
-        "env list": () => Effect.succeed(`PREVIEW_SCHEMA_FINGERPRINT=${FINGERPRINT}\n`),
-      });
-      const spawner = fakeSpawner();
+      const convex = fakeConvex({});
 
-      yield* deployWith({ convex, env: previewEnv, spawner });
+      yield* deployWith({ convex, env: previewEnv, spawner: fakeSpawner() });
 
       expect(convex.subcommands()).toStrictEqual([
-        "env list",
         "deploy",
+        "env set",
         "run migrations:runAll",
         "run migrations:deploymentStatus",
+        "run seed:seedDemoData",
         "run homepageDemo:hasCompletePhotoSet",
       ]);
+      expect(deployFlags(convex)).toStrictEqual([["--preview-name", "feat/demo"]]);
     }),
   );
 
@@ -274,15 +271,51 @@ describe("deployVercel", () => {
     }),
   );
 
-  it.effect("changed schema: recreates the preview", () =>
+  it.effect("rejected schema: recreates the preview, then seeds it", () =>
     Effect.gen(function* () {
+      let deploys = 0;
       const convex = fakeConvex({
-        "env list": () => Effect.succeed("PREVIEW_SCHEMA_FINGERPRINT=stale\n"),
+        deploy: () =>
+          deploys++ === 0 ? Effect.fail(SCHEMA_REJECTED) : Effect.succeed(`${CONVEX_URL}\n`),
       });
 
       yield* deployWith({ convex, env: previewEnv, spawner: fakeSpawner() });
 
-      expect(convex.calls[1]?.args.slice(5)).toStrictEqual(["--preview-create", "feat/demo"]);
+      expect(deployFlags(convex)).toStrictEqual([
+        ["--preview-name", "feat/demo"],
+        ["--preview-create", "feat/demo"],
+      ]);
+      expect(convex.subcommands()).toContain("run seed:seedDemoData");
+    }),
+  );
+
+  it.effect("a recreated preview that times out is retried without a second wipe", () =>
+    Effect.gen(function* () {
+      const replies = [Effect.fail(SCHEMA_REJECTED), Effect.fail(START_PUSH_408)];
+      const convex = fakeConvex({
+        deploy: () => replies.shift() ?? Effect.succeed(`${CONVEX_URL}\n`),
+      });
+
+      yield* deployWith({ convex, env: previewEnv, spawner: fakeSpawner() });
+
+      expect(deployFlags(convex)).toStrictEqual([
+        ["--preview-name", "feat/demo"],
+        ["--preview-create", "feat/demo"],
+        ["--preview-name", "feat/demo"],
+      ]);
+    }),
+  );
+
+  it.effect("production never wipes: a rejected schema fails the build", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvex({ deploy: () => Effect.fail(SCHEMA_REJECTED) });
+
+      const error = yield* deployWith({ convex, env: productionEnv, spawner: fakeSpawner() }).pipe(
+        Effect.flip,
+      );
+
+      expect(error).toStrictEqual(new ConvexSchemaValidationError());
+      expect(deployFlags(convex)).toStrictEqual([[]]);
     }),
   );
 
