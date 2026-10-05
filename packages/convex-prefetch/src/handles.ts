@@ -19,10 +19,7 @@ export type QueryReference = FunctionReference<"query", "public">;
  * reference makes TanStack Start reject loader data as non-serializable.
  * Brand with everything except `_fn` (type-only; runtime values stay plain).
  */
-type SerializableFunctionReferenceBrand<TQuery extends FunctionReference<any, any>> = Omit<
-  TQuery,
-  "_fn"
->;
+type SerializableFunctionReferenceBrand<TQuery extends QueryReference> = Omit<TQuery, "_fn">;
 
 /**
  * Fire-and-forget handle for a Convex query started in a loader (or during
