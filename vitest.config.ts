@@ -13,10 +13,7 @@ export default defineConfig({
     // whole monorepo whenever a script line moved. Dependency changes land in
     // the lockfile, which still forces a full run.
     forceRerunTriggers: ["**/pnpm-lock.yaml", "**/{vitest,vite}.config.*/**"],
-    experimental: {
-      fsModuleCache: true,
-      fsModuleCachePath: "node_modules/.experimental-vitest-cache",
-    },
+    fsModuleCache: true,
     projects: [
       "projects/isbabyoutyet/backend",
       "projects/sous-vide-guide/web",

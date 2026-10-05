@@ -18,6 +18,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
     "@workspace/tsconfig": "workspace:*",
     "oxfmt": "catalog:",
