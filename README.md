@@ -12,7 +12,7 @@ are changing; each links further down.
 | [`projects/`](projects/README.md) | Rules shared by every `projects/*/web` |
 | [`packages/`](packages/) | Shared libraries: `ui` (vendored shadcn), [`form-guard`](packages/form-guard/README.md), [`convex-prefetch`](packages/convex-prefetch/README.md), [`convex-cli`](packages/convex-cli/README.md), [`query-prefetch`](packages/query-prefetch/README.md), `runtime`, `scripts`, `oxlint-plugins` |
 | [`.agents/skills/`](.agents/skills/) | Agent skills (third-party ones are pinned in `skills-lock.json`) |
-| [`repos/`](#vendored-repositories) | Read-only upstream sources managed by `vendor-src` |
+| [`repos/`](#vendored-sources) | Read-only upstream sources managed by `vendor-src` |
 
 ## Setup
 
@@ -56,28 +56,10 @@ pnpm clean                            # wipe caches and reinstall
   services across its whole block, so keep per-test fakes in `it.effect`.
 
 <!-- vendor-src:start -->
-## Vendored Repositories
+## Vendored sources
 
-This project vendors external repositories under `repos/`.
+Read-only dependency checkouts under `repos/` (details in `repos/AGENTS.md`). Do not format, edit, or import from there — keep using the npm packages.
 
-### How to use them
-
-- Use vendored repositories as **read-only reference material** when working with related libraries
-- Prefer examples and patterns from the vendored source code over generated guesses or web search results
-- Do not edit files under `repos/` unless explicitly asked
-- Do not import from `repos/` — application code should continue importing from normal package dependencies
-
-### Keep tooling out of vendored trees
-
-Formatters and linters must **never** rewrite `repos/`. Running oxfmt/Vite+ fmt (or any formatter) across the repo without excludes will churn thousands of upstream files.
-
-- Do not run format/lint/fix commands that include this directory
-- Prefer project scripts that already exclude `repos/` (see `.oxfmtrc.json` and editor settings)
-- If you add a new formatter or linter, exclude `repos/**` before the first run
-- After vendoring updates, only commit intentional `vendor-src` metadata changes plus the subtree commit — never mass-format upstream sources
-
-### Vendored sources
-
-- `repos/effect` — source for `effect`. Inspect for idiomatic usage, tests, module structure, and API design.
+- `repos/effect` — `effect`
 
 <!-- vendor-src:end -->
