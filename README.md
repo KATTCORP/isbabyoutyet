@@ -12,7 +12,7 @@ are changing; each links further down.
 | [`projects/`](projects/README.md) | Rules shared by every `projects/*/web` |
 | [`packages/`](packages/) | Shared libraries: `ui` (vendored shadcn), [`form-guard`](packages/form-guard/README.md), [`convex-prefetch`](packages/convex-prefetch/README.md), [`convex-cli`](packages/convex-cli/README.md), [`query-prefetch`](packages/query-prefetch/README.md), `runtime`, `scripts`, `oxlint-plugins` |
 | [`.agents/skills/`](.agents/skills/) | Agent skills (third-party ones are pinned in `skills-lock.json`) |
-| [`repos/`](#vendored-repositories) | Read-only upstream sources managed by `vendor-src` |
+| [`repos/`](#vendored-sources) | Read-only upstream sources managed by `vendor-src` |
 
 ## Setup
 
