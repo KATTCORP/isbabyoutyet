@@ -7,7 +7,7 @@
     "**/paraglide/**",
     "packages/oxlint-plugins/dist/**",
     "packages/scripts/dist/**",
-    "repos/**"
+    ".repos/**"
   ],
   "tags": ["-@internal"],
   "workspaces": {
