@@ -55,10 +55,7 @@ export const Route = createFileRoute("/auth/forgot-password")({
   }),
 });
 
-/**
- * @internal Exported for smoke tests; production mounts it via `Route`.
- */
-export function ForgotPasswordPage() {
+function ForgotPasswordPage() {
   const { t } = useI18n();
   const navigate = Route.useNavigate();
   const search = Route.useSearch();

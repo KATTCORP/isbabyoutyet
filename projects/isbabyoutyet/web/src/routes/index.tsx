@@ -220,7 +220,7 @@ const HOW_IT_WORKS = [
   title: TranslationKey;
 }>;
 
-export function HomePage() {
+function HomePage() {
   const loaderData = Route.useLoaderData();
   const meQuery = usePreloadedConvexQuery(api.profile.get, loaderData.me);
   return <HomePageView isSignedIn={meQuery.data != null} />;

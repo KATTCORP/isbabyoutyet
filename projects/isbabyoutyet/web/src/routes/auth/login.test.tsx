@@ -2,7 +2,9 @@ import { fireEvent, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { DEMO_EMPTY_USER, DEMO_USER } from "@isbabyoutyet/backend/src/seedCredentials";
 import { LocaleProvider } from "@/lib/i18n";
-import { LoginCard, LoginPage, Route } from "@/routes/auth/login";
+import { LoginCard, Route } from "@/routes/auth/login";
+import { createConvexTestHarness } from "@/test/convexTestHarness";
+import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import { htmlInput } from "@/test/htmlElement";
 
@@ -60,12 +62,15 @@ test("hides the test-account picker when demo login is disabled", async () => {
 });
 
 test("LoginPage wires the login form", async () => {
-  await using _view = await renderWithTestRouter(
-    <LocaleProvider locale="en-GB">
-      <LoginPage />
-    </LocaleProvider>,
-    { path: "/auth/login" },
-  );
+  await using harness = await createConvexTestHarness({ identity: null });
+  await using _ctx = await renderMountedFileRoute({
+    harness,
+    initialEntry: "/auth/login",
+    overlayHistory: null,
+    path: "/auth/login",
+    route: Route,
+    wrap: null,
+  });
 
   expect(screen.getByLabelText("Email")).toBeTruthy();
   expect(screen.getByLabelText("Password")).toBeTruthy();
@@ -82,12 +87,15 @@ test("login route head sets the document title", () => {
 });
 
 test("LoginPage home link returns to an allowlisted baby page", async () => {
-  await using _view = await renderWithTestRouter(
-    <LocaleProvider locale="en-GB">
-      <LoginPage />
-    </LocaleProvider>,
-    { path: "/auth/login?redirect=/baby/baby-waiting" },
-  );
+  await using harness = await createConvexTestHarness({ identity: null });
+  await using _ctx = await renderMountedFileRoute({
+    harness,
+    initialEntry: "/auth/login?redirect=/baby/baby-waiting",
+    overlayHistory: null,
+    path: "/auth/login",
+    route: Route,
+    wrap: null,
+  });
 
   expect(screen.getByRole("link", { name: "isbabyoutyet" }).getAttribute("href")).toBe(
     "/baby/baby-waiting",
@@ -95,12 +103,15 @@ test("LoginPage home link returns to an allowlisted baby page", async () => {
 });
 
 test("LoginPage home link ignores an open-redirect", async () => {
-  await using _view = await renderWithTestRouter(
-    <LocaleProvider locale="en-GB">
-      <LoginPage />
-    </LocaleProvider>,
-    { path: "/auth/login?redirect=https://evil.example" },
-  );
+  await using harness = await createConvexTestHarness({ identity: null });
+  await using _ctx = await renderMountedFileRoute({
+    harness,
+    initialEntry: "/auth/login?redirect=https://evil.example",
+    overlayHistory: null,
+    path: "/auth/login",
+    route: Route,
+    wrap: null,
+  });
 
   expect(screen.getByRole("link", { name: "isbabyoutyet" }).getAttribute("href")).toBe("/");
 });

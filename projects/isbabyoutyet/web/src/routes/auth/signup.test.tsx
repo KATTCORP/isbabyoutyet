@@ -1,7 +1,9 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n";
-import { SignupCard, SignupPage, Route } from "@/routes/auth/signup";
+import { SignupCard, Route } from "@/routes/auth/signup";
+import { createConvexTestHarness } from "@/test/convexTestHarness";
+import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import { htmlInput } from "@/test/htmlElement";
 
@@ -48,12 +50,15 @@ test("submitting the form hands the new account to the signup flow", async () =>
 });
 
 test("SignupPage wires the signup form", async () => {
-  await using _view = await renderWithTestRouter(
-    <LocaleProvider locale="en-GB">
-      <SignupPage />
-    </LocaleProvider>,
-    { path: "/auth/signup" },
-  );
+  await using harness = await createConvexTestHarness({ identity: null });
+  await using _ctx = await renderMountedFileRoute({
+    harness,
+    initialEntry: "/auth/signup",
+    overlayHistory: null,
+    path: "/auth/signup",
+    route: Route,
+    wrap: null,
+  });
 
   expect(screen.getByLabelText("Name")).toBeTruthy();
   expect(screen.getByLabelText("Email")).toBeTruthy();
