@@ -7,7 +7,7 @@ import { nitro } from "nitro/vite";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import { readFileSync } from "node:fs";
 
-import { localeCacheKeyRoutes } from "./src/lib/locale-cache-key";
+import { localeCacheKeyRoutes } from "./src/lib/locale-cache-key.ts";
 
 const localeCookieName = "PARAGLIDE_LOCALE";
 
