@@ -44,6 +44,7 @@
     "oxlint-tsgolint": "catalog:",
     "turbo": "catalog:",
     "typescript": "catalog:",
+    "vendor-src": "catalog:",
     "vitest": "catalog:"
   },
   "engines": {
