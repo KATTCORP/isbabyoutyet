@@ -176,6 +176,10 @@ const config = defineConfig((env) => ({
     // `require('react')` failure on Vercel (nitro#4171).
     nitro({
       rolldownConfig: {
+        // The server bundle has no client boundary, so the `"use client"`
+        // directives in TanStack, Motion, and other client libraries are
+        // meaningless here.
+        checks: { moduleLevelDirective: false },
         output: {
           codeSplitting: {
             groups: [

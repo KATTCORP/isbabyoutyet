@@ -88,6 +88,10 @@ const config = defineConfig({
     nitro({
       preset: "vercel",
       rolldownConfig: {
+        // The server bundle has no client boundary, so the `"use client"`
+        // directives in TanStack and other client libraries are meaningless
+        // here.
+        checks: { moduleLevelDirective: false },
         output: {
           codeSplitting: {
             groups: [
