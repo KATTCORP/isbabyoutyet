@@ -12,7 +12,7 @@ are changing; each links further down.
 | [`projects/`](projects/README.md) | Rules shared by every `projects/*/web` |
 | [`packages/`](packages/) | Shared libraries: `ui` (vendored shadcn), [`form-guard`](packages/form-guard/README.md), [`convex-prefetch`](packages/convex-prefetch/README.md), [`convex-cli`](packages/convex-cli/README.md), [`query-prefetch`](packages/query-prefetch/README.md), `runtime`, `scripts`, `oxlint-plugins` |
 | [`.agents/skills/`](.agents/skills/) | Agent skills (third-party ones are pinned in `skills-lock.json`) |
-| [`repos/`](#vendored-repositories) | Read-only upstream sources vendored with `git subtree` |
+| [`repos/`](#vendored-repositories) | Read-only upstream sources managed by `vendor-src` |
 
 ## Setup
 
@@ -55,22 +55,29 @@ pnpm clean                            # wipe caches and reinstall
   fresh `TestConsole` and `TestClock`, while `layer(...)` shares one set of
   services across its whole block, so keep per-test fakes in `it.effect`.
 
-## Vendored repositories
+<!-- vendor-src:start -->
+## Vendored Repositories
 
-`repos/` holds upstream source trees added with `git subtree --squash`, as
-reference material for humans and agents. Read them, but do not edit them,
-import from them, or treat them as part of this repo's code. Lint, format, and
-knip ignore `repos/**`, and it is not a pnpm workspace.
+This project vendors external repositories under `repos/`.
 
-| Path | Upstream |
-| --- | --- |
-| `repos/effect` | [`Effect-TS/effect`](https://github.com/Effect-TS/effect) `main` (4.0.0 at import) |
+### How to use them
 
-PRs are squash-merged, so the subtree's own squash commit never reaches `main`
-and `git subtree pull` cannot find it. Re-import instead (the PR squashes this
-into one commit):
+- Use vendored repositories as **read-only reference material** when working with related libraries
+- Prefer examples and patterns from the vendored source code over generated guesses or web search results
+- Do not edit files under `repos/` unless explicitly asked
+- Do not import from `repos/` — application code should continue importing from normal package dependencies
 
-```sh
-git rm -rq repos/effect && git commit -qm "Remove vendored Effect"
-git subtree add --prefix=repos/effect https://github.com/Effect-TS/effect.git main --squash
-```
+### Keep tooling out of vendored trees
+
+Formatters and linters must **never** rewrite `repos/`. Running oxfmt/Vite+ fmt (or any formatter) across the repo without excludes will churn thousands of upstream files.
+
+- Do not run format/lint/fix commands that include this directory
+- Prefer project scripts that already exclude `repos/` (see `.ignore`, `.oxfmtrc.json`, and editor settings)
+- If you add a new formatter or linter, exclude `repos/**` before the first run
+- After vendoring updates, only commit intentional `vendor-src` metadata changes plus the subtree commit — never mass-format upstream sources
+
+### Vendored sources
+
+- `repos/effect` — source for `effect`. Inspect for idiomatic usage, tests, module structure, and API design.
+
+<!-- vendor-src:end -->

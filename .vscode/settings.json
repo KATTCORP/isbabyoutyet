@@ -1,7 +1,11 @@
 {
   "oxc.fmt.experimental": true,
-  "typescript.preferences.autoImportFileExcludePatterns": ["repos/**"],
-  "javascript.preferences.autoImportFileExcludePatterns": ["repos/**"],
+  "typescript.preferences.autoImportFileExcludePatterns": [
+    "repos/**"
+  ],
+  "javascript.preferences.autoImportFileExcludePatterns": [
+    "repos/**"
+  ],
   "files.watcherExclude": {
     "repos/**": true
   },
@@ -45,5 +49,8 @@
   },
   "[html]": {
     "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "files.exclude": {
+    "repos/**": true
   }
 }

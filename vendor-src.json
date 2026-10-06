@@ -1,0 +1,12 @@
+{
+	"$schema": "https://unpkg.com/vendor-src/schema.json",
+	"dir": "repos",
+	"repos": {
+		"effect": {
+			"package": "effect",
+			"url": "https://github.com/Effect-TS/effect.git",
+			"version": "4.0.1",
+			"ref": "effect@4.0.1"
+		}
+	}
+}
