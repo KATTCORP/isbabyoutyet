@@ -1,6 +1,6 @@
 # Vendored Source
 
-This directory holds git-subtree checkouts of dependency source, pinned to the versions this project installs and managed by [vendor-src](https://www.npmjs.com/package/vendor-src). Configuration lives in `vendor-src.json` (`dir` is `repos`).
+This directory holds git-subtree checkouts of dependency source, pinned to the versions this project installs and managed by [vendor-src](https://www.npmjs.com/package/vendor-src). Configuration lives in `vendor-src.json` (`dir` is `.repos`).
 
 Coding agents are better at reading source than at reading documentation. For anything about how a vendored library is meant to be used, this tree is the primary reference — above docs, above training memory, above search results.
 
@@ -12,9 +12,9 @@ Coding agents are better at reading source than at reading documentation. For an
 
 ## Don'ts
 
-- **Don't edit** anything under `repos/`. It is reference, not project code, and `vendor-src sync` overwrites local changes
+- **Don't edit** anything under `.repos/`. It is reference, not project code, and `vendor-src sync` overwrites local changes
 - **Don't format, lint-fix, or codemod** these trees — exclude them from repo-wide autofix runs
-- **Don't import from `repos/`** — application code keeps importing the installed npm packages
+- **Don't import from `.repos/`** — application code keeps importing the installed npm packages
 - **Don't commit upstream-style fixes here** — patch the real dependency or open a PR upstream
 
 ## Vendored packages
