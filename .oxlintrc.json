@@ -22,7 +22,7 @@
     "**/_generated/**",
     "**/routeTree.gen.ts",
     "packages/oxlint-plugins/**/*.ts",
-    "repos/**"
+    ".repos/**"
   ],
   "jsPlugins": [
     // Off-the-shelf JSX copy guard: flags user-visible string/template literals

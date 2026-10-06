@@ -11,6 +11,6 @@
     "projects/isbabyoutyet/backend/.agents/skills/**",
     "projects/isbabyoutyet/backend/.claude/skills/**",
     // Read-only `git subtree` reference sources (see AGENTS.md).
-    "repos/**"
+    ".repos/**"
   ]
 }

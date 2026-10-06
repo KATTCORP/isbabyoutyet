@@ -1,16 +1,16 @@
 {
   "oxc.fmt.experimental": true,
   "typescript.preferences.autoImportFileExcludePatterns": [
-    "repos/**"
+    ".repos/**"
   ],
   "javascript.preferences.autoImportFileExcludePatterns": [
-    "repos/**"
+    ".repos/**"
   ],
   "files.watcherExclude": {
-    "repos/**": true
+    ".repos/**": true
   },
   "search.exclude": {
-    "repos/**": true
+    ".repos/**": true
   },
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "oxc.oxc-vscode",
@@ -51,6 +51,6 @@
     "editor.defaultFormatter": "oxc.oxc-vscode"
   },
   "files.exclude": {
-    "repos/**": true
+    ".repos/**": true
   }
 }

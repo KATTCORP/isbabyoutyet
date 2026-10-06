@@ -12,7 +12,7 @@ are changing; each links further down.
 | [`projects/`](projects/README.md) | Rules shared by every `projects/*/web` |
 | [`packages/`](packages/) | Shared libraries: `ui` (vendored shadcn), [`form-guard`](packages/form-guard/README.md), [`convex-prefetch`](packages/convex-prefetch/README.md), [`convex-cli`](packages/convex-cli/README.md), [`query-prefetch`](packages/query-prefetch/README.md), `runtime`, `scripts`, `oxlint-plugins` |
 | [`.agents/skills/`](.agents/skills/) | Agent skills (third-party ones are pinned in `skills-lock.json`) |
-| [`repos/`](#vendored-source) | Read-only upstream sources managed by `vendor-src` |
+| [`.repos/`](#vendored-source) | Read-only upstream sources managed by `vendor-src` |
 
 ## Setup
 
@@ -46,7 +46,7 @@ pnpm clean                            # wipe caches and reinstall
   short video for interactions. Otherwise write `None — <reason>`. Do not open
   a browser just to fill this section.
 - **Effect:** before writing Effect code, read
-  [`repos/effect/LLMS.md`](repos/effect/LLMS.md), then treat `repos/effect/`
+  [`.repos/effect/LLMS.md`](.repos/effect/LLMS.md), then treat `.repos/effect/`
   (implementation, tests, and docs) as the source of truth for idiomatic
   usage. Prefer its patterns over guesses or web search, especially for APIs
   that changed in v4. Code that uses Effect gets the `anti-slop-effect` lint
