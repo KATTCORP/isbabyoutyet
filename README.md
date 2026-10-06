@@ -12,7 +12,7 @@ are changing; each links further down.
 | [`projects/`](projects/README.md) | Rules shared by every `projects/*/web` |
 | [`packages/`](packages/) | Shared libraries: `ui` (vendored shadcn), [`form-guard`](packages/form-guard/README.md), [`convex-prefetch`](packages/convex-prefetch/README.md), [`convex-cli`](packages/convex-cli/README.md), [`query-prefetch`](packages/query-prefetch/README.md), `runtime`, `scripts`, `oxlint-plugins` |
 | [`.agents/skills/`](.agents/skills/) | Agent skills (third-party ones are pinned in `skills-lock.json`) |
-| [`repos/`](#vendored-sources) | Read-only upstream sources managed by `vendor-src` |
+| [`repos/`](#vendored-source) | Read-only upstream sources managed by `vendor-src` |
 
 ## Setup
 
@@ -56,10 +56,13 @@ pnpm clean                            # wipe caches and reinstall
   services across its whole block, so keep per-test fakes in `it.effect`.
 
 <!-- vendor-src:start -->
-## Vendored sources
 
-Read-only dependency checkouts under `repos/` (details in `repos/AGENTS.md`). Do not format, edit, or import from there — keep using the npm packages.
+## Vendored Source
 
-- `repos/effect` — `effect`
+Source for this project's key dependencies is vendored under `repos/`, pinned to the installed versions. When a question is about how one of these libraries actually behaves, read its vendored source — implementation, tests, examples — instead of relying on docs, memory, or web search. The trees are read-only reference material; see `repos/AGENTS.md` before touching or citing them.
+
+### Vendored packages
+
+- `effect@4.0.1` → `repos/effect`
 
 <!-- vendor-src:end -->
