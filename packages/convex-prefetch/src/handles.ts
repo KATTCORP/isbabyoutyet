@@ -14,12 +14,20 @@ declare const convexInfiniteQueryBrand: unique symbol;
 export type QueryReference = FunctionReference<"query", "public">;
 
 /**
+ * Convex 1.46 added `_fn` on {@link FunctionReference} for stricter callback
+ * checking. That slot is a function type, so branding handles with the full
+ * reference makes TanStack Start reject loader data as non-serializable.
+ * Brand with everything except `_fn` (type-only; runtime values stay plain).
+ */
+type SerializableFunctionReferenceBrand<TQuery extends QueryReference> = Omit<TQuery, "_fn">;
+
+/**
  * Fire-and-forget handle for a Convex query started in a loader (or during
  * render via {@link useInitiateConvexQuery}). Serializable: stores only the
  * function args; the brand is type-only.
  */
 export interface InitiatedConvexQuery<TQuery extends QueryReference> {
-  readonly [convexQueryBrand]?: TQuery;
+  readonly [convexQueryBrand]?: SerializableFunctionReferenceBrand<TQuery>;
   readonly input: FunctionArgs<TQuery>;
 }
 
@@ -36,7 +44,7 @@ export interface PreloadedConvexQuery<
  * the page size.
  */
 export interface InitiatedConvexInfiniteQuery<TQuery extends PaginatedQueryReference> {
-  readonly [convexInfiniteQueryBrand]?: TQuery;
+  readonly [convexInfiniteQueryBrand]?: SerializableFunctionReferenceBrand<TQuery>;
   readonly input: PaginationArgs<TQuery>;
   readonly numItems: number;
 }

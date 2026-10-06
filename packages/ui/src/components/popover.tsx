@@ -1,11 +1,6 @@
 import * as React from "react";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
-
-import { cn } from "@workspace/ui/lib/utils";
-
-/** Imperative actions exposed via `Popover` `actionsRef` (close / unmount). */
-// local addition — keep on shadcn/Base UI re-sync
-type PopoverActions = PopoverPrimitive.Root.Actions;
+import { cn } from "cn";
 
 function Popover({ ...props }: PopoverPrimitive.Root.Props) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />;
@@ -15,6 +10,7 @@ function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props) {
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />;
 }
 
+// local addition — keep on shadcn re-sync: registry dropped Close; apps still use it
 function PopoverClose({ ...props }: PopoverPrimitive.Close.Props) {
   return <PopoverPrimitive.Close data-slot="popover-close" {...props} />;
 }
@@ -89,4 +85,3 @@ export {
   PopoverTitle,
   PopoverTrigger,
 };
-export type { PopoverActions };

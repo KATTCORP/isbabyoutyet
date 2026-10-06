@@ -5,6 +5,15 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
+import { readFileSync } from "node:fs";
+
+import { localeCacheKeyRoutes } from "./src/lib/locale-cache-key";
+
+const localeCookieName = "PARAGLIDE_LOCALE";
+
+const inlangSettings: { locales: ReadonlyArray<string> } = JSON.parse(
+  readFileSync(new URL("project.inlang/settings.json", import.meta.url), "utf8"),
+);
 
 /**
  * Base UI pulls in `use-sync-external-store/shim`, a CJS-only module. Vite/Rolldown
@@ -66,7 +75,7 @@ const config = defineConfig({
   plugins: [
     aliasUseSyncExternalStoreShim(),
     paraglideVitePlugin({
-      cookieName: "PARAGLIDE_LOCALE",
+      cookieName: localeCookieName,
       emitTsDeclarations: true,
       outdir: "./src/paraglide",
       outputStructure: "message-modules",
@@ -99,6 +108,16 @@ const config = defineConfig({
               },
             ],
           },
+        },
+      },
+      // Nitro puts these ahead of its own routes. See src/lib/cdn-cache.ts.
+      vercel: {
+        config: {
+          routes: localeCacheKeyRoutes({
+            cookieName: localeCookieName,
+            locales: inlangSettings.locales,
+          }),
+          version: 3,
         },
       },
     }),
