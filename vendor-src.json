@@ -8,11 +8,11 @@
 			"version": "4.0.1",
 			"ref": "effect@4.0.1",
 			"ignore": [
-				"(^|/)scratchpad(/|$)",
-				"(^|/)\\.github(/|$)",
-				"(^|/)\\.vscode(/|$)",
-				"(^|/)\\.changeset(/|$)",
-				"(^|/)pnpm-lock\\.yaml$"
+				"scratchpad/**",
+				"**/.github/**",
+				"**/.vscode/**",
+				"**/.changeset/**",
+				"**/pnpm-lock.yaml"
 			]
 		}
 	}
