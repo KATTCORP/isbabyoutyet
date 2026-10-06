@@ -29,7 +29,8 @@
     "checks:verify:typecheck": "SKIP_I18N_COMPILE=1 pnpm typecheck",
     "checks:verify:test": "vitest run --changed",
     "checks:verify:knip": "knip --production",
-    "clean": "node scripts/clean.mjs"
+    "clean": "node scripts/clean.mjs",
+    "postinstall": "vendor-src check"
   },
   "devDependencies": {
     "@oxlint/plugins": "catalog:",
