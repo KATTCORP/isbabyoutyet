@@ -4,11 +4,12 @@
 	"rootAgentsMd": true,
 	"repos": {
 		"effect": {
-			"package": "effect",
+			"packages": [
+				"effect"
+			],
 			"url": "https://github.com/Effect-TS/effect.git",
 			"version": "4.0.1",
 			"ref": "effect@4.0.1",
-			"directory": "packages/effect",
 			"ignore": [
 				"scratchpad/**",
 				"**/.github/**",
@@ -18,17 +19,13 @@
 			]
 		},
 		"router": {
-			"package": "@tanstack/react-start",
+			"packages": [
+				"@tanstack/react-start",
+				"@tanstack/react-router"
+			],
 			"url": "https://github.com/TanStack/router.git",
 			"version": "1.168.60",
-			"ref": "@tanstack/react-start@1.168.60",
-			"directory": "packages/react-start",
-			"siblings": [
-				{
-					"package": "@tanstack/react-router",
-					"directory": "packages/react-router"
-				}
-			]
+			"ref": "@tanstack/react-start@1.168.60"
 		}
 	}
 }
