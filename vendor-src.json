@@ -21,7 +21,13 @@
 			"url": "https://github.com/TanStack/router.git",
 			"version": "1.168.60",
 			"ref": "@tanstack/react-start@1.168.60",
-			"directory": "packages/react-start"
+			"directory": "packages/react-start",
+			"siblings": [
+				{
+					"package": "@tanstack/react-router",
+					"directory": "packages/react-router"
+				}
+			]
 		}
 	}
 }
