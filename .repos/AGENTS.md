@@ -20,7 +20,7 @@ Coding agents are better at reading source than at reading documentation. For an
 
 ## Vendored packages
 
-- `effect/` — `effect@4.0.1`
+- `effect/` — `effect@4.0.1` — source in `packages/effect/`
 - `router/` — pinned to `@tanstack/react-start@1.168.60`
   - `@tanstack/react-start@1.168.60` → `packages/react-start/`
   - `@tanstack/react-router@1.170.41` → `packages/react-router/`

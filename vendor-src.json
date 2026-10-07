@@ -8,6 +8,7 @@
 			"url": "https://github.com/Effect-TS/effect.git",
 			"version": "4.0.1",
 			"ref": "effect@4.0.1",
+			"directory": "packages/effect",
 			"ignore": [
 				"scratchpad/**",
 				"**/.github/**",
