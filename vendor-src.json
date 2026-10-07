@@ -1,6 +1,7 @@
 {
 	"$schema": "https://unpkg.com/vendor-src/schema.json",
 	"dir": ".repos",
+	"rootAgentsMd": true,
 	"repos": {
 		"effect": {
 			"package": "effect",
