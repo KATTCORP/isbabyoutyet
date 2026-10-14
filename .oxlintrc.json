@@ -66,7 +66,7 @@
       "translationFunctionNames": ["translate"],
       "ignoredAttributes": ["to", "params", "search"],
       "ignoredComponents": ["TanStackDevtools", "TanStackAppDevtools"],
-      "ignorePatterns": ["^LoadingMore$", "^TanStack (Router|Query)$", "^/[A-Za-z0-9_$/.-]+$"]
+      "ignorePatterns": ["^LoadingMore$", "^TanStack Router$", "^raf-query$", "^/[A-Za-z0-9_$/.-]+$"]
     }
   },
   "rules": {
@@ -438,8 +438,6 @@
         "workspace/no-optional": "error",
         "workspace/no-overzealous-destructuring": "error",
         "workspace/no-rhf-watch": "error",
-        "workspace/require-preloaded-query-options": "error",
-        "workspace/use-loader-preloads": "error",
         // Automatic JSX runtime — no React import required.
         "react/react-in-jsx-scope": "off"
       }
@@ -457,18 +455,14 @@
       "rules": {
         "i18n-literal/no-literal-string": "off",
         "i18n-literal/no-literal-jsx-attribute": "off",
-        "i18n-literal/no-literal-template": "off",
-        "workspace/require-preloaded-query-options": "off",
-        "workspace/use-loader-preloads": "off"
+        "i18n-literal/no-literal-template": "off"
       }
     },
     {
-      // Steer web tests toward convex-test harness instead of stub clients /
-      // fake preloaded handles.
+      // Steer web tests toward convex-test harness instead of stub clients.
       "files": ["projects/isbabyoutyet/web/src/**/*.test.{ts,tsx}"],
       "rules": {
-        "workspace/no-invalid-convex-client": "error",
-        "workspace/no-test-preloaded-query": "error"
+        "workspace/no-invalid-convex-client": "error"
       }
     },
     {
@@ -623,22 +617,6 @@
       }
     },
     {
-      // query-prefetch overloads use an optional third `remixInput` param (KATT gist API).
-      "files": ["packages/query-prefetch/src/**"],
-      "rules": {
-        "eslint/max-params": "off"
-      }
-    },
-    {
-      // Render-time useState adjustment is required here: react/refs forbids
-      // reading refs during render, and useSyncExternalStore needs a stable
-      // subscribe identity when watch deps are deeply equal.
-      "files": ["packages/convex-prefetch/src/useLiveConvexInfinitePages.ts"],
-      "rules": {
-        "workspace/no-use-state": "off"
-      }
-    },
-    {
       // CLI / seed / coverage scripts — nkzw disables no-console for server scripts.
       // Convex uses console for dashboard logs.
       "files": [
@@ -655,6 +633,8 @@
       // would push Effect idioms into code that doesn't use it.
       "files": [
         "packages/convex-cli/src/**",
+        "packages/convex-query/src/**",
+        "projects/isbabyoutyet/web/src/lib/browser-push-capability.ts",
         "packages/scripts/src/**",
         "projects/isbabyoutyet/backend/scripts/**"
       ],
