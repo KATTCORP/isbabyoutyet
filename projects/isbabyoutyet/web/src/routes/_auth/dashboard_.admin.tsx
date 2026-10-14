@@ -49,7 +49,7 @@ import {
 import { Form, SubmitButton, useZodForm } from "@/components/Form";
 import type { TranslationFunction } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n";
-import { queries } from "@/lib/convex-queries";
+import { convexPaginatedQuery } from "@workspace/convex-query";
 import { useIntersectionAction } from "@/lib/use-intersection-action";
 
 const ADMIN_PAGE_SIZE = 20;
@@ -123,7 +123,7 @@ export const Route = createFileRoute("/_auth/dashboard_/admin")({
     // Paged queries stay blocking on the client too: the query cache makes
     // revisits free, and suspense churn on paginated tables isn't worth it.
     return await allKeyed({
-      babies: queryClient.ensure(queries.admin.listBabies, {
+      babies: queryClient.ensure(convexPaginatedQuery(api.admin.listBabies), {
         args: {
           hideDemo: search.hideDemo,
           sortBy: search.sort,
@@ -131,11 +131,11 @@ export const Route = createFileRoute("/_auth/dashboard_/admin")({
         },
         numItems: ADMIN_PAGE_SIZE,
       }),
-      transfers: queryClient.ensure(queries.admin.listPublicIdTransfers, {
+      transfers: queryClient.ensure(convexPaginatedQuery(api.admin.listPublicIdTransfers), {
         args: {},
         numItems: ADMIN_PAGE_SIZE,
       }),
-      users: queryClient.ensure(queries.admin.listUsers, {
+      users: queryClient.ensure(convexPaginatedQuery(api.admin.listUsers), {
         args: {},
         numItems: ADMIN_PAGE_SIZE,
       }),
@@ -577,7 +577,10 @@ export function BabiesSection(props: {
 function AdminBabiesTab() {
   const search = Route.useSearch();
   const loaderData = Route.useLoaderData();
-  const [babiesData, babiesQuery] = useQuery(queries.admin.listBabies, loaderData.babies);
+  const [babiesData, babiesQuery] = useQuery(
+    convexPaginatedQuery(api.admin.listBabies),
+    loaderData.babies,
+  );
 
   const babies = babiesData.pages.flatMap((page) => page.page);
 
@@ -602,7 +605,7 @@ function AdminTransfersTab() {
   const loaderData = Route.useLoaderData();
   const transferPublicId = useMutation(api.admin.transferPublicId);
   const [transfersData, transfersQuery] = useQuery(
-    queries.admin.listPublicIdTransfers,
+    convexPaginatedQuery(api.admin.listPublicIdTransfers),
     loaderData.transfers,
   );
 
@@ -630,7 +633,10 @@ function AdminTransfersTab() {
 
 function AdminUsersTab() {
   const loaderData = Route.useLoaderData();
-  const [usersData, usersQuery] = useQuery(queries.admin.listUsers, loaderData.users);
+  const [usersData, usersQuery] = useQuery(
+    convexPaginatedQuery(api.admin.listUsers),
+    loaderData.users,
+  );
 
   const users = usersData.pages.flatMap((page) => page.page);
 

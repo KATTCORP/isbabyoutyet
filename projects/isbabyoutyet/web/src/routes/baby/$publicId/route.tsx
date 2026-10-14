@@ -22,8 +22,8 @@ import {
 import { allKeyed, useQuery } from "@raf-query/react";
 import { z } from "zod";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import { queries } from "@/lib/convex-queries";
+import { convexPaginatedQuery, convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { openGraphImageMeta } from "@/lib/seo";
 import { getBabySeo } from "@/lib/seo";
 import { babyRouteCacheHeaders } from "@/lib/cachePolicy";
@@ -53,8 +53,10 @@ export const Route = createFileRoute("/baby/$publicId")({
 
   beforeLoad: async (opts) => {
     const queryClient = opts.context.queryClient;
-    await queryClient.ensure(queries.baby.getByPublicId, { id: opts.params.publicId });
-    const babyDoc = queryClient.getData(queries.baby.getByPublicId, { id: opts.params.publicId });
+    await queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId });
+    const babyDoc = queryClient.getData(convexQuery(api.baby.getByPublicId), {
+      id: opts.params.publicId,
+    });
     if (!babyDoc) {
       throw notFound();
     }
@@ -75,29 +77,34 @@ export const Route = createFileRoute("/baby/$publicId")({
     const browserPush = prefetchBrowserPushCapability(queryClient, publicId);
 
     const loaderData = await allKeyed({
-      baby: queryClient.ensure(queries.baby.getByPublicId, { id: publicId }),
-      latestUpdate: queryClient.ensure(queries.timeline.latestUpdate, { babyId: publicId }),
-      me: queryClient.ensure(queries.profile.get, {}),
-      managerBaby: queryClient.ensure(queries.baby.getManagerBaby, { babyId: publicId }),
-      myAccess: queryClient.ensure(queries.coParents.myAccess, { babyId: publicId }),
-      onboarding: queryClient.ensure(queries.onboarding.getMine, {}),
-      scheduledNotifications: queryClient.ensure(queries.baby.getScheduledNotifications, {
+      baby: queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: publicId }),
+      latestUpdate: queryClient.ensure(convexQuery(api.timeline.latestUpdate), {
         babyId: publicId,
       }),
-      subscriptionCount: queryClient.ensure(queries.pushSubscriptions.getSubscriptionCount, {
+      me: queryClient.ensure(convexQuery(api.profile.get), {}),
+      managerBaby: queryClient.ensure(convexQuery(api.baby.getManagerBaby), { babyId: publicId }),
+      myAccess: queryClient.ensure(convexQuery(api.coParents.myAccess), { babyId: publicId }),
+      onboarding: queryClient.ensure(convexQuery(api.onboarding.getMine), {}),
+      scheduledNotifications: queryClient.ensure(convexQuery(api.baby.getScheduledNotifications), {
         babyId: publicId,
       }),
+      subscriptionCount: queryClient.ensure(
+        convexQuery(api.pushSubscriptions.getSubscriptionCount),
+        {
+          babyId: publicId,
+        },
+      ),
       // SSR has no visitor id (null); a client navigation reads the stored
       // one, so the feed's first render matches this handle.
-      timeline: queryClient.ensure(queries.timeline.listByBaby, {
+      timeline: queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
         args: { babyId: publicId, visitorId: peekVisitorId() },
         numItems: TIMELINE_PAGE_SIZE,
       }),
-      vapidPublicKey: queryClient.ensure(queries.pushSubscriptions.getPublicKey, {}),
+      vapidPublicKey: queryClient.ensure(convexQuery(api.pushSubscriptions.getPublicKey), {}),
     });
 
     return {
-      babyDoc: queryClient.getData(queries.baby.getByPublicId, { id: publicId }) ?? null,
+      babyDoc: queryClient.getData(convexQuery(api.baby.getByPublicId), { id: publicId }) ?? null,
       browserPush,
       ...loaderData,
     };
@@ -263,16 +270,19 @@ function BabyPageLayout() {
     throw notFound();
   }
 
-  const [babyDoc] = useQuery(queries.baby.getByPublicId, loaderData.baby);
+  const [babyDoc] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
   if (!babyDoc) {
     throw notFound();
   }
   const baby = docToBabyData(babyDoc);
 
-  const [latestUpdate] = useQuery(queries.timeline.latestUpdate, loaderData.latestUpdate);
-  const [me] = useQuery(queries.profile.get, loaderData.me);
-  const [managerBabyResult] = useQuery(queries.baby.getManagerBaby, loaderData.managerBaby);
-  const [myAccess] = useQuery(queries.coParents.myAccess, loaderData.myAccess);
+  const [latestUpdate] = useQuery(convexQuery(api.timeline.latestUpdate), loaderData.latestUpdate);
+  const [me] = useQuery(convexQuery(api.profile.get), loaderData.me);
+  const [managerBabyResult] = useQuery(
+    convexQuery(api.baby.getManagerBaby),
+    loaderData.managerBaby,
+  );
+  const [myAccess] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
 
   const completeOnboardingStep = useCompleteOnboardingStep();
   const share = useBabyShareOverlayLinks(params.publicId);

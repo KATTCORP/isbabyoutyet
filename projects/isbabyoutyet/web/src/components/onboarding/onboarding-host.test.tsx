@@ -1,5 +1,5 @@
 import { fireEvent } from "@testing-library/react";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
 import { QueryClientProvider } from "@raf-query/react";
 import { ConvexProvider } from "convex/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
@@ -23,7 +23,7 @@ async function renderOnboardingHost(opts: {
   session: { data: { user: { id: string } } | null; isPending: boolean };
   surface: "dashboard" | "baby";
 }) {
-  const onboarding = await opts.harness.queryClient.ensure(queries.onboarding.getMine, {});
+  const onboarding = await opts.harness.queryClient.ensure(convexQuery(api.onboarding.getMine), {});
   return await renderWithTestRouter(
     <QueryClientProvider client={opts.harness.queryClient}>
       <ConvexProvider
@@ -86,7 +86,7 @@ async function seedAllOnboardingStepsDone(
 
 test("returns null for anonymous visitors", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
-  const onboarding = await harness.queryClient.ensure(queries.onboarding.getMine, {});
+  const onboarding = await harness.queryClient.ensure(convexQuery(api.onboarding.getMine), {});
 
   await using view = await renderWithConvexTest({
     harness,

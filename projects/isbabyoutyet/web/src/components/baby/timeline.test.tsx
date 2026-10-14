@@ -1,5 +1,5 @@
 import { fireEvent, render, within } from "@testing-library/react";
-import { queries } from "@/lib/convex-queries";
+import { convexPaginatedQuery } from "@workspace/convex-query";
 import { QueryClientProvider } from "@raf-query/react";
 import { ConvexProvider } from "convex/react";
 import { expect, test, vi } from "vitest";
@@ -113,7 +113,7 @@ async function renderComposer(
 /** As the baby route's loader does on a client navigation. */
 async function prefetchTimeline(harness: ConvexTestHarness, publicId: string) {
   await harness.refresh();
-  return await harness.queryClient.ensure(queries.timeline.listByBaby, {
+  return await harness.queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
     args: { babyId: publicId, visitorId: peekVisitorId() },
     numItems: 20,
   });

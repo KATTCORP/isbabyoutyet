@@ -1,5 +1,6 @@
 import { fireEvent } from "@testing-library/react";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { ReactNode } from "react";
 import { expect, test, vi } from "vitest";
 import { AccountSettingsView } from "@/components/account-settings";
@@ -119,7 +120,9 @@ test("settings route renders its sheet overlay from an ensured profile", async (
 
   expect(Route.options.component).toBe(DashboardSettingsRoute);
   expect(data.profile).toMatchObject({ ensured: true, input: {} });
-  expect(harness.queryClient.getData(queries.profile.get, {})).toMatchObject({ name: "Ada" });
+  expect(harness.queryClient.getData(convexQuery(api.profile.get), {})).toMatchObject({
+    name: "Ada",
+  });
 });
 
 test("settings sheet omits the admin link for non-admins", async () => {
@@ -146,7 +149,7 @@ test("DashboardSettingsSheet wires the preloaded profile into the view", async (
   });
   await harness.withIdentity({ subject: userId });
 
-  const profile = await harness.queryClient.ensure(queries.profile.get, {});
+  const profile = await harness.queryClient.ensure(convexQuery(api.profile.get), {});
 
   await using view = await renderWithConvexTest({
     harness,

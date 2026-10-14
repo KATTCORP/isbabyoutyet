@@ -2,7 +2,7 @@ import { fireEvent } from "@testing-library/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { expect, test, vi } from "vitest";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
 import { browserImageQuery } from "@/lib/image-prefetch";
 import { getBabySeo } from "@/lib/seo";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
@@ -46,7 +46,8 @@ test("loader prefetches the canonical OG image in the browser", async () => {
     });
   });
   expect(
-    harness.queryClient.getData(queries.coParents.myAccess, { babyId: baby.publicId })?.canManage,
+    harness.queryClient.getData(convexQuery(api.coParents.myAccess), { babyId: baby.publicId })
+      ?.canManage,
   ).toBe(true);
   expect(data.shareLink).toBe(`https://isbabyoutyet.com/baby/${baby.publicId}`);
 });
@@ -64,7 +65,11 @@ test("loader reuses a cached baby snapshot instead of refetching", async () => {
   if (!cachedBaby) {
     throw new Error("expected baby");
   }
-  harness.queryClient.setData(queries.baby.getByPublicId, { id: baby.publicId }, cachedBaby);
+  harness.queryClient.setData(
+    convexQuery(api.baby.getByPublicId),
+    { id: baby.publicId },
+    cachedBaby,
+  );
 
   await patchOwnedBaby(harness, {
     id: baby.babyId,

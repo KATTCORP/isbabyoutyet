@@ -7,7 +7,8 @@ import {
   setClientToken,
   waitForMe,
 } from "@/lib/auth-client";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 
 const signedInProfile = {
@@ -31,8 +32,8 @@ function seedCachedQueries(
   clients: ReturnType<typeof makeClients>,
   profile: typeof signedInProfile | null,
 ) {
-  clients.queryClient.setData(queries.profile.get, {}, profile);
-  clients.queryClient.setData(queries.baby.listByUser, {}, []);
+  clients.queryClient.setData(convexQuery(api.profile.get), {}, profile);
+  clients.queryClient.setData(convexQuery(api.baby.listByUser), {}, []);
 }
 
 test("getBrowserAuthHeaders includes the stored visitor id when present", () => {
@@ -61,8 +62,8 @@ test("waitForMe keeps me and drops the rest of the cache when present", async ()
 
   await waitForMe({ presence: "present", queryClient: clients.queryClient });
 
-  expect(clients.queryClient.getData(queries.profile.get, {})).toEqual(signedInProfile);
-  expect(clients.queryClient.getData(queries.baby.listByUser, {})).toBeUndefined();
+  expect(clients.queryClient.getData(convexQuery(api.profile.get), {})).toEqual(signedInProfile);
+  expect(clients.queryClient.getData(convexQuery(api.baby.listByUser), {})).toBeUndefined();
 });
 
 test("waitForMe keeps me and drops the rest of the cache when absent", async () => {
@@ -71,8 +72,8 @@ test("waitForMe keeps me and drops the rest of the cache when absent", async () 
 
   await waitForMe({ presence: "absent", queryClient: clients.queryClient });
 
-  expect(clients.queryClient.getData(queries.profile.get, {})).toBeNull();
-  expect(clients.queryClient.getData(queries.baby.listByUser, {})).toBeUndefined();
+  expect(clients.queryClient.getData(convexQuery(api.profile.get), {})).toBeNull();
+  expect(clients.queryClient.getData(convexQuery(api.baby.listByUser), {})).toBeUndefined();
 });
 
 test("setClientToken hands the inline JWT to Convex without a token round trip", async () => {

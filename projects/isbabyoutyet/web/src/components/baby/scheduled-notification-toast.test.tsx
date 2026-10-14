@@ -1,5 +1,6 @@
 import { fireEvent } from "@testing-library/react";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { expect, test, vi } from "vitest";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import {
@@ -27,11 +28,14 @@ test("runs with empty notifications and no subscriptions", async () => {
   });
   await harness.withIdentity({ subject: ownerId });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
-  const notifications = await harness.queryClient.ensure(queries.baby.getScheduledNotifications, {
-    babyId: baby.babyId,
-  });
+  const notifications = await harness.queryClient.ensure(
+    convexQuery(api.baby.getScheduledNotifications),
+    {
+      babyId: baby.babyId,
+    },
+  );
   const subscriptionCount = await harness.queryClient.ensure(
-    queries.pushSubscriptions.getSubscriptionCount,
+    convexQuery(api.pushSubscriptions.getSubscriptionCount),
     { babyId: baby.babyId },
   );
 
@@ -63,11 +67,14 @@ test("treats forbidden notification data as empty", async () => {
   });
   await harness.withIdentity({ subject: visitorId });
 
-  const notifications = await harness.queryClient.ensure(queries.baby.getScheduledNotifications, {
-    babyId: baby.babyId,
-  });
+  const notifications = await harness.queryClient.ensure(
+    convexQuery(api.baby.getScheduledNotifications),
+    {
+      babyId: baby.babyId,
+    },
+  );
   const subscriptionCount = await harness.queryClient.ensure(
-    queries.pushSubscriptions.getSubscriptionCount,
+    convexQuery(api.pushSubscriptions.getSubscriptionCount),
     { babyId: baby.babyId },
   );
   await using view = await renderToastResource(
@@ -94,11 +101,14 @@ test("shows the exact subscriber count in a pending notification toast", async (
   await seedPendingLaborNotification(harness, { babyId: baby.babyId });
   await seedPushSubscriptions(harness, { babyId: baby.babyId, count: 3 });
 
-  const notifications = await harness.queryClient.ensure(queries.baby.getScheduledNotifications, {
-    babyId: baby.babyId,
-  });
+  const notifications = await harness.queryClient.ensure(
+    convexQuery(api.baby.getScheduledNotifications),
+    {
+      babyId: baby.babyId,
+    },
+  );
   const subscriptionCount = await harness.queryClient.ensure(
-    queries.pushSubscriptions.getSubscriptionCount,
+    convexQuery(api.pushSubscriptions.getSubscriptionCount),
     { babyId: baby.babyId },
   );
 
@@ -129,11 +139,14 @@ test("shows a pending notification countdown even with no subscribers", async ()
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
   await seedPendingLaborNotification(harness, { babyId: baby.babyId });
 
-  const notifications = await harness.queryClient.ensure(queries.baby.getScheduledNotifications, {
-    babyId: baby.babyId,
-  });
+  const notifications = await harness.queryClient.ensure(
+    convexQuery(api.baby.getScheduledNotifications),
+    {
+      babyId: baby.babyId,
+    },
+  );
   const subscriptionCount = await harness.queryClient.ensure(
-    queries.pushSubscriptions.getSubscriptionCount,
+    convexQuery(api.pushSubscriptions.getSubscriptionCount),
     { babyId: baby.babyId },
   );
 

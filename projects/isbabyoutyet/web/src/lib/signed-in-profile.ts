@@ -1,7 +1,8 @@
 import type { QueryClient } from "@raf-query/react";
 import type { ConvexReader } from "@workspace/convex-query";
 import type { ConvexHttpClient } from "convex/browser";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 
 export type SignedInProfileContext = {
   convexHttpClient: ConvexHttpClient | null;
@@ -40,8 +41,8 @@ export async function loadSignedInProfile(opts: {
 
   // Route context must serialize, so it carries the profile's fields, not a
   // query handle: child loaders `ensure` `profile.get` again, a cache hit.
-  await queryClient.ensure(queries.profile.get, {});
-  const me = queryClient.getData(queries.profile.get, {});
+  await queryClient.ensure(convexQuery(api.profile.get), {});
+  const me = queryClient.getData(convexQuery(api.profile.get), {});
   if (!me) {
     return null;
   }

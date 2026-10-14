@@ -1,7 +1,7 @@
 import { useMutation } from "convex/react";
-import type { EnsuredQueryHandle } from "@raf-query/react";
 import { useQuery } from "@raf-query/react";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
+import type { EnsuredConvexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { isFunction } from "@workspace/runtime/guards";
 import { useI18n } from "@/lib/i18n";
@@ -26,7 +26,7 @@ type OnboardingSession = {
 type OnboardingHostProps = {
   /** Baby-page owners only — visitors never see the tour */
   enabled: boolean | undefined;
-  onboarding: EnsuredQueryHandle<typeof queries.onboarding.getMine>;
+  onboarding: EnsuredConvexQuery<typeof api.onboarding.getMine>;
   /** Hide spotlight tips (e.g. while a modal is open) */
   spotlight: boolean | undefined;
   surface: "dashboard" | "baby";
@@ -118,7 +118,7 @@ export function OnboardingHostWithSession(
 }
 
 function OnboardingHostAuthed(props: OnboardingHostProps) {
-  const [progress] = useQuery(queries.onboarding.getMine, props.onboarding);
+  const [progress] = useQuery(convexQuery(api.onboarding.getMine), props.onboarding);
   const {
     completeStep,
     dismissChecklist,

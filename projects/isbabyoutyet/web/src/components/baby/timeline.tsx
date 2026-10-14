@@ -30,9 +30,9 @@ import {
 } from "@workspace/ui/components/popover";
 import { cn } from "@workspace/ui/lib/utils";
 import { useMutation } from "convex/react";
-import type { EnsuredQueryHandle } from "@raf-query/react";
 import { useQuery, useWaterfall } from "@raf-query/react";
-import { queries } from "@/lib/convex-queries";
+import { convexPaginatedQuery } from "@workspace/convex-query";
+import type { EnsuredConvexPaginatedQuery } from "@workspace/convex-query";
 import {
   BellRingingIcon,
   CameraIcon,
@@ -1295,7 +1295,7 @@ type TimelineFeedProps = {
   isOwner: boolean;
   publicId: string;
   /** Prefetched infinite timeline handle from the route loader (SSR first page). */
-  timeline: EnsuredQueryHandle<typeof queries.timeline.listByBaby>;
+  timeline: EnsuredConvexPaginatedQuery<typeof api.timeline.listByBaby>;
 };
 
 type RemoveUpdateFn = (
@@ -1318,14 +1318,18 @@ export function TimelineFeed(props: TimelineFeedProps) {
   // snapshot "" so the first paint matches the server's handle (no
   // visitorId), then the stored id switches the feed to the visitor's copy.
   const currentVisitorId = useStoredVisitorId();
-  const timelineHandle = useWaterfall(queries.timeline.listByBaby, {
+  const timelineHandle = useWaterfall(convexPaginatedQuery(api.timeline.listByBaby), {
     ...props.timeline.input,
     args: { ...props.timeline.input.args, visitorId: currentVisitorId || null },
   });
   // Keep the SSR pages on screen while the visitor's own copy loads.
-  const [timelinePromise, timelineQuery] = useQuery(queries.timeline.listByBaby, timelineHandle, {
-    whilePending: "previous",
-  });
+  const [timelinePromise, timelineQuery] = useQuery(
+    convexPaginatedQuery(api.timeline.listByBaby),
+    timelineHandle,
+    {
+      whilePending: "previous",
+    },
+  );
   const removeUpdate = useMutation(api.updates.remove);
   const setAsCurrentPhoto = useMutation(api.updates.setAsCurrentPhoto);
   const removeEncouragement = useMutation(api.encouragements.remove);

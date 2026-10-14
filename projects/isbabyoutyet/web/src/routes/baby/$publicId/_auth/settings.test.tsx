@@ -6,7 +6,7 @@ import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { seedOwnedBaby, signUpTestUser } from "@/test/convexTestSeed";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 import { runRouteLoader } from "@/test/routeTestContext";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
 import { managerDocToBabyData } from "@/routes/baby/$publicId/route";
 import { Route } from "@/routes/baby/$publicId/_auth/settings";
 import { htmlButton } from "@/test/htmlElement";
@@ -34,15 +34,15 @@ test("settings loader fetches only manager settings data", async () => {
   expect(result.profile).toMatchObject({ ensured: true, input: {} });
   expect(result.vapidPublicKey).toMatchObject({ ensured: true, input: {} });
   const queryClient = harness.queryClient;
-  expect(queryClient.getData(queries.baby.getManagerBaby, babyArgs)).toMatchObject({
+  expect(queryClient.getData(convexQuery(api.baby.getManagerBaby), babyArgs)).toMatchObject({
     name: "Baby Smith",
   });
-  expect(queryClient.getData(queries.coParents.listForBaby, babyArgs)).toEqual({
+  expect(queryClient.getData(convexQuery(api.coParents.listForBaby), babyArgs)).toEqual({
     coParents: [],
     invites: [],
   });
-  expect(queryClient.getData(queries.profile.get, {})?.locale).toBeTruthy();
-  expect(queryClient.getData(queries.pushSubscriptions.getPublicKey, {})).toBeTruthy();
+  expect(queryClient.getData(convexQuery(api.profile.get), {})?.locale).toBeTruthy();
+  expect(queryClient.getData(convexQuery(api.pushSubscriptions.getPublicKey), {})).toBeTruthy();
   expect(result.browserPush).toMatchObject({ input: baby.publicId });
 });
 

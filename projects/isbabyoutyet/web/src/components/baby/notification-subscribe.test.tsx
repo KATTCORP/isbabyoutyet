@@ -1,5 +1,5 @@
 import { fireEvent, screen } from "@testing-library/react";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
 import { getFunctionName } from "convex/server";
 import { expect, test, vi } from "vitest";
 import { makeAsyncResource, makeResource } from "@isbabyoutyet/backend/convex/test.resource";
@@ -148,7 +148,10 @@ async function renderSubscribe(capability: BrowserPushCapability, audience: "vis
     name: "Owner",
     password: "password123",
   });
-  const vapid = await harnessCtx.queryClient.ensure(queries.pushSubscriptions.getPublicKey, {});
+  const vapid = await harnessCtx.queryClient.ensure(
+    convexQuery(api.pushSubscriptions.getPublicKey),
+    {},
+  );
   const view = await renderWithConvexTest({
     harness: harnessCtx,
     ui: (
@@ -648,7 +651,10 @@ test("visitor Get Notifications does not drop owner message alerts", async () =>
   });
   await harness.withIdentity(null);
 
-  const vapid = await harness.queryClient.ensure(queries.pushSubscriptions.getPublicKey, {});
+  const vapid = await harness.queryClient.ensure(
+    convexQuery(api.pushSubscriptions.getPublicKey),
+    {},
+  );
   const view = await renderWithConvexTest({
     harness,
     ui: (

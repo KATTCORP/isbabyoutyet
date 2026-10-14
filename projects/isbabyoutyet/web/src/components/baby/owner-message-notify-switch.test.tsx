@@ -1,5 +1,5 @@
 import { fireEvent } from "@testing-library/react";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
 import { expect, test, vi } from "vitest";
 import { makeAsyncResource, makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
@@ -94,7 +94,10 @@ async function renderLiveSwitch(opts: {
 }) {
   const harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
-  const vapid = await harness.queryClient.ensure(queries.pushSubscriptions.getPublicKey, {});
+  const vapid = await harness.queryClient.ensure(
+    convexQuery(api.pushSubscriptions.getPublicKey),
+    {},
+  );
   const view = await renderWithConvexTest({
     harness,
     ui: (

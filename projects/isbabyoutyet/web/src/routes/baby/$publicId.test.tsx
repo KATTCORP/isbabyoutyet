@@ -23,7 +23,7 @@ import {
 } from "@isbabyoutyet/backend/src/types";
 import { LocaleProvider } from "@/lib/i18n";
 import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { getBabySeo } from "@/lib/seo";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
@@ -367,18 +367,24 @@ test("loader ensures the same set for visitors; gated queries come back forbidde
     ensured: true,
     input: { args: { babyId: "baby-smith", visitorId: null }, numItems: 20 },
   });
-  expect(queryClient.getData(queries.baby.getByPublicId, { id: "baby-smith" })).toEqual(BABY_DOC);
-  expect(queryClient.getData(queries.coParents.myAccess, { babyId: "baby-smith" })).toMatchObject({
+  expect(queryClient.getData(convexQuery(api.baby.getByPublicId), { id: "baby-smith" })).toEqual(
+    BABY_DOC,
+  );
+  expect(
+    queryClient.getData(convexQuery(api.coParents.myAccess), { babyId: "baby-smith" }),
+  ).toMatchObject({
     canManage: false,
   });
-  expect(queryClient.getData(queries.baby.getManagerBaby, { babyId: "baby-smith" })).toBe(
+  expect(queryClient.getData(convexQuery(api.baby.getManagerBaby), { babyId: "baby-smith" })).toBe(
     "forbidden",
   );
   expect(
-    queryClient.getData(queries.baby.getScheduledNotifications, { babyId: "baby-smith" }),
+    queryClient.getData(convexQuery(api.baby.getScheduledNotifications), { babyId: "baby-smith" }),
   ).toBe("forbidden");
   expect(
-    queryClient.getData(queries.pushSubscriptions.getSubscriptionCount, { babyId: "baby-smith" }),
+    queryClient.getData(convexQuery(api.pushSubscriptions.getSubscriptionCount), {
+      babyId: "baby-smith",
+    }),
   ).toBe("forbidden");
 });
 
@@ -398,12 +404,16 @@ test("loader gives managers the same handles with real data", async () => {
   expect(result.subscriptionCount).toMatchObject({ input: { babyId: "baby-smith" } });
   expect(result.onboarding).toMatchObject({ ensured: true, input: {} });
   expect(
-    queryClient.getData(queries.baby.getScheduledNotifications, { babyId: "baby-smith" }),
+    queryClient.getData(convexQuery(api.baby.getScheduledNotifications), { babyId: "baby-smith" }),
   ).toEqual([]);
   expect(
-    queryClient.getData(queries.pushSubscriptions.getSubscriptionCount, { babyId: "baby-smith" }),
+    queryClient.getData(convexQuery(api.pushSubscriptions.getSubscriptionCount), {
+      babyId: "baby-smith",
+    }),
   ).toBe(2);
-  expect(queryClient.getData(queries.baby.getManagerBaby, { babyId: "baby-smith" })).toMatchObject({
+  expect(
+    queryClient.getData(convexQuery(api.baby.getManagerBaby), { babyId: "baby-smith" }),
+  ).toMatchObject({
     birthJourney: "labor",
   });
 });

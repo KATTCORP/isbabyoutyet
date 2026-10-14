@@ -6,9 +6,9 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item";
-import type { EnsuredQueryHandle } from "@raf-query/react";
 import { useQuery } from "@raf-query/react";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
+import type { EnsuredConvexQuery } from "@workspace/convex-query";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -34,17 +34,20 @@ const EMPTY_NOTIFICATIONS: ScheduledNotificationsResult = [];
 const emptyActionSchema = z.object({});
 
 type ScheduledNotificationToastProps = {
-  notifications: EnsuredQueryHandle<typeof queries.baby.getScheduledNotifications>;
-  subscriptionCount: EnsuredQueryHandle<typeof queries.pushSubscriptions.getSubscriptionCount>;
+  notifications: EnsuredConvexQuery<typeof api.baby.getScheduledNotifications>;
+  subscriptionCount: EnsuredConvexQuery<typeof api.pushSubscriptions.getSubscriptionCount>;
 };
 
 export function ScheduledNotificationToast(props: ScheduledNotificationToastProps) {
-  const [notificationsData] = useQuery(queries.baby.getScheduledNotifications, props.notifications);
+  const [notificationsData] = useQuery(
+    convexQuery(api.baby.getScheduledNotifications),
+    props.notifications,
+  );
   // FORBIDDEN only happens for non-managers, who never render this component —
   // treat it like "nothing scheduled" so the types stay honest.
   const notifications = notificationsData === FORBIDDEN ? EMPTY_NOTIFICATIONS : notificationsData;
   const [subscriptionCountData] = useQuery(
-    queries.pushSubscriptions.getSubscriptionCount,
+    convexQuery(api.pushSubscriptions.getSubscriptionCount),
     props.subscriptionCount,
   );
   const subscriptionCount = subscriptionCountData === FORBIDDEN ? 0 : subscriptionCountData;

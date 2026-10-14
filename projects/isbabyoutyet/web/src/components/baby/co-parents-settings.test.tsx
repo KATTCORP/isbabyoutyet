@@ -1,5 +1,5 @@
 import { fireEvent } from "@testing-library/react";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
 import { expect, test, vi } from "vitest";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { CoParentsSettings } from "@/components/baby/co-parents-settings";
@@ -16,7 +16,7 @@ test("CoParentsSettings lists co-parents seeded through convex-test", async () =
     email: "bob@example.com",
   });
 
-  const listing = await harness.queryClient.ensure(queries.coParents.listForBaby, {
+  const listing = await harness.queryClient.ensure(convexQuery(api.coParents.listForBaby), {
     babyId: baby.babyId,
   });
 
@@ -32,7 +32,7 @@ test("CoParentsSettings lists co-parents seeded through convex-test", async () =
 test("owner can invite a co-parent by email through real mutations", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
-  const listing = await harness.queryClient.ensure(queries.coParents.listForBaby, {
+  const listing = await harness.queryClient.ensure(convexQuery(api.coParents.listForBaby), {
     babyId: baby.babyId,
   });
 
@@ -78,7 +78,7 @@ test("owner can remove co-parents and cancel pending invites", async () => {
     email: "newbie@example.com",
   });
 
-  const listing = await harness.queryClient.ensure(queries.coParents.listForBaby, {
+  const listing = await harness.queryClient.ensure(convexQuery(api.coParents.listForBaby), {
     babyId: baby.babyId,
   });
 
@@ -123,7 +123,7 @@ test("co-parents see a read-only list without invite form", async () => {
   });
 
   await harness.withIdentity({ subject: bobId });
-  const listing = await harness.queryClient.ensure(queries.coParents.listForBaby, {
+  const listing = await harness.queryClient.ensure(convexQuery(api.coParents.listForBaby), {
     babyId: baby.babyId,
   });
 

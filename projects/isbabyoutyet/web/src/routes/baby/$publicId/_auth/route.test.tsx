@@ -1,7 +1,8 @@
 import { ConvexHttpClient } from "convex/browser";
 import { isRedirect } from "@tanstack/react-router";
 import { makeAsyncResource } from "@isbabyoutyet/backend/convex/test.resource";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { SignedInProfileContext } from "@/lib/signed-in-profile";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { expect, test, vi } from "vitest";
@@ -90,7 +91,7 @@ test("client overlay navigations reuse a cached profile without an auth round-tr
   const fetchToken = vi.fn<() => Promise<string | null>>();
   await using guard = makeGuardCtx();
   guard.queryClient.setData(
-    queries.profile.get,
+    convexQuery(api.profile.get),
     {},
     signedInProfile({
       isAdmin: false,
@@ -116,7 +117,7 @@ test("manager overlays keep the baby page locale instead of the signed-in profil
   const fetchToken = vi.fn<() => Promise<string | null>>();
   await using guard = makeGuardCtx();
   guard.queryClient.setData(
-    queries.profile.get,
+    convexQuery(api.profile.get),
     {},
     signedInProfile({
       isAdmin: false,

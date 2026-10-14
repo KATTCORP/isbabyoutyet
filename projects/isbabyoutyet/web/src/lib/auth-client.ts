@@ -5,12 +5,12 @@ import { createAuthClient } from "better-auth/react";
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import type { FunctionReturnType } from "convex/server";
 import type { ConvexReactClient } from "convex/react";
-import type { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { parseConvexTokenFromAuthResponse } from "@isbabyoutyet/backend/src/convexToken";
 import { isValidTimeZone, TIME_ZONE_HINT_HEADER } from "@isbabyoutyet/backend/src/timeZone";
 import { parseVisitorIdHint, VISITOR_ID_HINT_HEADER } from "@isbabyoutyet/backend/src/visitorId";
 import type { TranslationFunction } from "@/lib/i18n";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { peekVisitorId } from "@/lib/use-visitor-id";
 
 function browserTimeZone() {
@@ -117,7 +117,7 @@ export function waitForMe(opts: { presence: MePresence; queryClient: QueryClient
     return Promise.resolve();
   }
 
-  const me = opts.queryClient.getQuery(queries.profile.get, {});
+  const me = opts.queryClient.getQuery(convexQuery(api.profile.get), {});
   const matches = () => {
     const state = Query.getUnsafe(me);
     return state.status === "success" && meMatchesPresence(state.data, opts.presence);
@@ -131,7 +131,7 @@ export function waitForMe(opts: { presence: MePresence; queryClient: QueryClient
         stop.abort();
       }
     });
-    opts.queryClient.prefetch(queries.profile.get, {});
+    opts.queryClient.prefetch(convexQuery(api.profile.get), {});
 
     const onAbort = () => {
       unsubscribe();

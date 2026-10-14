@@ -1,5 +1,5 @@
 import { fireEvent } from "@testing-library/react";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { toast } from "sonner";
 import { expect, test, vi } from "vitest";
@@ -13,7 +13,7 @@ import { htmlInput } from "@/test/htmlElement";
 async function renderLanguageSettings(
   harness: Awaited<ReturnType<typeof createConvexTestHarness>>,
 ) {
-  const profileHandle = await harness.queryClient.ensure(queries.profile.get, {});
+  const profileHandle = await harness.queryClient.ensure(convexQuery(api.profile.get), {});
   return renderWithConvexTest({
     harness,
     ui: <LanguageSettings profile={profileHandle} />,

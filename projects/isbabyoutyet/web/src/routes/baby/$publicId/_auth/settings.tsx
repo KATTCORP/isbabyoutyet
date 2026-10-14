@@ -3,7 +3,7 @@ import { allKeyed, useQuery } from "@raf-query/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { FORBIDDEN } from "@isbabyoutyet/backend/src/types";
 import { prefetchBrowserPushCapability } from "@/lib/browser-push-capability";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useI18n } from "@/lib/i18n";
@@ -17,11 +17,13 @@ export const Route = createFileRoute("/baby/$publicId/_auth/settings")({
     const queryClient = opts.context.queryClient;
     const browserPush = prefetchBrowserPushCapability(queryClient, babyRef);
     const data = await allKeyed({
-      coParentsList: queryClient.ensure(queries.coParents.listForBaby, { babyId: babyRef }),
-      managerBaby: queryClient.ensure(queries.baby.getManagerBaby, { babyId: babyRef }),
-      myAccess: queryClient.ensure(queries.coParents.myAccess, { babyId: babyRef }),
-      profile: queryClient.ensure(queries.profile.get, {}),
-      vapidPublicKey: queryClient.ensure(queries.pushSubscriptions.getPublicKey, {}),
+      coParentsList: queryClient.ensure(convexQuery(api.coParents.listForBaby), {
+        babyId: babyRef,
+      }),
+      managerBaby: queryClient.ensure(convexQuery(api.baby.getManagerBaby), { babyId: babyRef }),
+      myAccess: queryClient.ensure(convexQuery(api.coParents.myAccess), { babyId: babyRef }),
+      profile: queryClient.ensure(convexQuery(api.profile.get), {}),
+      vapidPublicKey: queryClient.ensure(convexQuery(api.pushSubscriptions.getPublicKey), {}),
     });
     return { ...data, browserPush };
   },
@@ -39,9 +41,9 @@ export function BabySettingsOverlay() {
   const removeBaby = useMutation(api.baby.remove);
   const redateMilestone = useMutation(api.updates.redateMilestone);
   const unmarkMilestone = useMutation(api.updates.unmarkMilestone);
-  const [managerBabyDoc] = useQuery(queries.baby.getManagerBaby, loaderData.managerBaby);
-  const [myAccess] = useQuery(queries.coParents.myAccess, loaderData.myAccess);
-  const [profile] = useQuery(queries.profile.get, loaderData.profile);
+  const [managerBabyDoc] = useQuery(convexQuery(api.baby.getManagerBaby), loaderData.managerBaby);
+  const [myAccess] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
+  const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile);
   if (managerBabyDoc === FORBIDDEN) {
     return <ForbiddenDialog overlay={settings} />;
   }

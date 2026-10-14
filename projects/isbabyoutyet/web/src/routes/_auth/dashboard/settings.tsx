@@ -1,8 +1,8 @@
 import { ShieldIcon, SignOutIcon } from "@phosphor-icons/react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import type { EnsuredQueryHandle, QueryClient } from "@raf-query/react";
+import type { QueryClient } from "@raf-query/react";
 import { useQuery } from "@raf-query/react";
-import type { ConvexReader } from "@workspace/convex-query";
+import type { ConvexReader, EnsuredConvexQuery } from "@workspace/convex-query";
 import type { ConvexReactClient } from "convex/react";
 import { useRef } from "react";
 import type { ReactNode } from "react";
@@ -21,7 +21,8 @@ import { AccountSettings } from "@/components/account-settings";
 import { Form, FormGuardProvider, SubmitButton, useZodForm } from "@/components/Form";
 import { LanguageSettings } from "@/components/language-settings";
 import { signOutThenGo } from "@/lib/auth-client";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { useI18n } from "@/lib/i18n";
 import { useDashboardSettingsOverlay } from "@/lib/overlay-nav";
 import type { OverlayControl } from "@/lib/overlay-nav";
@@ -30,7 +31,7 @@ import { ADMIN_DEFAULT_SEARCH } from "@/routes/_auth/dashboard_.admin";
 export const Route = createFileRoute("/_auth/dashboard/settings")({
   component: DashboardSettingsRoute,
   loader: async (opts) => ({
-    profile: await opts.context.queryClient.ensure(queries.profile.get, {}),
+    profile: await opts.context.queryClient.ensure(convexQuery(api.profile.get), {}),
   }),
 });
 
@@ -68,10 +69,10 @@ function SettingsSection(props: { children: ReactNode; title: string }) {
  */
 export function DashboardSettingsSheet(props: {
   convexClient: ConvexReactClient;
-  profile: EnsuredQueryHandle<typeof queries.profile.get>;
+  profile: EnsuredConvexQuery<typeof api.profile.get>;
   queryClient: QueryClient<ConvexReader>;
 }) {
-  const [profile] = useQuery(queries.profile.get, props.profile);
+  const [profile] = useQuery(convexQuery(api.profile.get), props.profile);
   const settings = useDashboardSettingsOverlay();
   const { t } = useI18n();
   const router = useRouter();

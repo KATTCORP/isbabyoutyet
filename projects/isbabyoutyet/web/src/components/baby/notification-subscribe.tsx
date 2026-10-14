@@ -2,12 +2,12 @@ import type { TranslationFunction } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n";
 import { ensureWebPushSubscription, readWebPushSubscription } from "@/lib/web-push-subscription";
 import { BellIcon, BellSlashIcon, ExportIcon } from "@phosphor-icons/react";
-import type { EnsuredQueryHandle } from "@raf-query/react";
 import { useQuery } from "@raf-query/react";
 import { useMutation } from "convex/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
+import type { EnsuredConvexQuery } from "@workspace/convex-query";
 import type { BrowserPushHandle } from "@/lib/use-browser-push-capability";
 import { useBrowserPushCapability } from "@/lib/use-browser-push-capability";
 import { usePendingAction } from "@/lib/use-pending-action";
@@ -43,7 +43,7 @@ type NotificationSubscribeProps = {
   audience: "visitor" | "manager";
   babyId: Id<"baby">;
   browserPush: BrowserPushHandle;
-  vapidPublicKey: EnsuredQueryHandle<typeof queries.pushSubscriptions.getPublicKey>;
+  vapidPublicKey: EnsuredConvexQuery<typeof api.pushSubscriptions.getPublicKey>;
 };
 
 type NotificationSelection = {
@@ -54,7 +54,10 @@ type NotificationSelection = {
 export function NotificationSubscribe(props: NotificationSubscribeProps) {
   const { t } = useI18n();
   const [capability, refetchCapability] = useBrowserPushCapability(props.browserPush);
-  const [vapidPublicKey] = useQuery(queries.pushSubscriptions.getPublicKey, props.vapidPublicKey);
+  const [vapidPublicKey] = useQuery(
+    convexQuery(api.pushSubscriptions.getPublicKey),
+    props.vapidPublicKey,
+  );
   const [isLoading, runAction] = usePendingAction();
 
   const subscribeMutationFn = useMutation(api.pushSubscriptions.subscribe);

@@ -11,7 +11,8 @@ import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { signUpTestUser } from "@/test/convexTestSeed";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { runRouteLoader } from "@/test/routeTestContext";
 import { HomePageView, Route } from "./index";
 
@@ -132,7 +133,7 @@ test("homepage loader prefetches profile.get", async () => {
     route: Route,
   });
   expect(data.me).toMatchObject({ ensured: true, input: {} });
-  expect(harness.queryClient.getData(queries.profile.get, {})).toBeNull();
+  expect(harness.queryClient.getData(convexQuery(api.profile.get), {})).toBeNull();
 });
 
 test("signed-in profile.get flips homepage CTAs to the dashboard", async () => {

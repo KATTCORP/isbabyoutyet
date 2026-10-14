@@ -47,7 +47,6 @@ import type {
   MilestoneRemoveHandler,
 } from "@isbabyoutyet/backend/src/types";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
-import type { EnsuredQueryHandle } from "@raf-query/react";
 import {
   DueDateEditor,
   JourneyEditor,
@@ -74,7 +73,8 @@ import {
 } from "@/components/Form";
 import { getLanguageName, useI18n } from "@/lib/i18n";
 import type { OverlayControl } from "@/lib/overlay-nav";
-import type { queries } from "@/lib/convex-queries";
+import type { EnsuredConvexQuery } from "@workspace/convex-query";
+import type { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { BrowserPushHandle } from "@/lib/use-browser-push-capability";
 import { JOURNEY_OPTION_BY_VALUE } from "./journey-options";
 import type { ReactNode } from "react";
@@ -90,13 +90,13 @@ type SettingsPanelProps = {
   coParents: {
     babyId: Id<"baby">;
     isOwner: boolean;
-    listing: EnsuredQueryHandle<typeof queries.coParents.listForBaby>;
+    listing: EnsuredConvexQuery<typeof api.coParents.listForBaby>;
   } | null;
   /** Null on the preview page (no push subscription). */
   messagePush: {
     babyId: Id<"baby">;
     browserPush: BrowserPushHandle;
-    vapidPublicKey: EnsuredQueryHandle<typeof queries.pushSubscriptions.getPublicKey>;
+    vapidPublicKey: EnsuredConvexQuery<typeof api.pushSubscriptions.getPublicKey>;
   } | null;
   /** Owner-only soft delete. Null on the preview page / for co-parents. */
   onDelete: (() => void | Promise<void>) | null;

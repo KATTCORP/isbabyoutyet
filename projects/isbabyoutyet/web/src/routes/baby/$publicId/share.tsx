@@ -1,6 +1,7 @@
 import { Button } from "@workspace/ui/components/button";
 import { allKeyed, useQuery } from "@raf-query/react";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import {
   Card,
   CardContent,
@@ -33,10 +34,10 @@ export const Route = createFileRoute("/baby/$publicId/share")({
     const queryClient = opts.context.queryClient;
     const publicId = opts.params.publicId;
     const data = await allKeyed({
-      baby: queryClient.ensure(queries.baby.getByPublicId, { id: publicId }),
-      myAccess: queryClient.ensure(queries.coParents.myAccess, { babyId: publicId }),
+      baby: queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: publicId }),
+      myAccess: queryClient.ensure(convexQuery(api.coParents.myAccess), { babyId: publicId }),
     });
-    const babyDoc = queryClient.getData(queries.baby.getByPublicId, { id: publicId });
+    const babyDoc = queryClient.getData(convexQuery(api.baby.getByPublicId), { id: publicId });
     if (babyDoc) {
       prefetchBrowserImage(queryClient, getBabySeo(babyDoc, publicId).imageUrl);
     }
@@ -56,8 +57,8 @@ export function BabyShareOverlay() {
   const { t } = useI18n();
   const [copied, showCopied] = useTransientFlag(2000);
   const share = useBabyShareOverlay(params.publicId);
-  const [babyData] = useQuery(queries.baby.getByPublicId, loaderData.baby);
-  const [myAccessData] = useQuery(queries.coParents.myAccess, loaderData.myAccess);
+  const [babyData] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
+  const [myAccessData] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
   const sharePreview = babyData ? getBabySeo(babyData, params.publicId) : null;
   if (!sharePreview) {
     throw notFound();

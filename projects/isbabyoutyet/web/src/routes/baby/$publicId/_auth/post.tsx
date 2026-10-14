@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogTitle } from "@workspace/ui/components/dialog";
 import { allKeyed, useQuery } from "@raf-query/react";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { FormGuardProvider } from "@/components/Form";
 import { UpdateComposer } from "@/components/baby/timeline";
 import { useCompleteOnboardingStep } from "@/components/onboarding/onboarding-host";
@@ -17,12 +18,15 @@ export const Route = createFileRoute("/baby/$publicId/_auth/post")({
     const queryClient = opts.context.queryClient;
     const babyRef = opts.params.publicId;
     return await allKeyed({
-      managerBaby: queryClient.ensure(queries.baby.getManagerBaby, {
+      managerBaby: queryClient.ensure(convexQuery(api.baby.getManagerBaby), {
         babyId: babyRef,
       }),
-      subscriptionCount: queryClient.ensure(queries.pushSubscriptions.getSubscriptionCount, {
-        babyId: babyRef,
-      }),
+      subscriptionCount: queryClient.ensure(
+        convexQuery(api.pushSubscriptions.getSubscriptionCount),
+        {
+          babyId: babyRef,
+        },
+      ),
     });
   },
   component: BabyPostUpdateOverlay,
@@ -35,9 +39,9 @@ export function BabyPostUpdateOverlay() {
   const { t } = useI18n();
   const post = useBabyPostOverlay(params.publicId);
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const [managerBabyData] = useQuery(queries.baby.getManagerBaby, loaderData.managerBaby);
+  const [managerBabyData] = useQuery(convexQuery(api.baby.getManagerBaby), loaderData.managerBaby);
   const [subscriptionCountData] = useQuery(
-    queries.pushSubscriptions.getSubscriptionCount,
+    convexQuery(api.pushSubscriptions.getSubscriptionCount),
     loaderData.subscriptionCount,
   );
   if (managerBabyData === FORBIDDEN) {

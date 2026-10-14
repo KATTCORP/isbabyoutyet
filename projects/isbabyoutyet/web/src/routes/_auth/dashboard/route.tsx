@@ -1,6 +1,6 @@
 import { Button } from "@workspace/ui/components/button";
 import { allKeyed, useQuery } from "@raf-query/react";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
 import { ButtonGroup } from "@workspace/ui/components/button-group";
 import { ModeToggle } from "@workspace/ui/components/mode-toggle";
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
@@ -18,8 +18,8 @@ export const Route = createFileRoute("/_auth/dashboard")({
   loader: async (opts) => {
     const queryClient = opts.context.queryClient;
     return await allKeyed({
-      babies: queryClient.ensure(queries.baby.listByUser, {}),
-      onboarding: queryClient.ensure(queries.onboarding.getMine, {}),
+      babies: queryClient.ensure(convexQuery(api.baby.listByUser), {}),
+      onboarding: queryClient.ensure(convexQuery(api.onboarding.getMine), {}),
     });
   },
 });
@@ -36,8 +36,8 @@ export function DashboardPageLayout() {
 function DashboardPage() {
   const loaderData = Route.useLoaderData();
   const { t } = useI18n();
-  const [babies] = useQuery(queries.baby.listByUser, loaderData.babies);
-  const [progress] = useQuery(queries.onboarding.getMine, loaderData.onboarding);
+  const [babies] = useQuery(convexQuery(api.baby.listByUser), loaderData.babies);
+  const [progress] = useQuery(convexQuery(api.onboarding.getMine), loaderData.onboarding);
 
   return (
     <div className="flex min-h-screen flex-col bg-background bg-dots">

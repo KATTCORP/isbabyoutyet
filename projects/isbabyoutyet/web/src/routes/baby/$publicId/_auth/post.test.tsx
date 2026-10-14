@@ -5,7 +5,7 @@ import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { seedOwnedBaby, signUpTestUser } from "@/test/convexTestSeed";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 import { runRouteLoader } from "@/test/routeTestContext";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
 import { Route } from "@/routes/baby/$publicId/_auth/post";
 
 test("post loader fetches manager access data", async () => {
@@ -23,7 +23,7 @@ test("post loader fetches manager access data", async () => {
 
   expect(result.managerBaby).toMatchObject({ ensured: true, input: { babyId: baby.publicId } });
   expect(
-    harness.queryClient.getData(queries.baby.getManagerBaby, { babyId: baby.publicId }),
+    harness.queryClient.getData(convexQuery(api.baby.getManagerBaby), { babyId: baby.publicId }),
   ).toMatchObject({ name: "Baby Smith" });
 });
 

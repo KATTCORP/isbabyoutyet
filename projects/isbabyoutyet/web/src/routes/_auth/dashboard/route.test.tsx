@@ -16,7 +16,7 @@ import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { LocaleProvider } from "@/lib/i18n";
-import { queries } from "@/lib/convex-queries";
+import { convexQuery } from "@workspace/convex-query";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { renderResource } from "@/test/renderResource";
@@ -184,7 +184,7 @@ test("parent dashboard loader ensures auth-scoped reads without a waterfall", as
     babies: { ensured: true, input: {} },
     onboarding: { ensured: true, input: {} },
   });
-  expect(loaderQueries.queryClient.getData(queries.onboarding.getMine, {})).toEqual(
+  expect(loaderQueries.queryClient.getData(convexQuery(api.onboarding.getMine), {})).toEqual(
     onboardingProgress,
   );
 });
