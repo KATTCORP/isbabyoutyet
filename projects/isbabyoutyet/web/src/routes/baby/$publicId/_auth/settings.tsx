@@ -2,7 +2,7 @@ import { SettingsPanel } from "@/components/baby/settings-panel";
 import { allKeyed, useQuery } from "@raf-query/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { FORBIDDEN } from "@isbabyoutyet/backend/src/types";
-import { prefetchBrowserPushCapability } from "@/lib/browser-push-capability";
+import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
 import { convexQuery } from "@workspace/convex-query";
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/baby/$publicId/_auth/settings")({
   loader: async (opts) => {
     const babyRef = opts.params.publicId;
     const queryClient = opts.context.queryClient;
-    const browserPush = prefetchBrowserPushCapability(queryClient, babyRef);
+    const browserPush = queryClient.prefetch(browserPushCapabilityQuery, babyRef);
     const data = await allKeyed({
       coParentsList: queryClient.ensure(convexQuery(api.coParents.listForBaby), {
         babyId: babyRef,

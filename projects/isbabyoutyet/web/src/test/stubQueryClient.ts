@@ -6,14 +6,18 @@ import { makeAsyncResource } from "@isbabyoutyet/backend/convex/test.resource";
 type QueryRunner = Parameters<typeof makeTestConvexClient>[0];
 
 /**
- * A browser raf-query client whose Convex reads go to `run`, for unit tests
- * of loaders and guards that only need a query or two answered. Prefer
- * `createConvexTestHarness` when the test needs a real backend.
+ * A raf-query client whose Convex reads go to `run`, for unit tests of
+ * loaders and guards that only need a query or two answered. A browser
+ * client unless `opts.isServer`. Prefer `createConvexTestHarness` when the
+ * test needs a real backend.
  */
-export function stubQueryClientResource(run: QueryRunner) {
+export function stubQueryClientResource(
+  run: QueryRunner,
+  opts: { isServer: boolean } = { isServer: false },
+) {
   const backend = makeTestConvexClient(run);
   const queryClient = new QueryClient({
-    isServer: false,
+    isServer: opts.isServer,
     layer: ConvexReader.layerWatch(backend.client),
   });
   return makeAsyncResource({ backend, queryClient }, async () => {
