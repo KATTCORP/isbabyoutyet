@@ -5,19 +5,14 @@ import type { ReactNode } from "react";
 import { expect, test, vi } from "vitest";
 import { AccountSettingsView } from "@/components/account-settings";
 import { LocaleProvider } from "@/lib/i18n";
-import {
-  DashboardSettingsRoute,
-  DashboardSettingsSheet,
-  DashboardSettingsSheetView,
-  Route,
-} from "./settings";
+import { DashboardSettingsSheet, DashboardSettingsSheetView, Route } from "./settings";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { signUpTestUser } from "@/test/convexTestSeed";
 import { WithOverlayControl } from "@/test/overlayControl";
 import { renderMountedFileRouteWithRouterContext } from "@/test/renderMountedFileRoute";
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
-import { runRouteLoader } from "@/test/routeTestContext";
+import { signedInRouteContext } from "@/test/routeTestContext";
 
 /** Press the modal sheet's backdrop the way a real pointer would. */
 function clickSheetBackdrop(baseElement: Element) {
@@ -102,29 +97,6 @@ test("settings sheet previews account fields instead of linking to a profile pag
   expect(view.queryByText("Restart tour")).toBeNull();
 });
 
-test("settings route renders its sheet overlay from an ensured profile", async () => {
-  await using harness = await createConvexTestHarness({ identity: null });
-  const userId = await signUpTestUser(harness, {
-    email: "ada@example.com",
-    name: "Ada",
-    password: "password123",
-  });
-  await harness.withIdentity({ subject: userId });
-
-  const data = await runRouteLoader<{ profile: object }>({
-    harness,
-    location: undefined,
-    params: {},
-    route: Route,
-  });
-
-  expect(Route.options.component).toBe(DashboardSettingsRoute);
-  expect(data.profile).toMatchObject({ ensured: true, input: {} });
-  expect(harness.queryClient.getData(convexQuery(api.profile.get), {})).toMatchObject({
-    name: "Ada",
-  });
-});
-
 test("settings sheet omits the admin link for non-admins", async () => {
   await using view = await renderSettings({
     accountSettings: stubAccountRows(),
@@ -189,7 +161,7 @@ test("discarding a dirty account editor from the sheet backdrop goes back to /da
     overlayHistory: { engine: "browser", overlayPush: true, parentEntry: "/dashboard" },
     path: "/dashboard/settings",
     route: Route,
-    routerContext: { isAdmin: false, locale: "en-GB", token: undefined },
+    routerContext: await signedInRouteContext(harness),
     wrap: null,
   });
 

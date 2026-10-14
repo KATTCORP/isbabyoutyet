@@ -30,19 +30,15 @@ import { ADMIN_DEFAULT_SEARCH } from "@/routes/_auth/dashboard_.admin";
 
 export const Route = createFileRoute("/_auth/dashboard/settings")({
   component: DashboardSettingsRoute,
-  loader: async (opts) => ({
-    profile: await opts.context.queryClient.ensure(convexQuery(api.profile.get), {}),
-  }),
 });
 
 export function DashboardSettingsRoute() {
   const context = Route.useRouteContext();
-  const loaderData = Route.useLoaderData();
 
   return (
     <DashboardSettingsSheet
       convexClient={context.convexClient}
-      profile={loaderData.profile}
+      profile={context.me}
       queryClient={context.queryClient}
     />
   );

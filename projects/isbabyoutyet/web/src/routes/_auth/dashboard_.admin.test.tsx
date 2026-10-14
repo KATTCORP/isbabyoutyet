@@ -14,6 +14,7 @@ import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { seedOwnedBaby, signUpTestUser } from "@/test/convexTestSeed";
 import { renderMountedFileRouteWithRouterContext } from "@/test/renderMountedFileRoute";
+import { signedInRouteContext } from "@/test/routeTestContext";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import {
   ADMIN_DEFAULT_SEARCH,
@@ -479,7 +480,7 @@ test("transfers tab loads the form and audit table from Convex", async () => {
     overlayHistory: null,
     path: "/dashboard/admin",
     route: AdminRoute,
-    routerContext: { isAdmin: true, locale: "en-GB", token: undefined },
+    routerContext: await signedInRouteContext(harness),
     wrap: null,
   });
 

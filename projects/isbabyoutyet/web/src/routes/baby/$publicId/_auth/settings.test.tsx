@@ -4,8 +4,8 @@ import { FORBIDDEN } from "@isbabyoutyet/backend/src/types";
 import { expect, test, vi } from "vitest";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { seedOwnedBaby, signUpTestUser } from "@/test/convexTestSeed";
-import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
-import { runRouteLoader } from "@/test/routeTestContext";
+import { renderMountedFileRouteWithRouterContext } from "@/test/renderMountedFileRoute";
+import { runRouteLoaderWithRouterContext, signedInRouteContext } from "@/test/routeTestContext";
 import { convexQuery } from "@workspace/convex-query";
 import { managerDocToBabyData } from "@/routes/baby/$publicId/route";
 import { Route } from "@/routes/baby/$publicId/_auth/settings";
@@ -15,7 +15,7 @@ test("settings loader fetches only manager settings data", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
 
-  const result = await runRouteLoader<{
+  const result = await runRouteLoaderWithRouterContext<{
     browserPush: { input: string };
     coParentsList: { input: { babyId: string } };
     managerBaby: { input: { babyId: string } };
@@ -26,6 +26,7 @@ test("settings loader fetches only manager settings data", async () => {
     location: { pathname: `/baby/${baby.publicId}/settings` },
     params: { publicId: baby.publicId },
     route: Route,
+    routerContext: { me: (await signedInRouteContext(harness)).me },
   });
 
   const babyArgs = { babyId: baby.publicId };
@@ -68,12 +69,13 @@ test("settings overlay closes to the baby page after the dialog exit animation",
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
 
-  await using ctx = await renderMountedFileRoute({
+  await using ctx = await renderMountedFileRouteWithRouterContext({
     harness,
     initialEntry: `/baby/${baby.publicId}/settings`,
     overlayHistory: { engine: "memory", overlayPush: false, parentEntry: `/baby/${baby.publicId}` },
     path: "/baby/$publicId/settings",
     route: Route,
+    routerContext: { me: (await signedInRouteContext(harness)).me },
     wrap: null,
   });
 
@@ -103,12 +105,13 @@ test("settings overlay prefers history.back when opened via push", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
 
-  await using ctx = await renderMountedFileRoute({
+  await using ctx = await renderMountedFileRouteWithRouterContext({
     harness,
     initialEntry: `/baby/${baby.publicId}/settings`,
     overlayHistory: { engine: "memory", overlayPush: true, parentEntry: `/baby/${baby.publicId}` },
     path: "/baby/$publicId/settings",
     route: Route,
+    routerContext: { me: (await signedInRouteContext(harness)).me },
     wrap: null,
   });
 
@@ -133,12 +136,13 @@ test("settings overlay persists baby name edits through Convex", async () => {
   await harness.withIdentity({ subject: ownerId });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
 
-  await using ctx = await renderMountedFileRoute({
+  await using ctx = await renderMountedFileRouteWithRouterContext({
     harness,
     initialEntry: `/baby/${baby.publicId}/settings`,
     overlayHistory: { engine: "memory", overlayPush: false, parentEntry: `/baby/${baby.publicId}` },
     path: "/baby/$publicId/settings",
     route: Route,
+    routerContext: { me: (await signedInRouteContext(harness)).me },
     wrap: null,
   });
   const invalidate = vi.spyOn(ctx.router, "invalidate");
@@ -183,12 +187,13 @@ test("settings overlay hides delete for co-parents", async () => {
   });
   await harness.withIdentity({ subject: bobId });
 
-  await using ctx = await renderMountedFileRoute({
+  await using ctx = await renderMountedFileRouteWithRouterContext({
     harness,
     initialEntry: `/baby/${baby.publicId}/settings`,
     overlayHistory: { engine: "memory", overlayPush: false, parentEntry: `/baby/${baby.publicId}` },
     path: "/baby/$publicId/settings",
     route: Route,
+    routerContext: { me: (await signedInRouteContext(harness)).me },
     wrap: null,
   });
 
@@ -202,12 +207,13 @@ test("BabySettingsOverlay mounts from the real route loader", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
 
-  await using ctx = await renderMountedFileRoute({
+  await using ctx = await renderMountedFileRouteWithRouterContext({
     harness,
     initialEntry: `/baby/${baby.publicId}/settings`,
     overlayHistory: null,
     path: "/baby/$publicId/settings",
     route: Route,
+    routerContext: { me: (await signedInRouteContext(harness)).me },
     wrap: null,
   });
 

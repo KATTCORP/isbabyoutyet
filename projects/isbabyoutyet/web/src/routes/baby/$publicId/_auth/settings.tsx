@@ -22,10 +22,9 @@ export const Route = createFileRoute("/baby/$publicId/_auth/settings")({
       }),
       managerBaby: queryClient.ensure(convexQuery(api.baby.getManagerBaby), { babyId: babyRef }),
       myAccess: queryClient.ensure(convexQuery(api.coParents.myAccess), { babyId: babyRef }),
-      profile: queryClient.ensure(convexQuery(api.profile.get), {}),
       vapidPublicKey: queryClient.ensure(convexQuery(api.pushSubscriptions.getPublicKey), {}),
     });
-    return { ...data, browserPush };
+    return { ...data, browserPush, profile: opts.context.me };
   },
   component: BabySettingsOverlay,
 });

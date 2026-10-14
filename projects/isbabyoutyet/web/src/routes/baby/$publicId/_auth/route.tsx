@@ -46,6 +46,7 @@ export async function resolveBabyManagerGuard(opts: {
   // would switch a Swedish baby page to the owner's saved language on /post
   // and /settings.
   return {
+    me: session.me,
     token: session.token,
   };
 }
