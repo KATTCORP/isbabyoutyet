@@ -107,7 +107,7 @@ test("client overlay navigations reuse a cached profile without an auth round-tr
     publicId: "baby-waiting",
   });
 
-  expect(result).toMatchObject({ token: null });
+  expect(result).toMatchObject({ me: { ensured: true, input: {} }, token: null });
   expect(result).not.toHaveProperty("locale");
   expect(fetchToken).not.toHaveBeenCalled();
   expect(guard.queryFn).not.toHaveBeenCalled();

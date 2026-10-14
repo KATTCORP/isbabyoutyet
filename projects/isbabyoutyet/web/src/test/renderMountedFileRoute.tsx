@@ -1,4 +1,3 @@
-import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
 import { QueryClientProvider } from "@raf-query/react";
 import type { AnyRoute } from "@tanstack/react-router";
 import {
@@ -18,6 +17,7 @@ import { makeAsyncResource, makeResource } from "@isbabyoutyet/backend/convex/te
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { LocaleProvider } from "@/lib/i18n";
 import type { ConvexTestHarness } from "@/test/convexTestHarness";
+import type { ParentRouteContext } from "@/test/routeTestContext";
 import { routeContextFromHarness } from "@/test/routeTestContext";
 import { stubJsdomWindow } from "@/test/stubJsdomWindow";
 
@@ -60,12 +60,6 @@ type MountedFileRouteOpts = {
   wrap: ((children: ReactNode) => ReactNode) | null;
 };
 
-type AuthProfileRouterContext = {
-  isAdmin: boolean;
-  locale: SupportedLocale;
-  token: string | undefined;
-};
-
 /**
  * Mounts a real file-route component end-to-end: beforeLoad + loader + the
  * production wrapper, backed by `convex-test` through the shared harness.
@@ -75,19 +69,16 @@ export async function renderMountedFileRoute(opts: MountedFileRouteOpts) {
 }
 
 /**
- * Same as {@link renderMountedFileRoute}, with extra router context (e.g. the
- * `_auth` layout's signed-in profile fields) merged onto the harness defaults.
+ * Same as {@link renderMountedFileRoute}, with extra router context (e.g. a
+ * parent guard's `signedInRouteContext`) merged onto the harness defaults.
  */
 export async function renderMountedFileRouteWithRouterContext(
-  opts: MountedFileRouteOpts & { routerContext: AuthProfileRouterContext },
+  opts: MountedFileRouteOpts & { routerContext: ParentRouteContext },
 ) {
   return await mountFileRoute(opts, opts.routerContext);
 }
 
-async function mountFileRoute(
-  opts: MountedFileRouteOpts,
-  routerContext: AuthProfileRouterContext | Record<string, never>,
-) {
+async function mountFileRoute(opts: MountedFileRouteOpts, routerContext: ParentRouteContext) {
   const context = { ...routeContextFromHarness(opts.harness), ...routerContext };
 
   const history =

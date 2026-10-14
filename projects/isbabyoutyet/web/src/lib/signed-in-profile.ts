@@ -18,7 +18,9 @@ export type SignedInProfileContext = {
  * they navigate here. An expired session flips the cache to null.
  *
  * Returns `null` when the user is not signed in so callers can bounce to
- * their own login (dashboard `/auth/login` vs baby-page overlay).
+ * their own login (dashboard `/auth/login` vs baby-page overlay). Otherwise
+ * route context gets the profile's handle (`me`) plus the fields routing
+ * reads directly.
  *
  * `locale` is the signed-in profile language for dashboard `/_auth`. Baby
  * manager overlays must not put it in route context — the baby page already
@@ -39,9 +41,7 @@ export async function loadSignedInProfile(opts: {
     opts.context.convexHttpClient?.setAuth(token);
   }
 
-  // Route context must serialize, so it carries the profile's fields, not a
-  // query handle: child loaders `ensure` `profile.get` again, a cache hit.
-  await queryClient.ensure(convexQuery(api.profile.get), {});
+  const meHandle = await queryClient.ensure(convexQuery(api.profile.get), {});
   const me = queryClient.getData(convexQuery(api.profile.get), {});
   if (!me) {
     return null;
@@ -49,6 +49,8 @@ export async function loadSignedInProfile(opts: {
   return {
     isAdmin: me.isAdmin,
     locale: me.locale,
+    /** `profile.get`'s handle, for child routes to read with `useQuery`. */
+    me: meHandle,
     token,
   };
 }
