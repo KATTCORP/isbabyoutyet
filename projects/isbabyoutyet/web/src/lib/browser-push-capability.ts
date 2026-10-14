@@ -1,5 +1,4 @@
 import { queryOptions } from "@raf-query/react";
-import type { QueryClient } from "@raf-query/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { ConvexReader } from "@workspace/convex-query";
 import { readConvexQuery } from "@workspace/convex-query";
@@ -23,33 +22,19 @@ const BROWSER_PUSH_CAPABILITY_KEY = "browserPushCapability";
 const SERVICE_WORKER_READY_TIMEOUT_MS = 5000;
 
 /**
- * This device's push state for a baby page. Only a browser can tell, so
- * nothing starts it on the server (see {@link prefetchBrowserPushCapability}).
- * `staleTime` 0: every loader prefetch rechecks, as permission can change
- * outside the app.
+ * This device's push state for a baby page. Only a browser can tell, so it
+ * never runs on the server (`ssr: false`): the server renders it pending, and
+ * the browser detects once it renders. `staleTime` 0: every loader prefetch
+ * rechecks, as permission can change outside the app.
  */
 export function browserPushCapabilityQuery(babyRef: string) {
   return queryOptions({
     queryFn: () => resolveBrowserPushCapability(babyRef),
     queryKey: [BROWSER_PUSH_CAPABILITY_KEY, babyRef],
     retry: false,
+    ssr: false,
     staleTime: 0,
   });
-}
-
-/**
- * Start detecting in a loader, so it runs while the route's data loads. On
- * the server it only returns the handle: the reader starts detection once
- * it renders in the browser.
- */
-export function prefetchBrowserPushCapability(
-  queryClient: QueryClient<ConvexReader>,
-  babyRef: string,
-) {
-  if (globalThis.window === undefined) {
-    return queryClient.getQuery(browserPushCapabilityQuery, babyRef).handle;
-  }
-  return queryClient.prefetch(browserPushCapabilityQuery, babyRef);
 }
 
 function hasLegacyMSStream(value: Window): value is Window & { MSStream: unknown } {

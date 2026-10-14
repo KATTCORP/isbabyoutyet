@@ -3,7 +3,7 @@ import { BabyIcon } from "@phosphor-icons/react";
 import { EncouragementForm } from "@/components/baby/encouragements";
 import { TimelineFeed } from "@/components/baby/timeline";
 import { NotificationSubscribe } from "@/components/baby/notification-subscribe";
-import { prefetchBrowserPushCapability } from "@/lib/browser-push-capability";
+import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
 import { ProgressIndicator } from "@/components/baby/progress-indicator";
 import { ScheduledNotificationToast } from "@/components/baby/scheduled-notification-toast";
 import { StatusDisplay } from "@/components/baby/status-display";
@@ -74,7 +74,7 @@ export const Route = createFileRoute("/baby/$publicId")({
   loader: async (opts) => {
     const queryClient = opts.context.queryClient;
     const publicId = opts.params.publicId;
-    const browserPush = prefetchBrowserPushCapability(queryClient, publicId);
+    const browserPush = queryClient.prefetch(browserPushCapabilityQuery, publicId);
 
     const loaderData = await allKeyed({
       baby: queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: publicId }),

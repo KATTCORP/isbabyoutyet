@@ -12,10 +12,7 @@ import { seedOwnedBaby, signUpTestUser } from "@/test/convexTestSeed";
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import type { BrowserPushCapability } from "@/lib/browser-push-capability";
-import {
-  browserPushCapabilityQuery,
-  prefetchBrowserPushCapability,
-} from "@/lib/browser-push-capability";
+import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
 import { seedBrowserPushCapability } from "@/test/browserPush";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { ManagerNotificationChooserView, NotificationSubscribe } from "./notification-subscribe";
@@ -314,7 +311,7 @@ test("prefetches capability and isSubscribed into the query cache in the browser
     subscription: { endpoint: "https://push.example/sub" } as PushSubscription,
   });
 
-  const handle = prefetchBrowserPushCapability(queryClient, babyRef);
+  const handle = queryClient.prefetch(browserPushCapabilityQuery, babyRef);
 
   expect(handle).toMatchObject({ input: babyRef });
   await vi.waitFor(() => {
@@ -327,21 +324,25 @@ test("prefetches capability and isSubscribed into the query cache in the browser
   });
 });
 
-test("does not touch PushManager while prefetching on the server", async () => {
-  await using queryClient = queryClientResource();
-  const originalWindow = globalThis.window;
-  vi.stubGlobal("window", undefined);
-  await using _window = makeResource({}, () => {
-    vi.unstubAllGlobals();
-    globalThis.window = originalWindow;
+test("does not detect push while prefetching on the server", async () => {
+  await using stub = stubQueryClientResource(
+    async (query) => {
+      throw new Error(`unexpected query ${getFunctionName(query)}`);
+    },
+    { isServer: true },
+  );
+  await using _env = stubBrowserPush({
+    hasNotification: true,
+    hasPushManager: true,
+    hasServiceWorker: true,
   });
 
-  const prefetchSpy = vi.spyOn(queryClient, "prefetch");
-  const handle = prefetchBrowserPushCapability(queryClient, babyRef);
+  const handle = stub.queryClient.prefetch(browserPushCapabilityQuery, babyRef);
+  // Detection always settles on some capability; on the server none appears.
+  await new Promise((resolve) => setTimeout(resolve, 10));
 
   expect(handle).toMatchObject({ input: babyRef });
-  expect(prefetchSpy).not.toHaveBeenCalled();
-  expect(queryClient.getData(browserPushCapabilityQuery, babyRef)).toBeUndefined();
+  expect(stub.queryClient.getData(browserPushCapabilityQuery, babyRef)).toBeUndefined();
 });
 
 test("shows a disabled Get Notifications while push detection is pending", async () => {
