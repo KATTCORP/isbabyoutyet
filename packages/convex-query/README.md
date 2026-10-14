@@ -33,9 +33,10 @@ if (!isServer) {
 
 ## Usage
 
-Build factories once at module level. raf-query keys cached entries by
-factory identity, so an inline `convexQuery(api.x)` in each call creates a new
-factory every time:
+Build factories once at module level. TypeScript can't infer the input of a
+generic factory call passed in place, so
+`queryClient.ensure(convexQuery(api.profile.get), {})` does not type-check,
+while a named factory does:
 
 ```ts
 export const queries = {

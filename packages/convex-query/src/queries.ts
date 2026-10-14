@@ -46,11 +46,15 @@ export interface PaginatedQueryInput<TQuery extends PaginatedQueryReference> {
  * The raf-query factory for a Convex query: its input is the function's args.
  * Data stays live through {@link connectConvexLive}, so it never goes stale.
  *
+ * Build it once at module level: raf-query can't infer the input of a
+ * generic call passed in place.
+ *
  * @example
+ * const getProfile = convexQuery(api.profile.get);
  * // loader
- * profile: queryClient.ensure(convexQuery(api.profile.get), {}),
+ * profile: queryClient.ensure(getProfile, {}),
  * // component
- * const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile);
+ * const [profile] = useQuery(getProfile, loaderData.profile);
  */
 export function convexQuery<TQuery extends QueryReference>(query: TQuery) {
   const functionName = getFunctionName(query);
