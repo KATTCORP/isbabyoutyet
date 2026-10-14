@@ -3,7 +3,6 @@ import { Query } from "@raf-query/react";
 import type { DefaultFunctionArgs, PaginationOptions } from "convex/server";
 import { makeFunctionReference } from "convex/server";
 import type { Value } from "convex/values";
-import { isNumber, isPlainObject, isString } from "@workspace/runtime/guards";
 import { Predicate } from "effect";
 import {
   CONVEX_PAGINATED_QUERY_KEY,
@@ -39,14 +38,14 @@ function liveKey(key: ReadonlyArray<unknown>): LiveKey | null {
   const tag = key[0];
   const name = key[1];
   const args = key[2];
-  if (!isString(name) || !isPlainObject(args)) {
+  if (!Predicate.isString(name) || !Predicate.isObject(args)) {
     return null;
   }
   if (tag === CONVEX_QUERY_KEY && key.length === 3) {
     return { args, kind: "query", name };
   }
   const numItems = key[3];
-  if (tag === CONVEX_PAGINATED_QUERY_KEY && key.length === 4 && isNumber(numItems)) {
+  if (tag === CONVEX_PAGINATED_QUERY_KEY && key.length === 4 && Predicate.isNumber(numItems)) {
     return { args, kind: "paginated", name, numItems };
   }
   return null;
@@ -62,7 +61,7 @@ function pageCursors(data: Query.State<unknown>["data"]): ReadonlyArray<string |
       return null;
     }
     const cursor = param.cursor;
-    if (cursor !== null && !isString(cursor)) {
+    if (cursor !== null && !Predicate.isString(cursor)) {
       return null;
     }
     cursors.push(cursor);

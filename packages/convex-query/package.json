@@ -16,13 +16,9 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
-  "dependencies": {
-    "@workspace/runtime": "workspace:*"
-  },
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@raf-query/react": "catalog:",
-    "@tanstack/react-router": "catalog:",
     "@workspace/tsconfig": "workspace:*",
     "convex": "catalog:",
     "effect": "catalog:",

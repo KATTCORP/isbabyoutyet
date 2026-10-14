@@ -1,4 +1,9 @@
-import type { EnsuredQueryHandle, QueryHandle } from "@raf-query/react";
+import type {
+  EnsuredQueryHandle,
+  InfiniteQueryOptions,
+  QueryHandle,
+  QueryOptions,
+} from "@raf-query/react";
 import { infiniteQueryOptions, queryOptions } from "@raf-query/react";
 import type {
   DefaultFunctionArgs,
@@ -42,23 +47,42 @@ export interface PaginatedQueryInput<TQuery extends PaginatedQueryReference> {
   readonly numItems: number;
 }
 
+/** The raf-query factory {@link convexQuery} returns for `TQuery`. */
+export type ConvexQueryFactory<TQuery extends QueryReference> = (
+  args: FunctionArgs<TQuery>,
+) => QueryOptions<FunctionReturnType<TQuery>, ConvexQueryError, ConvexReader>;
+
+/** The raf-query factory {@link convexPaginatedQuery} returns for `TQuery`. */
+export type ConvexPaginatedQueryFactory<TQuery extends PaginatedQueryReference> = (
+  input: PaginatedQueryInput<TQuery>,
+) => InfiniteQueryOptions<
+  FunctionReturnType<TQuery>,
+  PaginationOptions,
+  ConvexQueryError,
+  ConvexReader
+>;
+
 /**
  * The raf-query factory for a Convex query: its input is the function's args.
  * Data stays live through {@link connectConvexLive}, so it never goes stale.
+ * Call it inline; entries are keyed by function name and args, so every call
+ * for the same query reaches the same cache entry.
  *
- * Build it once at module level: raf-query can't infer the input of a
- * generic call passed in place.
+ * The return type is `NoInfer` so a call passed straight to a raf verb
+ * (`queryClient.ensure(convexQuery(api.x), args)`) infers `TQuery` from
+ * `query` alone, not from the verb's `QueryFactory` constraint.
  *
  * @example
- * const getProfile = convexQuery(api.profile.get);
  * // loader
- * profile: queryClient.ensure(getProfile, {}),
+ * profile: queryClient.ensure(convexQuery(api.profile.get), {}),
  * // component
- * const [profile] = useQuery(getProfile, loaderData.profile);
+ * const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile);
  */
-export function convexQuery<TQuery extends QueryReference>(query: TQuery) {
+export function convexQuery<TQuery extends QueryReference>(
+  query: TQuery,
+): NoInfer<ConvexQueryFactory<TQuery>> {
   const functionName = getFunctionName(query);
-  return (args: FunctionArgs<TQuery>) =>
+  return (args) =>
     queryOptions<FunctionReturnType<TQuery>, ConvexQueryError, ConvexReader>({
       queryFn: () => readConvexQuery(query, args),
       queryKey: [CONVEX_QUERY_KEY, functionName, args],
@@ -78,6 +102,7 @@ function pageArgs(args: DefaultFunctionArgs, paginationOpts: PaginationOptions) 
 /**
  * The raf-query factory for a cursor-paginated Convex query. Pages load with
  * `fetchNextPage`; every loaded page stays live through {@link connectConvexLive}.
+ * Like {@link convexQuery}, call it inline.
  *
  * @example
  * timeline: queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
@@ -85,9 +110,11 @@ function pageArgs(args: DefaultFunctionArgs, paginationOpts: PaginationOptions) 
  *   numItems: 20,
  * }),
  */
-export function convexPaginatedQuery<TQuery extends PaginatedQueryReference>(query: TQuery) {
+export function convexPaginatedQuery<TQuery extends PaginatedQueryReference>(
+  query: TQuery,
+): NoInfer<ConvexPaginatedQueryFactory<TQuery>> {
   const functionName = getFunctionName(query);
-  return (input: PaginatedQueryInput<TQuery>) =>
+  return (input) =>
     infiniteQueryOptions<
       FunctionReturnType<TQuery>,
       PaginationOptions,
@@ -104,22 +131,12 @@ export function convexPaginatedQuery<TQuery extends PaginatedQueryReference>(que
     });
 }
 
-/** The factory {@link convexQuery} returns for `TQuery`. */
-export type ConvexQueryFactory<TQuery extends QueryReference> = ReturnType<
-  typeof convexQuery<TQuery>
->;
-
-/** The factory {@link convexPaginatedQuery} returns for `TQuery`. */
-export type ConvexPaginatedQueryFactory<TQuery extends PaginatedQueryReference> = ReturnType<
-  typeof convexPaginatedQuery<TQuery>
->;
-
 /** Loader handle from `queryClient.ensure(convexQuery(query), args)`. */
 export type EnsuredConvexQuery<TQuery extends QueryReference> = EnsuredQueryHandle<
   ConvexQueryFactory<TQuery>
 >;
 
-/** Loader handle from `queryClient.prefetch(convexQuery(query), args)` or `useWaterfall`. */
+/** Handle from `queryClient.prefetch(convexQuery(query), args)` or `useWaterfall`. */
 export type ConvexQueryHandle<TQuery extends QueryReference> = QueryHandle<
   ConvexQueryFactory<TQuery>
 >;
@@ -127,3 +144,8 @@ export type ConvexQueryHandle<TQuery extends QueryReference> = QueryHandle<
 /** Loader handle from `queryClient.ensure(convexPaginatedQuery(query), input)`. */
 export type EnsuredConvexPaginatedQuery<TQuery extends PaginatedQueryReference> =
   EnsuredQueryHandle<ConvexPaginatedQueryFactory<TQuery>>;
+
+/** Handle from `queryClient.prefetch(convexPaginatedQuery(query), input)` or `useWaterfall`. */
+export type ConvexPaginatedQueryHandle<TQuery extends PaginatedQueryReference> = QueryHandle<
+  ConvexPaginatedQueryFactory<TQuery>
+>;

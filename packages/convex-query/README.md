@@ -33,17 +33,9 @@ if (!isServer) {
 
 ## Usage
 
-Build factories once at module level. TypeScript can't infer the input of a
-generic factory call passed in place, so
-`queryClient.ensure(convexQuery(api.profile.get), {})` does not type-check,
-while a named factory does:
-
-```ts
-export const queries = {
-  profile: { get: convexQuery(api.profile.get) },
-  timeline: { listByBaby: convexPaginatedQuery(api.timeline.listByBaby) },
-};
-```
+Call the factories inline with a function reference; there is no registry to
+maintain. Cache entries are keyed by function name and args, so two
+`convexQuery(api.profile.get)` calls address the same entry.
 
 Loaders `ensure` (data is cached before render and dehydrated for SSR) and
 return the handles; components read the handle:
@@ -51,15 +43,24 @@ return the handles; components read the handle:
 ```tsx
 loader: async (opts) =>
   await allKeyed({
-    profile: opts.context.queryClient.ensure(queries.profile.get, {}),
-    timeline: opts.context.queryClient.ensure(queries.timeline.listByBaby, {
-      args: { babyId },
-      numItems: 20,
-    }),
+    profile: opts.context.queryClient.ensure(convexQuery(api.profile.get), {}),
+    timeline: opts.context.queryClient.ensure(
+      convexPaginatedQuery(api.timeline.listByBaby),
+      { args: { babyId }, numItems: 20 },
+    ),
   }),
 
-const [profile] = useQuery(queries.profile.get, loaderData.profile);
+const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile);
 ```
+
+Type props that receive a loader handle with `EnsuredConvexQuery<typeof
+api.profile.get>` or `EnsuredConvexPaginatedQuery<typeof
+api.timeline.listByBaby>`.
+
+The factories return `NoInfer<...>`. Without it, a generic call passed
+straight to a raf verb such as `ensure(factory, ...args)` makes TypeScript
+widen the verb's factory type parameter to its constraint, and the args stop
+type-checking.
 
 `convexPaginatedQuery` is an infinite query over Convex `paginate`. Every
 loaded page except the last stays pinned to its end cursor while live, so

@@ -5,6 +5,7 @@ export {
   convexPaginatedQuery,
   convexQuery,
   type ConvexPaginatedQueryFactory,
+  type ConvexPaginatedQueryHandle,
   type ConvexQueryFactory,
   type ConvexQueryHandle,
   type EnsuredConvexPaginatedQuery,
