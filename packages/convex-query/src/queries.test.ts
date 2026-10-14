@@ -69,4 +69,10 @@ test("inline paginated factories infer pages and take the args without paginatio
     InfiniteData<{ page: PaginationResult<string>; pageParam: PaginationOptions }> | undefined
   >();
   expect(data?.pages.flatMap((page) => page.page)).toEqual(["lobby:hello"]);
+
+  await queryClient.ensure(
+    convexPaginatedQuery(listMessages),
+    { args: { room: "lobby" }, numItems: 10 },
+    { pages: 2 },
+  );
 });

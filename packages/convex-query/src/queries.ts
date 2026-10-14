@@ -71,10 +71,7 @@ export type ConvexPaginatedQueryFactory<TQuery extends PaginatedQueryReference> 
  * Data stays live through {@link connectConvexLive}, so it never goes stale.
  * Call it inline; entries are keyed by function name and args, so every call
  * for the same query reaches the same cache entry.
- *
- * The return type is `NoInfer` so a call passed straight to a raf verb
- * (`queryClient.ensure(convexQuery(api.x), args)`) infers `TQuery` from
- * `query` alone, not from the verb's `QueryFactory` constraint.
+
  *
  * @example
  * // loader
@@ -84,7 +81,7 @@ export type ConvexPaginatedQueryFactory<TQuery extends PaginatedQueryReference> 
  */
 export function convexQuery<TQuery extends QueryReference>(
   query: TQuery,
-): NoInfer<ConvexQueryFactory<TQuery>> {
+): ConvexQueryFactory<TQuery> {
   const functionName = getFunctionName(query);
   return (args) =>
     queryOptions<FunctionReturnType<TQuery>, ConvexQueryError, ConvexReader>({
@@ -116,7 +113,7 @@ function pageArgs(args: DefaultFunctionArgs, paginationOpts: PaginationOptions) 
  */
 export function convexPaginatedQuery<TQuery extends PaginatedQueryReference>(
   query: TQuery,
-): NoInfer<ConvexPaginatedQueryFactory<TQuery>> {
+): ConvexPaginatedQueryFactory<TQuery> {
   const functionName = getFunctionName(query);
   return (input) =>
     infiniteQueryOptions<
