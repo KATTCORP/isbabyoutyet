@@ -351,6 +351,8 @@ async function runBabyLoader(queryClient: QueryClient<ConvexReader>) {
 }
 
 test("loader ensures the same set for visitors; gated queries come back forbidden", async () => {
+  // Workers share jsdom storage across files; this visitor has never posted.
+  localStorage.removeItem("encouragement-visitor-id");
   await using stub = loaderQueryClientResource({
     "baby:getByPublicId": BABY_DOC,
     "baby:getManagerBaby": "forbidden",
