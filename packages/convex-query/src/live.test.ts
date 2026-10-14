@@ -231,6 +231,28 @@ describe("connectConvexLive", () => {
     });
   });
 
+  it("follows the page boundaries a refetch moves", async () => {
+    const live = setup();
+    const input = { args: { room: "lobby" }, numItems: 2 };
+    await live.queryClient.ensure(messageList, input, { pages: 2 });
+    vi.advanceTimersByTime(5000);
+
+    live.items.shift();
+    await Effect.runPromise(Query.refetch(live.queryClient.getQuery(messageList, input)));
+    vi.advanceTimersByTime(5000);
+    expect(live.queryClient.getData(messageList, input)?.pages.map((page) => page.page)).toEqual([
+      ["b", "c"],
+      ["d", "e"],
+    ]);
+    expect(live.backend.subscriptions().map((subscription) => subscription.args)).toEqual(
+      expect.arrayContaining([
+        { paginationOpts: { cursor: null, endCursor: "c", numItems: 2 }, room: "lobby" },
+        { paginationOpts: { cursor: "c", numItems: 2 }, room: "lobby" },
+      ]),
+    );
+    expect(live.backend.subscriptions()).toHaveLength(2);
+  });
+
   it("invalidates the entry when its subscription fails", async () => {
     const live = setup();
     await live.queryClient.ensure(message, { id: "a" });
