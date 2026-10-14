@@ -179,9 +179,11 @@ describe("connectConvexLive", () => {
     release();
     await Promise.all([nextPage, refreshed]);
     await vi.waitFor(() => {
-      expect(live.queryClient.getData(messageList, input)?.pages.map((page) => page.page)).toEqual(
-        [["new", "a", "b"], ["c", "d"], ["e"]],
-      );
+      expect(live.queryClient.getData(messageList, input)?.pages.map((page) => page.page)).toEqual([
+        ["new", "a", "b"],
+        ["c", "d"],
+        ["e"],
+      ]);
     });
   });
 
