@@ -194,7 +194,7 @@ export function connectConvexLive(opts: {
 }): () => void {
   /** Entry hash → subscription id → its watch. */
   const live = new Map<string, Map<string, Watching>>();
-  /** Hashes of live entries with a request in flight. */
+  /** Hashes of live entries with a full refetch in flight. */
   const fetching = new Set<string>();
 
   const stop = (hash: string) => {
@@ -207,14 +207,14 @@ export function connectConvexLive(opts: {
   };
 
   /**
-   * A request's result is built from the data it started with (raf appends
-   * a fetched page to the pages it saw), so it can undo results written
-   * while it ran. Write the subscriptions' latest results again once it lands.
+   * A full refetch replaces the data with what it read, page by page, so it
+   * can undo results written while it ran. Write the subscriptions' latest
+   * results again once it lands. (A page load keeps them.)
    */
-  const redeliverAfterFetch = (query: Query.Query) => {
+  const redeliverAfterRefetch = (query: Query.Query) => {
     const state = Query.getUnsafe(query);
     if (state.isFetching) {
-      if (live.has(query.hash)) {
+      if (live.has(query.hash) && state.fetchDirection === undefined) {
         fetching.add(query.hash);
       }
       return;
@@ -262,7 +262,7 @@ export function connectConvexLive(opts: {
       return;
     }
     sync(event.query);
-    redeliverAfterFetch(event.query);
+    redeliverAfterRefetch(event.query);
   });
   for (const query of opts.queryClient.getAll()) {
     sync(query);
