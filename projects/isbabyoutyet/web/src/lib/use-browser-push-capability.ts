@@ -9,8 +9,12 @@ function noRefetch() {
   return Promise.resolve();
 }
 
-/** The server can't detect push, so it renders the pending state. */
-function useServerBrowserPushCapability(_handle: BrowserPushHandle) {
+/**
+ * The server can't detect push, so it renders the pending state.
+ *
+ * @internal exported for tests; the module picks it on the server.
+ */
+export function useServerBrowserPushCapability(_handle: BrowserPushHandle) {
   return [null, noRefetch] as const;
 }
 

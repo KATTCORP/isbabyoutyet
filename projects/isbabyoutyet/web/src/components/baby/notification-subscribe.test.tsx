@@ -344,6 +344,38 @@ test("does not touch PushManager while prefetching on the server", async () => {
   expect(queryClient.getData(browserPushCapabilityQuery, babyRef)).toBeUndefined();
 });
 
+test("shows a disabled Get Notifications while push detection is pending", async () => {
+  await using _env = stubBrowserPush({
+    hasNotification: true,
+    hasPushManager: true,
+    hasServiceWorker: true,
+    serviceWorkerReady: new Promise<ServiceWorkerRegistration>(() => {}),
+  });
+  await using harness = await createConvexTestHarness({ identity: null });
+  const vapid = await harness.queryClient.ensure(
+    convexQuery(api.pushSubscriptions.getPublicKey),
+    {},
+  );
+  const view = await renderWithConvexTest({
+    harness,
+    ui: (
+      <NotificationSubscribe
+        audience="visitor"
+        babyId={babyId}
+        browserPush={harness.queryClient.getQuery(browserPushCapabilityQuery, babyRef).handle}
+        vapidPublicKey={vapid}
+      />
+    ),
+    wrap: null,
+  });
+  await using _view = makeAsyncResource(view, async () => {
+    view[Symbol.dispose]();
+  });
+
+  const button = view.getByRole("button", { name: "Get Notifications" });
+  expect(button.hasAttribute("disabled")).toBe(true);
+});
+
 test("shows iOS Home Screen instructions when the PWA is not installed", async () => {
   await using view = await renderSubscribe({ kind: "needsIosInstall" }, "visitor");
 
@@ -637,6 +669,57 @@ function stubGrantedOwnerPush() {
     }
   });
 }
+
+test("a manager saving the chooser subscribes this device to both alerts", async () => {
+  await using _env = stubGrantedOwnerPush();
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
+  const vapid = await harness.queryClient.ensure(
+    convexQuery(api.pushSubscriptions.getPublicKey),
+    {},
+  );
+  const view = await renderWithConvexTest({
+    harness,
+    ui: (
+      <TooltipProvider>
+        <NotificationSubscribe
+          audience="manager"
+          babyId={baby.babyId}
+          browserPush={seedBrowserPushCapability(harness.queryClient, {
+            babyRef: baby.publicId,
+            capability: { kind: "unsubscribed" },
+          })}
+          vapidPublicKey={vapid}
+        />
+      </TooltipProvider>
+    ),
+    wrap: null,
+  });
+  await using _view = makeAsyncResource(view, async () => {
+    view[Symbol.dispose]();
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Get Notifications" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await vi.waitFor(async () => {
+    expect(
+      await harness.client.query(api.pushSubscriptions.isOwnerSubscribed, {
+        babyId: baby.babyId,
+        endpoint: OWNER_ENDPOINT,
+      }),
+    ).toBe(true);
+  });
+  expect(
+    await harness.client.query(api.pushSubscriptions.isSubscribed, {
+      babyId: baby.babyId,
+      endpoint: OWNER_ENDPOINT,
+    }),
+  ).toBe(true);
+  await vi.waitFor(() => {
+    expect(screen.queryByRole("heading", { name: "Choose notifications" })).toBeNull();
+  });
+});
 
 test("visitor Get Notifications does not drop owner message alerts", async () => {
   await using _env = stubGrantedOwnerPush();
