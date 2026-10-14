@@ -21,9 +21,9 @@ loader: async (opts) => {
   const publicId = opts.params.publicId;
 
   return await allKeyed({
-    baby: queryClient.ensure(queries.baby.getByPublicId, { id: publicId }),
-    profile: queryClient.ensure(queries.profile.get, {}),
-    timeline: queryClient.ensure(queries.timeline.listByBaby, {
+    baby: queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: publicId }),
+    profile: queryClient.ensure(convexQuery(api.profile.get), {}),
+    timeline: queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
       args: { babyId: publicId, visitorId: null },
       numItems: TIMELINE_PAGE_SIZE,
     }),
@@ -32,7 +32,7 @@ loader: async (opts) => {
 };
 ```
 
-Factories come from [`src/lib/convex-queries.ts`](../../../projects/isbabyoutyet/web/src/lib/convex-queries.ts) (built with `convexQuery` / `convexPaginatedQuery` from `@workspace/convex-query`). When the loader itself needs a value (404, redirect), `await queryClient.ensure(...)` and then read `queryClient.getData(...)`.
+Build factories inline with `convexQuery(api.x.y)` / `convexPaginatedQuery(api.x.y)` from `@workspace/convex-query`; entries are keyed by function name and args, so there is no registry. When the loader itself needs a value (404, redirect), `await queryClient.ensure(...)` and then read `queryClient.getData(...)`.
 
 Reference: [`projects/isbabyoutyet/web/src/routes/baby/$publicId/route.tsx`](../../../projects/isbabyoutyet/web/src/routes/baby/$publicId/route.tsx).
 

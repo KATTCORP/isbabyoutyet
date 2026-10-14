@@ -1,13 +1,13 @@
 # Loader waterfall examples
 
-`queries` is `@/lib/convex-queries`; `queryClient` is `opts.context.queryClient`.
+`convexQuery` / `convexPaginatedQuery` come from `@workspace/convex-query`; `queryClient` is `opts.context.queryClient`.
 
 ## ❌ Waterfall: resolve id, then prefetch dependents
 
 ```typescript
 beforeLoad: async (opts) => {
-  await queryClient.ensure(queries.baby.getByPublicId, { id: opts.params.publicId });
-  const baby = queryClient.getData(queries.baby.getByPublicId, { id: opts.params.publicId });
+  await queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId });
+  const baby = queryClient.getData(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId });
   if (!baby) throw notFound();
   return { babyId: baby._id };
 },
@@ -15,8 +15,8 @@ beforeLoad: async (opts) => {
 loader: async (opts) => {
   const babyId = opts.context.babyId; // loader blocked on beforeLoad
   return await allKeyed({
-    baby: queryClient.ensure(queries.baby.getByPublicId, { id: opts.params.publicId }),
-    timeline: queryClient.ensure(queries.timeline.listByBaby, {
+    baby: queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId }),
+    timeline: queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
       args: { babyId, visitorId: null }, // cannot start until beforeLoad finishes
       numItems: 20,
     }),
@@ -31,8 +31,8 @@ Problems: `beforeLoad` → `loader` serializes; timeline prefetch waits on baby 
 ```typescript
 beforeLoad: async (opts) => {
   // routing only: 404, redirect stale slug, locale
-  await queryClient.ensure(queries.baby.getByPublicId, { id: opts.params.publicId });
-  const baby = queryClient.getData(queries.baby.getByPublicId, { id: opts.params.publicId });
+  await queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId });
+  const baby = queryClient.getData(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId });
   if (!baby) throw notFound();
   if (baby.publicId !== opts.params.publicId) {
     throw redirect({ to: "/baby/$publicId", params: { publicId: baby.publicId } });
@@ -43,12 +43,12 @@ beforeLoad: async (opts) => {
 loader: async (opts) => {
   const publicId = opts.params.publicId;
   return await allKeyed({
-    baby: queryClient.ensure(queries.baby.getByPublicId, { id: publicId }), // cache hit
-    timeline: queryClient.ensure(queries.timeline.listByBaby, {
+    baby: queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: publicId }), // cache hit
+    timeline: queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
       args: { babyId: publicId, visitorId: null },
       numItems: 20,
     }),
-    myAccess: queryClient.ensure(queries.coParents.myAccess, { babyId: publicId }),
+    myAccess: queryClient.ensure(convexQuery(api.coParents.myAccess), { babyId: publicId }),
   });
 };
 ```
@@ -61,7 +61,7 @@ Backend queries accept `v.union(v.id("baby"), v.string())` and resolve internall
 loader: async (opts) => {
   const token = await getAuthToken(opts);
   opts.context.convexHttpClient?.setAuth(token);
-  await queryClient.ensure(queries.profile.get, {});
+  await queryClient.ensure(convexQuery(api.profile.get), {});
   return await allKeyed({ /* … */ });
 };
 ```
@@ -72,9 +72,9 @@ Auth and profile loading belong on the authenticated layout, not page loaders.
 
 ```typescript
 loader: async (opts) => {
-  await queryClient.ensure(queries.baby.getByPublicId, { id: publicId });
-  const baby = queryClient.getData(queries.baby.getByPublicId, { id: publicId });
-  const timeline = await queryClient.ensure(queries.timeline.listByBaby, {
+  await queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: publicId });
+  const baby = queryClient.getData(convexQuery(api.baby.getByPublicId), { id: publicId });
+  const timeline = await queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
     args: { babyId: baby._id, visitorId: null },
     numItems: 20,
   });
