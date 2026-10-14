@@ -35,6 +35,7 @@ function setup() {
   const messages = new Map([["a", "hello"]]);
   const items = ["a", "b", "c", "d", "e"];
   let failing = false;
+  const held = new Map<string, Promise<void>>();
   const backend = makeTestConvexClient(async (query, args) => {
     if (failing) {
       throw new Error("Not allowed");
@@ -44,7 +45,9 @@ function setup() {
         return messages.get(args.id) ?? null;
       }
       case "messages:list": {
-        return paginate(items, args.paginationOpts);
+        const pageOpts = args.paginationOpts;
+        await held.get(String(pageOpts.cursor));
+        return paginate(items, pageOpts);
       }
       default: {
         throw new Error("Unknown query");
@@ -66,6 +69,15 @@ function setup() {
     disconnect,
     fail: () => {
       failing = true;
+    },
+    /** Hold reads of the page starting after `cursor` until the returned release is called. */
+    hold: (cursor: string) => {
+      const release = Promise.withResolvers<void>();
+      held.set(cursor, release.promise);
+      return () => {
+        held.delete(cursor);
+        release.resolve();
+      };
     },
     items,
     messages,
@@ -142,6 +154,35 @@ describe("connectConvexLive", () => {
       ]),
     );
     expect(live.backend.subscriptions()).toHaveLength(2);
+  });
+
+  it("keeps a page update that lands while the next page loads", async () => {
+    const live = setup();
+    const input = { args: { room: "lobby" }, numItems: 2 };
+    await live.queryClient.ensure(messageList, input, { pages: 2 });
+
+    const release = live.hold("d");
+    const nextPage = Effect.runPromise(
+      Query.fetchNextPage(live.queryClient.getQuery(messageList, input)),
+    );
+    live.items.unshift("new");
+    // The held page's subscription re-runs too, so this settles on release.
+    const refreshed = live.backend.refresh();
+    await vi.waitFor(() => {
+      expect(live.queryClient.getData(messageList, input)?.pages[0]?.page).toEqual([
+        "new",
+        "a",
+        "b",
+      ]);
+    });
+
+    release();
+    await Promise.all([nextPage, refreshed]);
+    await vi.waitFor(() => {
+      expect(live.queryClient.getData(messageList, input)?.pages.map((page) => page.page)).toEqual(
+        [["new", "a", "b"], ["c", "d"], ["e"]],
+      );
+    });
   });
 
   it("invalidates the entry when its subscription fails", async () => {

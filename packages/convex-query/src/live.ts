@@ -147,28 +147,38 @@ function subscriptionsFor(
   }
 }
 
-function subscribe(subscription: Subscription, client: ConvexWatchClient) {
+/** A live subscription: `redeliver` writes its latest result again, ignoring errors. */
+interface Watching {
+  redeliver(): void;
+  unsubscribe(): void;
+}
+
+const claimed: Watching = { redeliver: noop, unsubscribe: noop };
+
+function subscribe(subscription: Subscription, client: ConvexWatchClient): Watching {
   const watch = client.watchQuery(
     makeFunctionReference<"query">(subscription.name),
     subscription.args,
   );
-  const update = () => {
+  const update = (opts: { reportErrors: boolean }) => {
     let value;
     try {
       value = watch.localQueryResult();
     } catch {
-      subscription.onError();
+      if (opts.reportErrors) {
+        subscription.onError();
+      }
       return;
     }
     if (value !== undefined) {
       subscription.onResult(value);
     }
   };
-  const unsubscribe = watch.onUpdate(update);
+  const unsubscribe = watch.onUpdate(() => update({ reportErrors: true }));
   // A result the client already holds (the read that filled the entry keeps
   // its subscription briefly) won't trigger `onUpdate` again.
-  update();
-  return unsubscribe;
+  update({ reportErrors: true });
+  return { redeliver: () => update({ reportErrors: false }), unsubscribe };
 }
 
 /**
@@ -182,14 +192,38 @@ export function connectConvexLive(opts: {
   client: ConvexWatchClient;
   queryClient: QueryClient<ConvexReader>;
 }): () => void {
-  /** Entry hash → subscription id → unsubscribe. */
-  const live = new Map<string, Map<string, () => void>>();
+  /** Entry hash → subscription id → its watch. */
+  const live = new Map<string, Map<string, Watching>>();
+  /** Hashes of live entries with a request in flight. */
+  const fetching = new Set<string>();
 
   const stop = (hash: string) => {
     const subscriptions = live.get(hash);
     live.delete(hash);
-    for (const unsubscribe of subscriptions?.values() ?? []) {
-      unsubscribe();
+    fetching.delete(hash);
+    for (const watching of subscriptions?.values() ?? []) {
+      watching.unsubscribe();
+    }
+  };
+
+  /**
+   * A request's result is built from the data it started with (raf appends
+   * a fetched page to the pages it saw), so it can undo results written
+   * while it ran. Write the subscriptions' latest results again once it lands.
+   */
+  const redeliverAfterFetch = (query: Query.Query) => {
+    const state = Query.getUnsafe(query);
+    if (state.isFetching) {
+      if (live.has(query.hash)) {
+        fetching.add(query.hash);
+      }
+      return;
+    }
+    if (!fetching.delete(query.hash) || state.status !== "success") {
+      return;
+    }
+    for (const watching of live.get(query.hash)?.values() ?? []) {
+      watching.redeliver();
     }
   };
 
@@ -204,19 +238,19 @@ export function connectConvexLive(opts: {
       stop(query.hash);
       return;
     }
-    const current = live.get(query.hash) ?? new Map<string, () => void>();
+    const current = live.get(query.hash) ?? new Map<string, Watching>();
     live.set(query.hash, current);
-    for (const [id, unsubscribe] of current) {
+    for (const [id, watching] of current) {
       if (!wanted.has(id)) {
         current.delete(id);
-        unsubscribe();
+        watching.unsubscribe();
       }
     }
     for (const [id, subscription] of wanted) {
       if (!current.has(id)) {
         // Claimed before subscribing: a result the client already holds is
         // written synchronously, and that cache update re-enters `sync`.
-        current.set(id, noop);
+        current.set(id, claimed);
         current.set(id, subscribe(subscription, opts.client));
       }
     }
@@ -228,6 +262,7 @@ export function connectConvexLive(opts: {
       return;
     }
     sync(event.query);
+    redeliverAfterFetch(event.query);
   });
   for (const query of opts.queryClient.getAll()) {
     sync(query);
