@@ -35,7 +35,7 @@ function setup() {
   const messages = new Map([["a", "hello"]]);
   const items = ["a", "b", "c", "d", "e"];
   let failing = false;
-  const held = new Map<string, Promise<void>>();
+  const held = new Map<string, { reached(): void; released: Promise<void> }>();
   const backend = makeTestConvexClient(async (query, args) => {
     if (failing) {
       throw new Error("Not allowed");
@@ -46,8 +46,13 @@ function setup() {
       }
       case "messages:list": {
         const pageOpts = args.paginationOpts;
-        await held.get(String(pageOpts.cursor));
-        return paginate(items, pageOpts);
+        const page = paginate(items, pageOpts);
+        const hold = held.get(
+          String(pageOpts.cursor) + (pageOpts.endCursor ? `..${pageOpts.endCursor}` : ""),
+        );
+        hold?.reached();
+        await hold?.released;
+        return page;
       }
       default: {
         throw new Error("Unknown query");
@@ -70,13 +75,21 @@ function setup() {
     fail: () => {
       failing = true;
     },
-    /** Hold reads of the page starting after `cursor` until the returned release is called. */
+    /**
+     * Hold the response to reads of the unpinned page starting after `cursor`
+     * (`"null"` for the first) until `release` is called. The page is read
+     * before it is held; `reached` resolves once a read is held.
+     */
     hold: (cursor: string) => {
-      const release = Promise.withResolvers<void>();
-      held.set(cursor, release.promise);
-      return () => {
-        held.delete(cursor);
-        release.resolve();
+      const reached = Promise.withResolvers<void>();
+      const released = Promise.withResolvers<void>();
+      held.set(cursor, { reached: reached.resolve, released: released.promise });
+      return {
+        reached: reached.promise,
+        release: () => {
+          held.delete(cursor);
+          released.resolve();
+        },
       };
     },
     items,
@@ -161,7 +174,7 @@ describe("connectConvexLive", () => {
     const input = { args: { room: "lobby" }, numItems: 2 };
     await live.queryClient.ensure(messageList, input, { pages: 2 });
 
-    const release = live.hold("d");
+    const { release } = live.hold("d");
     const nextPage = Effect.runPromise(
       Query.fetchNextPage(live.queryClient.getQuery(messageList, input)),
     );
@@ -185,6 +198,59 @@ describe("connectConvexLive", () => {
         ["e"],
       ]);
     });
+  });
+
+  it("keeps a page update that lands while every page refetches", async () => {
+    const live = setup();
+    const input = { args: { room: "lobby" }, numItems: 2 };
+    await live.queryClient.ensure(messageList, input, { pages: 2 });
+    // The reads' own subscriptions lapse, so the refetch reads the backend.
+    vi.advanceTimersByTime(5000);
+
+    // The refetch reads the first page before this insert, and lands after it.
+    const firstPage = live.hold("null");
+    const refetch = Effect.runPromise(Query.refetch(live.queryClient.getQuery(messageList, input)));
+    await firstPage.reached;
+    live.items.unshift("new");
+    const refreshed = live.backend.refresh();
+    await vi.waitFor(() => {
+      expect(live.queryClient.getData(messageList, input)?.pages[0]?.page).toEqual([
+        "new",
+        "a",
+        "b",
+      ]);
+    });
+
+    firstPage.release();
+    await Promise.all([refetch, refreshed]);
+    await vi.waitFor(() => {
+      expect(live.queryClient.getData(messageList, input)?.pages.map((page) => page.page)).toEqual([
+        ["new", "a", "b"],
+        ["c", "d"],
+      ]);
+    });
+  });
+
+  it("follows the page boundaries a refetch moves", async () => {
+    const live = setup();
+    const input = { args: { room: "lobby" }, numItems: 2 };
+    await live.queryClient.ensure(messageList, input, { pages: 2 });
+    vi.advanceTimersByTime(5000);
+
+    live.items.shift();
+    await Effect.runPromise(Query.refetch(live.queryClient.getQuery(messageList, input)));
+    vi.advanceTimersByTime(5000);
+    expect(live.queryClient.getData(messageList, input)?.pages.map((page) => page.page)).toEqual([
+      ["b", "c"],
+      ["d", "e"],
+    ]);
+    expect(live.backend.subscriptions().map((subscription) => subscription.args)).toEqual(
+      expect.arrayContaining([
+        { paginationOpts: { cursor: null, endCursor: "c", numItems: 2 }, room: "lobby" },
+        { paginationOpts: { cursor: "c", numItems: 2 }, room: "lobby" },
+      ]),
+    );
+    expect(live.backend.subscriptions()).toHaveLength(2);
   });
 
   it("invalidates the entry when its subscription fails", async () => {
