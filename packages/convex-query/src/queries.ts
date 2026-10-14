@@ -50,17 +50,21 @@ export interface PaginatedQueryInput<TQuery extends PaginatedQueryReference> {
 /** The raf-query factory {@link convexQuery} returns for `TQuery`. */
 export type ConvexQueryFactory<TQuery extends QueryReference> = (
   args: FunctionArgs<TQuery>,
-) => QueryOptions<FunctionReturnType<TQuery>, ConvexQueryError, ConvexReader>;
+) => QueryOptions<{
+  data: FunctionReturnType<TQuery>;
+  error: ConvexQueryError;
+  services: ConvexReader;
+}>;
 
 /** The raf-query factory {@link convexPaginatedQuery} returns for `TQuery`. */
 export type ConvexPaginatedQueryFactory<TQuery extends PaginatedQueryReference> = (
   input: PaginatedQueryInput<TQuery>,
-) => InfiniteQueryOptions<
-  FunctionReturnType<TQuery>,
-  PaginationOptions,
-  ConvexQueryError,
-  ConvexReader
->;
+) => InfiniteQueryOptions<{
+  error: ConvexQueryError;
+  page: FunctionReturnType<TQuery>;
+  pageParam: PaginationOptions;
+  services: ConvexReader;
+}>;
 
 /**
  * The raf-query factory for a Convex query: its input is the function's args.

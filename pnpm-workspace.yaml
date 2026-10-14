@@ -27,7 +27,7 @@ catalog:
   "@inlang/paraglide-js": ^2.25.4
   "@oxlint/plugins": ^1.87.0
   "@phosphor-icons/react": ^2.1.10
-  "@raf-query/react": ^0.4.1
+  "@raf-query/react": ^0.5.1
   "@react-email/ui": ^6.11.0
   "@resvg/resvg-js": ^2.6.2
   "@rrazvan.dev/oxlint-plugin-i18n-literal": ^1.0.1

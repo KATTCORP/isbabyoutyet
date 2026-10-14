@@ -66,7 +66,7 @@ test("inline paginated factories infer pages and take the args without paginatio
     numItems: 10,
   });
   expectTypeOf(data).toEqualTypeOf<
-    InfiniteData<PaginationResult<string>, PaginationOptions> | undefined
+    InfiniteData<{ page: PaginationResult<string>; pageParam: PaginationOptions }> | undefined
   >();
   expect(data?.pages.flatMap((page) => page.page)).toEqual(["lobby:hello"]);
 });
