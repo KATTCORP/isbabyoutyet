@@ -1,4 +1,5 @@
-import { QueryClientProvider } from "@tanstack/react-query";
+import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
+import { QueryClientProvider } from "@raf-query/react";
 import type { AnyRoute } from "@tanstack/react-router";
 import {
   createBrowserHistory,
@@ -60,10 +61,9 @@ type MountedFileRouteOpts = {
 };
 
 type AuthProfileRouterContext = {
-  profile: {
-    initialData: { isAdmin: boolean; locale: string; timeZone: string } | null;
-    input: Record<string, never>;
-  };
+  isAdmin: boolean;
+  locale: SupportedLocale;
+  token: string | undefined;
 };
 
 /**
@@ -76,7 +76,7 @@ export async function renderMountedFileRoute(opts: MountedFileRouteOpts) {
 
 /**
  * Same as {@link renderMountedFileRoute}, with extra router context (e.g. the
- * `_auth` layout's preloaded profile) merged onto the harness defaults.
+ * `_auth` layout's signed-in profile fields) merged onto the harness defaults.
  */
 export async function renderMountedFileRouteWithRouterContext(
   opts: MountedFileRouteOpts & { routerContext: AuthProfileRouterContext },

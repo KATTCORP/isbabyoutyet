@@ -1,4 +1,4 @@
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@raf-query/react";
 import { ConvexProvider } from "convex/react";
 import type { ReactElement, ReactNode } from "react";
 import { LocaleProvider } from "@/lib/i18n";
@@ -6,7 +6,7 @@ import type { ConvexTestHarness } from "@/test/convexTestHarness";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 
 /**
- * Renders under the production Convex + React Query provider stack, backed by
+ * Renders under the production Convex + raf-query provider stack, backed by
  * `convex-test` instead of stubbed query data — inside a real memory router
  * (production always has one; guarded forms mount a navigation blocker).
  */

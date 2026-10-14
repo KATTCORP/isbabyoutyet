@@ -47,9 +47,7 @@ import type {
   MilestoneRemoveHandler,
 } from "@isbabyoutyet/backend/src/types";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
-import type { PreloadedConvexQuery } from "@workspace/convex-prefetch";
-import type { InitiatedQuery } from "@workspace/query-prefetch";
-import { api } from "@isbabyoutyet/backend/convex/_generated/api";
+import type { EnsuredQueryHandle } from "@raf-query/react";
 import {
   DueDateEditor,
   JourneyEditor,
@@ -59,7 +57,6 @@ import {
 } from "./editors";
 import { CoParentsSettings } from "./co-parents-settings";
 import { OwnerMessageNotifyLiveSwitch } from "./owner-message-notify-switch";
-import type { BrowserPushCapabilityFactory } from "./notification-subscribe";
 import { formatDate, formatDueDate, getRelativeTime, getThemeOption } from "./utils";
 import {
   SUPPORTED_LOCALES,
@@ -77,6 +74,8 @@ import {
 } from "@/components/Form";
 import { getLanguageName, useI18n } from "@/lib/i18n";
 import type { OverlayControl } from "@/lib/overlay-nav";
+import type { queries } from "@/lib/convex-queries";
+import type { BrowserPushHandle } from "@/lib/use-browser-push-capability";
 import { JOURNEY_OPTION_BY_VALUE } from "./journey-options";
 import type { ReactNode } from "react";
 import { useWatch } from "react-hook-form";
@@ -91,13 +90,13 @@ type SettingsPanelProps = {
   coParents: {
     babyId: Id<"baby">;
     isOwner: boolean;
-    listing: PreloadedConvexQuery<typeof api.coParents.listForBaby>;
+    listing: EnsuredQueryHandle<typeof queries.coParents.listForBaby>;
   } | null;
   /** Null on the preview page (no push subscription). */
   messagePush: {
     babyId: Id<"baby">;
-    browserPush: InitiatedQuery<BrowserPushCapabilityFactory>;
-    vapidPublicKey: PreloadedConvexQuery<typeof api.pushSubscriptions.getPublicKey>;
+    browserPush: BrowserPushHandle;
+    vapidPublicKey: EnsuredQueryHandle<typeof queries.pushSubscriptions.getPublicKey>;
   } | null;
   /** Owner-only soft delete. Null on the preview page / for co-parents. */
   onDelete: (() => void | Promise<void>) | null;

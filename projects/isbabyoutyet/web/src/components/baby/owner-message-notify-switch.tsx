@@ -1,16 +1,17 @@
 import { useI18n } from "@/lib/i18n";
 import { useClientHydration } from "@/lib/use-client-hydration";
 import { ensureWebPushSubscription, readWebPushSubscription } from "@/lib/web-push-subscription";
-import { useConvexMutation } from "@convex-dev/react-query";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { QueryClient } from "@tanstack/react-query";
 import { BellIcon } from "@phosphor-icons/react";
-import { preloadedConvexQueryOptions } from "@workspace/convex-prefetch";
-import type { PreloadedConvexQuery } from "@workspace/convex-prefetch";
+import type { EnsuredQueryHandle } from "@raf-query/react";
+import { useQuery } from "@raf-query/react";
+import { useMutation } from "convex/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
-import type { InitiatedQuery } from "@workspace/query-prefetch";
-import { preloadedQueryOptions } from "@workspace/query-prefetch";
+import { needsIosPushInstall } from "@/lib/browser-push-capability";
+import { queries } from "@/lib/convex-queries";
+import type { BrowserPushHandle } from "@/lib/use-browser-push-capability";
+import { useBrowserPushCapability } from "@/lib/use-browser-push-capability";
+import { usePendingAction } from "@/lib/use-pending-action";
 import {
   Item,
   ItemActions,
@@ -24,12 +25,7 @@ import { Button } from "@workspace/ui/components/button";
 import { Switch } from "@workspace/ui/components/switch";
 import { toast } from "sonner";
 import type { Control, FieldPath, FieldValues } from "react-hook-form";
-import {
-  browserPushQueryOptions,
-  IosPwaInstallPrompt,
-  needsIosPushInstall,
-  type BrowserPushCapabilityFactory,
-} from "./notification-subscribe";
+import { IosPwaInstallPrompt } from "./notification-subscribe";
 
 type DisabledReason = "unsupported" | "needsIosInstall";
 
@@ -178,31 +174,22 @@ export function OwnerMessageNotifyFormField<
   );
 }
 
-function browserPushCapabilityFactory(queryClient: QueryClient) {
-  return (babyRef: string) => browserPushQueryOptions(queryClient, babyRef);
-}
-
 type OwnerMessageNotifyLiveSwitchProps = {
   babyId: Id<"baby">;
-  browserPush: InitiatedQuery<BrowserPushCapabilityFactory>;
-  vapidPublicKey: PreloadedConvexQuery<typeof api.pushSubscriptions.getPublicKey>;
+  browserPush: BrowserPushHandle;
+  vapidPublicKey: EnsuredQueryHandle<typeof queries.pushSubscriptions.getPublicKey>;
 };
 
 export function OwnerMessageNotifyLiveSwitch(props: OwnerMessageNotifyLiveSwitchProps) {
   const { t } = useI18n();
-  const queryClient = useQueryClient();
-  const capabilityQuery = useQuery(
-    preloadedQueryOptions(browserPushCapabilityFactory(queryClient), props.browserPush),
-  );
-  const vapidPublicKeyQuery = useQuery(
-    preloadedConvexQueryOptions(api.pushSubscriptions.getPublicKey, props.vapidPublicKey),
-  );
-  const subscribeAsOwnerMutationFn = useConvexMutation(api.pushSubscriptions.subscribeAsOwner);
-  const unsubscribeAsOwnerMutationFn = useConvexMutation(api.pushSubscriptions.unsubscribeAsOwner);
+  const [capability, refetchCapability] = useBrowserPushCapability(props.browserPush);
+  const [vapidPublicKey] = useQuery(queries.pushSubscriptions.getPublicKey, props.vapidPublicKey);
+  const [isPending, runAction] = usePendingAction();
+  const subscribeAsOwnerMutationFn = useMutation(api.pushSubscriptions.subscribeAsOwner);
+  const unsubscribeAsOwnerMutationFn = useMutation(api.pushSubscriptions.unsubscribeAsOwner);
 
-  const subscribeMutation = useMutation({
-    mutationFn: async () => {
-      const vapidPublicKey = vapidPublicKeyQuery.data;
+  const subscribe = () =>
+    runAction(async () => {
       if (!vapidPublicKey) {
         throw new Error(t("Push notifications are not supported in this browser."));
       }
@@ -214,14 +201,11 @@ export function OwnerMessageNotifyLiveSwitch(props: OwnerMessageNotifyLiveSwitch
         p256dh: keys.p256dh,
         userAgent: navigator.userAgent,
       });
-    },
-    onSuccess: () => {
-      void capabilityQuery.refetch();
-    },
-  });
+      await refetchCapability();
+    });
 
-  const unsubscribeMutation = useMutation({
-    mutationFn: async () => {
+  const unsubscribe = () =>
+    runAction(async () => {
       const keys = await readWebPushSubscription();
       if (!keys) {
         return;
@@ -232,13 +216,9 @@ export function OwnerMessageNotifyLiveSwitch(props: OwnerMessageNotifyLiveSwitch
         endpoint: keys.endpoint,
         p256dh: keys.p256dh,
       });
-    },
-    onSuccess: () => {
-      void capabilityQuery.refetch();
-    },
-  });
+      await refetchCapability();
+    });
 
-  const capability = capabilityQuery.data;
   const checked = capability?.kind === "subscribed" && capability.messages;
   const disabledReason =
     capability?.kind === "needsIosInstall"
@@ -246,7 +226,6 @@ export function OwnerMessageNotifyLiveSwitch(props: OwnerMessageNotifyLiveSwitch
       : capability?.kind === "unsupported"
         ? "unsupported"
         : null;
-  const isPending = subscribeMutation.isPending || unsubscribeMutation.isPending;
   const iosInstallPending = disabledReason === "needsIosInstall";
 
   return (
@@ -255,7 +234,7 @@ export function OwnerMessageNotifyLiveSwitch(props: OwnerMessageNotifyLiveSwitch
       disabled={
         isPending ||
         !capability ||
-        !vapidPublicKeyQuery.data ||
+        !vapidPublicKey ||
         (disabledReason !== null && !iosInstallPending) ||
         capability.kind === "serviceWorkerTimeout"
       }
@@ -263,7 +242,7 @@ export function OwnerMessageNotifyLiveSwitch(props: OwnerMessageNotifyLiveSwitch
       layout="settings"
       onCheckedChange={(nextChecked) => {
         if (nextChecked) {
-          toast.promise(subscribeMutation.mutateAsync(), {
+          toast.promise(subscribe(), {
             error: (error) =>
               error instanceof Error ? error.message : t("Failed to subscribe to notifications"),
             loading: t("Subscribing to notifications..."),
@@ -271,7 +250,7 @@ export function OwnerMessageNotifyLiveSwitch(props: OwnerMessageNotifyLiveSwitch
           });
           return;
         }
-        toast.promise(unsubscribeMutation.mutateAsync(), {
+        toast.promise(unsubscribe(), {
           error: (error) =>
             error instanceof Error ? error.message : t("Failed to unsubscribe from notifications"),
           loading: t("Unsubscribing from notifications..."),

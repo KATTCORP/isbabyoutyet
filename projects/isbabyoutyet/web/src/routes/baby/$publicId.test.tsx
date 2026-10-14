@@ -1,7 +1,9 @@
-import { QueryClient } from "@tanstack/react-query";
-import { getConvexQueryPreloader } from "@workspace/convex-prefetch";
+import type { QueryClient } from "@raf-query/react";
+import type { ConvexReader } from "@workspace/convex-query";
+import type { JsonValue } from "@workspace/runtime/json";
 import { convexTest } from "convex-test";
 import type { FunctionReturnType } from "convex/server";
+import { getFunctionName } from "convex/server";
 import { expect, test, vi } from "vitest";
 import { StatusDisplay } from "@/components/baby/status-display";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
@@ -20,7 +22,9 @@ import {
   getCurrentStatus,
 } from "@isbabyoutyet/backend/src/types";
 import { LocaleProvider } from "@/lib/i18n";
-import { browserPushQueryOptions } from "@/components/baby/notification-subscribe";
+import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
+import { queries } from "@/lib/convex-queries";
+import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { getBabySeo } from "@/lib/seo";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
@@ -309,7 +313,6 @@ test("renders the public baby status in Brazilian Portuguese", async () => {
 const BABY_DOC = { _id: "baby-1", publicId: "baby-smith", resolvedLocale: "en-GB" };
 const EMPTY_PAGE = { continueCursor: "", isDone: true, page: [] };
 
-import type { JsonValue } from "@workspace/runtime/json";
 type QueryHandlers = Record<string, JsonValue>;
 type BabyLoaderResult = {
   baby: unknown;
@@ -324,81 +327,31 @@ type BabyLoaderResult = {
   timeline: unknown;
   vapidPublicKey: unknown;
 };
+type RouteContextStub = { context: { queryClient: QueryClient<ConvexReader> } };
 
-function makeLoaderQueryClient(handlers: QueryHandlers) {
-  return new QueryClient({
-    defaultOptions: {
-      queries: {
-        queryFn: (ctx) => {
-          const name = String(ctx.queryKey[1]);
-          if (name in handlers) {
-            return Promise.resolve(handlers[name]);
-          }
-          return Promise.resolve(null);
-        },
-        retry: false,
-      },
-    },
+function loaderQueryClientResource(handlers: QueryHandlers) {
+  return stubQueryClientResource((query) => {
+    const name = getFunctionName(query);
+    return Promise.resolve(name in handlers ? handlers[name] : null);
   });
 }
 
-type LoaderOptions = {
-  convexClient:
-    | {
-        mutation: ReturnType<typeof vi.fn>;
-        setAuth: ReturnType<typeof vi.fn>;
-      }
-    | undefined;
-  isAuthenticated: boolean | undefined;
-  locale: string | undefined;
-  token: string | null | undefined;
-};
+// @ts-expect-error — stub opts are the fields the loader reads
+const loader: (
+  opts: RouteContextStub & { params: { publicId: string } },
+) => Promise<BabyLoaderResult> = routeModule.Route.options.loader;
 
-async function setupBabyLoader(
-  handlers: QueryHandlers,
-  options: LoaderOptions | undefined = undefined,
-) {
-  const setAuth = options?.convexClient?.setAuth ?? vi.fn();
-  const mutation =
-    options?.convexClient?.mutation ??
-    vi.fn<() => Promise<{ locale: string }>>(() => Promise.resolve({ locale: "en-GB" }));
-  // @ts-expect-error — stub context is the subset the loader reads
-  const loader: (opts: {
-    context: {
-      convexClient: { mutation: typeof mutation; setAuth: typeof setAuth };
-      convexPreloader: ReturnType<typeof getConvexQueryPreloader>;
-      isAuthenticated: boolean;
-      locale: string;
-      queryClient: QueryClient;
-      token: string | null;
-    };
-    params: { publicId: string };
-  }) => Promise<BabyLoaderResult> = routeModule.Route.options.loader;
-  const queryClient = makeLoaderQueryClient(handlers);
-  const result = await loader({
-    context: {
-      convexClient: { mutation, setAuth },
-      convexPreloader: getConvexQueryPreloader(queryClient),
-      isAuthenticated: options?.isAuthenticated ?? false,
-      locale: options?.locale ?? "en-GB",
-      queryClient,
-      token: options?.token ?? null,
-    },
-    params: { publicId: "baby-smith" },
-  });
-  return { queryClient, result };
+// @ts-expect-error — stub opts are the fields beforeLoad reads
+const beforeLoad: (
+  opts: RouteContextStub & { location: { href: string }; params: { publicId: string } },
+) => Promise<object | void | null> = routeModule.Route.options.beforeLoad;
+
+async function runBabyLoader(queryClient: QueryClient<ConvexReader>) {
+  return await loader({ context: { queryClient }, params: { publicId: "baby-smith" } });
 }
 
-async function runBabyLoader(
-  handlers: QueryHandlers,
-  options: LoaderOptions | undefined = undefined,
-) {
-  const setup = await setupBabyLoader(handlers, options);
-  return setup.result;
-}
-
-test("loader queries the same set for visitors; gated queries come back forbidden", async () => {
-  const result = await runBabyLoader({
+test("loader ensures the same set for visitors; gated queries come back forbidden", async () => {
+  await using stub = loaderQueryClientResource({
     "baby:getByPublicId": BABY_DOC,
     "baby:getManagerBaby": "forbidden",
     "baby:getScheduledNotifications": "forbidden",
@@ -406,17 +359,31 @@ test("loader queries the same set for visitors; gated queries come back forbidde
     "pushSubscriptions:getSubscriptionCount": "forbidden",
     "timeline:listByBaby": EMPTY_PAGE,
   });
+  const queryClient = stub.queryClient;
+  const result = await runBabyLoader(queryClient);
 
-  expect(result.baby).toMatchObject({ initialData: BABY_DOC });
-  expect(result.myAccess).toMatchObject({ initialData: { canManage: false } });
-  expect(result.managerBaby).toMatchObject({ initialData: "forbidden" });
-  expect(result.timeline).toMatchObject({ input: { babyId: "baby-smith" }, numItems: 20 });
-  expect(result.scheduledNotifications).toMatchObject({ initialData: "forbidden" });
-  expect(result.subscriptionCount).toMatchObject({ initialData: "forbidden" });
+  expect(result.baby).toMatchObject({ ensured: true, input: { id: "baby-smith" } });
+  expect(result.timeline).toMatchObject({
+    ensured: true,
+    input: { args: { babyId: "baby-smith", visitorId: null }, numItems: 20 },
+  });
+  expect(queryClient.getData(queries.baby.getByPublicId, { id: "baby-smith" })).toEqual(BABY_DOC);
+  expect(queryClient.getData(queries.coParents.myAccess, { babyId: "baby-smith" })).toMatchObject({
+    canManage: false,
+  });
+  expect(queryClient.getData(queries.baby.getManagerBaby, { babyId: "baby-smith" })).toBe(
+    "forbidden",
+  );
+  expect(
+    queryClient.getData(queries.baby.getScheduledNotifications, { babyId: "baby-smith" }),
+  ).toBe("forbidden");
+  expect(
+    queryClient.getData(queries.pushSubscriptions.getSubscriptionCount, { babyId: "baby-smith" }),
+  ).toBe("forbidden");
 });
 
 test("loader gives managers the same handles with real data", async () => {
-  const result = await runBabyLoader({
+  await using stub = loaderQueryClientResource({
     "baby:getByPublicId": BABY_DOC,
     "baby:getManagerBaby": { ...BABY_DOC, birthJourney: "labor" },
     "baby:getScheduledNotifications": [],
@@ -424,38 +391,27 @@ test("loader gives managers the same handles with real data", async () => {
     "pushSubscriptions:getSubscriptionCount": 2,
     "timeline:listByBaby": EMPTY_PAGE,
   });
+  const queryClient = stub.queryClient;
+  const result = await runBabyLoader(queryClient);
 
-  expect(result.scheduledNotifications).toMatchObject({
-    initialData: [],
-    input: { babyId: "baby-smith" },
-  });
-  expect(result.subscriptionCount).toMatchObject({
-    initialData: 2,
-    input: { babyId: "baby-smith" },
-  });
-  expect(result.onboarding).toMatchObject({ input: {} });
-  expect(result.managerBaby).toMatchObject({
-    initialData: { birthJourney: "labor" },
+  expect(result.scheduledNotifications).toMatchObject({ input: { babyId: "baby-smith" } });
+  expect(result.subscriptionCount).toMatchObject({ input: { babyId: "baby-smith" } });
+  expect(result.onboarding).toMatchObject({ ensured: true, input: {} });
+  expect(
+    queryClient.getData(queries.baby.getScheduledNotifications, { babyId: "baby-smith" }),
+  ).toEqual([]);
+  expect(
+    queryClient.getData(queries.pushSubscriptions.getSubscriptionCount, { babyId: "baby-smith" }),
+  ).toBe(2);
+  expect(queryClient.getData(queries.baby.getManagerBaby, { babyId: "baby-smith" })).toMatchObject({
+    birthJourney: "labor",
   });
 });
 
 test("beforeLoad 404s unknown babies", async () => {
-  // @ts-expect-error — stub opts are the fields beforeLoad reads
-  const beforeLoad: (opts: {
-    context: {
-      convexPreloader: ReturnType<typeof getConvexQueryPreloader>;
-      queryClient: QueryClient;
-    };
-    location: { href: string };
-    params: { publicId: string };
-  }) => Promise<object | void | null> = routeModule.Route.options.beforeLoad;
-
-  const queryClient = makeLoaderQueryClient({ "baby:getByPublicId": null });
+  await using stub = loaderQueryClientResource({ "baby:getByPublicId": null });
   const pending = beforeLoad({
-    context: {
-      convexPreloader: getConvexQueryPreloader(queryClient),
-      queryClient,
-    },
+    context: { queryClient: stub.queryClient },
     location: { href: "/baby/baby-smith" },
     params: { publicId: "baby-smith" },
   });
@@ -464,25 +420,13 @@ test("beforeLoad 404s unknown babies", async () => {
 });
 
 test("beforeLoad uses the baby's resolved locale", async () => {
-  // @ts-expect-error — stub opts are the fields beforeLoad reads
-  const beforeLoad: (opts: {
-    context: {
-      convexPreloader: ReturnType<typeof getConvexQueryPreloader>;
-      queryClient: QueryClient;
-    };
-    location: { href: string };
-    params: { publicId: string };
-  }) => Promise<object | void | null> = routeModule.Route.options.beforeLoad;
-  const queryClient = makeLoaderQueryClient({
+  await using stub = loaderQueryClientResource({
     "baby:getByPublicId": { ...BABY_DOC, publicId: "test-baby-4", resolvedLocale: "sv" },
   });
 
   await expect(
     beforeLoad({
-      context: {
-        convexPreloader: getConvexQueryPreloader(queryClient),
-        queryClient,
-      },
+      context: { queryClient: stub.queryClient },
       location: { href: "/baby/test-baby-4" },
       params: { publicId: "test-baby-4" },
     }),
@@ -490,23 +434,11 @@ test("beforeLoad uses the baby's resolved locale", async () => {
 });
 
 test("beforeLoad rewrites a stale public id and keeps the subpath", async () => {
-  // @ts-expect-error — stub opts are the fields beforeLoad reads
-  const beforeLoad: (opts: {
-    context: {
-      convexPreloader: ReturnType<typeof getConvexQueryPreloader>;
-      queryClient: QueryClient;
-    };
-    location: { href: string };
-    params: { publicId: string };
-  }) => Promise<object | void | null> = routeModule.Route.options.beforeLoad;
-  const queryClient = makeLoaderQueryClient({ "baby:getByPublicId": BABY_DOC });
+  await using stub = loaderQueryClientResource({ "baby:getByPublicId": BABY_DOC });
 
   await expect(
     beforeLoad({
-      context: {
-        convexPreloader: getConvexQueryPreloader(queryClient),
-        queryClient,
-      },
+      context: { queryClient: stub.queryClient },
       location: { href: "/baby/old-slug/settings" },
       params: { publicId: "old-slug" },
     }),
@@ -518,42 +450,19 @@ test("beforeLoad rewrites a stale public id and keeps the subpath", async () => 
   });
 });
 
-test("loader does not mutate profiles for authenticated visitors", async () => {
-  const mutation = vi.fn<() => Promise<{ locale: string }>>(() =>
-    Promise.resolve({ locale: "en-GB" }),
-  );
-  const result = await runBabyLoader(
-    {
-      "baby:getByPublicId": BABY_DOC,
-      "baby:getManagerBaby": BABY_DOC,
-      "baby:getScheduledNotifications": [],
-      "coParents:myAccess": { canManage: true, isOwner: true },
-      "pushSubscriptions:getSubscriptionCount": 0,
-      "timeline:listByBaby": EMPTY_PAGE,
-    },
-    {
-      convexClient: { mutation, setAuth: vi.fn() },
-      isAuthenticated: true,
-      locale: "en-GB",
-      token: "layout-token",
-    },
-  );
-
-  expect(mutation).not.toHaveBeenCalled();
-  expect(result.managerBaby).toMatchObject({ initialData: BABY_DOC });
-});
-
 test("loader prefetches browser push capability on the client", async () => {
-  const { queryClient, result } = await setupBabyLoader({
+  await using stub = loaderQueryClientResource({
     "baby:getByPublicId": BABY_DOC,
     "timeline:listByBaby": EMPTY_PAGE,
   });
+  const queryClient = stub.queryClient;
+  const result = await runBabyLoader(queryClient);
 
   expect(result.browserPush).toMatchObject({ input: "baby-smith" });
   await vi.waitFor(() => {
-    expect(
-      queryClient.getQueryData(browserPushQueryOptions(queryClient, "baby-smith").queryKey),
-    ).toEqual({ kind: "unsupported" });
+    expect(queryClient.getData(browserPushCapabilityQuery, "baby-smith")).toEqual({
+      kind: "unsupported",
+    });
   });
 });
 
@@ -620,7 +529,7 @@ test("share preview uses the canonical route slug while reactive baby data chang
 test("logged-out visitors see a sign-in icon in the top dock", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
-  harness.withIdentity(null);
+  await harness.withIdentity(null);
 
   await using ctx = await renderMountedFileRoute({
     harness,

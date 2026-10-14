@@ -1,6 +1,3 @@
-import { QueryClient } from "@tanstack/react-query";
-import { convexQuery } from "@convex-dev/react-query";
-import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { expect, test, vi } from "vitest";
 import { TIME_ZONE_HINT_HEADER } from "@isbabyoutyet/backend/src/timeZone";
 import { VISITOR_ID_HINT_HEADER } from "@isbabyoutyet/backend/src/visitorId";
@@ -10,9 +7,8 @@ import {
   setClientToken,
   waitForMe,
 } from "@/lib/auth-client";
-
-const profileKey = convexQuery(api.profile.get, {}).queryKey;
-const babyListKey = convexQuery(api.baby.listByUser, {}).queryKey;
+import { queries } from "@/lib/convex-queries";
+import { stubQueryClientResource } from "@/test/stubQueryClient";
 
 const signedInProfile = {
   email: "ada@example.com",
@@ -26,24 +22,17 @@ const signedInProfile = {
 function makeClients() {
   const setAuth =
     vi.fn<(fetchToken: (opts: { forceRefreshToken: boolean }) => Promise<string | null>) => void>();
-  const queryOptions = vi.fn(() => ({
-    queryFn: async () => null,
-    queryKey: profileKey,
-    staleTime: Infinity,
-  }));
   const convexClient = { setAuth };
-  const convexQueryClient = {
-    queryOptions,
-  };
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return { convexClient, convexQueryClient, queryClient, setAuth };
+  const stub = stubQueryClientResource(async () => null);
+  return Object.assign(stub, { convexClient, setAuth });
 }
 
-function seedCachedQueries(queryClient: QueryClient, profile: typeof signedInProfile | null) {
-  queryClient.setQueryData(profileKey, profile);
-  queryClient.setQueryData(babyListKey, []);
+function seedCachedQueries(
+  clients: ReturnType<typeof makeClients>,
+  profile: typeof signedInProfile | null,
+) {
+  clients.queryClient.setData(queries.profile.get, {}, profile);
+  clients.queryClient.setData(queries.baby.listByUser, {}, []);
 }
 
 test("getBrowserAuthHeaders includes the stored visitor id when present", () => {
@@ -67,37 +56,27 @@ test("getBrowserAuthHeaders omits visitor id when none is stored", () => {
 });
 
 test("waitForMe keeps me and drops the rest of the cache when present", async () => {
-  const clients = makeClients();
-  seedCachedQueries(clients.queryClient, signedInProfile);
+  await using clients = makeClients();
+  seedCachedQueries(clients, signedInProfile);
 
-  await waitForMe({
-    // @ts-expect-error — stand-in only implements queryOptions
-    convexQueryClient: clients.convexQueryClient,
-    presence: "present",
-    queryClient: clients.queryClient,
-  });
+  await waitForMe({ presence: "present", queryClient: clients.queryClient });
 
-  expect(clients.queryClient.getQueryData(profileKey)).toEqual(signedInProfile);
-  expect(clients.queryClient.getQueryData(babyListKey)).toBeUndefined();
+  expect(clients.queryClient.getData(queries.profile.get, {})).toEqual(signedInProfile);
+  expect(clients.queryClient.getData(queries.baby.listByUser, {})).toBeUndefined();
 });
 
 test("waitForMe keeps me and drops the rest of the cache when absent", async () => {
-  const clients = makeClients();
-  seedCachedQueries(clients.queryClient, null);
+  await using clients = makeClients();
+  seedCachedQueries(clients, null);
 
-  await waitForMe({
-    // @ts-expect-error — stand-in only implements queryOptions
-    convexQueryClient: clients.convexQueryClient,
-    presence: "absent",
-    queryClient: clients.queryClient,
-  });
+  await waitForMe({ presence: "absent", queryClient: clients.queryClient });
 
-  expect(clients.queryClient.getQueryData(profileKey)).toBeNull();
-  expect(clients.queryClient.getQueryData(babyListKey)).toBeUndefined();
+  expect(clients.queryClient.getData(queries.profile.get, {})).toBeNull();
+  expect(clients.queryClient.getData(queries.baby.listByUser, {})).toBeUndefined();
 });
 
 test("setClientToken hands the inline JWT to Convex without a token round trip", async () => {
-  const clients = makeClients();
+  await using clients = makeClients();
 
   // @ts-expect-error — stand-in only implements setAuth
   setClientToken(clients.convexClient, "jwt-from-sign-in");

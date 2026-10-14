@@ -1,15 +1,13 @@
 import { ShieldIcon, SignOutIcon } from "@phosphor-icons/react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import type { QueryClient } from "@tanstack/react-query";
-import type { ConvexQueryClient } from "@convex-dev/react-query";
+import type { EnsuredQueryHandle, QueryClient } from "@raf-query/react";
+import { useQuery } from "@raf-query/react";
+import type { ConvexReader } from "@workspace/convex-query";
 import type { ConvexReactClient } from "convex/react";
 import { useRef } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import type { PreloadedConvexQuery } from "@workspace/convex-prefetch";
-import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
 import { Item, ItemContent, ItemGroup, ItemMedia, ItemTitle } from "@workspace/ui/components/item";
 import {
   Sheet,
@@ -23,6 +21,7 @@ import { AccountSettings } from "@/components/account-settings";
 import { Form, FormGuardProvider, SubmitButton, useZodForm } from "@/components/Form";
 import { LanguageSettings } from "@/components/language-settings";
 import { signOutThenGo } from "@/lib/auth-client";
+import { queries } from "@/lib/convex-queries";
 import { useI18n } from "@/lib/i18n";
 import { useDashboardSettingsOverlay } from "@/lib/overlay-nav";
 import type { OverlayControl } from "@/lib/overlay-nav";
@@ -30,16 +29,19 @@ import { ADMIN_DEFAULT_SEARCH } from "@/routes/_auth/dashboard_.admin";
 
 export const Route = createFileRoute("/_auth/dashboard/settings")({
   component: DashboardSettingsRoute,
+  loader: async (opts) => ({
+    profile: await opts.context.queryClient.ensure(queries.profile.get, {}),
+  }),
 });
 
 export function DashboardSettingsRoute() {
   const context = Route.useRouteContext();
+  const loaderData = Route.useLoaderData();
 
   return (
     <DashboardSettingsSheet
       convexClient={context.convexClient}
-      convexQueryClient={context.convexQueryClient}
-      profile={context.profile}
+      profile={loaderData.profile}
       queryClient={context.queryClient}
     />
   );
@@ -66,11 +68,10 @@ function SettingsSection(props: { children: ReactNode; title: string }) {
  */
 export function DashboardSettingsSheet(props: {
   convexClient: ConvexReactClient;
-  convexQueryClient: ConvexQueryClient;
-  profile: PreloadedConvexQuery<typeof api.profile.get>;
-  queryClient: QueryClient;
+  profile: EnsuredQueryHandle<typeof queries.profile.get>;
+  queryClient: QueryClient<ConvexReader>;
 }) {
-  const profileQuery = usePreloadedConvexQuery(api.profile.get, props.profile);
+  const [profile] = useQuery(queries.profile.get, props.profile);
   const settings = useDashboardSettingsOverlay();
   const { t } = useI18n();
   const router = useRouter();
@@ -78,13 +79,12 @@ export function DashboardSettingsSheet(props: {
   return (
     <DashboardSettingsSheetView
       accountSettings={<AccountSettings profile={props.profile} />}
-      isAdmin={profileQuery.data?.isAdmin === true}
+      isAdmin={profile?.isAdmin === true}
       languageSettings={<LanguageSettings profile={props.profile} />}
       onSignOut={async () => {
         try {
           await signOutThenGo({
             convexClient: props.convexClient,
-            convexQueryClient: props.convexQueryClient,
             navigate: () =>
               router.navigate({
                 to: "/",

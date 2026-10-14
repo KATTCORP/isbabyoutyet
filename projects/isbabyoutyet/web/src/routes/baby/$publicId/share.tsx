@@ -1,4 +1,6 @@
 import { Button } from "@workspace/ui/components/button";
+import { allKeyed, useQuery } from "@raf-query/react";
+import { queries } from "@/lib/convex-queries";
 import {
   Card,
   CardContent,
@@ -15,15 +17,11 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog";
 import { CheckCircleIcon } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
-import { allKeyed, preloadedQueryOptions } from "@workspace/query-prefetch";
 import { toast } from "sonner";
 import { useCompleteOnboardingStep } from "@/components/onboarding/onboarding-host";
 import { copyTextToClipboard } from "@/lib/copy-text";
-import { browserImageFactory, prefetchBrowserImage } from "@/lib/image-prefetch";
+import { prefetchBrowserImage } from "@/lib/image-prefetch";
 import { useI18n } from "@/lib/i18n";
 import { useBabyShareOverlay } from "@/lib/overlay-nav";
 import { getBabySeo } from "@/lib/seo";
@@ -32,26 +30,19 @@ import { useTransientFlag } from "@/lib/use-transient-flag";
 
 export const Route = createFileRoute("/baby/$publicId/share")({
   loader: async (opts) => {
+    const queryClient = opts.context.queryClient;
     const publicId = opts.params.publicId;
     const data = await allKeyed({
-      baby: opts.context.convexPreloader.ensureQueryData(api.baby.getByPublicId, {
-        id: publicId,
-      }),
-      myAccess: opts.context.convexPreloader.ensureQueryData(api.coParents.myAccess, {
-        babyId: publicId,
-      }),
+      baby: queryClient.ensure(queries.baby.getByPublicId, { id: publicId }),
+      myAccess: queryClient.ensure(queries.coParents.myAccess, { babyId: publicId }),
     });
-    const babyDoc = data.baby.initialData;
-    const sharePreview = babyDoc ? getBabySeo(babyDoc, publicId) : null;
-    const imagePrefetch = prefetchBrowserImage(
-      opts.context.queryClient,
-      sharePreview?.imageUrl ?? "",
-    );
+    const babyDoc = queryClient.getData(queries.baby.getByPublicId, { id: publicId });
+    if (babyDoc) {
+      prefetchBrowserImage(queryClient, getBabySeo(babyDoc, publicId).imageUrl);
+    }
 
     return {
-      baby: data.baby,
-      imagePrefetch,
-      myAccess: data.myAccess,
+      ...data,
       shareLink: canonicalUrl(`/baby/${publicId}`),
     };
   },
@@ -65,15 +56,9 @@ export function BabyShareOverlay() {
   const { t } = useI18n();
   const [copied, showCopied] = useTransientFlag(2000);
   const share = useBabyShareOverlay(params.publicId);
-  const babyQuery = usePreloadedConvexQuery(api.baby.getByPublicId, loaderData.baby);
-  const myAccessQuery = usePreloadedConvexQuery(api.coParents.myAccess, loaderData.myAccess);
-  const babyDoc = babyQuery.data;
-  const sharePreview = babyDoc ? getBabySeo(babyDoc, params.publicId) : null;
-  useQuery(
-    preloadedQueryOptions(browserImageFactory, loaderData.imagePrefetch, () => {
-      return sharePreview?.imageUrl ?? "";
-    }),
-  );
+  const [babyData] = useQuery(queries.baby.getByPublicId, loaderData.baby);
+  const [myAccessData] = useQuery(queries.coParents.myAccess, loaderData.myAccess);
+  const sharePreview = babyData ? getBabySeo(babyData, params.publicId) : null;
   if (!sharePreview) {
     throw notFound();
   }
@@ -83,7 +68,7 @@ export function BabyShareOverlay() {
       await copyTextToClipboard(loaderData.shareLink);
       showCopied();
       toast.success(t("Copied to clipboard"));
-      if (myAccessQuery.data.canManage) {
+      if (myAccessData.canManage) {
         void completeOnboardingStep({ stepId: "share_link" });
       }
     } catch (error) {

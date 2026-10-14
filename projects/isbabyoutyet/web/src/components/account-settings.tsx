@@ -1,10 +1,11 @@
 import { CheckIcon, EnvelopeSimpleIcon, KeyIcon, UserIcon } from "@phosphor-icons/react";
+import type { EnsuredQueryHandle } from "@raf-query/react";
+import { useQuery } from "@raf-query/react";
+import { queries } from "@/lib/convex-queries";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import type { PreloadedConvexQuery } from "@workspace/convex-prefetch";
-import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
 import { Button } from "@workspace/ui/components/button";
 import {
   FormControl,
@@ -176,11 +177,12 @@ function EditorActions() {
 /**
  * Convex-wired account rows for the dashboard settings sheet.
  */
-export function AccountSettings(props: { profile: PreloadedConvexQuery<typeof api.profile.get> }) {
+export function AccountSettings(props: {
+  profile: EnsuredQueryHandle<typeof queries.profile.get>;
+}) {
   const { t } = useI18n();
   const changeAccountEmail = useMutation(api.accountEmail.change);
-  const profileQuery = usePreloadedConvexQuery(api.profile.get, props.profile);
-  const profile = profileQuery.data;
+  const [profile] = useQuery(queries.profile.get, props.profile);
 
   const sessionUser =
     profile === null || profile === undefined

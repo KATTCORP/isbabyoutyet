@@ -1,6 +1,6 @@
 import { fireEvent } from "@testing-library/react";
+import { queries } from "@/lib/convex-queries";
 import { expect, test, vi } from "vitest";
-import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import {
   seedOwnedBaby,
@@ -25,14 +25,13 @@ test("runs with empty notifications and no subscriptions", async () => {
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: ownerId });
+  await harness.withIdentity({ subject: ownerId });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
-  const notifications = await harness.convexPreloader.ensureQueryData(
-    api.baby.getScheduledNotifications,
-    { babyId: baby.babyId },
-  );
-  const subscriptionCount = await harness.convexPreloader.ensureQueryData(
-    api.pushSubscriptions.getSubscriptionCount,
+  const notifications = await harness.queryClient.ensure(queries.baby.getScheduledNotifications, {
+    babyId: baby.babyId,
+  });
+  const subscriptionCount = await harness.queryClient.ensure(
+    queries.pushSubscriptions.getSubscriptionCount,
     { babyId: baby.babyId },
   );
 
@@ -55,21 +54,20 @@ test("treats forbidden notification data as empty", async () => {
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: ownerId });
+  await harness.withIdentity({ subject: ownerId });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
   const visitorId = await signUpTestUser(harness, {
     email: "visitor@example.com",
     name: "Visitor",
     password: "password123",
   });
-  harness.withIdentity({ subject: visitorId });
+  await harness.withIdentity({ subject: visitorId });
 
-  const notifications = await harness.convexPreloader.ensureQueryData(
-    api.baby.getScheduledNotifications,
-    { babyId: baby.babyId },
-  );
-  const subscriptionCount = await harness.convexPreloader.ensureQueryData(
-    api.pushSubscriptions.getSubscriptionCount,
+  const notifications = await harness.queryClient.ensure(queries.baby.getScheduledNotifications, {
+    babyId: baby.babyId,
+  });
+  const subscriptionCount = await harness.queryClient.ensure(
+    queries.pushSubscriptions.getSubscriptionCount,
     { babyId: baby.babyId },
   );
   await using view = await renderToastResource(
@@ -91,17 +89,16 @@ test("shows the exact subscriber count in a pending notification toast", async (
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: ownerId });
+  await harness.withIdentity({ subject: ownerId });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
   await seedPendingLaborNotification(harness, { babyId: baby.babyId });
   await seedPushSubscriptions(harness, { babyId: baby.babyId, count: 3 });
 
-  const notifications = await harness.convexPreloader.ensureQueryData(
-    api.baby.getScheduledNotifications,
-    { babyId: baby.babyId },
-  );
-  const subscriptionCount = await harness.convexPreloader.ensureQueryData(
-    api.pushSubscriptions.getSubscriptionCount,
+  const notifications = await harness.queryClient.ensure(queries.baby.getScheduledNotifications, {
+    babyId: baby.babyId,
+  });
+  const subscriptionCount = await harness.queryClient.ensure(
+    queries.pushSubscriptions.getSubscriptionCount,
     { babyId: baby.babyId },
   );
 
@@ -128,16 +125,15 @@ test("shows a pending notification countdown even with no subscribers", async ()
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: ownerId });
+  await harness.withIdentity({ subject: ownerId });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
   await seedPendingLaborNotification(harness, { babyId: baby.babyId });
 
-  const notifications = await harness.convexPreloader.ensureQueryData(
-    api.baby.getScheduledNotifications,
-    { babyId: baby.babyId },
-  );
-  const subscriptionCount = await harness.convexPreloader.ensureQueryData(
-    api.pushSubscriptions.getSubscriptionCount,
+  const notifications = await harness.queryClient.ensure(queries.baby.getScheduledNotifications, {
+    babyId: baby.babyId,
+  });
+  const subscriptionCount = await harness.queryClient.ensure(
+    queries.pushSubscriptions.getSubscriptionCount,
     { babyId: baby.babyId },
   );
 

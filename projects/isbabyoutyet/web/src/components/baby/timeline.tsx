@@ -30,6 +30,9 @@ import {
 } from "@workspace/ui/components/popover";
 import { cn } from "@workspace/ui/lib/utils";
 import { useMutation } from "convex/react";
+import type { EnsuredQueryHandle } from "@raf-query/react";
+import { useQuery, useWaterfall } from "@raf-query/react";
+import { queries } from "@/lib/convex-queries";
 import {
   BellRingingIcon,
   CameraIcon,
@@ -46,7 +49,7 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
-import { Fragment, useId, useRef } from "react";
+import { Fragment, use, useId, useRef } from "react";
 import type { DragEvent, ReactElement, ReactNode } from "react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { Streamdown } from "streamdown";
@@ -55,10 +58,6 @@ import { z } from "zod";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import type {
-  InitiatedConvexInfiniteQuery,
-  PreloadedConvexInfiniteQuery,
-} from "@workspace/convex-prefetch";
 import type { BabyData, Milestone } from "@isbabyoutyet/backend/src/types";
 import {
   getBlockingLaterMilestone,
@@ -76,7 +75,6 @@ import {
 import { FormControl, FormField, FormItem, FormMessage } from "@workspace/ui/components/form";
 import { useFormState, useWatch } from "react-hook-form";
 import { htmlDateTimeNow, optionalHtmlDateTime } from "@/lib/html-date";
-import { usePreloadedConvexInfiniteQuery } from "@workspace/convex-prefetch";
 import { useStoredVisitorId } from "@/lib/use-visitor-id";
 import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
 import type { TranslationFunction, TranslationKey } from "@/lib/i18n";
@@ -1297,9 +1295,7 @@ type TimelineFeedProps = {
   isOwner: boolean;
   publicId: string;
   /** Prefetched infinite timeline handle from the route loader (SSR first page). */
-  timeline:
-    | PreloadedConvexInfiniteQuery<typeof api.timeline.listByBaby>
-    | InitiatedConvexInfiniteQuery<typeof api.timeline.listByBaby>;
+  timeline: EnsuredQueryHandle<typeof queries.timeline.listByBaby>;
 };
 
 type RemoveUpdateFn = (
@@ -1317,25 +1313,25 @@ type UpdateEncouragementFn = (
 
 /** Hooks into Convex, then delegates to the pure `TimelineFeedView`. */
 export function TimelineFeed(props: TimelineFeedProps) {
-  // Client visitor id for isMine; SSR snapshot is "" so the first paint matches
-  // the loader handle (no visitorId), then remixArgs picks it up on the client.
-  const currentVisitorId = useStoredVisitorId();
   // visitorId only marks the caller's own encouragements (isMine); the
-  // credential itself is never returned by the query. Remix after mount so
-  // the first render matches the SSR handle (no visitorId).
-  const timelineQuery = usePreloadedConvexInfiniteQuery(api.timeline.listByBaby, {
-    handle: props.timeline,
-    remixArgs: (args) => ({
-      ...args,
-      visitorId: currentVisitorId || null,
-    }),
+  // credential itself is never returned by the query. Hydration reads the SSR
+  // snapshot "" so the first paint matches the server's handle (no
+  // visitorId), then the stored id switches the feed to the visitor's copy.
+  const currentVisitorId = useStoredVisitorId();
+  const timelineHandle = useWaterfall(queries.timeline.listByBaby, {
+    ...props.timeline.input,
+    args: { ...props.timeline.input.args, visitorId: currentVisitorId || null },
+  });
+  // Keep the SSR pages on screen while the visitor's own copy loads.
+  const [timelinePromise, timelineQuery] = useQuery(queries.timeline.listByBaby, timelineHandle, {
+    whilePending: "previous",
   });
   const removeUpdate = useMutation(api.updates.remove);
   const setAsCurrentPhoto = useMutation(api.updates.setAsCurrentPhoto);
   const removeEncouragement = useMutation(api.encouragements.remove);
   const updateEncouragement = useMutation(api.encouragements.update);
 
-  const items = timelineQuery.data.pages.flatMap((page) => page.page);
+  const items = use(timelinePromise).pages.flatMap((page) => page.page);
 
   return (
     <TimelineFeedView

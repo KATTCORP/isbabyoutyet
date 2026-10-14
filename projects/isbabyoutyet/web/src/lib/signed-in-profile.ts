@@ -1,14 +1,11 @@
-import type { ConvexQueryClient } from "@convex-dev/react-query";
-import type { QueryClient } from "@tanstack/react-query";
-import type { ConvexQueryPreloader } from "@workspace/convex-prefetch";
-import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import type { ConvexReactClient } from "convex/react";
+import type { QueryClient } from "@raf-query/react";
+import type { ConvexReader } from "@workspace/convex-query";
+import type { ConvexHttpClient } from "convex/browser";
+import { queries } from "@/lib/convex-queries";
 
 export type SignedInProfileContext = {
-  convexClient: ConvexReactClient;
-  convexPreloader: ConvexQueryPreloader;
-  convexQueryClient: ConvexQueryClient;
-  queryClient: QueryClient;
+  convexHttpClient: ConvexHttpClient | null;
+  queryClient: QueryClient<ConvexReader>;
   token: string | null | undefined;
 };
 
@@ -30,35 +27,27 @@ export async function loadSignedInProfile(opts: {
   context: SignedInProfileContext;
   fetchToken: () => Promise<string | null>;
 }) {
-  const preloader = opts.context.convexPreloader;
+  const queryClient = opts.context.queryClient;
+  let token = opts.context.token;
 
   if (globalThis.window === undefined) {
-    const token = opts.context.token ?? (await opts.fetchToken());
+    token = token ?? (await opts.fetchToken());
     if (!token) {
       return null;
     }
-    opts.context.convexQueryClient.serverHttpClient?.setAuth(token);
-
-    const profileHandle = await preloader.ensureQueryData(api.profile.get, {});
-    const profile = profileHandle.initialData;
-    if (!profile) {
-      return null;
-    }
-    return {
-      locale: profile.locale,
-      profile: profileHandle,
-      token,
-    };
+    opts.context.convexHttpClient?.setAuth(token);
   }
 
-  const profileHandle = await preloader.ensureQueryData(api.profile.get, {});
-  const profile = profileHandle.initialData;
-  if (!profile) {
+  // Route context must serialize, so it carries the profile's fields, not a
+  // query handle: child loaders `ensure` `profile.get` again, a cache hit.
+  await queryClient.ensure(queries.profile.get, {});
+  const me = queryClient.getData(queries.profile.get, {});
+  if (!me) {
     return null;
   }
   return {
-    locale: profile.locale,
-    profile: profileHandle,
-    token: opts.context.token,
+    isAdmin: me.isAdmin,
+    locale: me.locale,
+    token,
   };
 }

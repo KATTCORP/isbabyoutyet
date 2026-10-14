@@ -83,7 +83,6 @@ function LoginPage() {
             onSignIn={(values) =>
               signInThenGo(values, {
                 convexClient: context.convexClient,
-                convexQueryClient: context.convexQueryClient,
                 navigate: () => router.navigate(successTarget),
                 queryClient: context.queryClient,
                 t,

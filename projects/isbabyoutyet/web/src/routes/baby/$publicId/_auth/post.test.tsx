@@ -5,6 +5,7 @@ import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { seedOwnedBaby, signUpTestUser } from "@/test/convexTestSeed";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 import { runRouteLoader } from "@/test/routeTestContext";
+import { queries } from "@/lib/convex-queries";
 import { Route } from "@/routes/baby/$publicId/_auth/post";
 
 test("post loader fetches manager access data", async () => {
@@ -12,7 +13,7 @@ test("post loader fetches manager access data", async () => {
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
 
   const result = await runRouteLoader<{
-    managerBaby: { initialData: { name: string }; input: { babyId: string } };
+    managerBaby: { input: { babyId: string } };
   }>({
     harness,
     location: { pathname: `/baby/${baby.publicId}/post` },
@@ -20,10 +21,10 @@ test("post loader fetches manager access data", async () => {
     route: Route,
   });
 
-  expect(result.managerBaby).toMatchObject({
-    initialData: { name: "Baby Smith" },
-    input: { babyId: baby.publicId },
-  });
+  expect(result.managerBaby).toMatchObject({ ensured: true, input: { babyId: baby.publicId } });
+  expect(
+    harness.queryClient.getData(queries.baby.getManagerBaby, { babyId: baby.publicId }),
+  ).toMatchObject({ name: "Baby Smith" });
 });
 
 test("post overlay closes to the baby page after dismiss", async () => {
@@ -191,7 +192,7 @@ test("signed-in visitors without manager access see the forbidden dialog", async
     name: "Visitor",
     password: "password123",
   });
-  harness.withIdentity({ subject: visitorId });
+  await harness.withIdentity({ subject: visitorId });
 
   await using ctx = await renderMountedFileRoute({
     harness,
@@ -236,7 +237,7 @@ test("successful post completes onboarding step", async () => {
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: ownerId });
+  await harness.withIdentity({ subject: ownerId });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
 
   await using ctx = await renderMountedFileRoute({

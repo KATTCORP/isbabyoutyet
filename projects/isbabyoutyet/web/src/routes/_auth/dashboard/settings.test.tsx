@@ -1,5 +1,5 @@
 import { fireEvent } from "@testing-library/react";
-import { api } from "@isbabyoutyet/backend/convex/_generated/api";
+import { queries } from "@/lib/convex-queries";
 import type { ReactNode } from "react";
 import { expect, test, vi } from "vitest";
 import { AccountSettingsView } from "@/components/account-settings";
@@ -16,6 +16,7 @@ import { WithOverlayControl } from "@/test/overlayControl";
 import { renderMountedFileRouteWithRouterContext } from "@/test/renderMountedFileRoute";
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
+import { runRouteLoader } from "@/test/routeTestContext";
 
 /** Press the modal sheet's backdrop the way a real pointer would. */
 function clickSheetBackdrop(baseElement: Element) {
@@ -100,9 +101,25 @@ test("settings sheet previews account fields instead of linking to a profile pag
   expect(view.queryByText("Restart tour")).toBeNull();
 });
 
-test("settings route renders only its route-backed sheet overlay", () => {
-  expect(Route.options).not.toHaveProperty("loader");
+test("settings route renders its sheet overlay from an ensured profile", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+  const userId = await signUpTestUser(harness, {
+    email: "ada@example.com",
+    name: "Ada",
+    password: "password123",
+  });
+  await harness.withIdentity({ subject: userId });
+
+  const data = await runRouteLoader<{ profile: object }>({
+    harness,
+    location: undefined,
+    params: {},
+    route: Route,
+  });
+
   expect(Route.options.component).toBe(DashboardSettingsRoute);
+  expect(data.profile).toMatchObject({ ensured: true, input: {} });
+  expect(harness.queryClient.getData(queries.profile.get, {})).toMatchObject({ name: "Ada" });
 });
 
 test("settings sheet omits the admin link for non-admins", async () => {
@@ -127,9 +144,9 @@ test("DashboardSettingsSheet wires the preloaded profile into the view", async (
     name: "Ada",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
 
-  const profile = await harness.convexPreloader.ensureQueryData(api.profile.get, {});
+  const profile = await harness.queryClient.ensure(queries.profile.get, {});
 
   await using view = await renderWithConvexTest({
     harness,
@@ -137,7 +154,6 @@ test("DashboardSettingsSheet wires the preloaded profile into the view", async (
       <DashboardSettingsSheet
         // @ts-expect-error — integration client is not ConvexReactClient
         convexClient={harness.convexClient}
-        convexQueryClient={harness.convexQueryClient}
         profile={profile}
         queryClient={harness.queryClient}
       />
@@ -160,8 +176,7 @@ test("discarding a dirty account editor from the sheet backdrop goes back to /da
     name: "Ada",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
-  const profile = await harness.convexPreloader.ensureQueryData(api.profile.get, {});
+  await harness.withIdentity({ subject: userId });
 
   // Push-opened from the dashboard header, under jsdom's real window.history
   // so `back()` runs the router's navigation blockers on popstate.
@@ -171,7 +186,7 @@ test("discarding a dirty account editor from the sheet backdrop goes back to /da
     overlayHistory: { engine: "browser", overlayPush: true, parentEntry: "/dashboard" },
     path: "/dashboard/settings",
     route: Route,
-    routerContext: { profile },
+    routerContext: { isAdmin: false, locale: "en-GB", token: undefined },
     wrap: null,
   });
 

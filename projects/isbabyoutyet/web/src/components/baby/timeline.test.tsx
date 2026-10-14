@@ -1,5 +1,6 @@
 import { fireEvent, render, within } from "@testing-library/react";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { queries } from "@/lib/convex-queries";
+import { QueryClientProvider } from "@raf-query/react";
 import { ConvexProvider } from "convex/react";
 import { expect, test, vi } from "vitest";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
@@ -8,8 +9,8 @@ import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import type { BabyData } from "@isbabyoutyet/backend/src/types";
 import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
 import { isPlainObject } from "@workspace/runtime/guards";
-import { CONVEX_INFINITE_QUERY_KEY } from "@workspace/convex-prefetch";
 import { LocaleProvider } from "@/lib/i18n";
+import { peekVisitorId } from "@/lib/use-visitor-id";
 import { TimelineFeed, UpdateComposer } from "@/components/baby/timeline";
 import { EncouragementForm } from "@/components/baby/encouragements";
 import { createConvexTestHarness, type ConvexTestHarness } from "@/test/convexTestHarness";
@@ -54,7 +55,7 @@ async function seedOwnerBaby(harness: ConvexTestHarness) {
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: ownerId });
+  await harness.withIdentity({ subject: ownerId });
   return await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
 }
 
@@ -109,10 +110,11 @@ async function renderComposer(
   });
 }
 
+/** As the baby route's loader does on a client navigation. */
 async function prefetchTimeline(harness: ConvexTestHarness, publicId: string) {
-  await harness.queryClient.invalidateQueries({ queryKey: [CONVEX_INFINITE_QUERY_KEY] });
-  return await harness.convexPreloader.ensureInfiniteQueryData(api.timeline.listByBaby, {
-    args: { babyId: publicId, visitorId: null },
+  await harness.refresh();
+  return await harness.queryClient.ensure(queries.timeline.listByBaby, {
+    args: { babyId: publicId, visitorId: peekVisitorId() },
     numItems: 20,
   });
 }

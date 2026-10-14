@@ -5,6 +5,7 @@ import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { seedBabyWithPhoto, seedOwnedBaby } from "@/test/convexTestSeed";
 import { renderMountedFileRoute, stubBrowserImageResource } from "@/test/renderMountedFileRoute";
 import { runRouteLoader } from "@/test/routeTestContext";
+import { browserImageQuery } from "@/lib/image-prefetch";
 import { Route } from "@/routes/baby/$publicId/photo";
 
 test("loader 404s when the baby has no page photo", async () => {
@@ -34,16 +35,15 @@ test("loader prefetches the full image in the browser", async () => {
 
   await using _image = stubBrowserImageResource();
 
-  const data = await runRouteLoader<{ imagePrefetch: { input: string | undefined } }>({
+  await runRouteLoader({
     harness,
     location: undefined,
     params: { publicId: baby.publicId },
     route: Route,
   });
 
-  expect(data.imagePrefetch).toMatchObject({ input: photoUrl });
   await vi.waitFor(() => {
-    expect(harness.queryClient.getQueryData(["browserImagePrefetch", photoUrl])).toEqual({
+    expect(harness.queryClient.getData(browserImageQuery, photoUrl)).toEqual({
       ok: true,
       url: photoUrl,
     });

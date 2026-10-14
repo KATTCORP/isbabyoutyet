@@ -1,24 +1,16 @@
 import type { TranslationFunction } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n";
 import { ensureWebPushSubscription, readWebPushSubscription } from "@/lib/web-push-subscription";
-import { useConvexMutation } from "@convex-dev/react-query";
-import { convexQuery } from "@convex-dev/react-query";
 import { BellIcon, BellSlashIcon, ExportIcon } from "@phosphor-icons/react";
-import {
-  queryOptions,
-  skipToken,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import type { QueryClient } from "@tanstack/react-query";
-import { preloadedConvexQueryOptions } from "@workspace/convex-prefetch";
-import type { PreloadedConvexQuery } from "@workspace/convex-prefetch";
+import type { EnsuredQueryHandle } from "@raf-query/react";
+import { useQuery } from "@raf-query/react";
+import { useMutation } from "convex/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
-import { isFunction } from "@workspace/runtime/guards";
-import type { InitiatedQuery } from "@workspace/query-prefetch";
-import { getQueryInitiator, preloadedQueryOptions } from "@workspace/query-prefetch";
+import { queries } from "@/lib/convex-queries";
+import type { BrowserPushHandle } from "@/lib/use-browser-push-capability";
+import { useBrowserPushCapability } from "@/lib/use-browser-push-capability";
+import { usePendingAction } from "@/lib/use-pending-action";
 import type { ReactElement } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -47,66 +39,11 @@ import { FormControl, FormField, FormItem } from "@workspace/ui/components/form"
 import { Spinner } from "@workspace/ui/components/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/components/tooltip";
 
-type BrowserPushCapability =
-  | { kind: "unsupported" }
-  | { kind: "needsIosInstall" }
-  | { kind: "serviceWorkerTimeout" }
-  | { kind: "unsubscribed" }
-  | {
-      family: boolean;
-      kind: "subscribed";
-      messages: boolean;
-      subscription: PushSubscription;
-    };
-
-const browserPushCapabilityQueryKey = ["browserPushCapability"] as const;
-
-const SERVICE_WORKER_READY_TIMEOUT_MS = 5000;
-const SERVICE_WORKER_READY_TIMEOUT_MESSAGE = "Service worker ready timeout";
-
-export function browserPushQueryOptions(queryClient: QueryClient, babyRef: string) {
-  return queryOptions({
-    queryFn:
-      globalThis.window !== undefined
-        ? () => resolveBrowserPushCapability(queryClient, babyRef)
-        : skipToken,
-    queryKey: [...browserPushCapabilityQueryKey, babyRef],
-  });
-}
-
-function browserPushCapabilityFactory(queryClient: QueryClient) {
-  return (babyRef: string) => browserPushQueryOptions(queryClient, babyRef);
-}
-
-export type BrowserPushCapabilityFactory = ReturnType<typeof browserPushCapabilityFactory>;
-
-type RuntimeInitiatedBrowserPushCapability = Partial<{
-  readonly input: unknown;
-}>;
-
-function initiatedBrowserPushCapability(
-  babyRef: string,
-): InitiatedQuery<BrowserPushCapabilityFactory>;
-function initiatedBrowserPushCapability(babyRef: string): RuntimeInitiatedBrowserPushCapability {
-  return { input: babyRef };
-}
-
-export function prefetchBrowserPushCapability(
-  queryClient: QueryClient,
-  babyRef: string,
-): InitiatedQuery<BrowserPushCapabilityFactory> {
-  if (globalThis.window === undefined) {
-    return initiatedBrowserPushCapability(babyRef);
-  }
-  const factory = browserPushCapabilityFactory(queryClient);
-  return getQueryInitiator(queryClient).ensureQueryData(factory, babyRef);
-}
-
 type NotificationSubscribeProps = {
   audience: "visitor" | "manager";
   babyId: Id<"baby">;
-  browserPush: InitiatedQuery<BrowserPushCapabilityFactory>;
-  vapidPublicKey: PreloadedConvexQuery<typeof api.pushSubscriptions.getPublicKey>;
+  browserPush: BrowserPushHandle;
+  vapidPublicKey: EnsuredQueryHandle<typeof queries.pushSubscriptions.getPublicKey>;
 };
 
 type NotificationSelection = {
@@ -116,20 +53,14 @@ type NotificationSelection = {
 
 export function NotificationSubscribe(props: NotificationSubscribeProps) {
   const { t } = useI18n();
-  const queryClient = useQueryClient();
-  const capabilityQuery = useQuery(
-    preloadedQueryOptions(browserPushCapabilityFactory(queryClient), props.browserPush),
-  );
-  const capability = capabilityQuery.data;
-  const vapidPublicKeyQuery = useQuery(
-    preloadedConvexQueryOptions(api.pushSubscriptions.getPublicKey, props.vapidPublicKey),
-  );
-  const vapidPublicKey = vapidPublicKeyQuery.data;
+  const [capability, refetchCapability] = useBrowserPushCapability(props.browserPush);
+  const [vapidPublicKey] = useQuery(queries.pushSubscriptions.getPublicKey, props.vapidPublicKey);
+  const [isLoading, runAction] = usePendingAction();
 
-  const subscribeMutationFn = useConvexMutation(api.pushSubscriptions.subscribe);
-  const unsubscribeMutationFn = useConvexMutation(api.pushSubscriptions.unsubscribe);
-  const subscribeAsOwnerMutationFn = useConvexMutation(api.pushSubscriptions.subscribeAsOwner);
-  const unsubscribeAsOwnerMutationFn = useConvexMutation(api.pushSubscriptions.unsubscribeAsOwner);
+  const subscribeMutationFn = useMutation(api.pushSubscriptions.subscribe);
+  const unsubscribeMutationFn = useMutation(api.pushSubscriptions.unsubscribe);
+  const subscribeAsOwnerMutationFn = useMutation(api.pushSubscriptions.subscribeAsOwner);
+  const unsubscribeAsOwnerMutationFn = useMutation(api.pushSubscriptions.unsubscribeAsOwner);
 
   const syncDeviceNotifications = async (selection: NotificationSelection) => {
     if (
@@ -183,15 +114,14 @@ export function NotificationSubscribe(props: NotificationSubscribeProps) {
     }
   };
 
-  const subscribeMutation = useMutation({
-    mutationFn: syncDeviceNotifications,
-    onSuccess: () => {
-      void capabilityQuery.refetch();
-    },
-  });
+  const syncAndRefetch = (selection: NotificationSelection) =>
+    runAction(async () => {
+      await syncDeviceNotifications(selection);
+      await refetchCapability();
+    });
 
-  const subscribeFamilyMutation = useMutation({
-    mutationFn: async () => {
+  const subscribeFamily = () =>
+    runAction(async () => {
       if (!vapidPublicKey) {
         throw new Error(t("Push notifications are not supported in this browser."));
       }
@@ -203,34 +133,24 @@ export function NotificationSubscribe(props: NotificationSubscribeProps) {
         p256dh: keys.p256dh,
         userAgent: navigator.userAgent,
       });
-    },
-    onSuccess: () => {
-      void capabilityQuery.refetch();
-    },
-  });
+      await refetchCapability();
+    });
 
-  const unsubscribeMutation = useMutation({
-    mutationFn: async () => {
+  const unsubscribe = () =>
+    runAction(async () => {
       const keys = await readWebPushSubscription();
       if (!keys) {
         throw new Error(t("Failed to get subscription data"));
       }
-      return await unsubscribeMutationFn({
+      await unsubscribeMutationFn({
         auth: keys.auth,
         babyId: props.babyId,
         endpoint: keys.endpoint,
         p256dh: keys.p256dh,
       });
-    },
-    onSuccess: () => {
-      void capabilityQuery.refetch();
-    },
-  });
+      await refetchCapability();
+    });
 
-  const isLoading =
-    subscribeMutation.isPending ||
-    subscribeFamilyMutation.isPending ||
-    unsubscribeMutation.isPending;
   const familyOn = capability?.kind === "subscribed" && capability.family;
   const messagesOn = capability?.kind === "subscribed" && capability.messages;
   const isSubscribed = props.audience === "manager" ? familyOn || messagesOn : familyOn;
@@ -265,7 +185,7 @@ export function NotificationSubscribe(props: NotificationSubscribeProps) {
             messagesDefault={!familyOn && !messagesOn ? true : Boolean(messagesOn)}
             onSubmit={async (selection) => {
               await toastPushSync({
-                run: subscribeMutation.mutateAsync(selection),
+                run: syncAndRefetch(selection),
                 t,
                 turningOff: !selection.family && !selection.messages,
               });
@@ -279,7 +199,7 @@ export function NotificationSubscribe(props: NotificationSubscribeProps) {
           isSubscribed={Boolean(isSubscribed)}
           onClick={() => {
             if (isSubscribed) {
-              toast.promise(unsubscribeMutation.mutateAsync(), {
+              toast.promise(unsubscribe(), {
                 error: (error) =>
                   error instanceof Error
                     ? error.message
@@ -290,7 +210,7 @@ export function NotificationSubscribe(props: NotificationSubscribeProps) {
               return;
             }
             toastPushSync({
-              run: subscribeFamilyMutation.mutateAsync(),
+              run: subscribeFamily(),
               t,
               turningOff: false,
             });
@@ -614,126 +534,4 @@ function NotificationSubscribeControls(props: {
       </TooltipContent>
     </Tooltip>
   );
-}
-
-function hasLegacyMSStream(value: Window): value is Window & { MSStream: unknown } {
-  return "MSStream" in value;
-}
-
-function hasStandaloneFlag(
-  value: Navigator,
-): value is Navigator & { standalone: boolean | undefined } {
-  return "standalone" in value;
-}
-
-function getIOSStatus() {
-  if (globalThis.window === undefined) {
-    return { isIOS: false, isStandalone: false };
-  }
-
-  const isIOS =
-    /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-    (!hasLegacyMSStream(window) || !window.MSStream);
-  if (!isIOS) {
-    return { isIOS: false, isStandalone: false };
-  }
-
-  const isStandalone =
-    (isFunction(window.matchMedia) && window.matchMedia("(display-mode: standalone)").matches) ||
-    (hasStandaloneFlag(navigator) && navigator.standalone === true);
-
-  return { isIOS: true, isStandalone };
-}
-
-export function needsIosPushInstall() {
-  const iosStatus = getIOSStatus();
-  return iosStatus.isIOS && !iosStatus.isStandalone;
-}
-
-function isPushSupported() {
-  return (
-    globalThis.window !== undefined &&
-    "serviceWorker" in navigator &&
-    "PushManager" in window &&
-    "Notification" in window
-  );
-}
-
-async function waitForServiceWorkerWithTimeout(timeoutMs: number) {
-  const timeoutPromise = new Promise<never>((_resolve, reject) => {
-    setTimeout(() => reject(new Error(SERVICE_WORKER_READY_TIMEOUT_MESSAGE)), timeoutMs);
-  });
-
-  return Promise.race([navigator.serviceWorker.ready, timeoutPromise]);
-}
-
-function fetchFamilyIsSubscribed(opts: {
-  babyRef: string;
-  endpoint: string;
-  queryClient: QueryClient;
-}) {
-  return opts.queryClient.query(
-    convexQuery(api.pushSubscriptions.isSubscribed, {
-      babyId: opts.babyRef,
-      endpoint: opts.endpoint,
-    }),
-  );
-}
-
-function fetchOwnerIsSubscribed(opts: {
-  babyRef: string;
-  endpoint: string;
-  queryClient: QueryClient;
-}) {
-  return opts.queryClient.query(
-    convexQuery(api.pushSubscriptions.isOwnerSubscribed, {
-      babyId: opts.babyRef,
-      endpoint: opts.endpoint,
-    }),
-  );
-}
-
-async function resolveBrowserPushCapability(
-  queryClient: QueryClient,
-  babyRef: string,
-): Promise<BrowserPushCapability> {
-  const iosStatus = getIOSStatus();
-  if (iosStatus.isIOS && !iosStatus.isStandalone) {
-    return { kind: "needsIosInstall" };
-  }
-
-  if (!isPushSupported()) {
-    return { kind: "unsupported" };
-  }
-
-  try {
-    const registration = await waitForServiceWorkerWithTimeout(SERVICE_WORKER_READY_TIMEOUT_MS);
-    const subscription = await registration.pushManager.getSubscription();
-    if (subscription) {
-      const [family, messages] = await Promise.all([
-        fetchFamilyIsSubscribed({
-          babyRef,
-          endpoint: subscription.endpoint,
-          queryClient,
-        }),
-        fetchOwnerIsSubscribed({
-          babyRef,
-          endpoint: subscription.endpoint,
-          queryClient,
-        }),
-      ]);
-      return {
-        family: Boolean(family),
-        kind: "subscribed",
-        messages: Boolean(messages),
-        subscription,
-      };
-    }
-    return { kind: "unsubscribed" };
-  } catch (error) {
-    if (error instanceof Error && error.message === SERVICE_WORKER_READY_TIMEOUT_MESSAGE) {
-      return { kind: "serviceWorkerTimeout" };
-    }
-    return { kind: "unsubscribed" };
-  }
 }

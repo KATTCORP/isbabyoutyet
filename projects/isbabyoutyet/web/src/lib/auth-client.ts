@@ -1,15 +1,16 @@
-import type { ConvexQueryClient } from "@convex-dev/react-query";
-import type { QueryClient, QueryKey } from "@tanstack/react-query";
-import { hashKey, QueryObserver } from "@tanstack/react-query";
+import type { QueryClient } from "@raf-query/react";
+import { Query } from "@raf-query/react";
+import type { ConvexReader } from "@workspace/convex-query";
 import { createAuthClient } from "better-auth/react";
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import type { FunctionReturnType } from "convex/server";
 import type { ConvexReactClient } from "convex/react";
-import { api } from "@isbabyoutyet/backend/convex/_generated/api";
+import type { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { parseConvexTokenFromAuthResponse } from "@isbabyoutyet/backend/src/convexToken";
 import { isValidTimeZone, TIME_ZONE_HINT_HEADER } from "@isbabyoutyet/backend/src/timeZone";
 import { parseVisitorIdHint, VISITOR_ID_HINT_HEADER } from "@isbabyoutyet/backend/src/visitorId";
 import type { TranslationFunction } from "@/lib/i18n";
+import { queries } from "@/lib/convex-queries";
 import { peekVisitorId } from "@/lib/use-visitor-id";
 
 function browserTimeZone() {
@@ -79,12 +80,6 @@ export function clearClientToken(convexReactClient: ConvexReactClient) {
 
 export type MePresence = "present" | "absent";
 
-function emptyUnsubscribe() {}
-
-function isMeQueryKey(queryKey: QueryKey, meKey: QueryKey) {
-  return hashKey(queryKey) === hashKey(meKey);
-}
-
 function meMatchesPresence(
   value: FunctionReturnType<typeof api.profile.get> | undefined,
   presence: MePresence,
@@ -104,83 +99,58 @@ function meMatchesPresence(
   }
 }
 
-function clearQueryCacheKeepingMe(queryClient: QueryClient, meKey: QueryKey) {
-  queryClient.removeQueries({
-    predicate: (query) => !isMeQueryKey(query.queryKey, meKey),
-  });
-}
-
 /** @internal So a stuck websocket cannot pin the submit button forever. */
 export const SETTLED_ME_WAIT_MS = 10_000;
 
 /**
- * Starts a live `profile.get` observer (call this *before* sign-in / sign-up /
- * sign-out) and resolves once the result matches `opts.presence`.
+ * Starts reading `profile.get` (call this *before* sign-in / sign-up /
+ * sign-out) and resolves once the live result matches `opts.presence`.
  *
- * On a matching snapshot the query cache is cleared except `profile.get`.
+ * On a matching result every other cache entry is removed, so the next
+ * screen loads with the new identity.
  *
  * @internal
  */
-export function waitForMe(opts: {
-  convexQueryClient: Pick<ConvexQueryClient, "queryOptions">;
-  presence: MePresence;
-  queryClient: QueryClient;
-}) {
+export function waitForMe(opts: { presence: MePresence; queryClient: QueryClient<ConvexReader> }) {
   const signal = AbortSignal.timeout(SETTLED_ME_WAIT_MS);
   if (signal.aborted) {
     return Promise.resolve();
   }
 
-  const meQuery = opts.convexQueryClient.queryOptions(api.profile.get, {});
-  const observer = new QueryObserver(opts.queryClient, meQuery);
+  const me = opts.queryClient.getQuery(queries.profile.get, {});
+  const matches = () => {
+    const state = Query.getUnsafe(me);
+    return state.status === "success" && meMatchesPresence(state.data, opts.presence);
+  };
   const stop = new AbortController();
   const combined = AbortSignal.any([signal, stop.signal]);
-  let unsubscribe = emptyUnsubscribe;
 
   return new Promise<void>((resolve) => {
-    let settled = false;
-    const finish = (matched: boolean) => {
-      if (settled) {
-        return;
+    const unsubscribe = Query.subscribeUnsafe(me, () => {
+      if (matches()) {
+        stop.abort();
       }
-      settled = true;
+    });
+    opts.queryClient.prefetch(queries.profile.get, {});
+
+    const onAbort = () => {
       unsubscribe();
-      observer.destroy();
-      if (matched) {
-        clearQueryCacheKeepingMe(opts.queryClient, meQuery.queryKey);
+      if (matches()) {
+        opts.queryClient.remove({ predicate: (query) => query.hash !== me.hash });
       }
       resolve();
     };
-
-    const onResult = () => {
-      const result = observer.getCurrentResult();
-      if (result.isPending || result.isError) {
-        return;
-      }
-      if (meMatchesPresence(result.data, opts.presence)) {
-        stop.abort();
-      }
-    };
-
-    unsubscribe = observer.subscribe(onResult);
-    onResult();
-
-    const onAbort = () => {
-      const result = observer.getCurrentResult();
-      finish(!result.isPending && !result.isError && meMatchesPresence(result.data, opts.presence));
-    };
     combined.addEventListener("abort", onAbort, { once: true });
-    if (combined.aborted) {
-      onAbort();
+    if (matches()) {
+      stop.abort();
     }
   });
 }
 
 type AuthThenGoOpts = {
   convexClient: ConvexReactClient;
-  convexQueryClient: ConvexQueryClient;
   navigate: () => Promise<void> | void;
-  queryClient: QueryClient;
+  queryClient: QueryClient<ConvexReader>;
 };
 
 /**
@@ -192,7 +162,6 @@ export async function signInThenGo(
   opts: AuthThenGoOpts & { t: TranslationFunction },
 ) {
   const settled = waitForMe({
-    convexQueryClient: opts.convexQueryClient,
     presence: "present",
     queryClient: opts.queryClient,
   });
@@ -217,7 +186,6 @@ export async function signUpThenGo(
   opts: AuthThenGoOpts & { t: TranslationFunction },
 ) {
   const settled = waitForMe({
-    convexQueryClient: opts.convexQueryClient,
     presence: "present",
     queryClient: opts.queryClient,
   });
@@ -277,7 +245,6 @@ export async function resetPasswordThenGo(
  */
 export async function signOutThenGo(opts: AuthThenGoOpts & { t: TranslationFunction }) {
   const settled = waitForMe({
-    convexQueryClient: opts.convexQueryClient,
     presence: "absent",
     queryClient: opts.queryClient,
   });
