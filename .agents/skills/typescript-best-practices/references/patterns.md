@@ -19,7 +19,7 @@ function focusAgent(id: AgentId): void {
 }
 ```
 
-Match the `readonly __brand: 'X'` shape; don't invent a new convention. Unique-symbol brands already used in query-prefetch handles are equivalent — keep that existing pattern.
+Match the `readonly __brand: 'X'` shape; don't invent a new convention.
 
 ## Discriminated unions
 

@@ -3,7 +3,7 @@ name: no-loader-waterfalls
 description: >-
   Eliminate sequential awaits in TanStack Router loaders and Convex prefetch.
   Use when adding or changing route loaders, beforeLoad, SSR prefetch, allKeyed,
-  ensureQueryData, or when the user mentions loader waterfalls, parallel prefetch,
+  queryClient.ensure, or when the user mentions loader waterfalls, parallel prefetch,
   or blocking loader chains.
 ---
 
@@ -13,28 +13,28 @@ description: >-
 
 ## Loader shape
 
-One `allKeyed` (or equivalent `Promise.all` of prefetches). Every independent Convex query goes inside it.
+One `allKeyed` (or equivalent `Promise.all`) of `queryClient.ensure` calls. Every independent Convex query goes inside it. `ensure` resolves to a serializable handle; components read it with `useQuery(factory, handle)`, which has data on the first render (SSR and client navigation alike).
 
 ```typescript
 loader: async (opts) => {
-  const preloader = opts.context.convexPreloader;
+  const queryClient = opts.context.queryClient;
   const publicId = opts.params.publicId;
 
-  const loaderData = await allKeyed({
-    baby: preloader.ensureQueryData(api.baby.getByPublicId, { id: publicId }),
-    profile: preloader.ensureQueryData(api.profile.get, {}),
-    timeline: preloader.ensureInfiniteQueryData(api.timeline.listByBaby, {
-      args: { babyId: publicId },
+  return await allKeyed({
+    baby: queryClient.ensure(queries.baby.getByPublicId, { id: publicId }),
+    profile: queryClient.ensure(queries.profile.get, {}),
+    timeline: queryClient.ensure(queries.timeline.listByBaby, {
+      args: { babyId: publicId, visitorId: null },
       numItems: TIMELINE_PAGE_SIZE,
     }),
-    // …every other independent prefetch
+    // …every other independent query
   });
-
-  return loaderData;
 };
 ```
 
-Reference: [`projects/isbabyoutyet/web/src/routes/baby/$publicId.tsx`](../../../projects/isbabyoutyet/web/src/routes/baby/$publicId.tsx).
+Factories come from [`src/lib/convex-queries.ts`](../../../projects/isbabyoutyet/web/src/lib/convex-queries.ts) (built with `convexQuery` / `convexPaginatedQuery` from `@workspace/convex-query`). When the loader itself needs a value (404, redirect), `await queryClient.ensure(...)` and then read `queryClient.getData(...)`.
+
+Reference: [`projects/isbabyoutyet/web/src/routes/baby/$publicId/route.tsx`](../../../projects/isbabyoutyet/web/src/routes/baby/$publicId/route.tsx).
 
 ## beforeLoad vs loader
 
@@ -51,7 +51,7 @@ Do **not** duplicate `throw notFound()` in the loader when `beforeLoad` already 
 
 `beforeLoad` re-runs serially (root → leaf) on **every** navigation, back button
 included, and the router blocks on each one. On the client path it may only do
-zero-network work (cache reads via `ensureQueryData`, local locale detection).
+zero-network work (cache hits via `queryClient.ensure`, local locale detection).
 Never call a `createServerFn` on the client branch of a `beforeLoad` — that
 adds an HTTP round-trip to every navigation and defeats viewport preloading
 (regression history: PR #108 fixed this, PR #112 reintroduced it in the root
@@ -92,15 +92,15 @@ Resolver lookups inside Convex should also parallelize (`Promise.all`), not chai
 Browser-only inputs must not block SSR or serialize the loader.
 
 ```typescript
-const browserPush = prefetchBrowserPushCapability(opts.context.queryClient);
-// non-blocking InitiatedQuery — not inside allKeyed if it would await browser APIs on server
+const browserPush = prefetchBrowserPushCapability(queryClient, publicId);
+// non-blocking QueryHandle — never inside allKeyed
 
 return { browserPush, ...(await allKeyed({ /* convex */ })) };
 ```
 
-Guard SSR in the prefetch helper (`typeof window === "undefined"`). `skipToken` alone is not enough for `ensureQueryData` on the server.
+The helper guards SSR (`globalThis.window === undefined`): on the server it only returns `queryClient.getQuery(...).handle`, so nothing runs or dehydrates; in the browser it calls `queryClient.prefetch`. The reading hook picks a server or client implementation at module level, so SSR renders the "unknown yet" state without starting detection.
 
-Reference: [`notification-subscribe.tsx`](../../../projects/isbabyoutyet/web/src/components/baby/notification-subscribe.tsx).
+Reference: [`browser-push-capability.ts`](../../../projects/isbabyoutyet/web/src/lib/browser-push-capability.ts) and [`use-browser-push-capability.ts`](../../../projects/isbabyoutyet/web/src/lib/use-browser-push-capability.ts).
 
 ## Do not re-fetch auth in page loaders
 
@@ -120,7 +120,7 @@ Before merging loader work, verify:
 - [ ] No server-function calls on the client branch of any `beforeLoad`
 - [ ] Loader tests assert parallel prefetch inputs (e.g. slug passed to every baby query, not only after a prior fetch)
 - [ ] No auth/profile side effects duplicated from root SSR
-- [ ] Client-only queries use initiated handles, not blocking loader awaits on server
+- [ ] Client-only queries use `prefetch` handles, not blocking loader awaits on server
 
 ## When a waterfall is acceptable
 
@@ -128,9 +128,9 @@ Sequential awaits are fine when step B **truly depends** on step A's *response b
 
 ## Tests
 
-Loader tests should mock query handlers and assert **which queries fire** with **which inputs**, without requiring a prior fetch to supply ids. See [`$publicId.test.tsx`](../../../projects/isbabyoutyet/web/src/routes/baby/$publicId.test.tsx).
+Loader tests should stub query handlers (`stubQueryClientResource` in `src/test/stubQueryClient.ts`) and assert **which queries fire** with **which inputs**, without requiring a prior fetch to supply ids. See [`$publicId.test.tsx`](../../../projects/isbabyoutyet/web/src/routes/baby/$publicId.test.tsx).
 
 ## Related docs
 
-- [`packages/convex-prefetch/README.md`](../../../packages/convex-prefetch/README.md) — preloader + infinite queries
+- [`packages/convex-query/README.md`](../../../packages/convex-query/README.md) — Convex factories, readers, and the live bridge for raf-query
 - [`examples.md`](examples.md) — before/after refactors
