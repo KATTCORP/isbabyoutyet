@@ -11,6 +11,8 @@ import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { signUpTestUser } from "@/test/convexTestSeed";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { runRouteLoader } from "@/test/routeTestContext";
 import { HomePageView, Route } from "./index";
 
@@ -124,13 +126,14 @@ test("homepage language picker saves an explicit language choice", async () => {
 
 test("homepage loader prefetches profile.get", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
-  const data = await runRouteLoader<{ me: { initialData: unknown } }>({
+  const data = await runRouteLoader<{ me: { ensured: boolean } }>({
     harness,
     location: { pathname: "/" },
     params: {},
     route: Route,
   });
-  expect(data.me.initialData).toBeNull();
+  expect(data.me).toMatchObject({ ensured: true, input: {} });
+  expect(harness.queryClient.getData(convexQuery(api.profile.get), {})).toBeNull();
 });
 
 test("signed-in profile.get flips homepage CTAs to the dashboard", async () => {
@@ -140,7 +143,7 @@ test("signed-in profile.get flips homepage CTAs to the dashboard", async () => {
     name: "Ada",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
 
   await using ctx = await renderMountedFileRoute({
     harness,

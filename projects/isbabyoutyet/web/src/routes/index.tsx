@@ -1,9 +1,9 @@
 import { BabyIcon } from "@phosphor-icons/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { allKeyed, useQuery } from "@raf-query/react";
+import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { homepageDemoBabyFor } from "@isbabyoutyet/backend/src/seedCredentials";
-import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
-import { allKeyed } from "@workspace/query-prefetch";
 import { Button } from "@workspace/ui/components/button";
 import { LanguagePicker } from "@/components/language-picker";
 import { homepageCacheHeaders } from "@/lib/cachePolicy";
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/")({
   headers: homepageCacheHeaders,
   loader: async (opts) => {
     return await allKeyed({
-      me: opts.context.convexPreloader.ensureQueryData(api.profile.get, {}),
+      me: opts.context.queryClient.ensure(convexQuery(api.profile.get), {}),
     });
   },
   head: (opts) => {
@@ -222,8 +222,8 @@ const HOW_IT_WORKS = [
 
 function HomePage() {
   const loaderData = Route.useLoaderData();
-  const meQuery = usePreloadedConvexQuery(api.profile.get, loaderData.me);
-  return <HomePageView isSignedIn={meQuery.data != null} />;
+  const [meData] = useQuery(convexQuery(api.profile.get), loaderData.me);
+  return <HomePageView isSignedIn={meData != null} />;
 }
 
 /**

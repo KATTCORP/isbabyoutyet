@@ -1,9 +1,9 @@
 import { SettingsPanel } from "@/components/baby/settings-panel";
-import { prefetchBrowserPushCapability } from "@/components/baby/notification-subscribe";
-import { allKeyed } from "@workspace/query-prefetch";
+import { allKeyed, useQuery } from "@raf-query/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { FORBIDDEN } from "@isbabyoutyet/backend/src/types";
-import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
+import { prefetchBrowserPushCapability } from "@/lib/browser-push-capability";
+import { convexQuery } from "@workspace/convex-query";
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useI18n } from "@/lib/i18n";
@@ -14,22 +14,16 @@ import { managerDocToBabyData } from "@/routes/baby/$publicId/route";
 export const Route = createFileRoute("/baby/$publicId/_auth/settings")({
   loader: async (opts) => {
     const babyRef = opts.params.publicId;
-    const browserPush = prefetchBrowserPushCapability(opts.context.queryClient, babyRef);
+    const queryClient = opts.context.queryClient;
+    const browserPush = prefetchBrowserPushCapability(queryClient, babyRef);
     const data = await allKeyed({
-      coParentsList: opts.context.convexPreloader.ensureQueryData(api.coParents.listForBaby, {
+      coParentsList: queryClient.ensure(convexQuery(api.coParents.listForBaby), {
         babyId: babyRef,
       }),
-      managerBaby: opts.context.convexPreloader.ensureQueryData(api.baby.getManagerBaby, {
-        babyId: babyRef,
-      }),
-      myAccess: opts.context.convexPreloader.ensureQueryData(api.coParents.myAccess, {
-        babyId: babyRef,
-      }),
-      profile: opts.context.convexPreloader.ensureQueryData(api.profile.get, {}),
-      vapidPublicKey: opts.context.convexPreloader.ensureQueryData(
-        api.pushSubscriptions.getPublicKey,
-        {},
-      ),
+      managerBaby: queryClient.ensure(convexQuery(api.baby.getManagerBaby), { babyId: babyRef }),
+      myAccess: queryClient.ensure(convexQuery(api.coParents.myAccess), { babyId: babyRef }),
+      profile: queryClient.ensure(convexQuery(api.profile.get), {}),
+      vapidPublicKey: queryClient.ensure(convexQuery(api.pushSubscriptions.getPublicKey), {}),
     });
     return { ...data, browserPush };
   },
@@ -47,14 +41,13 @@ export function BabySettingsOverlay() {
   const removeBaby = useMutation(api.baby.remove);
   const redateMilestone = useMutation(api.updates.redateMilestone);
   const unmarkMilestone = useMutation(api.updates.unmarkMilestone);
-  const managerBabyQuery = usePreloadedConvexQuery(api.baby.getManagerBaby, loaderData.managerBaby);
-  const myAccessQuery = usePreloadedConvexQuery(api.coParents.myAccess, loaderData.myAccess);
-  const profileQuery = usePreloadedConvexQuery(api.profile.get, loaderData.profile);
-  if (managerBabyQuery.data === FORBIDDEN) {
+  const [managerBabyDoc] = useQuery(convexQuery(api.baby.getManagerBaby), loaderData.managerBaby);
+  const [myAccess] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
+  const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile);
+  if (managerBabyDoc === FORBIDDEN) {
     return <ForbiddenDialog overlay={settings} />;
   }
-  const managerBabyDoc = managerBabyQuery.data;
-  const isOwner = myAccessQuery.data.isOwner;
+  const isOwner = myAccess.isOwner;
   const baby = managerDocToBabyData(managerBabyDoc);
 
   return (
@@ -96,7 +89,7 @@ export function BabySettingsOverlay() {
         await router.invalidate();
       }}
       overlay={settings}
-      profileLocale={profileQuery.data?.locale ?? locale}
+      profileLocale={profile?.locale ?? locale}
     />
   );
 }

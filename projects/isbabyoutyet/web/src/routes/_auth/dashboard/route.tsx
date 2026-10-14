@@ -1,9 +1,9 @@
 import { Button } from "@workspace/ui/components/button";
+import { allKeyed, useQuery } from "@raf-query/react";
+import { convexQuery } from "@workspace/convex-query";
 import { ButtonGroup } from "@workspace/ui/components/button-group";
 import { ModeToggle } from "@workspace/ui/components/mode-toggle";
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { allKeyed } from "@workspace/query-prefetch";
-import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
 import { BabyIcon, PlusIcon, UserIcon } from "@phosphor-icons/react";
 import { Avatar, AvatarFallback } from "@workspace/ui/components/avatar";
 import type { FunctionReturnType } from "convex/server";
@@ -16,10 +16,10 @@ import { useDashboardSettingsOverlayLinks } from "@/lib/overlay-nav";
 export const Route = createFileRoute("/_auth/dashboard")({
   component: DashboardPageLayout,
   loader: async (opts) => {
-    const preloader = opts.context.convexPreloader;
+    const queryClient = opts.context.queryClient;
     return await allKeyed({
-      babies: preloader.ensureQueryData(api.baby.listByUser, {}),
-      onboarding: preloader.ensureQueryData(api.onboarding.getMine, {}),
+      babies: queryClient.ensure(convexQuery(api.baby.listByUser), {}),
+      onboarding: queryClient.ensure(convexQuery(api.onboarding.getMine), {}),
     });
   },
 });
@@ -36,10 +36,8 @@ export function DashboardPageLayout() {
 function DashboardPage() {
   const loaderData = Route.useLoaderData();
   const { t } = useI18n();
-  const babiesQuery = usePreloadedConvexQuery(api.baby.listByUser, loaderData.babies);
-  const onboardingQuery = usePreloadedConvexQuery(api.onboarding.getMine, loaderData.onboarding);
-  const babies = babiesQuery.data;
-  const progress = onboardingQuery.data;
+  const [babies] = useQuery(convexQuery(api.baby.listByUser), loaderData.babies);
+  const [progress] = useQuery(convexQuery(api.onboarding.getMine), loaderData.onboarding);
 
   return (
     <div className="flex min-h-screen flex-col bg-background bg-dots">

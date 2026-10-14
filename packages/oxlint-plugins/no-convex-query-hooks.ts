@@ -1,21 +1,30 @@
 import { defineRule } from "@oxlint/plugins";
-import {
-  CONVEX_BANNED_HOOKS,
-  importSource,
-  specifierImportedName,
-} from "./query-prefetch-shared.ts";
+
+const CONVEX_BANNED_HOOKS = new Set(["useQuery", "usePaginatedQuery", "useQueries"]);
+
+function specifierImportedName(node) {
+  return node.imported.type === "Identifier" ? node.imported.name : node.imported.value;
+}
+
+function importSource(node) {
+  const parent = node.parent;
+  if (parent?.type !== "ImportDeclaration") {
+    return null;
+  }
+  return parent.source.value;
+}
 
 export const noConvexQueryHooks = defineRule({
   meta: {
     type: "problem",
     docs: {
       description:
-        "Disallow Convex react query hooks; use TanStack Query + ConvexQueryClient instead",
+        "Disallow Convex react query hooks; use raf-query with `@workspace/convex-query` factories instead",
     },
     schema: [],
     messages: {
       banned:
-        "Do not use `{{name}}` from `convex/react`. Use `usePreloadedConvexQuery` for Convex data, or TanStack Query (`useQuery` / `useSuspenseQuery`) with `preloadedQueryOptions`.",
+        "Do not use `{{name}}` from `convex/react`. `ensure` a `convexQuery` / `convexPaginatedQuery` factory in the route loader and read it with `useQuery` from `@raf-query/react`.",
     },
   },
   create(context) {

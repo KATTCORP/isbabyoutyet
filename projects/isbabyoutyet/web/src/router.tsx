@@ -1,11 +1,11 @@
 import { createRouter, rootRouteId } from "@tanstack/react-router";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@raf-query/react";
+import { setupRouterIntegration } from "@raf-query/react/tanstack-router";
+import { connectConvexLive, ConvexReader } from "@workspace/convex-query";
 import { isPlainObject, isString } from "@workspace/runtime/guards";
-import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
-import { ConvexQueryClient } from "@convex-dev/react-query";
-import { ConvexProvider } from "convex/react";
+import { ConvexHttpClient } from "convex/browser";
+import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { routeTree } from "./routeTree.gen";
-import { convexInfiniteQueryFn, getConvexQueryPreloader } from "@workspace/convex-prefetch";
 import { RootErrorComponent } from "./routes/__root";
 import { getDetectedLocale } from "./lib/i18n";
 import { setClientToken } from "./lib/auth-client";
@@ -13,9 +13,9 @@ import { setClientToken } from "./lib/auth-client";
 /** Router preload policy — tested without constructing the full client graph. */
 export const routerPreloadOptions = {
   defaultPreload: "viewport",
-  // React Query is the cache of record, so preloaded loader data must be
-  // immediately stale to the router: loaders re-run (as cheap ensureQueryData
-  // cache hits) instead of the router serving its own ≤30s-old snapshot.
+  // raf-query is the cache of record, so preloaded loader data must be
+  // immediately stale to the router: loaders re-run (as cheap `ensure` cache
+  // hits) instead of the router serving its own ≤30s-old snapshot.
   // Navigation still commits instantly — stale matches revalidate in the
   // background. https://tanstack.com/router/latest/docs/guide/data-loading
   defaultPreloadStaleTime: 0,
@@ -48,35 +48,30 @@ export function getRouter() {
 
   // expectAuth keeps SSR-authenticated query results from being dropped on
   // hydration; public pages still run once auth resolves as anonymous.
-  const convexQueryClient = new ConvexQueryClient(convexUrl, {
-    expectAuth: true,
-  });
-
+  const convexClient = new ConvexReactClient(convexUrl, { expectAuth: true });
+  // getRouter runs once per server request, so this HTTP client (authenticated
+  // by the root `beforeLoad`) and the QueryClient reading through it serve
+  // only this request.
+  const convexHttpClient = globalThis.window === undefined ? new ConvexHttpClient(convexUrl) : null;
   const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        queryKeyHashFn: convexQueryClient.hashFn(),
-        // Handles both regular Convex queries and infinite/paginated keys. This
-        // is the only binding between this request's QueryClient and its
-        // (per-request, per-user authenticated) Convex client.
-        queryFn: convexInfiniteQueryFn(convexQueryClient),
-      },
-    },
+    layer: convexHttpClient
+      ? ConvexReader.layerSnapshot(convexHttpClient)
+      : ConvexReader.layerWatch(convexClient),
   });
-  convexQueryClient.connect(queryClient);
-  const convexPreloader = getConvexQueryPreloader(queryClient);
+  if (!convexHttpClient) {
+    connectConvexLive({ client: convexClient, queryClient });
+  }
 
   const router = createRouter({
     routeTree,
     // Viewport preload runs loaders when a Link scrolls into view (not just on
     // hover/focus), so e.g. visible dashboard baby cards prefetch their baby
-    // pages via the ensureQueryData prefetchers.
+    // pages via their `queryClient.ensure` loaders.
     ...routerPreloadOptions,
     // Friendly recoverable fallback for any route error (reload / go home).
     context: {
-      convexClient: convexQueryClient.convexClient,
-      convexPreloader,
-      convexQueryClient,
+      convexClient,
+      convexHttpClient,
       locale: getDetectedLocale(),
       queryClient,
       token: undefined,
@@ -89,14 +84,16 @@ export function getRouter() {
     // until then). Anonymous visitors resolve via one `/convex/token` 401.
     dehydrate: (): DehydratedAuth => ({ authToken: rootAuthToken(router.state.matches) }),
     hydrate: (dehydrated) => {
-      setClientToken(convexQueryClient.convexClient, dehydrated.authToken);
+      setClientToken(convexClient, dehydrated.authToken);
     },
     Wrap: (props) => (
-      <ConvexProvider client={convexQueryClient.convexClient}>{props.children}</ConvexProvider>
+      <ConvexProvider client={convexClient}>
+        <QueryClientProvider client={queryClient}>{props.children}</QueryClientProvider>
+      </ConvexProvider>
     ),
   });
 
-  setupRouterSsrQueryIntegration({ queryClient, router });
+  setupRouterIntegration({ queryClient, router });
 
   return router;
 }

@@ -1,8 +1,9 @@
 import { useMutation } from "convex/react";
+import { useQuery } from "@raf-query/react";
+import { convexQuery } from "@workspace/convex-query";
+import type { EnsuredConvexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { isFunction } from "@workspace/runtime/guards";
-import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
-import type { PreloadedConvexQuery } from "@workspace/convex-prefetch";
 import { useI18n } from "@/lib/i18n";
 import { useDelayedAction } from "@/lib/use-delayed-action";
 import { GettingStartedCard } from "./getting-started";
@@ -25,7 +26,7 @@ type OnboardingSession = {
 type OnboardingHostProps = {
   /** Baby-page owners only — visitors never see the tour */
   enabled: boolean | undefined;
-  onboarding: PreloadedConvexQuery<typeof api.onboarding.getMine>;
+  onboarding: EnsuredConvexQuery<typeof api.onboarding.getMine>;
   /** Hide spotlight tips (e.g. while a modal is open) */
   spotlight: boolean | undefined;
   surface: "dashboard" | "baby";
@@ -117,7 +118,7 @@ export function OnboardingHostWithSession(
 }
 
 function OnboardingHostAuthed(props: OnboardingHostProps) {
-  const progressQuery = usePreloadedConvexQuery(api.onboarding.getMine, props.onboarding);
+  const [progress] = useQuery(convexQuery(api.onboarding.getMine), props.onboarding);
   const {
     completeStep,
     dismissChecklist,
@@ -127,7 +128,6 @@ function OnboardingHostAuthed(props: OnboardingHostProps) {
   } = useOnboardingMutations();
   const { t } = useI18n();
   const spotlight = props.spotlight !== false;
-  const progress = progressQuery.data;
 
   function dismissFinishedChecklist() {
     void dismissChecklist({});

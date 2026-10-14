@@ -42,7 +42,6 @@ export function BabyLoginOverlay() {
           onSignIn={(values) =>
             signInThenGo(values, {
               convexClient: context.convexClient,
-              convexQueryClient: context.convexQueryClient,
               navigate: () =>
                 successTarget === null ? login.close() : router.navigate(successTarget),
               queryClient: context.queryClient,

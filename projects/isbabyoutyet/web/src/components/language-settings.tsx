@@ -1,4 +1,7 @@
 import { ClockIcon, TranslateIcon } from "@phosphor-icons/react";
+import { useQuery } from "@raf-query/react";
+import { convexQuery } from "@workspace/convex-query";
+import type { EnsuredConvexQuery } from "@workspace/convex-query";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
@@ -19,8 +22,6 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "@workspace/ui/components/item";
-import type { PreloadedConvexQuery } from "@workspace/convex-prefetch";
-import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
 import { DEFAULT_TIME_ZONE } from "@isbabyoutyet/backend/src/timeZone";
 import { LanguagePicker } from "@/components/language-picker";
 import { getLanguageName, useI18n } from "@/lib/i18n";
@@ -48,12 +49,11 @@ const defaultTimeZoneOption = {
   value: DEFAULT_TIME_ZONE,
 };
 
-export function LanguageSettings(props: { profile: PreloadedConvexQuery<typeof api.profile.get> }) {
-  const profileQuery = usePreloadedConvexQuery(api.profile.get, props.profile);
+export function LanguageSettings(props: { profile: EnsuredConvexQuery<typeof api.profile.get> }) {
+  const [profile] = useQuery(convexQuery(api.profile.get), props.profile);
   const onUpdateLocale = useMutation(api.profile.updateLocale);
   const onUpdateTimeZone = useMutation(api.profile.updateTimeZone);
   const { locale, t } = useI18n();
-  const profile = profileQuery.data;
   const selectedLocale = profile?.locale ?? locale;
   const selectedTimeZone = profile?.timeZone ?? DEFAULT_TIME_ZONE;
   const [optimisticTimeZone, setOptimisticTimeZone] = useOptimisticOverride({

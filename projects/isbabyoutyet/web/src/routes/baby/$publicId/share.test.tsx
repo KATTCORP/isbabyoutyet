@@ -1,8 +1,9 @@
-import { convexQuery } from "@convex-dev/react-query";
 import { fireEvent } from "@testing-library/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { expect, test, vi } from "vitest";
+import { convexQuery } from "@workspace/convex-query";
+import { browserImageQuery } from "@/lib/image-prefetch";
 import { getBabySeo } from "@/lib/seo";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { seedOwnedBaby, patchOwnedBaby } from "@/test/convexTestSeed";
@@ -21,11 +22,7 @@ test("loader prefetches the canonical OG image in the browser", async () => {
   });
   await using _image = stubBrowserImageResource();
 
-  const data = await runRouteLoader<{
-    imagePrefetch: { input: string | undefined };
-    myAccess: { initialData: { canManage: boolean } };
-    shareLink: string;
-  }>({
+  const data = await runRouteLoader<{ shareLink: string }>({
     harness,
     location: undefined,
     params: { publicId: baby.publicId },
@@ -36,13 +33,22 @@ test("loader prefetches the canonical OG image in the browser", async () => {
   if (!babyDoc) {
     throw new Error("expected baby");
   }
-  const prefetchedImageUrl = new URL(data.imagePrefetch.input ?? "");
+  const imageUrl = getBabySeo(babyDoc, baby.publicId).imageUrl;
+  const prefetchedImageUrl = new URL(imageUrl);
   expect(prefetchedImageUrl.pathname).toMatch(
     new RegExp(`^/og/baby/${baby.publicId}-${babyDoc.ogImageHash}-\\d{8}$`),
   );
   expect(prefetchedImageUrl.search).toBe("");
-  expect(data.imagePrefetch.input).toBe(getBabySeo(babyDoc, baby.publicId).imageUrl);
-  expect(data.myAccess.initialData.canManage).toBe(true);
+  await vi.waitFor(() => {
+    expect(harness.queryClient.getData(browserImageQuery, imageUrl)).toEqual({
+      ok: true,
+      url: imageUrl,
+    });
+  });
+  expect(
+    harness.queryClient.getData(convexQuery(api.coParents.myAccess), { babyId: baby.publicId })
+      ?.canManage,
+  ).toBe(true);
   expect(data.shareLink).toBe(`https://isbabyoutyet.com/baby/${baby.publicId}`);
 });
 
@@ -59,8 +65,9 @@ test("loader reuses a cached baby snapshot instead of refetching", async () => {
   if (!cachedBaby) {
     throw new Error("expected baby");
   }
-  harness.queryClient.setQueryData(
-    convexQuery(api.baby.getByPublicId, { id: baby.publicId }).queryKey,
+  harness.queryClient.setData(
+    convexQuery(api.baby.getByPublicId),
+    { id: baby.publicId },
     cachedBaby,
   );
 
@@ -72,7 +79,7 @@ test("loader reuses a cached baby snapshot instead of refetching", async () => {
   });
   await using _image = stubBrowserImageResource();
 
-  const data = await runRouteLoader<{ imagePrefetch: { input: string | undefined } }>({
+  await runRouteLoader({
     harness,
     location: undefined,
     params: { publicId: baby.publicId },
@@ -83,7 +90,12 @@ test("loader reuses a cached baby snapshot instead of refetching", async () => {
   if (!freshBaby) {
     throw new Error("expected baby");
   }
-  expect(data.imagePrefetch.input).toBe(getBabySeo(cachedBaby, baby.publicId).imageUrl);
+  const cachedImageUrl = getBabySeo(cachedBaby, baby.publicId).imageUrl;
+  await vi.waitFor(() => {
+    expect(harness.queryClient.getData(browserImageQuery, cachedImageUrl)).toMatchObject({
+      url: cachedImageUrl,
+    });
+  });
   expect(freshBaby.theme).toBe("baby-blue");
 });
 

@@ -36,7 +36,6 @@ export function BabySignupOverlay() {
             onSignUp={(values) =>
               signUpThenGo(values, {
                 convexClient: context.convexClient,
-                convexQueryClient: context.convexQueryClient,
                 navigate: () => signup.close(),
                 queryClient: context.queryClient,
                 t,

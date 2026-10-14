@@ -1,8 +1,10 @@
-import { QueryClient } from "@tanstack/react-query";
-import { convexQuery } from "@convex-dev/react-query";
+import { ConvexHttpClient } from "convex/browser";
 import { isRedirect } from "@tanstack/react-router";
-import { getConvexQueryPreloader } from "@workspace/convex-prefetch";
+import { makeAsyncResource } from "@isbabyoutyet/backend/convex/test.resource";
+import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
+import type { SignedInProfileContext } from "@/lib/signed-in-profile";
+import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { expect, test, vi } from "vitest";
 import { resolveBabyManagerGuard, Route } from "@/routes/baby/$publicId/_auth/route";
 
@@ -10,49 +12,44 @@ test("baby manager auth layout is wired as the route component", () => {
   expect(Route.options.component).toBeTypeOf("function");
 });
 
-type GuardCtx = {
-  convexClient:
-    | { setAuth: (fetchToken: () => Promise<string | null>) => void }
-    | Record<string, never>;
-  convexPreloader: ReturnType<typeof getConvexQueryPreloader>;
-  convexQueryClient: {
-    serverHttpClient: { setAuth: (token: string) => void };
-  };
-  queryClient: QueryClient;
-  token: string | null;
-};
-
 type ProfileSnapshot = {
   isAdmin: boolean;
-  locale: string;
+  locale: "en-GB" | "sv";
   timeZone: string;
 };
 
+function signedInProfile(snapshot: ProfileSnapshot) {
+  return { email: "ada@example.com", emailVerified: true, name: "Ada", ...snapshot };
+}
+
 function makeGuardCtx() {
-  const queryFn = vi.fn<() => Promise<null | ProfileSnapshot>>(() => Promise.resolve(null));
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { queryFn, retry: false } },
-  });
-  const setServerAuth = vi.fn<(token: string) => void>();
-  const context: GuardCtx = {
-    convexClient: {},
-    convexPreloader: getConvexQueryPreloader(queryClient),
-    convexQueryClient: { serverHttpClient: { setAuth: setServerAuth } },
-    queryClient,
+  const queryFn = vi.fn<() => Promise<null | ReturnType<typeof signedInProfile>>>(() =>
+    Promise.resolve(null),
+  );
+  const stub = stubQueryClientResource(queryFn);
+  const convexHttpClient = new ConvexHttpClient("https://guard-test.convex.cloud");
+  const setServerAuth = vi.spyOn(convexHttpClient, "setAuth");
+  const context: SignedInProfileContext = {
+    convexHttpClient,
+    queryClient: stub.queryClient,
     token: null,
   };
-  return { context, queryClient, queryFn, setServerAuth };
+  return makeAsyncResource(
+    { context, queryClient: stub.queryClient, queryFn, setServerAuth },
+    async () => {
+      await stub[Symbol.asyncDispose]();
+    },
+  );
 }
 
 async function runGuard(opts: {
-  context: GuardCtx;
+  context: ReturnType<typeof makeGuardCtx>["context"];
   fetchToken: () => Promise<string | null>;
   pathname: string;
   publicId: string;
 }) {
   return await resolveBabyManagerGuard({
-    // SAFETY: Test fixture is a subset of the production type.
-    context: opts.context as Parameters<typeof resolveBabyManagerGuard>[0]["context"],
+    context: opts.context,
     fetchToken: opts.fetchToken,
     pathname: opts.pathname,
     publicId: opts.publicId,
@@ -92,12 +89,16 @@ function withoutBrowserWindow(run: () => Promise<void>) {
 
 test("client overlay navigations reuse a cached profile without an auth round-trip", async () => {
   const fetchToken = vi.fn<() => Promise<string | null>>();
-  const guard = makeGuardCtx();
-  guard.queryClient.setQueryData(convexQuery(api.profile.get, {}).queryKey, {
-    isAdmin: false,
-    locale: "sv",
-    timeZone: "Europe/London",
-  });
+  await using guard = makeGuardCtx();
+  guard.queryClient.setData(
+    convexQuery(api.profile.get),
+    {},
+    signedInProfile({
+      isAdmin: false,
+      locale: "sv",
+      timeZone: "Europe/London",
+    }),
+  );
 
   const result = await runGuard({
     context: guard.context,
@@ -114,12 +115,16 @@ test("client overlay navigations reuse a cached profile without an auth round-tr
 
 test("manager overlays keep the baby page locale instead of the signed-in profile locale", async () => {
   const fetchToken = vi.fn<() => Promise<string | null>>();
-  const guard = makeGuardCtx();
-  guard.queryClient.setQueryData(convexQuery(api.profile.get, {}).queryKey, {
-    isAdmin: false,
-    locale: "en-GB",
-    timeZone: "Europe/London",
-  });
+  await using guard = makeGuardCtx();
+  guard.queryClient.setData(
+    convexQuery(api.profile.get),
+    {},
+    signedInProfile({
+      isAdmin: false,
+      locale: "en-GB",
+      timeZone: "Europe/London",
+    }),
+  );
 
   const result = await runGuard({
     context: guard.context,
@@ -133,7 +138,7 @@ test("manager overlays keep the baby page locale instead of the signed-in profil
 
 test("client overlay navigations without a profile open baby-page login with a return path", async () => {
   const fetchToken = vi.fn<() => Promise<string | null>>();
-  const guard = makeGuardCtx();
+  await using guard = makeGuardCtx();
 
   await expectRedirectToBabyLogin(
     () =>
@@ -150,7 +155,7 @@ test("client overlay navigations without a profile open baby-page login with a r
 
 test("server render redirects to baby-page login when no auth token is available", async () => {
   const fetchToken = vi.fn<() => Promise<string | null>>().mockResolvedValueOnce(null);
-  const guard = makeGuardCtx();
+  await using guard = makeGuardCtx();
 
   await withoutBrowserWindow(async () => {
     await expectRedirectToBabyLogin(
@@ -169,12 +174,14 @@ test("server render redirects to baby-page login when no auth token is available
 
 test("server render reuses the layout token without calling getAuthToken", async () => {
   const fetchToken = vi.fn<() => Promise<string | null>>();
-  const guard = makeGuardCtx();
-  guard.queryFn.mockResolvedValueOnce({
-    isAdmin: false,
-    locale: "en-GB",
-    timeZone: "Europe/London",
-  });
+  await using guard = makeGuardCtx();
+  guard.queryFn.mockResolvedValueOnce(
+    signedInProfile({
+      isAdmin: false,
+      locale: "en-GB",
+      timeZone: "Europe/London",
+    }),
+  );
   guard.context.token = "ssr-token";
 
   await withoutBrowserWindow(async () => {
@@ -197,7 +204,7 @@ test("server render reuses the layout token without calling getAuthToken", async
 
 test("server render redirects to baby-page login when its authenticated profile cannot be read", async () => {
   const fetchToken = vi.fn<() => Promise<string | null>>();
-  const guard = makeGuardCtx();
+  await using guard = makeGuardCtx();
   guard.context.token = "ssr-token";
 
   await withoutBrowserWindow(async () => {

@@ -1,39 +1,29 @@
 import { fireEvent, screen } from "@testing-library/react";
-import { QueryClient } from "@tanstack/react-query";
+import { convexQuery } from "@workspace/convex-query";
+import { getFunctionName } from "convex/server";
 import { expect, test, vi } from "vitest";
 import { makeAsyncResource, makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
-import { testPreloadedQuery } from "@workspace/query-prefetch/test-helpers";
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { installMatchMediaStub } from "@/test/stubJsdomWindow";
 import { seedOwnedBaby, signUpTestUser } from "@/test/convexTestSeed";
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
+import type { BrowserPushCapability } from "@/lib/browser-push-capability";
 import {
-  browserPushQueryOptions,
-  ManagerNotificationChooserView,
-  NotificationSubscribe,
+  browserPushCapabilityQuery,
   prefetchBrowserPushCapability,
-} from "./notification-subscribe";
+} from "@/lib/browser-push-capability";
+import { seedBrowserPushCapability } from "@/test/browserPush";
+import { stubQueryClientResource } from "@/test/stubQueryClient";
+import { ManagerNotificationChooserView, NotificationSubscribe } from "./notification-subscribe";
 
 const IPHONE_SAFARI_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
 
 const babyRef = "baby-smith";
-
-type BrowserPushCapability =
-  | { kind: "unsupported" }
-  | { kind: "needsIosInstall" }
-  | { kind: "serviceWorkerTimeout" }
-  | { kind: "unsubscribed" }
-  | {
-      family: boolean;
-      kind: "subscribed";
-      messages: boolean;
-      subscription: PushSubscription;
-    };
 
 type BrowserPushStub = {
   displayModeStandalone: boolean;
@@ -136,25 +126,18 @@ function stubBrowserPush(stub: Partial<BrowserPushStub>) {
 }
 
 function queryClientResource(isSubscribedInConvex = true) {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        queryFn: (ctx) => {
-          const name = String(ctx.queryKey[1]);
-          if (name === "pushSubscriptions:isSubscribed") {
-            return Promise.resolve(isSubscribedInConvex);
-          }
-          if (name === "pushSubscriptions:isOwnerSubscribed") {
-            return Promise.resolve(isSubscribedInConvex);
-          }
-          return Promise.reject(new Error(`unexpected query ${name}`));
-        },
-        retry: false,
-      },
-    },
+  const stub = stubQueryClientResource(async (query) => {
+    const name = getFunctionName(query);
+    if (
+      name === "pushSubscriptions:isSubscribed" ||
+      name === "pushSubscriptions:isOwnerSubscribed"
+    ) {
+      return isSubscribedInConvex;
+    }
+    throw new Error(`unexpected query ${name}`);
   });
-  return makeResource(queryClient, () => {
-    queryClient.clear();
+  return makeAsyncResource(stub.queryClient, async () => {
+    await stub[Symbol.asyncDispose]();
   });
 }
 
@@ -165,8 +148,8 @@ async function renderSubscribe(capability: BrowserPushCapability, audience: "vis
     name: "Owner",
     password: "password123",
   });
-  const vapid = await harnessCtx.convexPreloader.ensureQueryData(
-    api.pushSubscriptions.getPublicKey,
+  const vapid = await harnessCtx.queryClient.ensure(
+    convexQuery(api.pushSubscriptions.getPublicKey),
     {},
   );
   const view = await renderWithConvexTest({
@@ -176,11 +159,10 @@ async function renderSubscribe(capability: BrowserPushCapability, audience: "vis
         <NotificationSubscribe
           audience={audience}
           babyId={babyId}
-          browserPush={testPreloadedQuery(
-            (ref) => browserPushQueryOptions(harnessCtx.queryClient, ref),
-            capability,
+          browserPush={seedBrowserPushCapability(harnessCtx.queryClient, {
             babyRef,
-          )}
+            capability,
+          })}
           vapidPublicKey={vapid}
         />
       </TooltipProvider>
@@ -196,7 +178,7 @@ async function renderSubscribe(capability: BrowserPushCapability, audience: "vis
 test("reports unsupported when the browser has no push APIs", async () => {
   await using queryClient = queryClientResource();
 
-  const capability = await queryClient.query(browserPushQueryOptions(queryClient, babyRef));
+  const capability = await queryClient.fetch(browserPushCapabilityQuery, babyRef);
 
   expect(capability).toEqual({ kind: "unsupported" });
 });
@@ -212,7 +194,7 @@ test("asks iOS Safari to install as a PWA before offering push", async () => {
     userAgent: IPHONE_SAFARI_UA,
   });
 
-  const capability = await queryClient.query(browserPushQueryOptions(queryClient, babyRef));
+  const capability = await queryClient.fetch(browserPushCapabilityQuery, babyRef);
 
   expect(capability).toEqual({ kind: "needsIosInstall" });
 });
@@ -225,7 +207,7 @@ test("reports unsupported when PushManager is missing", async () => {
     hasServiceWorker: true,
   });
 
-  const capability = await queryClient.query(browserPushQueryOptions(queryClient, babyRef));
+  const capability = await queryClient.fetch(browserPushCapabilityQuery, babyRef);
 
   expect(capability).toEqual({ kind: "unsupported" });
 });
@@ -239,7 +221,7 @@ test("treats a ready browser with no push subscription as unsubscribed", async (
     subscription: null,
   });
 
-  const capability = await queryClient.query(browserPushQueryOptions(queryClient, babyRef));
+  const capability = await queryClient.fetch(browserPushCapabilityQuery, babyRef);
 
   expect(capability).toEqual({ kind: "unsubscribed" });
 });
@@ -257,7 +239,7 @@ test("returns the existing browser push subscription and Convex isSubscribed", a
     subscription,
   });
 
-  const capability = await queryClient.query(browserPushQueryOptions(queryClient, babyRef));
+  const capability = await queryClient.fetch(browserPushCapabilityQuery, babyRef);
 
   expect(capability).toEqual({
     family: true,
@@ -278,7 +260,7 @@ test("lets an installed iOS PWA subscribe instead of showing the install guide",
     userAgent: IPHONE_SAFARI_UA,
   });
 
-  const capability = await queryClient.query(browserPushQueryOptions(queryClient, babyRef));
+  const capability = await queryClient.fetch(browserPushCapabilityQuery, babyRef);
 
   expect(capability).toEqual({ kind: "unsubscribed" });
 });
@@ -296,7 +278,7 @@ test("times out if the service worker is not ready in 5 seconds", async () => {
     serviceWorkerReady: new Promise<ServiceWorkerRegistration>(() => {}),
   });
 
-  const pending = queryClient.query(browserPushQueryOptions(queryClient, babyRef));
+  const pending = queryClient.fetch(browserPushCapabilityQuery, babyRef);
   await vi.advanceTimersByTimeAsync(5000);
 
   expect(await pending).toEqual({ kind: "serviceWorkerTimeout" });
@@ -313,20 +295,13 @@ test("treats a service worker failure as unsubscribed", async () => {
     serviceWorkerReady,
   });
 
-  const capability = await queryClient.query(browserPushQueryOptions(queryClient, babyRef));
+  const capability = await queryClient.fetch(browserPushCapabilityQuery, babyRef);
 
   expect(capability).toEqual({ kind: "unsubscribed" });
 });
 
 test("keeps a stable query key scoped by baby for loader prefetch and useQuery", () => {
-  const queryClient = new QueryClient();
-  expect(browserPushQueryOptions(queryClient, babyRef).queryKey).toEqual([
-    "browserPushCapability",
-    babyRef,
-  ]);
-  expect(browserPushQueryOptions(queryClient, babyRef).queryKey).toEqual(
-    browserPushQueryOptions(queryClient, babyRef).queryKey,
-  );
+  expect(browserPushCapabilityQuery(babyRef).queryKey).toEqual(["browserPushCapability", babyRef]);
 });
 
 test("prefetches capability and isSubscribed into the query cache in the browser", async () => {
@@ -343,9 +318,7 @@ test("prefetches capability and isSubscribed into the query cache in the browser
 
   expect(handle).toMatchObject({ input: babyRef });
   await vi.waitFor(() => {
-    expect(
-      queryClient.getQueryData(browserPushQueryOptions(queryClient, babyRef).queryKey),
-    ).toEqual({
+    expect(queryClient.getData(browserPushCapabilityQuery, babyRef)).toEqual({
       family: true,
       kind: "subscribed",
       messages: true,
@@ -363,14 +336,44 @@ test("does not touch PushManager while prefetching on the server", async () => {
     globalThis.window = originalWindow;
   });
 
-  const ensureSpy = vi.spyOn(queryClient, "ensureQueryData");
+  const prefetchSpy = vi.spyOn(queryClient, "prefetch");
   const handle = prefetchBrowserPushCapability(queryClient, babyRef);
 
   expect(handle).toMatchObject({ input: babyRef });
-  expect(ensureSpy).not.toHaveBeenCalled();
-  expect(
-    queryClient.getQueryData(browserPushQueryOptions(queryClient, babyRef).queryKey),
-  ).toBeUndefined();
+  expect(prefetchSpy).not.toHaveBeenCalled();
+  expect(queryClient.getData(browserPushCapabilityQuery, babyRef)).toBeUndefined();
+});
+
+test("shows a disabled Get Notifications while push detection is pending", async () => {
+  await using _env = stubBrowserPush({
+    hasNotification: true,
+    hasPushManager: true,
+    hasServiceWorker: true,
+    serviceWorkerReady: new Promise<ServiceWorkerRegistration>(() => {}),
+  });
+  await using harness = await createConvexTestHarness({ identity: null });
+  const vapid = await harness.queryClient.ensure(
+    convexQuery(api.pushSubscriptions.getPublicKey),
+    {},
+  );
+  const view = await renderWithConvexTest({
+    harness,
+    ui: (
+      <NotificationSubscribe
+        audience="visitor"
+        babyId={babyId}
+        browserPush={harness.queryClient.getQuery(browserPushCapabilityQuery, babyRef).handle}
+        vapidPublicKey={vapid}
+      />
+    ),
+    wrap: null,
+  });
+  await using _view = makeAsyncResource(view, async () => {
+    view[Symbol.dispose]();
+  });
+
+  const button = view.getByRole("button", { name: "Get Notifications" });
+  expect(button.hasAttribute("disabled")).toBe(true);
 });
 
 test("shows iOS Home Screen instructions when the PWA is not installed", async () => {
@@ -667,6 +670,57 @@ function stubGrantedOwnerPush() {
   });
 }
 
+test("a manager saving the chooser subscribes this device to both alerts", async () => {
+  await using _env = stubGrantedOwnerPush();
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
+  const vapid = await harness.queryClient.ensure(
+    convexQuery(api.pushSubscriptions.getPublicKey),
+    {},
+  );
+  const view = await renderWithConvexTest({
+    harness,
+    ui: (
+      <TooltipProvider>
+        <NotificationSubscribe
+          audience="manager"
+          babyId={baby.babyId}
+          browserPush={seedBrowserPushCapability(harness.queryClient, {
+            babyRef: baby.publicId,
+            capability: { kind: "unsubscribed" },
+          })}
+          vapidPublicKey={vapid}
+        />
+      </TooltipProvider>
+    ),
+    wrap: null,
+  });
+  await using _view = makeAsyncResource(view, async () => {
+    view[Symbol.dispose]();
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Get Notifications" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await vi.waitFor(async () => {
+    expect(
+      await harness.client.query(api.pushSubscriptions.isOwnerSubscribed, {
+        babyId: baby.babyId,
+        endpoint: OWNER_ENDPOINT,
+      }),
+    ).toBe(true);
+  });
+  expect(
+    await harness.client.query(api.pushSubscriptions.isSubscribed, {
+      babyId: baby.babyId,
+      endpoint: OWNER_ENDPOINT,
+    }),
+  ).toBe(true);
+  await vi.waitFor(() => {
+    expect(screen.queryByRole("heading", { name: "Choose notifications" })).toBeNull();
+  });
+});
+
 test("visitor Get Notifications does not drop owner message alerts", async () => {
   await using _env = stubGrantedOwnerPush();
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
@@ -678,10 +732,10 @@ test("visitor Get Notifications does not drop owner message alerts", async () =>
     p256dh: "p256",
     userAgent: "vitest",
   });
-  harness.withIdentity(null);
+  await harness.withIdentity(null);
 
-  const vapid = await harness.convexPreloader.ensureQueryData(
-    api.pushSubscriptions.getPublicKey,
+  const vapid = await harness.queryClient.ensure(
+    convexQuery(api.pushSubscriptions.getPublicKey),
     {},
   );
   const view = await renderWithConvexTest({
@@ -691,16 +745,15 @@ test("visitor Get Notifications does not drop owner message alerts", async () =>
         <NotificationSubscribe
           audience="visitor"
           babyId={baby.babyId}
-          browserPush={testPreloadedQuery(
-            (ref) => browserPushQueryOptions(harness.queryClient, ref),
-            {
+          browserPush={seedBrowserPushCapability(harness.queryClient, {
+            babyRef: baby.publicId,
+            capability: {
               family: false,
               kind: "subscribed",
               messages: true,
               subscription: ownerPushSubscription(),
             },
-            baby.publicId,
-          )}
+          })}
           vapidPublicKey={vapid}
         />
       </TooltipProvider>

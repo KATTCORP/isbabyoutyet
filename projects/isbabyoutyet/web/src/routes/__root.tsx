@@ -9,9 +9,9 @@ import {
   useRouteContext,
   useRouterState,
 } from "@tanstack/react-router";
-import type { ConvexQueryClient } from "@convex-dev/react-query";
-import type { ConvexQueryPreloader } from "@workspace/convex-prefetch";
-import type { QueryClient } from "@tanstack/react-query";
+import type { QueryClient } from "@raf-query/react";
+import type { ConvexReader } from "@workspace/convex-query";
+import type { ConvexHttpClient } from "convex/browser";
 import type { ConvexReactClient } from "convex/react";
 import type { ReactNode } from "react";
 import { ThemeProvider } from "next-themes";
@@ -46,10 +46,10 @@ export const getAuth = createServerFn({ method: "GET" }).handler(async () => {
 
 export const Route = createRootRouteWithContext<{
   convexClient: ConvexReactClient;
-  convexPreloader: ConvexQueryPreloader;
-  convexQueryClient: ConvexQueryClient;
+  /** The server request's Convex client; `null` in the browser. */
+  convexHttpClient: ConvexHttpClient | null;
   locale: SupportedLocale;
-  queryClient: QueryClient;
+  queryClient: QueryClient<ConvexReader>;
   token: string | undefined;
 }>()({
   beforeLoad: async (ctx) => {
@@ -69,7 +69,7 @@ export const Route = createRootRouteWithContext<{
     // language instead of the base locale and re-rendering on the client.
     const [token, locale] = await Promise.all([getAuth(), detectRequestLocale()]);
     if (token) {
-      ctx.context.convexQueryClient.serverHttpClient?.setAuth(token);
+      ctx.context.convexHttpClient?.setAuth(token);
     }
     return {
       locale,

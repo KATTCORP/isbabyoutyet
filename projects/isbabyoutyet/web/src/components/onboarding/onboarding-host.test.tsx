@@ -1,5 +1,6 @@
 import { fireEvent } from "@testing-library/react";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { convexQuery } from "@workspace/convex-query";
+import { QueryClientProvider } from "@raf-query/react";
 import { ConvexProvider } from "convex/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { OnboardingStepId } from "@isbabyoutyet/backend/src/onboardingSteps";
@@ -22,7 +23,7 @@ async function renderOnboardingHost(opts: {
   session: { data: { user: { id: string } } | null; isPending: boolean };
   surface: "dashboard" | "baby";
 }) {
-  const onboarding = await opts.harness.convexPreloader.ensureQueryData(api.onboarding.getMine, {});
+  const onboarding = await opts.harness.queryClient.ensure(convexQuery(api.onboarding.getMine), {});
   return await renderWithTestRouter(
     <QueryClientProvider client={opts.harness.queryClient}>
       <ConvexProvider
@@ -85,7 +86,7 @@ async function seedAllOnboardingStepsDone(
 
 test("returns null for anonymous visitors", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
-  const onboarding = await harness.convexPreloader.ensureQueryData(api.onboarding.getMine, {});
+  const onboarding = await harness.queryClient.ensure(convexQuery(api.onboarding.getMine), {});
 
   await using view = await renderWithConvexTest({
     harness,
@@ -112,7 +113,7 @@ test("shows the checklist on first run without a welcome dialog", async () => {
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
 
   await using view = await renderOnboardingHost({
     harness,
@@ -131,7 +132,7 @@ test("mounts authed onboarding host when progress is loaded", async () => {
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
   await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Smith" });
 
   await using view = await renderOnboardingHost({
@@ -150,7 +151,7 @@ test("minimizes the checklist through the host mutation", async () => {
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
   await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Smith" });
 
   await using view = await renderOnboardingHost({
@@ -187,7 +188,7 @@ test("highlights how to restore the guide after dismissal", async () => {
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
   await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Smith" });
 
   await using view = await renderOnboardingHost({
@@ -220,7 +221,7 @@ test("renders the guide on any owner baby page", async () => {
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
   await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Smith" });
   await seedOwnedBaby(harness, { dueDate: "2026-10-01", name: "Other" });
 
@@ -242,7 +243,7 @@ test("keeps the coachmark tip hidden until a tip target is activated", async () 
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
   await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Smith" });
 
   await using view = await renderOnboardingHost({
@@ -268,7 +269,7 @@ test("auto-dismisses the checklist shortly after all steps are done", async () =
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Smith" });
   await seedAllOnboardingStepsDone(harness, baby.babyId);
 
@@ -297,7 +298,7 @@ test("auto-dismiss timer survives progress re-renders", async () => {
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Smith" });
   await seedAllOnboardingStepsDone(harness, baby.babyId);
 
@@ -326,7 +327,7 @@ test("Show me for settings scrolls, highlights, and completes on Got it", async 
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Smith" });
   await postTestUpdate(harness, {
     babyId: baby.babyId,
@@ -365,7 +366,7 @@ test("Show me for share scrolls the tour target into view", async () => {
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
   await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Smith" });
 
   await using view = await renderOnboardingHost({
@@ -395,7 +396,7 @@ test("Show me activates the tip even when the tour target is not in the DOM", as
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
   await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Smith" });
 
   await using view = await renderOnboardingHost({
@@ -420,7 +421,7 @@ test("messages-from-visitors tip scrolls, highlights, and completes on Got it wi
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Smith" });
   await postTestUpdate(harness, {
     babyId: baby.babyId,
@@ -470,7 +471,7 @@ test("authed onboarding host wires Convex mutations into the view", async () => 
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
   await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Smith" });
 
   await using view = await renderOnboardingHost({
@@ -489,7 +490,7 @@ test("useCompleteOnboardingStep returns the Convex mutation", async () => {
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
   await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Smith" });
 
   const holder: CompleteStepHolder = { completeStep: null };
@@ -521,7 +522,7 @@ test("baby-page settings tip completes through the host Show me action", async (
     name: "Owner",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
   await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Smith" });
   await harness.client.mutation(api.onboarding.completeStep, { stepId: "add_baby" });
   await harness.client.mutation(api.onboarding.completeStep, { stepId: "share_link" });

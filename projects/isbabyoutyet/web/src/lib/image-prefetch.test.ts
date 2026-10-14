@@ -1,23 +1,18 @@
-import { QueryClient } from "@tanstack/react-query";
-import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
+import { QueryClient } from "@raf-query/react";
+import { makeAsyncResource, makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { expect, test, vi } from "vitest";
-import { browserImageFactory, prefetchBrowserImage } from "@/lib/image-prefetch";
+import { browserImageQuery, prefetchBrowserImage } from "@/lib/image-prefetch";
 
 function queryClientResource() {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-    },
-  });
-  return makeResource(queryClient, () => {
-    queryClient.clear();
+  const queryClient = new QueryClient({ isServer: false });
+  return makeAsyncResource(queryClient, async () => {
+    await queryClient.dispose();
   });
 }
 
 test("keeps a stable query key scoped by image URL", () => {
   const url = "https://cdn.example/full.jpg";
-  expect(browserImageFactory(url).queryKey).toEqual(["browserImagePrefetch", url]);
-  expect(browserImageFactory(url).queryKey).toEqual(browserImageFactory(url).queryKey);
+  expect(browserImageQuery(url).queryKey).toEqual(["browserImagePrefetch", url]);
 });
 
 test("prefetches the image into the query cache in the browser", async () => {
@@ -43,11 +38,10 @@ test("prefetches the image into the query cache in the browser", async () => {
     vi.stubGlobal("Image", OriginalImage);
   });
 
-  const handle = prefetchBrowserImage(queryClient, url);
+  prefetchBrowserImage(queryClient, url);
 
-  expect(handle).toMatchObject({ input: url });
   await vi.waitFor(() => {
-    expect(queryClient.getQueryData(browserImageFactory(url).queryKey)).toEqual({
+    expect(queryClient.getData(browserImageQuery, url)).toEqual({
       ok: true,
       url,
     });
@@ -67,13 +61,12 @@ test("does not construct Image while prefetching on the server", async () => {
   const ImageSpy = vi.fn<() => void>();
   vi.stubGlobal("Image", ImageSpy);
 
-  const ensureSpy = vi.spyOn(queryClient, "ensureQueryData");
-  const handle = prefetchBrowserImage(queryClient, url);
+  const prefetchSpy = vi.spyOn(queryClient, "prefetch");
+  prefetchBrowserImage(queryClient, url);
 
-  expect(handle).toMatchObject({ input: url });
-  expect(ensureSpy).not.toHaveBeenCalled();
+  expect(prefetchSpy).not.toHaveBeenCalled();
   expect(ImageSpy).not.toHaveBeenCalled();
-  expect(queryClient.getQueryData(browserImageFactory(url).queryKey)).toBeUndefined();
+  expect(queryClient.getData(browserImageQuery, url)).toBeUndefined();
 });
 
 test("soft-fails when the image fails to load", async () => {
@@ -102,7 +95,7 @@ test("soft-fails when the image fails to load", async () => {
   prefetchBrowserImage(queryClient, url);
 
   await vi.waitFor(() => {
-    expect(queryClient.getQueryData(browserImageFactory(url).queryKey)).toEqual({
+    expect(queryClient.getData(browserImageQuery, url)).toEqual({
       ok: false,
       url,
     });

@@ -1,26 +1,24 @@
 import { PhotoLightbox } from "@/components/baby/photo-lightbox";
+import { useQuery } from "@raf-query/react";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { prefetchBrowserImage } from "@/lib/image-prefetch";
 import { useI18n } from "@/lib/i18n";
 import { useBabyPhotoOverlay } from "@/lib/overlay-nav";
 import { useLastMatch } from "@/lib/use-last-match";
-import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/baby/$publicId/photo")({
   loader: async (opts) => {
-    const baby = await opts.context.convexPreloader.ensureQueryData(api.baby.getByPublicId, {
-      id: opts.params.publicId,
-    });
-    const babyDoc = baby.initialData;
+    const queryClient = opts.context.queryClient;
+    const input = { id: opts.params.publicId };
+    const baby = await queryClient.ensure(convexQuery(api.baby.getByPublicId), input);
+    const babyDoc = queryClient.getData(convexQuery(api.baby.getByPublicId), input);
     if (!babyDoc?.photoUrl) {
       throw notFound();
     }
-    const imagePrefetch = prefetchBrowserImage(opts.context.queryClient, babyDoc.photoUrl);
-    return {
-      baby,
-      imagePrefetch,
-    };
+    prefetchBrowserImage(queryClient, babyDoc.photoUrl);
+    return { baby };
   },
   component: BabyPhotoOverlay,
 });
@@ -31,8 +29,8 @@ export function BabyPhotoOverlay() {
   const loaderData = Route.useLoaderData();
   const photo = useBabyPhotoOverlay(params.publicId);
 
-  const babyQuery = usePreloadedConvexQuery(api.baby.getByPublicId, loaderData.baby);
-  const babyDoc = useLastMatch(babyQuery.data, (v) => {
+  const [babyData] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
+  const babyDoc = useLastMatch(babyData, (v) => {
     if (!v?.photoUrl) {
       return false;
     }

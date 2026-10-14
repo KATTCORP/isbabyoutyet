@@ -1,8 +1,9 @@
 import { fireEvent } from "@testing-library/react";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { toast } from "sonner";
 import { expect, test, vi } from "vitest";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
-import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { LocaleProvider } from "@/lib/i18n";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { signUpTestUser } from "@/test/convexTestSeed";
@@ -351,8 +352,8 @@ async function renderSignedInAccountSettings(
     name: "Ada",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
-  const profile = await harness.convexPreloader.ensureQueryData(api.profile.get, {});
+  await harness.withIdentity({ subject: userId });
+  const profile = await harness.queryClient.ensure(convexQuery(api.profile.get), {});
   return renderWithConvexTest({
     harness,
     ui: <AccountSettings profile={profile} />,
@@ -493,7 +494,7 @@ test("AccountSettings change-email path surfaces the adapter message", async () 
 
 test("AccountSettings shows loading when the profile query is logged out", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
-  const profile = await harness.convexPreloader.ensureQueryData(api.profile.get, {});
+  const profile = await harness.queryClient.ensure(convexQuery(api.profile.get), {});
   await using view = await renderWithConvexTest({
     harness,
     ui: <AccountSettings profile={profile} />,

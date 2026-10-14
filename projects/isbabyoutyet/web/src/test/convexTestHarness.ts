@@ -1,28 +1,17 @@
-import type { ConvexQueryClient } from "@convex-dev/react-query";
-import type { QueryClient, QueryFunctionContext } from "@tanstack/react-query";
-import { QueryClient as QueryClientImpl } from "@tanstack/react-query";
+import { QueryClient } from "@raf-query/react";
+import { connectConvexLive, ConvexReader } from "@workspace/convex-query";
+import type { ConvexWatchClient } from "@workspace/convex-query";
+import { makeTestConvexClient } from "@workspace/convex-query/testing";
 import { convexTest } from "convex-test";
-import { makeFunctionReference } from "convex/server";
 import type { FunctionReference, UserIdentity } from "convex/server";
 import type { Value } from "convex/values";
-import {
-  CONVEX_INFINITE_QUERY_KEY,
-  convexInfiniteQueryFn,
-  getConvexQueryPreloader,
-} from "@workspace/convex-prefetch";
 import schema from "@isbabyoutyet/backend/convex/schema";
 import { makeAsyncResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { modules, registerComponents } from "@isbabyoutyet/backend/convex/test.setup";
-import { isPlainObject, isString } from "@workspace/runtime/guards";
 import { stubJsdomWindow } from "@/test/stubJsdomWindow";
 
 type ConvexTestRoot = ReturnType<typeof convexTest>;
 type ConvexTestCaller = ConvexTestRoot | ReturnType<ConvexTestRoot["withIdentity"]>;
-
-type WatchQueryHandle = {
-  localQueryResult: () => Value | undefined;
-  onUpdate: (cb: () => void) => void;
-};
 
 type ConvexQueryRef = FunctionReference<"query">;
 type ConvexMutationRef = FunctionReference<"mutation">;
@@ -33,39 +22,36 @@ type ConvexCallerQuery = <TArgs>(query: ConvexQueryRef, args: TArgs) => Promise<
 type ConvexCallerMutation = <TArgs>(mutation: ConvexMutationRef, args: TArgs) => Promise<Value>;
 type ConvexCallerAction = <TArgs>(action: ConvexActionRef, args: TArgs) => Promise<Value>;
 
-export type IntegrationConvexClient = {
+export type IntegrationConvexClient = ConvexWatchClient & {
   action: ConvexCallerAction;
   clearAuth: () => void;
   mutation: ConvexCallerMutation;
   query: ConvexCallerQuery;
   setAuth: (fetchToken: ConvexAuthTokenFetcher, onChange: (authenticated: boolean) => void) => void;
-  watchQuery: <TArgs>(query: ConvexQueryRef, args: TArgs) => WatchQueryHandle;
 };
 
 export type ConvexTestHarness = {
   client: ConvexTestCaller;
   convexClient: IntegrationConvexClient;
-  convexPreloader: ReturnType<typeof getConvexQueryPreloader>;
-  convexQueryClient: ConvexQueryClient;
-  queryClient: QueryClient;
+  queryClient: QueryClient<ConvexReader>;
+  /** Re-run every live query, as the server would after a write made through `client`. */
+  refresh: () => Promise<void>;
   t: ConvexTestRoot;
   /** Switch the active caller on the shared in-memory backend. */
-  withIdentity: (identity: Partial<UserIdentity> | null) => ConvexTestHarness;
+  withIdentity: (identity: Partial<UserIdentity> | null) => Promise<ConvexTestHarness>;
 };
 
 /**
  * Boots a shared in-memory Convex backend (`convex-test`) and wires it into the
- * same React Query + prefetch stack production uses — no `vi.mock("convex/*")`,
- * no hand-built query results.
+ * same raf-query + live Convex stack production uses — no `vi.mock("convex/*")`,
+ * no hand-built query results. Mutations, actions and identity switches re-run
+ * every live query before they resolve, as the server pushes new results.
  */
 export async function createConvexTestHarness(opts: { identity: Partial<UserIdentity> | null }) {
   const jsdomWindow = stubJsdomWindow();
   const t = convexTest(schema, modules);
   await registerComponents(t);
   let activeClient: ConvexTestCaller = opts.identity ? t.withIdentity(opts.identity) : t;
-
-  const watchCache = new Map<object, Map<string, Value>>();
-  let queryClientForInvalidation: QueryClient | null = null;
 
   function runQuery<TArgs>(query: ConvexQueryRef, args: TArgs) {
     // SAFETY: convex-test caller methods are generic over FunctionReference.
@@ -82,97 +68,46 @@ export async function createConvexTestHarness(opts: { identity: Partial<UserIden
     return (activeClient.action as ConvexCallerAction)(action, args);
   }
 
-  function invalidateConvexQueries() {
-    if (!queryClientForInvalidation) {
-      return;
-    }
-    void queryClientForInvalidation.invalidateQueries({ queryKey: ["convexQuery"] });
-    void queryClientForInvalidation.invalidateQueries({ queryKey: [CONVEX_INFINITE_QUERY_KEY] });
-    for (const queryCache of watchCache.values()) {
-      queryCache.clear();
-    }
-  }
+  const backend = makeTestConvexClient(runQuery);
 
   const convexClient: IntegrationConvexClient = {
     action: async (action, args) => {
       const result = await runAction(action, args);
-      invalidateConvexQueries();
+      await backend.refresh();
       return result;
     },
     clearAuth: () => {},
     mutation: async (mutation, args) => {
       const result = await runMutation(mutation, args);
-      invalidateConvexQueries();
+      await backend.refresh();
       return result;
     },
     query: runQuery,
     setAuth: (_fetchToken, onChange) => {
       onChange(opts.identity !== null);
     },
-    watchQuery: (query, args) => {
-      // SAFETY: Test fixture is a subset of the production type.
-      let queryCache = watchCache.get(query as object);
-      if (!queryCache) {
-        queryCache = new Map<string, Value>();
-        // SAFETY: Test fixture is a subset of the production type.
-        watchCache.set(query as object, queryCache);
-      }
-      const argsKey = JSON.stringify(args ?? {});
-      let subscriber: (() => void) | null = null;
-      void runQuery(query, args ?? {}).then((result) => {
-        queryCache.set(argsKey, result);
-        subscriber?.();
-      });
-      return {
-        localQueryResult: () => queryCache.get(argsKey),
-        onUpdate: (cb) => {
-          subscriber = cb;
-          return () => {
-            subscriber = null;
-          };
-        },
-      };
-    },
+    watchQuery: backend.client.watchQuery,
   };
 
-  const convexQueryClientFields = {
-    connect: (nextQueryClient: QueryClient) => {
-      queryClientForInvalidation = nextQueryClient;
-    },
-    convexClient,
-    hashFn: () => JSON.stringify,
-    queryFn: () => Promise.resolve(null),
-    serverHttpClient: undefined,
-  } as const;
-  // @ts-expect-error — stand-in only implements the members this harness reads
-  const convexQueryClient: ConvexQueryClient = convexQueryClientFields;
-
-  const queryClient = new QueryClientImpl({
-    defaultOptions: {
-      queries: {
-        gcTime: Infinity,
-        queryFn: createIntegrationQueryFn(() => activeClient, convexQueryClient),
-        retry: false,
-        staleTime: 0,
-      },
-    },
+  const queryClient = new QueryClient({
+    isServer: false,
+    layer: ConvexReader.layerWatch(backend.client),
   });
-  convexQueryClient.connect(queryClient);
+  const disconnect = connectConvexLive({ client: backend.client, queryClient });
 
   const harness: ConvexTestHarness = {
     get client() {
       return activeClient;
     },
     convexClient,
-    convexPreloader: getConvexQueryPreloader(queryClient),
-    convexQueryClient,
     queryClient,
+    refresh: backend.refresh,
     get t() {
       return t;
     },
-    withIdentity(identity) {
+    async withIdentity(identity) {
       activeClient = identity ? t.withIdentity(identity) : t;
-      invalidateConvexQueries();
+      await backend.refresh();
       return harness;
     },
   };
@@ -181,58 +116,8 @@ export async function createConvexTestHarness(opts: { identity: Partial<UserIden
     // Photo mutations schedule sharp thumbnail actions; let them finish while
     // the module graph is still alive instead of after environment teardown.
     await t.finishAllScheduledFunctions(() => {});
-    queryClient.clear();
+    disconnect();
+    await queryClient.dispose();
     jsdomWindow.restore();
   });
-}
-
-function createIntegrationQueryFn(
-  getClient: () => ConvexTestCaller,
-  convexQueryClient: ConvexQueryClient,
-) {
-  const infiniteQueryFn = convexInfiniteQueryFn(convexQueryClient);
-
-  return async (context: QueryFunctionContext) => {
-    const tag = context.queryKey[0];
-    const funcName = parseQueryKeyString(context.queryKey[1]);
-    const caller = getClient();
-    if (tag === "convexQuery" && funcName !== null) {
-      const args = context.queryKey[2] ?? {};
-      // SAFETY: convex-test caller methods are generic over FunctionReference.
-      return await (caller.query as ConvexCallerQuery)(
-        makeFunctionReference<"query">(funcName),
-        args,
-      );
-    }
-    if (tag === "convexAction" && funcName !== null) {
-      const args = context.queryKey[2] ?? {};
-      // SAFETY: convex-test caller methods are generic over FunctionReference.
-      return await (caller.action as ConvexCallerAction)(
-        makeFunctionReference<"action">(funcName),
-        args,
-      );
-    }
-    if (tag === CONVEX_INFINITE_QUERY_KEY) {
-      // SAFETY: Test fixture is a subset of the production type.
-      return await infiniteQueryFn(context as Parameters<typeof infiniteQueryFn>[0]);
-    }
-    return undefined;
-  };
-}
-
-function parseQueryKeyString(value: QueryFunctionContext["queryKey"][number]) {
-  if (
-    value === null ||
-    value === undefined ||
-    value === true ||
-    value === false ||
-    Array.isArray(value) ||
-    isPlainObject(value)
-  ) {
-    return null;
-  }
-  if (!isString(value)) {
-    return null;
-  }
-  return value;
 }

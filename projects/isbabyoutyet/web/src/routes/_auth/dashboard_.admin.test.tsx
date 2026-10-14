@@ -1,13 +1,17 @@
 import { fireEvent } from "@testing-library/react";
-import { QueryClient } from "@tanstack/react-query";
+import type { QueryClient } from "@raf-query/react";
 import { isRedirect } from "@tanstack/react-router";
+import type { ConvexReader } from "@workspace/convex-query";
+import { isFunction } from "@workspace/runtime/guards";
+import type { JsonValue } from "@workspace/runtime/json";
+import { getFunctionName } from "convex/server";
 import type { ReactElement } from "react";
-import { getConvexQueryPreloader } from "@workspace/convex-prefetch";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { expect, test, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n";
 import type { TranslationFunction } from "@/lib/i18n";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
+import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { seedOwnedBaby, signUpTestUser } from "@/test/convexTestSeed";
 import { renderMountedFileRouteWithRouterContext } from "@/test/renderMountedFileRoute";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
@@ -441,7 +445,7 @@ test("transfers tab loads the form and audit table from Convex", async () => {
     name: "Staff",
     password: "password123",
   });
-  harness.withIdentity({ subject: staffId });
+  await harness.withIdentity({ subject: staffId });
   await harness.client.mutation(api.profile.updateLocale, { locale: "en-GB" });
   await harness.t.run(async (ctx) => {
     const profiles = await ctx.db.query("userProfiles").collect();
@@ -455,13 +459,13 @@ test("transfers tab loads the form and audit table from Convex", async () => {
     name: "Bob",
     password: "password123",
   });
-  harness.withIdentity({ subject: bobId });
+  await harness.withIdentity({ subject: bobId });
   const claimant = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Real Baby" });
   await harness.t.run(async (ctx) => {
     await ctx.db.patch(claimant.babyId, { publicId: "baby-2" });
   });
 
-  harness.withIdentity({ subject: staffId });
+  await harness.withIdentity({ subject: staffId });
   harness.queryClient.clear();
   await harness.client.mutation(api.admin.transferPublicId, {
     fromPublicId: "baby-2",
@@ -469,14 +473,13 @@ test("transfers tab loads the form and audit table from Convex", async () => {
     toPublicId: "baby",
   });
 
-  const profile = await harness.convexPreloader.ensureQueryData(api.profile.get, {});
   await using ctx = await renderMountedFileRouteWithRouterContext({
     harness,
     initialEntry: "/dashboard/admin?tab=transfers",
     overlayHistory: null,
     path: "/dashboard/admin",
     route: AdminRoute,
-    routerContext: { profile },
+    routerContext: { isAdmin: true, locale: "en-GB", token: undefined },
     wrap: null,
   });
 
@@ -491,7 +494,6 @@ test("transfers tab loads the form and audit table from Convex", async () => {
 
 const ADMIN_EMPTY_PAGE = { continueCursor: "", isDone: true, page: [] };
 
-import type { JsonValue } from "@workspace/runtime/json";
 type AdminQueryHandler = JsonValue | (() => never);
 type AdminQueryHandlers = Record<string, AdminQueryHandler>;
 type AdminLoaderResult = {
@@ -500,47 +502,26 @@ type AdminLoaderResult = {
   users: unknown;
 };
 
-function makeAdminLoaderQueryClient(handlers: AdminQueryHandlers) {
-  return new QueryClient({
-    defaultOptions: {
-      queries: {
-        queryFn: (ctx) => {
-          const name = String(ctx.queryKey[1]);
-          if (name in handlers) {
-            return Promise.resolve(handlers[name]);
-          }
-          return Promise.resolve(null);
-        },
-        retry: false,
-      },
-    },
-  });
-}
-
-async function runAdminLoader(
-  handlers: AdminQueryHandlers,
-  profile: { isAdmin: boolean; locale: string; timeZone: string },
-) {
+async function runAdminLoader(handlers: AdminQueryHandlers, isAdmin: boolean) {
   // @ts-expect-error — stub loader opts are the fields this route reads
   const route: {
     options: {
       loader: (opts: {
-        context: {
-          convexPreloader: ReturnType<typeof getConvexQueryPreloader>;
-          profile: { initialData: typeof profile; input: Record<string, never> };
-          queryClient: QueryClient;
-        };
+        context: { isAdmin: boolean; queryClient: QueryClient<ConvexReader> };
         deps: { hideDemo: boolean; order: string; sort: string; tab: string };
       }) => Promise<AdminLoaderResult>;
     };
   } = AdminRoute;
-  const queryClient = makeAdminLoaderQueryClient(handlers);
+  await using stub = stubQueryClientResource(async (query) => {
+    const name = getFunctionName(query);
+    const handler = handlers[name];
+    if (handler === undefined) {
+      return null;
+    }
+    return isFunction(handler) ? handler() : handler;
+  });
   return await route.options.loader({
-    context: {
-      convexPreloader: getConvexQueryPreloader(queryClient),
-      profile: { initialData: profile, input: {} },
-      queryClient,
-    },
+    context: { isAdmin, queryClient: stub.queryClient },
     deps: { hideDemo: true, order: "desc", sort: "created", tab: "babies" },
   });
 }
@@ -552,15 +533,15 @@ test("loader prefetches babies, users, and permalink transfers in parallel for a
       "admin:listPublicIdTransfers": ADMIN_EMPTY_PAGE,
       "admin:listUsers": ADMIN_EMPTY_PAGE,
     },
-    { isAdmin: true, locale: "en-GB", timeZone: "Europe/London" },
+    true,
   );
 
   expect(result.babies).toMatchObject({
-    input: { hideDemo: true, sortBy: "created", sortOrder: "desc" },
-    numItems: 20,
+    ensured: true,
+    input: { args: { hideDemo: true, sortBy: "created", sortOrder: "desc" }, numItems: 20 },
   });
-  expect(result.transfers).toMatchObject({ input: {}, numItems: 20 });
-  expect(result.users).toMatchObject({ input: {}, numItems: 20 });
+  expect(result.transfers).toMatchObject({ ensured: true, input: { args: {}, numItems: 20 } });
+  expect(result.users).toMatchObject({ ensured: true, input: { args: {}, numItems: 20 } });
 });
 
 test("loader redirects non-admins without prefetching admin queries", async () => {
@@ -577,7 +558,7 @@ test("loader redirects non-admins without prefetching admin queries", async () =
           throw new Error("admin:listUsers should not run for non-admins");
         },
       },
-      { isAdmin: false, locale: "en-GB", timeZone: "Europe/London" },
+      false,
     );
     expect.unreachable("expected a redirect");
   } catch (error) {

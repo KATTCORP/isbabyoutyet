@@ -1,11 +1,11 @@
 {
-  "name": "@workspace/query-prefetch",
+  "name": "@workspace/convex-query",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./test-helpers": "./src/test-helpers.ts"
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "lint": "oxlint",
@@ -16,15 +16,12 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
-  "dependencies": {
-    "@workspace/runtime": "workspace:*"
-  },
   "devDependencies": {
-    "@tanstack/react-query": "catalog:",
-    "@testing-library/react": "catalog:",
-    "@types/react": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@raf-query/react": "catalog:",
     "@workspace/tsconfig": "workspace:*",
-    "jsdom": "catalog:",
+    "convex": "catalog:",
+    "effect": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "oxlint-tsgolint": "catalog:",
@@ -33,7 +30,8 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@tanstack/react-query": "^5.0.0",
-    "react": "^19.0.0"
+    "@raf-query/react": "^0.5.1",
+    "convex": "^1.0.0",
+    "effect": "^4.0.0"
   }
 }

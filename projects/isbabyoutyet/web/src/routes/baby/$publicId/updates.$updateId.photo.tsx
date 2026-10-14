@@ -1,34 +1,24 @@
 import { PhotoLightbox } from "@/components/baby/photo-lightbox";
-import { browserImageFactory, prefetchBrowserImage } from "@/lib/image-prefetch";
+import { useQuery } from "@raf-query/react";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
+import { prefetchBrowserImage } from "@/lib/image-prefetch";
 import { useI18n } from "@/lib/i18n";
 import { useBabyUpdatePhotoOverlay } from "@/lib/overlay-nav";
 import { useLastMatch } from "@/lib/use-last-match";
-import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
-import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { preloadedQueryOptions } from "@workspace/query-prefetch";
 
 export const Route = createFileRoute("/baby/$publicId/updates/$updateId/photo")({
   loader: async (opts) => {
-    const updatePhoto = await opts.context.convexPreloader.ensureQueryData(
-      api.timeline.getUpdatePhoto,
-      {
-        babyId: opts.params.publicId,
-        updateId: opts.params.updateId,
-      },
-    );
-    if (!updatePhoto.initialData) {
+    const queryClient = opts.context.queryClient;
+    const input = { babyId: opts.params.publicId, updateId: opts.params.updateId };
+    const updatePhoto = await queryClient.ensure(convexQuery(api.timeline.getUpdatePhoto), input);
+    const updatePhotoDoc = queryClient.getData(convexQuery(api.timeline.getUpdatePhoto), input);
+    if (!updatePhotoDoc) {
       throw notFound();
     }
-    const imagePrefetch = prefetchBrowserImage(
-      opts.context.queryClient,
-      updatePhoto.initialData.photoUrl,
-    );
-    return {
-      imagePrefetch,
-      updatePhoto,
-    };
+    prefetchBrowserImage(queryClient, updatePhotoDoc.photoUrl);
+    return { updatePhoto };
   },
   component: BabyUpdatePhotoOverlay,
 });
@@ -41,12 +31,11 @@ export function BabyUpdatePhotoOverlay() {
     publicId: params.publicId,
     updateId: params.updateId,
   });
-  useQuery(preloadedQueryOptions(browserImageFactory, loaderData.imagePrefetch));
-  const updatePhotoQuery = usePreloadedConvexQuery(
-    api.timeline.getUpdatePhoto,
+  const [updatePhotoData] = useQuery(
+    convexQuery(api.timeline.getUpdatePhoto),
     loaderData.updatePhoto,
   );
-  const updatePhoto = useLastMatch(updatePhotoQuery.data, (v) => !!v);
+  const updatePhoto = useLastMatch(updatePhotoData, (v) => !!v);
   if (!updatePhoto) {
     throw notFound();
   }

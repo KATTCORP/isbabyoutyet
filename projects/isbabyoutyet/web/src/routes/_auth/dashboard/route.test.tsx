@@ -1,4 +1,4 @@
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@raf-query/react";
 import type { AnyRoute } from "@tanstack/react-router";
 import {
   createMemoryHistory,
@@ -16,7 +16,9 @@ import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { LocaleProvider } from "@/lib/i18n";
+import { convexQuery } from "@workspace/convex-query";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
+import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { renderResource } from "@/test/renderResource";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import { DashboardBabyList, DashboardHeader, Route } from "@/routes/_auth/dashboard/route";
@@ -52,10 +54,6 @@ const onboardingProgress: FunctionReturnType<typeof api.onboarding.getMine> = {
 };
 
 /**
- * Stands in for `convexPreloader` so the real loader runs without a Convex
- * deployment, recording call order to prove the prefetches are not serialised.
- */
-/**
  * `Route.update()` is typed for non-structural option tweaks only, so widen it
  * to re-parent the real route (same instance, so its `useLoaderData` keeps
  * resolving) onto a test root.
@@ -69,22 +67,27 @@ function reparentRoute<TRoute extends AnyRoute>(
   return update(opts);
 }
 
-type EnsureQueryData = (
-  query: Parameters<typeof getFunctionName>[0],
-  input: Record<string, never>,
-) => Promise<{ initialData: unknown; input: Record<string, never> }>;
-
-function stubPreloader(babies: Array<typeof babySmith>) {
+/**
+ * Answers the loader's Convex reads without a deployment, recording call
+ * order and holding every answer until `release()` to prove the loader starts
+ * its reads together instead of one after another.
+ */
+function stubLoaderQueries(babies: Array<typeof babySmith>) {
   const calls: Array<string> = [];
-  const ensureQueryData = vi.fn<EnsureQueryData>((query, input) => {
+  const gate = Promise.withResolvers<void>();
+  const stub = stubQueryClientResource(async (query) => {
     const name = getFunctionName(query);
     calls.push(name);
-    return Promise.resolve({
-      initialData: name === getFunctionName(api.baby.listByUser) ? babies : onboardingProgress,
-      input,
-    });
+    await gate.promise;
+    return name === getFunctionName(api.baby.listByUser) ? babies : onboardingProgress;
   });
-  return { calls, context: { convexPreloader: { ensureQueryData } } };
+  return Object.assign(stub, {
+    calls,
+    context: { queryClient: stub.queryClient },
+    release: () => {
+      gate.resolve();
+    },
+  });
 }
 
 test("shows the empty state once the list has loaded with no babies", async () => {
@@ -116,13 +119,14 @@ test("dashboard header groups add baby separately from theme and settings", asyn
 
 test("parent dashboard stays mounted while child routes render through its outlet", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
-  const preloader = stubPreloader([babySmith]);
+  await using loaderQueries = stubLoaderQueries([babySmith]);
+  loaderQueries.release();
   // The real route re-parented onto a bare test root: its loader, component,
   // and `<Outlet />` all run, with a child route standing in for /dashboard/*.
   const rootRoute = createRootRoute({
     component: function TestRoot() {
       return (
-        <QueryClientProvider client={harness.queryClient}>
+        <QueryClientProvider client={loaderQueries.queryClient}>
           <ConvexProvider
             // @ts-expect-error — integration client is not ConvexReactClient
             client={harness.convexClient}
@@ -147,7 +151,7 @@ test("parent dashboard stays mounted while child routes render through its outle
     path: "/",
   });
   const router = createRouter({
-    context: preloader.context,
+    context: loaderQueries.context,
     defaultPendingMinMs: 0,
     history: createMemoryHistory({ initialEntries: ["/dashboard"] }),
     routeTree: rootRoute.addChildren([dashboardRoute.addChildren([childRoute])]),
@@ -161,22 +165,28 @@ test("parent dashboard stays mounted while child routes render through its outle
 });
 
 test("parent dashboard loader ensures auth-scoped reads without a waterfall", async () => {
-  const preloader = stubPreloader([]);
+  await using loaderQueries = stubLoaderQueries([]);
   // @ts-expect-error — stub context is the subset the loader reads
   const loader: (opts: {
-    context: typeof preloader.context;
+    context: typeof loaderQueries.context;
   }) => Promise<{ babies: object; onboarding: object }> = Route.options.loader;
 
-  const pending = loader({ context: preloader.context });
+  const pending = loader({ context: loaderQueries.context });
 
-  expect(preloader.calls).toEqual([
-    getFunctionName(api.baby.listByUser),
-    getFunctionName(api.onboarding.getMine),
-  ]);
-  await expect(pending).resolves.toMatchObject({
-    babies: { initialData: [] },
-    onboarding: { initialData: onboardingProgress },
+  await vi.waitFor(() => {
+    expect(loaderQueries.calls).toEqual([
+      getFunctionName(api.baby.listByUser),
+      getFunctionName(api.onboarding.getMine),
+    ]);
   });
+  loaderQueries.release();
+  await expect(pending).resolves.toMatchObject({
+    babies: { ensured: true, input: {} },
+    onboarding: { ensured: true, input: {} },
+  });
+  expect(loaderQueries.queryClient.getData(convexQuery(api.onboarding.getMine), {})).toEqual(
+    onboardingProgress,
+  );
 });
 
 test("shows prefetched babies without a spinner", async () => {

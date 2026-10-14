@@ -1,44 +1,29 @@
-import { queryOptions, skipToken } from "@tanstack/react-query";
-import type { QueryClient } from "@tanstack/react-query";
-import type { InitiatedQuery } from "@workspace/query-prefetch";
-import { getQueryInitiator } from "@workspace/query-prefetch";
+import { queryOptions } from "@raf-query/react";
+import type { QueryClient } from "@raf-query/react";
+import type { ConvexReader } from "@workspace/convex-query";
 
-const browserImagePrefetchQueryKey = ["browserImagePrefetch"] as const;
+const BROWSER_IMAGE_PREFETCH_KEY = "browserImagePrefetch";
 
-function browserImageQueryOptions(imageUrl: string) {
+/** Decodes an image into the browser cache. Never runs on the server. */
+export function browserImageQuery(imageUrl: string) {
   return queryOptions({
-    queryFn: globalThis.window !== undefined ? () => loadBrowserImage(imageUrl) : skipToken,
-    queryKey: [...browserImagePrefetchQueryKey, imageUrl],
+    queryFn: () => loadBrowserImage(imageUrl),
+    queryKey: [BROWSER_IMAGE_PREFETCH_KEY, imageUrl],
+    retry: false,
+    staleTime: Infinity,
   });
 }
 
-export function browserImageFactory(imageUrl: string) {
-  return browserImageQueryOptions(imageUrl);
-}
-
-export type BrowserImageFactory = typeof browserImageFactory;
-
-type RuntimeInitiatedBrowserImage = Partial<{
-  readonly input: unknown;
-}>;
-
-function initiatedBrowserImage(imageUrl: string): InitiatedQuery<BrowserImageFactory>;
-function initiatedBrowserImage(imageUrl: string): RuntimeInitiatedBrowserImage {
-  return { input: imageUrl };
-}
-
 /**
- * Fire-and-forget image warm in route loaders. On the server returns a
- * serializable handle without touching `Image` / the network.
+ * Fire-and-forget image warm in route loaders, so a client navigation starts
+ * downloading the photo alongside the route's data. A no-op on the server:
+ * the SSR'd `<img>` loads it there.
  */
-export function prefetchBrowserImage(
-  queryClient: QueryClient,
-  imageUrl: string,
-): InitiatedQuery<BrowserImageFactory> {
-  if (globalThis.window === undefined) {
-    return initiatedBrowserImage(imageUrl);
+export function prefetchBrowserImage(queryClient: QueryClient<ConvexReader>, imageUrl: string) {
+  if (globalThis.window === undefined || imageUrl === "") {
+    return;
   }
-  return getQueryInitiator(queryClient).ensureQueryData(browserImageFactory, imageUrl);
+  queryClient.prefetch(browserImageQuery, imageUrl);
 }
 
 function loadBrowserImage(imageUrl: string) {

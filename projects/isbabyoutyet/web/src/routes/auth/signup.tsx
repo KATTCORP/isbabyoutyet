@@ -72,7 +72,6 @@ function SignupPage() {
             onSignUp={(values) =>
               signUpThenGo(values, {
                 convexClient: context.convexClient,
-                convexQueryClient: context.convexQueryClient,
                 navigate: () => router.navigate({ to: "/dashboard" }),
                 queryClient: context.queryClient,
                 t,

@@ -1,15 +1,15 @@
 import { fireEvent } from "@testing-library/react";
+import { convexQuery } from "@workspace/convex-query";
 import { expect, test, vi } from "vitest";
 import { makeAsyncResource, makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import { testPreloadedQuery } from "@workspace/query-prefetch/test-helpers";
 import { Dialog, DialogContent } from "@workspace/ui/components/dialog";
 import { LocaleProvider } from "@/lib/i18n";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { seedOwnedBaby } from "@/test/convexTestSeed";
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
+import { seedBrowserPushCapability } from "@/test/browserPush";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
-import { browserPushQueryOptions } from "./notification-subscribe";
 import {
   OwnerMessageNotifyLiveSwitch,
   OwnerMessageNotifySwitchView,
@@ -94,8 +94,8 @@ async function renderLiveSwitch(opts: {
 }) {
   const harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
-  const vapid = await harness.convexPreloader.ensureQueryData(
-    api.pushSubscriptions.getPublicKey,
+  const vapid = await harness.queryClient.ensure(
+    convexQuery(api.pushSubscriptions.getPublicKey),
     {},
   );
   const view = await renderWithConvexTest({
@@ -103,11 +103,10 @@ async function renderLiveSwitch(opts: {
     ui: (
       <OwnerMessageNotifyLiveSwitch
         babyId={baby.babyId}
-        browserPush={testPreloadedQuery(
-          (ref) => browserPushQueryOptions(harness.queryClient, ref),
-          opts.capability,
-          baby.publicId,
-        )}
+        browserPush={seedBrowserPushCapability(harness.queryClient, {
+          babyRef: baby.publicId,
+          capability: opts.capability,
+        })}
         vapidPublicKey={vapid}
       />
     ),

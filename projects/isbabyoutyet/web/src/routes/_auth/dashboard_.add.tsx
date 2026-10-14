@@ -13,7 +13,7 @@ import { Input } from "@workspace/ui/components/input";
 import { DueDateDisplayFields } from "@/components/baby/dueDateDisplayFields";
 import { AddBabyOptionalSettings } from "@/components/baby/add-baby-optional-settings";
 import { OwnerMessageNotifyFormField } from "@/components/baby/owner-message-notify-switch";
-import { needsIosPushInstall } from "@/components/baby/notification-subscribe";
+import { needsIosPushInstall } from "@/lib/browser-push-capability";
 import { Card, CardContent } from "@workspace/ui/components/card";
 import {
   FormControl,

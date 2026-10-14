@@ -1,4 +1,5 @@
 import { fireEvent } from "@testing-library/react";
+import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { toast } from "sonner";
 import { expect, test, vi } from "vitest";
@@ -12,7 +13,7 @@ import { htmlInput } from "@/test/htmlElement";
 async function renderLanguageSettings(
   harness: Awaited<ReturnType<typeof createConvexTestHarness>>,
 ) {
-  const profileHandle = await harness.convexPreloader.ensureQueryData(api.profile.get, {});
+  const profileHandle = await harness.queryClient.ensure(convexQuery(api.profile.get), {});
   return renderWithConvexTest({
     harness,
     ui: <LanguageSettings profile={profileHandle} />,
@@ -27,7 +28,7 @@ test("changing the profile language persists it and applies the locale", async (
     name: "Ada",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
 
   await using view = await renderLanguageSettings(harness);
 
@@ -49,7 +50,7 @@ test("changing the profile time zone persists it", async () => {
     name: "Ada",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
 
   await using view = await renderLanguageSettings(harness);
 
@@ -96,7 +97,7 @@ test.each([
     name: "Ada",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
 
   const mutationSpy = vi.spyOn(harness.client, "mutation").mockImplementationOnce(async () => {
     throw testCase.failure;
@@ -143,7 +144,7 @@ test("LanguageSettings wires Convex mutations into the view", async () => {
     name: "Ada",
     password: "password123",
   });
-  harness.withIdentity({ subject: userId });
+  await harness.withIdentity({ subject: userId });
 
   await using view = await renderLanguageSettings(harness);
 

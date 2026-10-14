@@ -6,8 +6,10 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item";
-import { useMutation as useTanstackMutation } from "@tanstack/react-query";
-import { useConvexMutation } from "@convex-dev/react-query";
+import { useQuery } from "@raf-query/react";
+import { convexQuery } from "@workspace/convex-query";
+import type { EnsuredConvexQuery } from "@workspace/convex-query";
+import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { z } from "zod";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
@@ -16,8 +18,6 @@ import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { CheckIcon, XIcon } from "@phosphor-icons/react";
 import type { NotifiableStatus } from "@isbabyoutyet/backend/src/types";
 import { FORBIDDEN } from "@isbabyoutyet/backend/src/types";
-import type { PreloadedConvexQuery } from "@workspace/convex-prefetch";
-import { usePreloadedConvexQuery } from "@workspace/convex-prefetch";
 import type { TranslationFunction } from "@/lib/i18n";
 import { Form, SubmitButton, useZodForm } from "@/components/Form";
 import { useI18n } from "@/lib/i18n";
@@ -34,25 +34,23 @@ const EMPTY_NOTIFICATIONS: ScheduledNotificationsResult = [];
 const emptyActionSchema = z.object({});
 
 type ScheduledNotificationToastProps = {
-  notifications: PreloadedConvexQuery<typeof api.baby.getScheduledNotifications>;
-  subscriptionCount: PreloadedConvexQuery<typeof api.pushSubscriptions.getSubscriptionCount>;
+  notifications: EnsuredConvexQuery<typeof api.baby.getScheduledNotifications>;
+  subscriptionCount: EnsuredConvexQuery<typeof api.pushSubscriptions.getSubscriptionCount>;
 };
 
 export function ScheduledNotificationToast(props: ScheduledNotificationToastProps) {
-  const notificationsQuery = usePreloadedConvexQuery(
-    api.baby.getScheduledNotifications,
+  const [notificationsData] = useQuery(
+    convexQuery(api.baby.getScheduledNotifications),
     props.notifications,
   );
   // FORBIDDEN only happens for non-managers, who never render this component —
   // treat it like "nothing scheduled" so the types stay honest.
-  const notificationsData = notificationsQuery.data;
   const notifications = notificationsData === FORBIDDEN ? EMPTY_NOTIFICATIONS : notificationsData;
-  const subscriptionCountQuery = usePreloadedConvexQuery(
-    api.pushSubscriptions.getSubscriptionCount,
+  const [subscriptionCountData] = useQuery(
+    convexQuery(api.pushSubscriptions.getSubscriptionCount),
     props.subscriptionCount,
   );
-  const subscriptionCount =
-    subscriptionCountQuery.data === FORBIDDEN ? 0 : subscriptionCountQuery.data;
+  const subscriptionCount = subscriptionCountData === FORBIDDEN ? 0 : subscriptionCountData;
   const tickEnabled = notifications.length > 0;
   const currentSecond = useCurrentSecond(tickEnabled);
   if (!tickEnabled || currentSecond === null) {
@@ -139,15 +137,13 @@ function NotificationToastContent(props: NotificationToastContentProps) {
   const { t } = useI18n();
   const seconds = Math.max(0, Math.ceil((props.scheduledFor - props.currentTime) / 1000));
 
-  const cancelMutation = useTanstackMutation({
-    mutationFn: useConvexMutation(api.baby.cancelScheduledNotification),
-  });
+  const cancelNotification = useMutation(api.baby.cancelScheduledNotification);
   const form = useZodForm({
     defaultValues: {},
     schema: emptyActionSchema,
   });
 
-  if (cancelMutation.isSuccess) {
+  if (form.formState.isSubmitSuccessful) {
     return null;
   }
 
@@ -167,7 +163,7 @@ function NotificationToastContent(props: NotificationToastContentProps) {
         <Form
           form={form}
           handleSubmit={async () => {
-            await cancelMutation.mutateAsync({ notificationId: props.notificationId });
+            await cancelNotification({ notificationId: props.notificationId });
             toast.success(t("Notification cancelled"));
           }}
         >
