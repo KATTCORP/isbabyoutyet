@@ -39,7 +39,7 @@ test("inline factories infer from the query and share one entry per query and ar
   const handle = await queryClient.ensure(convexQuery(getMessage), { id: "a" });
 
   expectTypeOf(handle).toEqualTypeOf<EnsuredConvexQuery<typeof getMessage>>();
-  expect(handle).toMatchObject({ ensured: true, input: { id: "a" } });
+  expect(handle).toMatchObject({ data: "hello", input: { id: "a" } });
   expectTypeOf(queryClient.getData(convexQuery(getMessage), { id: "a" })).toEqualTypeOf<
     string | null | undefined
   >();

@@ -13,11 +13,10 @@ export const Route = createFileRoute("/baby/$publicId/updates/$updateId/photo")(
     const queryClient = opts.context.queryClient;
     const input = { babyId: opts.params.publicId, updateId: opts.params.updateId };
     const updatePhoto = await queryClient.ensure(convexQuery(api.timeline.getUpdatePhoto), input);
-    const updatePhotoDoc = queryClient.getData(convexQuery(api.timeline.getUpdatePhoto), input);
-    if (!updatePhotoDoc) {
+    if (!updatePhoto.data) {
       throw notFound();
     }
-    prefetchBrowserImage(queryClient, updatePhotoDoc.photoUrl);
+    prefetchBrowserImage(queryClient, updatePhoto.data.photoUrl);
     return { updatePhoto };
   },
   component: BabyUpdatePhotoOverlay,
@@ -34,6 +33,7 @@ export function BabyUpdatePhotoOverlay() {
   const [updatePhotoData] = useQuery(
     convexQuery(api.timeline.getUpdatePhoto),
     loaderData.updatePhoto,
+    { throwOnError: true },
   );
   const updatePhoto = useLastMatch(updatePhotoData, (v) => !!v);
   if (!updatePhoto) {

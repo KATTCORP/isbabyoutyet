@@ -42,13 +42,12 @@ export async function loadSignedInProfile(opts: {
   }
 
   const meHandle = await queryClient.ensure(convexQuery(api.profile.get), {});
-  const me = queryClient.getData(convexQuery(api.profile.get), {});
-  if (!me) {
+  if (!meHandle.data) {
     return null;
   }
   return {
-    isAdmin: me.isAdmin,
-    locale: me.locale,
+    isAdmin: meHandle.data.isAdmin,
+    locale: meHandle.data.locale,
     /** `profile.get`'s handle, for child routes to read with `useQuery`. */
     me: meHandle,
     token,

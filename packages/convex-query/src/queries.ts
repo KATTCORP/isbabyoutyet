@@ -1,7 +1,7 @@
 import type {
-  EnsuredQueryHandle,
   InfiniteQueryOptions,
   QueryHandle,
+  QueryHandleWithData,
   QueryOptions,
 } from "@raf-query/react";
 import { infiniteQueryOptions, queryOptions } from "@raf-query/react";
@@ -77,7 +77,9 @@ export type ConvexPaginatedQueryFactory<TQuery extends PaginatedQueryReference> 
  * // loader
  * profile: queryClient.ensure(convexQuery(api.profile.get), {}),
  * // component
- * const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile);
+ * const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile, {
+ *   throwOnError: true,
+ * });
  */
 export function convexQuery<TQuery extends QueryReference>(
   query: TQuery,
@@ -133,7 +135,7 @@ export function convexPaginatedQuery<TQuery extends PaginatedQueryReference>(
 }
 
 /** Loader handle from `queryClient.ensure(convexQuery(query), args)`. */
-export type EnsuredConvexQuery<TQuery extends QueryReference> = EnsuredQueryHandle<
+export type EnsuredConvexQuery<TQuery extends QueryReference> = QueryHandleWithData<
   ConvexQueryFactory<TQuery>
 >;
 
@@ -144,7 +146,7 @@ export type ConvexQueryHandle<TQuery extends QueryReference> = QueryHandle<
 
 /** Loader handle from `queryClient.ensure(convexPaginatedQuery(query), input)`. */
 export type EnsuredConvexPaginatedQuery<TQuery extends PaginatedQueryReference> =
-  EnsuredQueryHandle<ConvexPaginatedQueryFactory<TQuery>>;
+  QueryHandleWithData<ConvexPaginatedQueryFactory<TQuery>>;
 
 /** Handle from `queryClient.prefetch(convexPaginatedQuery(query), input)` or `useWaterfall`. */
 export type ConvexPaginatedQueryHandle<TQuery extends PaginatedQueryReference> = QueryHandle<

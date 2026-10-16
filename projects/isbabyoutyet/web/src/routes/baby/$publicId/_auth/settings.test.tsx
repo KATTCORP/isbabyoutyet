@@ -30,10 +30,10 @@ test("settings loader fetches only manager settings data", async () => {
   });
 
   const babyArgs = { babyId: baby.publicId };
-  expect(result.managerBaby).toMatchObject({ ensured: true, input: babyArgs });
-  expect(result.coParentsList).toMatchObject({ ensured: true, input: babyArgs });
-  expect(result.profile).toMatchObject({ ensured: true, input: {} });
-  expect(result.vapidPublicKey).toMatchObject({ ensured: true, input: {} });
+  expect(result.managerBaby).toMatchObject({ data: expect.anything(), input: babyArgs });
+  expect(result.coParentsList).toMatchObject({ data: expect.anything(), input: babyArgs });
+  expect(result.profile).toMatchObject({ data: expect.anything(), input: {} });
+  expect(result.vapidPublicKey).toMatchObject({ data: expect.anything(), input: {} });
   const queryClient = harness.queryClient;
   expect(queryClient.getData(convexQuery(api.baby.getManagerBaby), babyArgs)).toMatchObject({
     name: "Baby Smith",

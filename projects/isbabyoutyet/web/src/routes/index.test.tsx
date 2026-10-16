@@ -126,13 +126,13 @@ test("homepage language picker saves an explicit language choice", async () => {
 
 test("homepage loader prefetches profile.get", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
-  const data = await runRouteLoader<{ me: { ensured: boolean } }>({
+  const data = await runRouteLoader<{ me: { data: unknown } }>({
     harness,
     location: { pathname: "/" },
     params: {},
     route: Route,
   });
-  expect(data.me).toMatchObject({ ensured: true, input: {} });
+  expect(data.me).toMatchObject({ data: null, input: {} });
   expect(harness.queryClient.getData(convexQuery(api.profile.get), {})).toBeNull();
 });
 

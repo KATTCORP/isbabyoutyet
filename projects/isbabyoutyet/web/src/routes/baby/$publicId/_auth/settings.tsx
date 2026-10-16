@@ -40,9 +40,15 @@ export function BabySettingsOverlay() {
   const removeBaby = useMutation(api.baby.remove);
   const redateMilestone = useMutation(api.updates.redateMilestone);
   const unmarkMilestone = useMutation(api.updates.unmarkMilestone);
-  const [managerBabyDoc] = useQuery(convexQuery(api.baby.getManagerBaby), loaderData.managerBaby);
-  const [myAccess] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
-  const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile);
+  const [managerBabyDoc] = useQuery(convexQuery(api.baby.getManagerBaby), loaderData.managerBaby, {
+    throwOnError: true,
+  });
+  const [myAccess] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess, {
+    throwOnError: true,
+  });
+  const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile, {
+    throwOnError: true,
+  });
   if (managerBabyDoc === FORBIDDEN) {
     return <ForbiddenDialog overlay={settings} />;
   }

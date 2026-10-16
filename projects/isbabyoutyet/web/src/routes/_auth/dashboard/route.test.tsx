@@ -181,8 +181,8 @@ test("parent dashboard loader ensures auth-scoped reads without a waterfall", as
   });
   loaderQueries.release();
   await expect(pending).resolves.toMatchObject({
-    babies: { ensured: true, input: {} },
-    onboarding: { ensured: true, input: {} },
+    babies: { data: expect.anything(), input: {} },
+    onboarding: { data: expect.anything(), input: {} },
   });
   expect(loaderQueries.queryClient.getData(convexQuery(api.onboarding.getMine), {})).toEqual(
     onboardingProgress,

@@ -364,9 +364,9 @@ test("loader ensures the same set for visitors; gated queries come back forbidde
   const queryClient = stub.queryClient;
   const result = await runBabyLoader(queryClient);
 
-  expect(result.baby).toMatchObject({ ensured: true, input: { id: "baby-smith" } });
+  expect(result.baby).toMatchObject({ data: expect.anything(), input: { id: "baby-smith" } });
   expect(result.timeline).toMatchObject({
-    ensured: true,
+    data: expect.anything(),
     input: { args: { babyId: "baby-smith", visitorId: null }, numItems: 20 },
   });
   expect(queryClient.getData(convexQuery(api.baby.getByPublicId), { id: "baby-smith" })).toEqual(
@@ -404,7 +404,7 @@ test("loader gives managers the same handles with real data", async () => {
 
   expect(result.scheduledNotifications).toMatchObject({ input: { babyId: "baby-smith" } });
   expect(result.subscriptionCount).toMatchObject({ input: { babyId: "baby-smith" } });
-  expect(result.onboarding).toMatchObject({ ensured: true, input: {} });
+  expect(result.onboarding).toMatchObject({ data: null, input: {} });
   expect(
     queryClient.getData(convexQuery(api.baby.getScheduledNotifications), { babyId: "baby-smith" }),
   ).toEqual([]);

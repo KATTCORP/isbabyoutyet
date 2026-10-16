@@ -11,7 +11,9 @@ export type BrowserPushHandle = QueryHandle<typeof browserPushCapabilityQuery>;
  * never detects.
  */
 export function useBrowserPushCapability(handle: BrowserPushHandle) {
-  const [promise, controls] = useQuery(browserPushCapabilityQuery, handle);
+  const [promise, controls] = useQuery(browserPushCapabilityQuery, handle, {
+    throwOnError: true,
+  });
   const capability = controls.isPending ? null : use(promise);
   return [capability, controls.refetch] as const;
 }

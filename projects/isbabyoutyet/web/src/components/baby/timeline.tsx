@@ -1326,9 +1326,7 @@ export function TimelineFeed(props: TimelineFeedProps) {
   const [timelinePromise, timelineQuery] = useQuery(
     convexPaginatedQuery(api.timeline.listByBaby),
     timelineHandle,
-    {
-      whilePending: "previous",
-    },
+    { throwOnError: true, whilePending: "previous" },
   );
   const removeUpdate = useMutation(api.updates.remove);
   const setAsCurrentPhoto = useMutation(api.updates.setAsCurrentPhoto);

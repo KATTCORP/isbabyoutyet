@@ -538,11 +538,17 @@ test("loader prefetches babies, users, and permalink transfers in parallel for a
   );
 
   expect(result.babies).toMatchObject({
-    ensured: true,
+    data: expect.anything(),
     input: { args: { hideDemo: true, sortBy: "created", sortOrder: "desc" }, numItems: 20 },
   });
-  expect(result.transfers).toMatchObject({ ensured: true, input: { args: {}, numItems: 20 } });
-  expect(result.users).toMatchObject({ ensured: true, input: { args: {}, numItems: 20 } });
+  expect(result.transfers).toMatchObject({
+    data: expect.anything(),
+    input: { args: {}, numItems: 20 },
+  });
+  expect(result.users).toMatchObject({
+    data: expect.anything(),
+    input: { args: {}, numItems: 20 },
+  });
 });
 
 test("loader redirects non-admins without prefetching admin queries", async () => {

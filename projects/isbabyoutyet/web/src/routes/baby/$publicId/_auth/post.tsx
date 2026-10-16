@@ -39,10 +39,13 @@ export function BabyPostUpdateOverlay() {
   const { t } = useI18n();
   const post = useBabyPostOverlay(params.publicId);
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const [managerBabyData] = useQuery(convexQuery(api.baby.getManagerBaby), loaderData.managerBaby);
+  const [managerBabyData] = useQuery(convexQuery(api.baby.getManagerBaby), loaderData.managerBaby, {
+    throwOnError: true,
+  });
   const [subscriptionCountData] = useQuery(
     convexQuery(api.pushSubscriptions.getSubscriptionCount),
     loaderData.subscriptionCount,
+    { throwOnError: true },
   );
   if (managerBabyData === FORBIDDEN) {
     return <ForbiddenDialog overlay={post} />;
