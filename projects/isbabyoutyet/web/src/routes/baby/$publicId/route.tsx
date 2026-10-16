@@ -4,6 +4,7 @@ import { EncouragementForm } from "@/components/baby/encouragements";
 import { TimelineFeed } from "@/components/baby/timeline";
 import { NotificationSubscribe } from "@/components/baby/notification-subscribe";
 import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
+import { visitorTagQuery } from "@/lib/visitor-tag";
 import { ProgressIndicator } from "@/components/baby/progress-indicator";
 import { ScheduledNotificationToast } from "@/components/baby/scheduled-notification-toast";
 import { StatusDisplay } from "@/components/baby/status-display";
@@ -32,7 +33,6 @@ import { babyPageRobotsHeaders, searchRobotsMeta } from "@/lib/robots";
 import { useI18n } from "@/lib/i18n";
 import { BABY_FEED_HASH } from "@isbabyoutyet/backend/src/babyFeedUrl";
 import { useHashScroll } from "@/lib/use-hash-scroll";
-import { peekVisitorId } from "@/lib/use-visitor-id";
 import { useDemoToast } from "@/lib/use-demo-toast";
 import { isHomepageDemoPublicId } from "@isbabyoutyet/backend/src/seedCredentials";
 import {
@@ -75,6 +75,12 @@ export const Route = createFileRoute("/baby/$publicId")({
     const queryClient = opts.context.queryClient;
     const publicId = opts.params.publicId;
     const browserPush = queryClient.prefetch(browserPushCapabilityQuery, publicId);
+    // `beforeLoad` already loaded the baby, so this starts with no wait.
+    const babyDoc = queryClient.getData(convexQuery(api.baby.getByPublicId), { id: publicId });
+    if (!babyDoc) {
+      throw notFound();
+    }
+    const visitorTag = queryClient.prefetch(visitorTagQuery, babyDoc._id);
 
     const loaderData = await allKeyed({
       baby: queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: publicId }),
@@ -94,18 +100,17 @@ export const Route = createFileRoute("/baby/$publicId")({
           babyId: publicId,
         },
       ),
-      // SSR has no visitor id (null); a client navigation reads the stored
-      // one, so the feed's first render matches this handle.
       timeline: queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
-        args: { babyId: publicId, visitorId: peekVisitorId() },
+        args: { babyId: publicId },
         numItems: TIMELINE_PAGE_SIZE,
       }),
       vapidPublicKey: queryClient.ensure(convexQuery(api.pushSubscriptions.getPublicKey), {}),
     });
 
     return {
-      babyDoc: queryClient.getData(convexQuery(api.baby.getByPublicId), { id: publicId }) ?? null,
+      babyDoc,
       browserPush,
+      visitorTag,
       ...loaderData,
     };
   },
@@ -438,6 +443,7 @@ function BabyPageLayout() {
                 isOwner={canManage}
                 publicId={babyDoc.publicId}
                 timeline={loaderData.timeline}
+                visitorTag={loaderData.visitorTag}
               />
             </section>
           </div>
