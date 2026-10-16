@@ -228,6 +228,7 @@ function AdminBabiesPage() {
   const [babiesData, babiesQuery] = useQuery(
     convexPaginatedQuery(api.admin.listBabies),
     Route.useLoaderData(),
+    { throwOnError: true },
   );
 
   return (

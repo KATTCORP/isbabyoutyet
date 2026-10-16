@@ -102,7 +102,7 @@ describe("connectConvexLive", () => {
   it("writes every result of a cached query into the cache", async () => {
     const live = setup();
     const handle = await live.queryClient.ensure(message, { id: "a" });
-    expect(handle.ensured).toBe(true);
+    expect(handle.data).toBe("hello");
     expect(live.queryClient.getData(message, { id: "a" })).toBe("hello");
 
     live.messages.set("a", "edited");

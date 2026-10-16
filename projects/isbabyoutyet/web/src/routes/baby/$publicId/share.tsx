@@ -37,9 +37,8 @@ export const Route = createFileRoute("/baby/$publicId/share")({
       baby: queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: publicId }),
       myAccess: queryClient.ensure(convexQuery(api.coParents.myAccess), { babyId: publicId }),
     });
-    const babyDoc = queryClient.getData(convexQuery(api.baby.getByPublicId), { id: publicId });
-    if (babyDoc) {
-      prefetchBrowserImage(queryClient, getBabySeo(babyDoc, publicId).imageUrl);
+    if (data.baby.data) {
+      prefetchBrowserImage(queryClient, getBabySeo(data.baby.data, publicId).imageUrl);
     }
 
     return {
@@ -57,8 +56,12 @@ export function BabyShareOverlay() {
   const { t } = useI18n();
   const [copied, showCopied] = useTransientFlag(2000);
   const share = useBabyShareOverlay(params.publicId);
-  const [babyData] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
-  const [myAccessData] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
+  const [babyData] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby, {
+    throwOnError: true,
+  });
+  const [myAccessData] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess, {
+    throwOnError: true,
+  });
   const sharePreview = babyData ? getBabySeo(babyData, params.publicId) : null;
   if (!sharePreview) {
     throw notFound();

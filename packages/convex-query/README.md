@@ -50,8 +50,15 @@ loader: async (opts) =>
     ),
   }),
 
-const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile);
+const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile, {
+  throwOnError: true,
+});
 ```
+
+The query functions are Effects with a typed `ConvexQueryError`, so on a
+client with a `layer` `useQuery` returns a `Result` by default. Pass
+`throwOnError: true` to read the data and let failures reach the route's error
+boundary.
 
 Type props that receive a loader handle with `EnsuredConvexQuery<typeof
 api.profile.get>` or `EnsuredConvexPaginatedQuery<typeof
@@ -62,9 +69,10 @@ loaded page except the last stays pinned to its end cursor while live, so
 inserts and deletes grow or shrink a page instead of shifting items between
 pages.
 
-Read data in a loader with `await queryClient.ensure(...)` followed by
-`queryClient.getData(...)`. Effects that compose several reads (for example
-push-capability detection) call `readConvexQuery(query, args)` directly.
+Read data in a loader from the handle `ensure` resolves with:
+`(await queryClient.ensure(...)).data`. Effects that compose several reads
+(for example push-capability detection) call `readConvexQuery(query, args)`
+directly.
 
 ## Testing
 

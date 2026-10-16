@@ -137,7 +137,7 @@ test("babies loader prefetches only the babies page for the URL's sort and filte
   });
 
   expect(result).toMatchObject({
-    ensured: true,
+    data: expect.anything(),
     input: { args: { hideDemo: false, sortBy: "updated", sortOrder: "asc" }, numItems: 20 },
   });
   expect(called).toEqual(["admin:listBabies"]);

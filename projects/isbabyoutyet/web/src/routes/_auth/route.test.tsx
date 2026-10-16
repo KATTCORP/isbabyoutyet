@@ -100,7 +100,7 @@ test("client navigations reuse a cached profile without an auth round-trip", asy
     pathname: "/dashboard",
   });
 
-  expect(result).toMatchObject({ locale: "sv", me: { ensured: true, input: {} } });
+  expect(result).toMatchObject({ locale: "sv", me: { data: expect.anything(), input: {} } });
   expect(result).not.toHaveProperty("isAuthenticated");
   expect(fetchToken).not.toHaveBeenCalled();
   expect(guard.queryFn).not.toHaveBeenCalled();

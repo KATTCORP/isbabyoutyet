@@ -53,10 +53,10 @@ export const Route = createFileRoute("/baby/$publicId")({
 
   beforeLoad: async (opts) => {
     const queryClient = opts.context.queryClient;
-    await queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId });
-    const babyDoc = queryClient.getData(convexQuery(api.baby.getByPublicId), {
+    const babyHandle = await queryClient.ensure(convexQuery(api.baby.getByPublicId), {
       id: opts.params.publicId,
     });
+    const babyDoc = babyHandle.data;
     if (!babyDoc) {
       throw notFound();
     }
@@ -270,19 +270,26 @@ function BabyPageLayout() {
     throw notFound();
   }
 
-  const [babyDoc] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
+  const [babyDoc] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby, {
+    throwOnError: true,
+  });
   if (!babyDoc) {
     throw notFound();
   }
   const baby = docToBabyData(babyDoc);
 
-  const [latestUpdate] = useQuery(convexQuery(api.timeline.latestUpdate), loaderData.latestUpdate);
-  const [me] = useQuery(convexQuery(api.profile.get), loaderData.me);
+  const [latestUpdate] = useQuery(convexQuery(api.timeline.latestUpdate), loaderData.latestUpdate, {
+    throwOnError: true,
+  });
+  const [me] = useQuery(convexQuery(api.profile.get), loaderData.me, { throwOnError: true });
   const [managerBabyResult] = useQuery(
     convexQuery(api.baby.getManagerBaby),
     loaderData.managerBaby,
+    { throwOnError: true },
   );
-  const [myAccess] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
+  const [myAccess] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess, {
+    throwOnError: true,
+  });
 
   const completeOnboardingStep = useCompleteOnboardingStep();
   const share = useBabyShareOverlayLinks(params.publicId);
