@@ -112,7 +112,6 @@ test("generateThumbnail stores a blur data URL on the baby and update", async ()
   const feed = await t.query(api.timeline.listByBaby, {
     babyId: created.babyId,
     paginationOpts: { cursor: null, numItems: 20 },
-    visitorId: null,
   });
   const photoItem = feed.page.find((item) => item.kind === "update");
   expect(photoItem?.kind === "update" && photoItem.update.blurDataUrl).toBe(baby?.blurDataUrl);

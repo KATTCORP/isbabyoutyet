@@ -111,7 +111,6 @@ test("refresh creates Juniper Hale as born after a two-day labour with fixture e
   const feed = await t.query(api.timeline.listByBaby, {
     babyId: baby!._id,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toHaveLength(HOMEPAGE_DEMO_FEED.length);
   expect(feed.page[0]?.kind).toBe("encouragement");
@@ -145,7 +144,6 @@ test("refresh is idempotent and wipes visitor encouragements", async () => {
   const before = await t.query(api.timeline.listByBaby, {
     babyId: first.babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(before.page).toHaveLength(HOMEPAGE_DEMO_FEED.length + 1);
 
@@ -163,7 +161,6 @@ test("refresh is idempotent and wipes visitor encouragements", async () => {
   const after = await t.query(api.timeline.listByBaby, {
     babyId: second.babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(after.page).toHaveLength(HOMEPAGE_DEMO_FEED.length);
   expect(
@@ -203,7 +200,6 @@ test("refresh attaches photos to the matching updates and pins the newborn as th
   const feed = await t.query(api.timeline.listByBaby, {
     babyId: result.babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   const photoUpdates = feed.page.filter((item) => item.kind === "update" && item.update.photoUrl);
   expect(photoUpdates).toHaveLength(HOMEPAGE_DEMO_PHOTO_KEYS.length);
@@ -303,7 +299,6 @@ test("daily reset protects only the baby with a recent visitor encouragement", a
   const feed = await t.query(api.timeline.listByBaby, {
     babyId: demo.babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(
     feed.page.some(
@@ -361,7 +356,6 @@ test("daily reset clears visitor encouragements once they are older than one hou
   const feed = await t.query(api.timeline.listByBaby, {
     babyId: demo.babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(
     feed.page.some(
@@ -377,7 +371,6 @@ test("daily reset does not wipe a demo when its complete photo sentinel is missi
   const before = await t.query(api.timeline.listByBaby, {
     babyId: demo.babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
 
   expect(await t.query(internal.homepageDemo.hasCompletePhotoSet, {})).toBe(false);
@@ -389,7 +382,6 @@ test("daily reset does not wipe a demo when its complete photo sentinel is missi
   const after = await t.query(api.timeline.listByBaby, {
     babyId: demo.babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(after.page.map((item) => item._id)).toEqual(before.page.map((item) => item._id));
 });
@@ -428,7 +420,6 @@ test("clearFeedBatch reports hasMore until the feed is empty", async () => {
   const feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toHaveLength(0);
 });
@@ -453,7 +444,6 @@ test("refresh({ locale: 'sv' }) creates Ella Holm with Swedish copy", async () =
   const feed = await t.query(api.timeline.listByBaby, {
     babyId: baby!._id,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   const svFeed = homepageDemoFeedFor("sv");
   expect(feed.page).toHaveLength(svFeed.length);
@@ -504,7 +494,6 @@ test("refreshAll gives each locale its own baby with the same feed shape and sha
     const feed = await t.query(api.timeline.listByBaby, {
       babyId: result.babyId,
       paginationOpts: FIRST_PAGE,
-      visitorId: null,
     });
     expect(feed.page).toHaveLength(HOMEPAGE_DEMO_FEED_SLOTS.length);
   }
@@ -564,7 +553,6 @@ test("daily reset rolls back every demo change when a reserved publicId belongs 
   const beforeFeed = await t.query(api.timeline.listByBaby, {
     babyId: demo.babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
 
   const realBabyId = await t.run(async (ctx) => {
@@ -591,7 +579,6 @@ test("daily reset rolls back every demo change when a reserved publicId belongs 
   const afterFeed = await t.query(api.timeline.listByBaby, {
     babyId: demo.babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(afterFeed.page.map((item) => item._id)).toEqual(beforeFeed.page.map((item) => item._id));
   expect(await t.run(async (ctx) => await ctx.db.get(realBabyId))).toEqual(realBabyBefore);
