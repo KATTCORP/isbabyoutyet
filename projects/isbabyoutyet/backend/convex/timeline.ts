@@ -5,6 +5,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { Milestone, MilestoneDates } from "../src/types";
 import { getCurrentStatus, MILESTONE_FIELDS, MILESTONES } from "../src/types";
+import { visitorTag } from "../src/visitorId";
 import { babyIdOrPublicIdValidator, findBabyByIdOrPublicId } from "./babyLookup";
 import type { EncouragementAuthor } from "./encouragementIdentity";
 import { encouragementIsMine, resolveEncouragementAuthor } from "./encouragementIdentity";
@@ -67,9 +68,11 @@ async function hydrateUpdate(
  * Public shape of an encouragement in the feed. Deliberately excludes
  * `author`, `visitorId` (the edit/delete credential), `userId`, and the
  * `userAgent` / `locale` / `timezone` metadata. `isMine` is computed from
- * the server-resolved author (signed-in user and/or visitor id).
+ * the server-resolved author (signed-in user and/or visitor id). `visitorTag`
+ * lets the browser check visitor-id ownership itself, without sending its
+ * visitor id.
  */
-function toPublicEncouragement(
+async function toPublicEncouragement(
   encouragement: Doc<"encouragements">,
   author: EncouragementAuthor | null,
 ) {
@@ -79,6 +82,10 @@ function toPublicEncouragement(
     createdAt: encouragement.createdAt,
     isMine: encouragementIsMine(encouragement, author),
     message: encouragement.message,
+    visitorTag: await visitorTag({
+      babyId: encouragement.babyId,
+      visitorId: encouragement.visitorId,
+    }),
   };
 }
 
@@ -113,7 +120,7 @@ async function hydrateTimelineItem(
       }
       return {
         _id: opts.item._id,
-        encouragement: toPublicEncouragement(encouragement, opts.author),
+        encouragement: await toPublicEncouragement(encouragement, opts.author),
         kind: "encouragement" as const,
         postedAt: opts.item.postedAt,
       };

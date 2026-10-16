@@ -13,6 +13,7 @@ import {
   testPhotoBlob,
 } from "./test.setup";
 import { insertUpdateWithTimelineItem } from "./timeline";
+import { visitorTag } from "../src/visitorId";
 
 const FIRST_PAGE = { cursor: null, numItems: 20 };
 
@@ -142,7 +143,16 @@ test("the public feed never leaks visitor credentials or metadata", async () => 
   expect(item.encouragement).not.toHaveProperty("userAgent");
   expect(item.encouragement).not.toHaveProperty("locale");
   expect(item.encouragement).not.toHaveProperty("timezone");
+  expect(JSON.stringify(item)).not.toContain("visitor-secret");
   expect(item.encouragement.isMine).toBe(false);
+
+  // Only the author's browser can reproduce the visitor tag
+  expect(await visitorTag({ babyId, visitorId: "visitor-secret" })).toBe(
+    item.encouragement.visitorTag,
+  );
+  expect(await visitorTag({ babyId, visitorId: "visitor-other" })).not.toBe(
+    item.encouragement.visitorTag,
+  );
 
   // The author sees their own post marked as theirs
   const asAuthor = await t.query(api.timeline.listByBaby, {
