@@ -50,7 +50,7 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
-import { Fragment, useId, useRef } from "react";
+import { Fragment, use, useId, useRef } from "react";
 import type { DragEvent, ReactElement, ReactNode } from "react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { Streamdown } from "streamdown";
@@ -1324,13 +1324,15 @@ export function TimelineFeed(props: TimelineFeedProps) {
   const [timeline, timelineQuery] = useQuery(
     convexPaginatedQuery(api.timeline.listByBaby),
     props.timeline,
+    { throwOnError: true },
   );
   // Pending on the server and until the browser hashes its visitor id. That
   // first load settles the same thenable, so read `isPending` to re-render
-  // when it does.
-  const [visitorTag, visitorTagState] = useQuery(visitorTagQuery, props.visitorTag);
-  const currentVisitorTag =
-    !visitorTagState.isPending && visitorTag.status === "fulfilled" ? visitorTag.value : null;
+  // when it does; once settled, `use` returns without suspending.
+  const [visitorTag, visitorTagState] = useQuery(visitorTagQuery, props.visitorTag, {
+    throwOnError: true,
+  });
+  const currentVisitorTag = visitorTagState.isPending ? null : use(visitorTag);
   const removeUpdate = useMutation(api.updates.remove);
   const setAsCurrentPhoto = useMutation(api.updates.setAsCurrentPhoto);
   const removeEncouragement = useMutation(api.encouragements.remove);

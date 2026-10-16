@@ -26,16 +26,18 @@ test("the browser hashes its stored visitor id with the baby id", async () => {
   using _visitor = storedVisitorIdResource("visitor-1");
   await using stub = stubQueryClientResource(rejectConvexQueries, { isServer: false });
 
-  await expect(stub.queryClient.fetch(visitorTagQuery, "baby-1")).resolves.toBe(
-    await visitorTag({ babyId: "baby-1", visitorId: "visitor-1" }),
-  );
+  const handle = await stub.queryClient.fetch(visitorTagQuery, "baby-1");
+
+  expect(handle.data).toBe(await visitorTag({ babyId: "baby-1", visitorId: "visitor-1" }));
 });
 
 test("a visitor who has never posted has no tag", async () => {
   using _visitor = storedVisitorIdResource(null);
   await using stub = stubQueryClientResource(rejectConvexQueries, { isServer: false });
 
-  await expect(stub.queryClient.fetch(visitorTagQuery, "baby-1")).resolves.toBeNull();
+  const handle = await stub.queryClient.fetch(visitorTagQuery, "baby-1");
+
+  expect(handle.data).toBeNull();
 });
 
 test("the server never hashes, so the tag stays pending through SSR", async () => {
