@@ -40,8 +40,8 @@ catalogs:
       specifier: ^2.1.10
       version: 2.1.10
     '@raf-query/react':
-      specifier: ^0.10.1
-      version: 0.10.1
+      specifier: ^0.10.2
+      version: 0.10.2
     '@react-email/ui':
       specifier: ^6.11.0
       version: 6.11.0
@@ -347,7 +347,7 @@ importers:
         version: 4.0.1(effect@4.0.1)(vitest@5.0.3)
       '@raf-query/react':
         specifier: 'catalog:'
-        version: 0.10.1(@tanstack/react-router@1.170.41(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(effect@4.0.1)(react@19.3.0)
+        version: 0.10.2(@tanstack/react-router@1.170.41(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(effect@4.0.1)(react@19.3.0)
       '@workspace/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
@@ -730,7 +730,7 @@ importers:
         version: 2.1.10(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@raf-query/react':
         specifier: 'catalog:'
-        version: 0.10.1(@tanstack/react-router@1.170.41(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(effect@4.0.1)(react@19.3.0)
+        version: 0.10.2(@tanstack/react-router@1.170.41(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(effect@4.0.1)(react@19.3.0)
       '@resvg/resvg-js':
         specifier: 'catalog:'
         version: 2.6.2
@@ -3286,14 +3286,14 @@ packages:
       '@types/react':
         optional: true
 
-  '@raf-query/core@0.10.1':
-    resolution: {integrity: sha512-PnQCipLxWFvHHhpUTGJZWpyir584SfZgsaCliodEmmeKMH4RC3nVFGtWmFN3mZEW31KPqI0zNDQN0zqqELDuqg==}
+  '@raf-query/core@0.10.2':
+    resolution: {integrity: sha512-6u+sL8BdjEtIvq2nVDFUhqXIL3g05DOYqluafu5gN8Dovgo+whhi1ZZGdFHsgKVx2j2HBFFY3E2YpiYU2ZXD3Q==}
     engines: {node: '>=22'}
     peerDependencies:
       effect: ^4.0.0
 
-  '@raf-query/react@0.10.1':
-    resolution: {integrity: sha512-yyzBoMU6tNceZjuYF5QgCtADHkndtPtDKM2UiSE0Okhq97XzwUSkVp/Hn5xMiqJ6AnGj772wuJrqpyEuFZORFA==}
+  '@raf-query/react@0.10.2':
+    resolution: {integrity: sha512-z0x80T13U+xPSPc/spixlQouAtDDv4/bdDbn2aiL0NNYULusQFj0ulCpcJ6H3qCRlaaHc/s8yaHb3NCyb/8M7Q==}
     engines: {node: '>=22'}
     peerDependencies:
       '@tanstack/react-router': ^1.170.0
@@ -9167,13 +9167,13 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.3.0
 
-  '@raf-query/core@0.10.1(effect@4.0.1)':
+  '@raf-query/core@0.10.2(effect@4.0.1)':
     dependencies:
       effect: 4.0.1
 
-  '@raf-query/react@0.10.1(@tanstack/react-router@1.170.41(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(effect@4.0.1)(react@19.3.0)':
+  '@raf-query/react@0.10.2(@tanstack/react-router@1.170.41(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(effect@4.0.1)(react@19.3.0)':
     dependencies:
-      '@raf-query/core': 0.10.1(effect@4.0.1)
+      '@raf-query/core': 0.10.2(effect@4.0.1)
       effect: 4.0.1
       react: 19.3.0
     optionalDependencies:
