@@ -149,6 +149,283 @@ function RotatingBabyName(props: { words: ReadonlyArray<string> }) {
   );
 }
 
+const HERO_SPARKLES = [
+  { delay: "0s", scale: 1.4, x: 96, y: 118 },
+  { delay: "0.8s", scale: 0.9, x: 300, y: 50 },
+  { delay: "1.6s", scale: 1.1, x: 640, y: 380 },
+  { delay: "0.4s", scale: 1.5, x: 884, y: 318 },
+  { delay: "1.2s", scale: 0.8, x: 236, y: 370 },
+] as const;
+
+const HERO_CONFETTI = [
+  { className: "fill-primary", rotate: 20, x: 330, y: 160 },
+  { className: "fill-primary/50", rotate: -30, x: 622, y: 40 },
+  { className: "fill-foreground/25", rotate: 45, x: 612, y: 210 },
+  { className: "fill-primary/70", rotate: -15, x: 270, y: 210 },
+  { className: "fill-foreground/20", rotate: 60, x: 160, y: 240 },
+  { className: "fill-primary/60", rotate: 10, x: 800, y: 250 },
+  { className: "fill-primary", rotate: -50, x: 900, y: 70 },
+  { className: "fill-primary/40", rotate: 35, x: 60, y: 380 },
+] as const;
+
+const SPARKLE_PATH = "M0 -12 Q2 -2 12 0 Q2 2 0 12 Q-2 2 -12 0 Q-2 -2 0 -12Z";
+const HEART_PATH =
+  "M0 8 C-14 -2 -12 -14 -4 -14 C-1 -14 0 -11 0 -10 C0 -11 1 -14 4 -14 C12 -14 14 -2 0 8Z";
+
+/**
+ * Decorative hero art: a phone showing a just-born baby page, surrounded by
+ * the notifications and encouragements it replaces the group chat with. Every
+ * fill keys off theme tokens so dark mode and baby themes recolour it. Below
+ * `md` the scene is cropped to the phone and its two notification cards.
+ */
+function HeroIllustration() {
+  return (
+    <div
+      aria-hidden="true"
+      className="mx-auto mt-14 aspect-[5/4] w-full max-w-4xl md:aspect-[960/440]"
+      data-testid="hero-illustration"
+    >
+      <svg className="h-full w-full" preserveAspectRatio="xMidYMid slice" viewBox="0 0 960 440">
+        {HERO_CONFETTI.map((piece) => (
+          <rect
+            className={piece.className}
+            height="7"
+            key={`${piece.x}-${piece.y}`}
+            rx="2"
+            transform={`translate(${piece.x} ${piece.y}) rotate(${piece.rotate})`}
+            width="16"
+          />
+        ))}
+        {HERO_SPARKLES.map((sparkle) => (
+          <g key={`${sparkle.x}-${sparkle.y}`} transform={`translate(${sparkle.x} ${sparkle.y})`}>
+            <path
+              className="hero-twinkle fill-primary/70"
+              d={SPARKLE_PATH}
+              style={{ animationDelay: sparkle.delay, scale: sparkle.scale }}
+            />
+          </g>
+        ))}
+
+        {/* Big heart, far left */}
+        <g className="hero-float" style={{ animationDelay: "-1s" }}>
+          <path
+            className="fill-primary/80"
+            d={HEART_PATH}
+            transform="translate(130 300) rotate(-12) scale(3.4)"
+          />
+        </g>
+
+        {/* "Any news yet?" bubble, faded: the question nobody has to ask */}
+        <g className="hero-float" style={{ animationDelay: "-2.2s" }}>
+          <g transform="rotate(-8 280 268)">
+            <path
+              className="fill-muted stroke-border"
+              d="M236 238 h88 a16 16 0 0 1 16 16 v28 a16 16 0 0 1 -16 16 h-62 l-18 14 v-14 h-8 a16 16 0 0 1 -16 -16 v-28 a16 16 0 0 1 16 -16Z"
+              strokeWidth="3"
+            />
+            {[256, 280, 304].map((x) => (
+              <g className="stroke-muted-foreground/45" key={x} transform={`translate(${x} 268)`}>
+                <path
+                  d="M-5 -6 a5 5 0 1 1 7 4.6 q-2 1 -2 4"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeWidth="3.5"
+                />
+                <circle className="fill-muted-foreground/45" cx="0" cy="9" r="1.5" />
+              </g>
+            ))}
+            <path
+              className="stroke-primary"
+              d="M238 290 L326 244"
+              strokeLinecap="round"
+              strokeWidth="5"
+            />
+          </g>
+        </g>
+
+        {/* Balloons, right */}
+        <g className="hero-float" style={{ animationDelay: "-0.5s" }}>
+          <path
+            className="stroke-foreground/30"
+            d="M690 150 q-10 30 4 60 q12 26 -2 60"
+            fill="none"
+            strokeWidth="2.5"
+          />
+          <ellipse className="fill-primary" cx="690" cy="104" rx="38" ry="46" />
+          <ellipse className="fill-white/45" cx="676" cy="86" rx="9" ry="15" />
+          <path className="fill-primary" d="M684 152 h12 l-6 -8Z" />
+        </g>
+        <g className="hero-float" style={{ animationDelay: "-1.8s" }}>
+          <path
+            className="stroke-foreground/25"
+            d="M858 166 q8 26 -4 52 q-10 22 4 48"
+            fill="none"
+            strokeWidth="2"
+          />
+          <ellipse className="fill-primary/45" cx="858" cy="130" rx="28" ry="34" />
+          <ellipse className="fill-white/45" cx="848" cy="117" rx="6" ry="11" />
+          <path className="fill-primary/45" d="M853 166 h10 l-5 -7Z" />
+        </g>
+
+        {/* Phone */}
+        <rect className="fill-primary/30" height="400" rx="42" width="240" x="372" y="34" />
+        <rect
+          className="fill-card stroke-border"
+          height="400"
+          rx="42"
+          strokeWidth="4"
+          width="240"
+          x="360"
+          y="22"
+        />
+        <rect className="fill-background" height="368" rx="30" width="208" x="376" y="38" />
+        <rect className="fill-border" height="9" rx="4.5" width="56" x="452" y="50" />
+
+        {/* Baby page hero card */}
+        <rect className="fill-primary/15" height="150" rx="24" width="180" x="390" y="72" />
+        <circle
+          className="fill-card stroke-foreground/80"
+          cx="480"
+          cy="136"
+          r="40"
+          strokeWidth="3.5"
+        />
+        <path className="fill-primary" d="M496 101 L522 116 L530 80Z" />
+        <circle className="fill-primary" cx="530" cy="79" r="5" />
+        <path
+          className="stroke-foreground/80"
+          d="M478 97 q-10 -14 4 -18 q10 -2 5 8"
+          fill="none"
+          strokeLinecap="round"
+          strokeWidth="3.5"
+        />
+        <path
+          className="stroke-foreground/80"
+          d="M461 134 q6 6 12 0 M487 134 q6 6 12 0 M472 152 q8 8 16 0"
+          fill="none"
+          strokeLinecap="round"
+          strokeWidth="3.5"
+        />
+        <circle className="fill-primary/40" cx="458" cy="148" r="6" />
+        <circle className="fill-primary/40" cx="502" cy="148" r="6" />
+        <rect className="fill-primary" height="22" rx="11" width="104" x="428" y="188" />
+        <path
+          className="fill-primary-foreground"
+          d={HEART_PATH}
+          transform="translate(446 200) scale(0.55)"
+        />
+        <rect className="fill-primary-foreground/80" height="6" rx="3" width="58" x="460" y="196" />
+
+        {/* Milestone timeline, all four reached */}
+        <path className="stroke-primary" d="M406 248 H554" strokeWidth="4" />
+        {[406, 455, 505].map((x) => (
+          <circle className="fill-primary" cx={x} cy="248" key={x} r="8" />
+        ))}
+        <circle
+          className="fill-primary stroke-primary/30"
+          cx="554"
+          cy="248"
+          r="10"
+          strokeWidth="6"
+        />
+
+        {/* Copy and encouragements */}
+        <rect className="fill-foreground/70" height="9" rx="4.5" width="140" x="392" y="274" />
+        <rect
+          className="fill-muted-foreground/30"
+          height="7"
+          rx="3.5"
+          width="170"
+          x="392"
+          y="292"
+        />
+        {[316, 360].map((y) => (
+          <g key={y}>
+            <rect
+              className="fill-card stroke-border"
+              height="36"
+              rx="14"
+              strokeWidth="2.5"
+              width="176"
+              x="392"
+              y={y}
+            />
+            <circle className="fill-primary/30" cx="412" cy={y + 18} r="9" />
+            <rect className="fill-foreground/55" height="6" rx="3" width="80" x="428" y={y + 10} />
+            <rect
+              className="fill-muted-foreground/30"
+              height="6"
+              rx="3"
+              width="118"
+              x="428"
+              y={y + 21}
+            />
+          </g>
+        ))}
+
+        {/* Push notification overlapping the phone, left */}
+        <g className="hero-float" style={{ animationDelay: "-3s" }}>
+          <g transform="rotate(-5 313 130)">
+            <rect className="fill-primary/25" height="70" rx="20" width="232" x="204" y="102" />
+            <rect
+              className="fill-card stroke-border"
+              height="70"
+              rx="20"
+              strokeWidth="3"
+              width="232"
+              x="198"
+              y="94"
+            />
+            <rect className="fill-primary/15" height="40" rx="12" width="40" x="212" y="109" />
+            <path className="fill-primary" d="M222 136 h20 l-2.5 -4 v-7 a7.5 7.5 0 0 0 -15 0 v7Z" />
+            <circle className="fill-primary" cx="232" cy="139" r="2.6" />
+            <rect className="fill-foreground/75" height="9" rx="4.5" width="110" x="264" y="114" />
+            <rect
+              className="fill-muted-foreground/30"
+              height="7"
+              rx="3.5"
+              width="150"
+              x="264"
+              y="133"
+            />
+          </g>
+        </g>
+
+        {/* Encouragement arriving, right */}
+        <g className="hero-float" style={{ animationDelay: "-1.4s" }}>
+          <g transform="rotate(4 633 300)">
+            <rect className="fill-primary/25" height="70" rx="20" width="232" x="524" y="272" />
+            <rect
+              className="fill-card stroke-border"
+              height="70"
+              rx="20"
+              strokeWidth="3"
+              width="232"
+              x="518"
+              y="264"
+            />
+            <rect className="fill-primary/15" height="40" rx="12" width="40" x="532" y="279" />
+            <path
+              className="fill-primary"
+              d={HEART_PATH}
+              transform="translate(552 301) scale(1.05)"
+            />
+            <rect className="fill-foreground/75" height="9" rx="4.5" width="96" x="584" y="284" />
+            <rect
+              className="fill-muted-foreground/30"
+              height="7"
+              rx="3.5"
+              width="146"
+              x="584"
+              y="303"
+            />
+          </g>
+        </g>
+      </svg>
+    </div>
+  );
+}
+
 function useCurrentDate() {
   return useClientDate({ serverSnapshot: SERVER_DATE_SNAPSHOT });
 }
@@ -424,6 +701,7 @@ export function HomePageView(props: { isSignedIn: boolean }) {
               {t("See a live page 👀")}
             </Button>
           </div>
+          <HeroIllustration />
         </section>
 
         {/* Features */}

@@ -81,6 +81,48 @@ body {
 }
 
 /*
+ * Homepage hero illustration: cards and balloons bob gently, sparkles pulse.
+ */
+@keyframes hero-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes hero-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.7);
+  }
+}
+
+.hero-float {
+  animation: hero-float 5s ease-in-out infinite;
+}
+
+.hero-twinkle {
+  animation: hero-twinkle 2.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-float,
+  .hero-twinkle {
+    animation: none;
+  }
+}
+
+/*
  * SubmitButton: spinner pops in with a little twist when it replaces the icon.
  */
 @keyframes submit-icon-swap-in {

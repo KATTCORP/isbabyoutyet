@@ -33,6 +33,15 @@ test("homepage links visitors to the live Juniper Hale demo page", async () => {
   expect(livePage.parentElement).not.toBe(createPage.parentElement);
 });
 
+test("homepage hero illustration is decorative", async () => {
+  await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
+
+  const illustration = screen.getByTestId("hero-illustration");
+  expect(illustration.getAttribute("aria-hidden")).toBe("true");
+  expect(illustration.querySelector("svg")).toBeTruthy();
+  expect(screen.queryByRole("img")).toBeNull();
+});
+
 test("homepage source link opens this product's folder in the monorepo", async () => {
   await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
 
