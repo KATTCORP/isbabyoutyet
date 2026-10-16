@@ -30,6 +30,7 @@ import {
 } from "@workspace/ui/components/popover";
 import { cn } from "@workspace/ui/lib/utils";
 import { useMutation } from "convex/react";
+// oxlint-disable-next-line workspace/no-raf-query-waterfall -- see TimelineFeed
 import { useQuery, useWaterfall } from "@raf-query/react";
 import { convexPaginatedQuery } from "@workspace/convex-query";
 import type { EnsuredConvexPaginatedQuery } from "@workspace/convex-query";
@@ -1318,6 +1319,7 @@ export function TimelineFeed(props: TimelineFeedProps) {
   // snapshot "" so the first paint matches the server's handle (no
   // visitorId), then the stored id switches the feed to the visitor's copy.
   const currentVisitorId = useStoredVisitorId();
+  // oxlint-disable-next-line workspace/no-raf-query-waterfall -- the visitor id only exists in localStorage, so no loader can start this query during SSR
   const timelineHandle = useWaterfall(convexPaginatedQuery(api.timeline.listByBaby), {
     ...props.timeline.input,
     args: { ...props.timeline.input.args, visitorId: currentVisitorId || null },
