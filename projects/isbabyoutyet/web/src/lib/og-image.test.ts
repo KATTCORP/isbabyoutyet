@@ -101,6 +101,22 @@ test("homepage OG image returns a PNG response", async () => {
   expect(Array.from(bytes.slice(0, 8))).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
 });
 
+test("homepage OG image loads glyphs for the localized hero headline", async () => {
+  await using fonts = await stubOgImageFonts();
+  const response = await createHomepageOgImage("sv");
+  expect(response.status).toBe(200);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  expect(bytes.byteLength).toBeGreaterThan(5000);
+  expect(fonts.googleFontUrls.length).toBeGreaterThan(0);
+  for (const url of fonts.googleFontUrls) {
+    const textParam = new URL(url).searchParams.get("text") ?? "";
+    expect(textParam).toContain("Är");
+    expect(textParam).toContain("bäbisen");
+    expect(textParam).toContain("ute än?");
+    expect(textParam).not.toContain("Ella");
+  }
+});
+
 test("baby OG image includes status-aware card as PNG", async () => {
   await using _fonts = await stubOgImageFonts();
   const response = await createBabyOgImage({
