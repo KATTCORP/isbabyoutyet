@@ -21,7 +21,10 @@ test("post loader fetches manager access data", async () => {
     route: Route,
   });
 
-  expect(result.managerBaby).toMatchObject({ ensured: true, input: { babyId: baby.publicId } });
+  expect(result.managerBaby).toMatchObject({
+    data: expect.anything(),
+    input: { babyId: baby.publicId },
+  });
   expect(
     harness.queryClient.getData(convexQuery(api.baby.getManagerBaby), { babyId: baby.publicId }),
   ).toMatchObject({ name: "Baby Smith" });

@@ -222,7 +222,7 @@ const HOW_IT_WORKS = [
 
 function HomePage() {
   const loaderData = Route.useLoaderData();
-  const [meData] = useQuery(convexQuery(api.profile.get), loaderData.me);
+  const [meData] = useQuery(convexQuery(api.profile.get), loaderData.me, { throwOnError: true });
   return <HomePageView isSignedIn={meData != null} />;
 }
 

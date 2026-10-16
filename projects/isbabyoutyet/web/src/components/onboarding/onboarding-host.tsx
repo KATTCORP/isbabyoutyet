@@ -118,7 +118,9 @@ export function OnboardingHostWithSession(
 }
 
 function OnboardingHostAuthed(props: OnboardingHostProps) {
-  const [progress] = useQuery(convexQuery(api.onboarding.getMine), props.onboarding);
+  const [progress] = useQuery(convexQuery(api.onboarding.getMine), props.onboarding, {
+    throwOnError: true,
+  });
   const {
     completeStep,
     dismissChecklist,

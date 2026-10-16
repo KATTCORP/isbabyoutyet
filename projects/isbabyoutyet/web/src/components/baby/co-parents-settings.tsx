@@ -155,7 +155,9 @@ type CoParentsSettingsProps = {
  */
 export function CoParentsSettings(props: CoParentsSettingsProps) {
   const { t } = useI18n();
-  const [listingData] = useQuery(convexQuery(api.coParents.listForBaby), props.listing);
+  const [listingData] = useQuery(convexQuery(api.coParents.listForBaby), props.listing, {
+    throwOnError: true,
+  });
   // FORBIDDEN only happens for non-managers, who never render this component —
   // treat it like an empty listing so the types stay honest.
   const listing: CoParentsListing =

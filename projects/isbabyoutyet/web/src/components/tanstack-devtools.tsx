@@ -1,11 +1,11 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import { QueryDevtoolsPanel } from "@raf-query/react/devtools/production";
+import { QueryDevtoolsPanel } from "@raf-query/react/devtools";
 import { TanStackRouterDevtoolsPanelInProd } from "@tanstack/react-router-devtools";
 
 /**
  * Isolated so production `vite build` can drop this module (and the
- * `/production` raf-query/Router panels) when the root env gate is false.
- * Preview builds keep it: the default exports no-op in production builds.
+ * raf-query/Router panels) when the root env gate is false. Preview builds
+ * keep it: both panels render in production builds.
  */
 export function TanStackAppDevtools() {
   return (
