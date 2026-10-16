@@ -202,6 +202,11 @@ const config = defineConfig((env) => ({
           },
         },
       },
+      // satori's harfbuzzjs is Emscripten CJS that finds `hb.wasm` through
+      // `__dirname`. Bundled into an ESM `_libs` chunk, `__dirname` is
+      // undefined and every `/og` image 500s, so ship the whole package to
+      // node_modules instead.
+      traceDeps: ["harfbuzzjs*"],
     }),
     patchLeakedReactRequire(),
     tailwindcss(),
