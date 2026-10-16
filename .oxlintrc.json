@@ -155,6 +155,8 @@
     "eslint/no-underscore-dangle": ["error", { "allow": ["_id", "_creationTime", "_exhaustive"] }],
     "workspace/no-manual-memoization": "error",
     "workspace/no-convex-query-hooks": "error",
+    // `useWaterfall` starts a query during render; start it in the loader.
+    "workspace/no-raf-query-waterfall": "error",
     "workspace/no-use-effect": "error",
     "workspace/no-use-state": "error",
     // Always on — including projects/*/web/src/lib — so banned hooks cannot be
