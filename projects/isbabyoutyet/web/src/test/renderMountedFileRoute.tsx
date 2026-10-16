@@ -65,7 +65,7 @@ type MountedFileRouteOpts = {
  * production wrapper, backed by `convex-test` through the shared harness.
  */
 export async function renderMountedFileRoute(opts: MountedFileRouteOpts) {
-  return await mountFileRoute(opts, {});
+  return await mountFileRoute(opts, { childRoutes: [], routerContext: {} });
 }
 
 /**
@@ -75,11 +75,33 @@ export async function renderMountedFileRoute(opts: MountedFileRouteOpts) {
 export async function renderMountedFileRouteWithRouterContext(
   opts: MountedFileRouteOpts & { routerContext: ParentRouteContext },
 ) {
-  return await mountFileRoute(opts, opts.routerContext);
+  return await mountFileRoute(opts, { childRoutes: [], routerContext: opts.routerContext });
 }
 
-async function mountFileRoute(opts: MountedFileRouteOpts, routerContext: ParentRouteContext) {
-  const context = { ...routeContextFromHarness(opts.harness), ...routerContext };
+type ChildFileRoute = {
+  /** Relative to the parent, e.g. `"users"`, or `"/"` for an index route. */
+  path: string;
+  route: AnyRoute;
+};
+
+/**
+ * Same as {@link renderMountedFileRouteWithRouterContext}, with the layout's
+ * real child file routes mounted under it so tests can navigate between them.
+ */
+export async function renderMountedFileRouteTree(
+  opts: MountedFileRouteOpts & {
+    childRoutes: Array<ChildFileRoute>;
+    routerContext: ParentRouteContext;
+  },
+) {
+  return await mountFileRoute(opts, opts);
+}
+
+async function mountFileRoute(
+  opts: MountedFileRouteOpts,
+  extra: { childRoutes: Array<ChildFileRoute>; routerContext: ParentRouteContext },
+) {
+  const context = { ...routeContextFromHarness(opts.harness), ...extra.routerContext };
 
   const history =
     opts.overlayHistory === null
@@ -112,6 +134,13 @@ async function mountFileRoute(opts: MountedFileRouteOpts, routerContext: ParentR
     getParentRoute: () => rootRoute,
     path: opts.path,
   });
+  if (extra.childRoutes.length > 0) {
+    mountedRoute.addChildren(
+      extra.childRoutes.map((child) =>
+        reparentRoute(child.route, { getParentRoute: () => mountedRoute, path: child.path }),
+      ),
+    );
+  }
 
   const router = createRouter({
     context,
