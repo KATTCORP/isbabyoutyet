@@ -1324,7 +1324,6 @@ export function TimelineFeed(props: TimelineFeedProps) {
   const [timeline, timelineQuery] = useQuery(
     convexPaginatedQuery(api.timeline.listByBaby),
     props.timeline,
-    { throwOnError: true },
   );
   // Pending on the server and until the browser hashes its visitor id; read
   // the status instead of `use` so the feed never suspends on it.

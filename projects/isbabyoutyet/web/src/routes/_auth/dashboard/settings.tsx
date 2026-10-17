@@ -68,7 +68,7 @@ export function DashboardSettingsSheet(props: {
   profile: EnsuredConvexQuery<typeof api.profile.get>;
   queryClient: QueryClient<ConvexReader>;
 }) {
-  const [profile] = useQuery(convexQuery(api.profile.get), props.profile, { throwOnError: true });
+  const [profile] = useQuery(convexQuery(api.profile.get), props.profile);
   const settings = useDashboardSettingsOverlay();
   const { t } = useI18n();
   const router = useRouter();

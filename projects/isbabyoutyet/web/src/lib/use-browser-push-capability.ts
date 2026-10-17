@@ -10,8 +10,6 @@ export type BrowserPushHandle = QueryHandle<typeof browserPushCapabilityQuery>;
  * never detects.
  */
 export function useBrowserPushCapability(handle: BrowserPushHandle) {
-  const [capability, controls] = useQuery(browserPushCapabilityQuery, handle, {
-    throwOnError: true,
-  });
+  const [capability, controls] = useQuery(browserPushCapabilityQuery, handle);
   return [capability.status === "fulfilled" ? capability.value : null, controls.refetch] as const;
 }

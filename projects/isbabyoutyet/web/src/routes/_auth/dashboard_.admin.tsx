@@ -580,7 +580,6 @@ function AdminBabiesTab() {
   const [babiesData, babiesQuery] = useQuery(
     convexPaginatedQuery(api.admin.listBabies),
     loaderData.babies,
-    { throwOnError: true },
   );
 
   const babies = babiesData.pages.flatMap((page) => page.page);
@@ -608,7 +607,6 @@ function AdminTransfersTab() {
   const [transfersData, transfersQuery] = useQuery(
     convexPaginatedQuery(api.admin.listPublicIdTransfers),
     loaderData.transfers,
-    { throwOnError: true },
   );
 
   const transfers = transfersData.pages.flatMap((page) => page.page);
@@ -638,7 +636,6 @@ function AdminUsersTab() {
   const [usersData, usersQuery] = useQuery(
     convexPaginatedQuery(api.admin.listUsers),
     loaderData.users,
-    { throwOnError: true },
   );
 
   const users = usersData.pages.flatMap((page) => page.page);
