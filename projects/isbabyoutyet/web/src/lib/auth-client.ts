@@ -1,5 +1,5 @@
 import type { QueryClient } from "@raf-query/react";
-import { Query } from "@raf-query/react";
+import { hashKey } from "@raf-query/react";
 import type { ConvexReader } from "@workspace/convex-query";
 import { createAuthClient } from "better-auth/react";
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
@@ -117,26 +117,29 @@ export function waitForMe(opts: { presence: MePresence; queryClient: QueryClient
     return Promise.resolve();
   }
 
-  const me = opts.queryClient.getQuery(convexQuery(api.profile.get), {});
+  const profile = convexQuery(api.profile.get);
+  const meHash = hashKey(profile({}).queryKey);
   const matches = () => {
-    const state = Query.getUnsafe(me);
-    return state.status === "success" && meMatchesPresence(state.data, opts.presence);
+    const me = opts.queryClient.getData(profile, {});
+    return me !== undefined && meMatchesPresence(me, opts.presence);
   };
   const stop = new AbortController();
   const combined = AbortSignal.any([signal, stop.signal]);
 
   return new Promise<void>((resolve) => {
-    const unsubscribe = Query.subscribeUnsafe(me, () => {
-      if (matches()) {
+    // The watch client can answer with the old identity until Convex pushes
+    // the new one, so follow the live entry instead of fetching once.
+    const unsubscribe = opts.queryClient.subscribe((event) => {
+      if (event.query.hash === meHash && matches()) {
         stop.abort();
       }
     });
-    opts.queryClient.prefetch(convexQuery(api.profile.get), {});
+    opts.queryClient.prefetch(profile, {});
 
     const onAbort = () => {
       unsubscribe();
       if (matches()) {
-        opts.queryClient.remove({ predicate: (query) => query.hash !== me.hash });
+        opts.queryClient.remove({ predicate: (query) => query.hash !== meHash });
       }
       resolve();
     };

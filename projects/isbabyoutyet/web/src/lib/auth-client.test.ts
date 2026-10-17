@@ -76,6 +76,25 @@ test("waitForMe keeps me and drops the rest of the cache when absent", async () 
   expect(clients.queryClient.getData(convexQuery(api.baby.listByUser), {})).toBeUndefined();
 });
 
+test("waitForMe waits for the new identity to reach the cache", async () => {
+  await using clients = makeClients();
+  seedCachedQueries(clients, null);
+  let settled = false;
+
+  const waiting = waitForMe({ presence: "present", queryClient: clients.queryClient }).then(() => {
+    settled = true;
+  });
+  await Promise.resolve();
+  expect(settled).toBe(false);
+  expect(clients.queryClient.getData(convexQuery(api.baby.listByUser), {})).toEqual([]);
+
+  clients.queryClient.setData(convexQuery(api.profile.get), {}, signedInProfile);
+  await waiting;
+
+  expect(clients.queryClient.getData(convexQuery(api.profile.get), {})).toEqual(signedInProfile);
+  expect(clients.queryClient.getData(convexQuery(api.baby.listByUser), {})).toBeUndefined();
+});
+
 test("setClientToken hands the inline JWT to Convex without a token round trip", async () => {
   await using clients = makeClients();
 
