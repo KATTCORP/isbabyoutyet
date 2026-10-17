@@ -192,3 +192,64 @@ test("admin tabs navigate between their routes against Convex", async () => {
     expect(ctx.view.getByText("No permalink transfers yet")).toBeTruthy();
   });
 });
+
+test("babies sort and filter survive switching to other tabs and back", async () => {
+  await using harness = await seedAdminHarness();
+  await using ctx = await renderAdminTree({ harness, initialEntry: "/dashboard/admin/babies" });
+
+  await vi.waitFor(() => {
+    expect(ctx.view.getByText("Real Baby")).toBeTruthy();
+  });
+  // Defaults stay out of the URL.
+  expect(ctx.router.state.location.href).toBe("/dashboard/admin/babies");
+
+  fireEvent.click(ctx.view.getByRole("link", { name: "Updated" }));
+  fireEvent.click(ctx.view.getByRole("switch", { name: "Hide demo babies" }));
+  await vi.waitFor(() => {
+    expect(ctx.router.state.location.search).toEqual({ hideDemo: false, sort: "updated" });
+  });
+
+  fireEvent.click(ctx.view.getByRole("tab", { name: "Recent users" }));
+  await vi.waitFor(() => {
+    expect(ctx.view.getByText("Signed up")).toBeTruthy();
+  });
+  expect(ctx.router.state.location.pathname).toBe("/dashboard/admin/users");
+  expect(ctx.router.state.location.search).toEqual({ hideDemo: false, sort: "updated" });
+  expect(ctx.view.getByRole("tab", { name: "Recent users" }).getAttribute("aria-selected")).toBe(
+    "true",
+  );
+
+  fireEvent.click(ctx.view.getByRole("tab", { name: "Transfer permalink" }));
+  await vi.waitFor(() => {
+    expect(ctx.view.getByText("No permalink transfers yet")).toBeTruthy();
+  });
+  expect(ctx.router.state.location.search).toEqual({ hideDemo: false, sort: "updated" });
+
+  fireEvent.click(ctx.view.getByRole("tab", { name: "All babies" }));
+  await vi.waitFor(() => {
+    expect(ctx.router.state.location.pathname).toBe("/dashboard/admin/babies");
+    expect(ctx.view.getByText("Real Baby")).toBeTruthy();
+  });
+  expect(ctx.router.state.location.search).toEqual({ hideDemo: false, sort: "updated" });
+  expect(
+    ctx.view.getByRole("switch", { name: "Hide demo babies" }).getAttribute("aria-checked"),
+  ).toBe("false");
+  // "Updated" is the active desc column, so its next click toggles to asc.
+  expect(ctx.view.getByRole("link", { name: "Updated" }).getAttribute("href")).toContain(
+    "order=asc",
+  );
+});
+
+test("legacy ?tab= admin URLs keep the babies sort they carried", async () => {
+  await using harness = await seedAdminHarness();
+  await using ctx = await renderAdminTree({
+    harness,
+    initialEntry: "/dashboard/admin?tab=babies&sort=updated",
+  });
+
+  await vi.waitFor(() => {
+    expect(ctx.router.state.resolvedLocation?.pathname).toBe("/dashboard/admin/babies");
+    expect(ctx.view.getByText("Real Baby")).toBeTruthy();
+  });
+  expect(ctx.router.state.location.search).toEqual({ sort: "updated" });
+});
