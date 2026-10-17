@@ -11,6 +11,7 @@ live bridge keeps every cached entry subscribed, so components read plain
 reader.ts   ConvexReader Effect service: browser watch reads, server snapshot reads
 queries.ts  convexQuery / convexPaginatedQuery factories (stable keys, Effect queryFns)
 live.ts     connectConvexLive: subscribe cached entries, write results into the cache
+            watchConvexQuery: one entry's values as an Effect Stream
 testing.ts  makeTestConvexClient: a watch client over any async runner (convex-test)
 ```
 
@@ -71,6 +72,22 @@ Read data in a loader from the handle `ensure` resolves with:
 `(await queryClient.ensure(...)).data`. Effects that compose several reads
 (for example push-capability detection) call `readConvexQuery(query, args)`
 directly.
+
+## Waiting for a value
+
+`watchConvexQuery({ client, queryClient }, { args, query })` is an Effect
+`Stream` of one entry's values: the cached value, then every change. It reads
+through the cache (so it shares the request with loaders' `ensure`) and holds
+its own Convex subscription while it runs, writing each result into the entry.
+Compose it to wait for a value, for example the profile after sign-in:
+
+```ts
+watchConvexQuery({ client, queryClient }, { args: {}, query: api.profile.get }).pipe(
+  Stream.filter((me) => me !== null),
+  Stream.runHead,
+  Effect.timeoutOption("10 seconds"),
+);
+```
 
 ## Testing
 
