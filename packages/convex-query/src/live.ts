@@ -12,8 +12,6 @@ import {
 } from "./queries.ts";
 import type { ConvexReader, ConvexWatchClient } from "./reader.ts";
 
-function noop() {}
-
 /** A cache entry this module keeps live, decoded from its key. */
 type LiveKey =
   | { readonly args: DefaultFunctionArgs; readonly kind: "query"; readonly name: string }
@@ -147,14 +145,10 @@ function subscriptionsFor(
   }
 }
 
-/** A live subscription. */
-interface Watching {
-  unsubscribe(): void;
-}
+/** A live subscription, or `null` while it is being claimed. */
+type Watching = { unsubscribe(): void } | null;
 
-const claimed: Watching = { unsubscribe: noop };
-
-function subscribe(subscription: Subscription, client: ConvexWatchClient): Watching {
+function subscribe(subscription: Subscription, client: ConvexWatchClient) {
   const watch = client.watchQuery(
     makeFunctionReference<"query">(subscription.name),
     subscription.args,
@@ -196,7 +190,7 @@ export function connectConvexLive(opts: {
     const subscriptions = live.get(hash);
     live.delete(hash);
     for (const watching of subscriptions?.values() ?? []) {
-      watching.unsubscribe();
+      watching?.unsubscribe();
     }
   };
 
@@ -216,14 +210,14 @@ export function connectConvexLive(opts: {
     for (const [id, watching] of current) {
       if (!wanted.has(id)) {
         current.delete(id);
-        watching.unsubscribe();
+        watching?.unsubscribe();
       }
     }
     for (const [id, subscription] of wanted) {
       if (!current.has(id)) {
         // Claimed before subscribing: a result the client already holds is
         // written synchronously, and that cache update re-enters `sync`.
-        current.set(id, claimed);
+        current.set(id, null);
         current.set(id, subscribe(subscription, opts.client));
       }
     }

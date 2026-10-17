@@ -1,10 +1,10 @@
-import { Query, QueryClient } from "@raf-query/react";
+import { Query, QueryClient, queryOptions } from "@raf-query/react";
 import type { PaginationOptions, PaginationResult } from "convex/server";
 import { getFunctionName, makeFunctionReference } from "convex/server";
 import { Effect } from "effect";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { connectConvexLive } from "./live.ts";
-import { convexPaginatedQuery, convexQuery } from "./queries.ts";
+import { CONVEX_QUERY_KEY, convexPaginatedQuery, convexQuery } from "./queries.ts";
 import { ConvexReader } from "./reader.ts";
 import { makeTestConvexClient } from "./testing.ts";
 
@@ -260,6 +260,25 @@ describe("connectConvexLive", () => {
     const state = Query.getUnsafe(live.queryClient.getQuery(message, { id: "a" }));
     expect(state.isInvalidated).toBe(true);
     expect(state.data).toBe("hello");
+  });
+
+  it("invalidates a paged entry when a page subscription fails", async () => {
+    const live = setup();
+    const input = { args: { room: "lobby" }, numItems: 2 };
+    await live.queryClient.ensure(messageList, input);
+    live.fail();
+    await live.backend.refresh();
+    const state = Query.getUnsafe(live.queryClient.getQuery(messageList, input));
+    expect(state.isInvalidated).toBe(true);
+    expect(state.data?.pages[0]?.page).toEqual(["a", "b"]);
+  });
+
+  it("leaves entries that aren't Convex queries alone", async () => {
+    const live = setup();
+    const other = (id: string) =>
+      queryOptions({ queryFn: async () => id, queryKey: [CONVEX_QUERY_KEY, id] });
+    await live.queryClient.ensure(other, "a");
+    expect(live.backend.subscriptions()).toEqual([]);
   });
 
   it("subscribes entries that were cached before it connected, until disconnected", async () => {
