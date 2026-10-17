@@ -1,9 +1,15 @@
 import type { QueryClient } from "@raf-query/react";
-import { Query } from "@raf-query/react";
-import type { DefaultFunctionArgs, PaginationOptions } from "convex/server";
-import { makeFunctionReference } from "convex/server";
+import { hashKey, Query } from "@raf-query/react";
+import type {
+  DefaultFunctionArgs,
+  FunctionArgs,
+  FunctionReturnType,
+  PaginationOptions,
+} from "convex/server";
+import { getFunctionName, makeFunctionReference } from "convex/server";
 import type { Value } from "convex/values";
-import { Predicate } from "effect";
+import { Effect, Predicate, Queue, Stream } from "effect";
+import type { QueryReference } from "./queries.ts";
 import {
   CONVEX_PAGINATED_QUERY_KEY,
   CONVEX_QUERY_KEY,
@@ -67,20 +73,18 @@ function pageCursors(data: Query.State<unknown>["data"]): ReadonlyArray<string |
   return cursors;
 }
 
-function querySubscriptions(
+function querySubscription(
   key: Extract<LiveKey, { kind: "query" }>,
   queryClient: QueryClient<ConvexReader>,
-): ReadonlyArray<Subscription> {
+): Subscription {
   const factory = convexQuery(makeFunctionReference<"query">(key.name));
-  return [
-    {
-      args: key.args,
-      id: "query",
-      name: key.name,
-      onError: () => void queryClient.invalidate(factory, key.args),
-      onResult: (value) => queryClient.setData(factory, key.args, value),
-    },
-  ];
+  return {
+    args: key.args,
+    id: "query",
+    name: key.name,
+    onError: () => void queryClient.invalidate(factory, key.args),
+    onResult: (value) => queryClient.setData(factory, key.args, value),
+  };
 }
 
 /**
@@ -132,7 +136,7 @@ function subscriptionsFor(
   }
   switch (key.kind) {
     case "query": {
-      return querySubscriptions(key, queryClient);
+      return [querySubscription(key, queryClient)];
     }
     case "paginated": {
       const cursors = pageCursors(state.data);
@@ -240,4 +244,64 @@ export function connectConvexLive(opts: {
       stop(hash);
     }
   };
+}
+
+/**
+ * A {@link convexQuery} entry's values as a stream: the cached value first,
+ * if there is one, then every new value the entry takes.
+ *
+ * The entry is read through the cache, so it shares one request with any
+ * `ensure` or `prefetch` of the same query and args. While the stream runs it
+ * also holds its own Convex subscription and writes every result into the
+ * entry, so it doesn't depend on {@link connectConvexLive} or another reader
+ * to see the server's next answer. A failing subscription invalidates the
+ * entry, as the live sync does, and the stream keeps waiting.
+ *
+ * @example
+ * // the first profile with a user, without waiting more than 10s
+ * watchConvexQuery({ client, queryClient }, { args: {}, query: api.profile.get }).pipe(
+ *   Stream.filter((me) => me !== null),
+ *   Stream.runHead,
+ *   Effect.timeoutOption("10 seconds"),
+ * );
+ */
+export function watchConvexQuery<TQuery extends QueryReference>(
+  opts: { client: ConvexWatchClient; queryClient: QueryClient<ConvexReader> },
+  watch: { args: FunctionArgs<TQuery>; query: TQuery },
+) {
+  const factory = convexQuery(watch.query);
+  const hash = hashKey(factory(watch.args).queryKey);
+  return Stream.callback<FunctionReturnType<TQuery>>((queue) =>
+    Effect.acquireRelease(
+      Effect.sync(() => {
+        let last: FunctionReturnType<TQuery> | undefined;
+        const emit = () => {
+          const value = opts.queryClient.getData(factory, watch.args);
+          if (value !== undefined && value !== last) {
+            last = value;
+            Queue.offerUnsafe(queue, value);
+          }
+        };
+        const unsubscribe = opts.queryClient.subscribe((event) => {
+          if (event.query.hash === hash) {
+            emit();
+          }
+        });
+        emit();
+        opts.queryClient.prefetch(factory, watch.args);
+        const watching = subscribe(
+          querySubscription(
+            { args: watch.args, kind: "query", name: getFunctionName(watch.query) },
+            opts.queryClient,
+          ),
+          opts.client,
+        );
+        return () => {
+          unsubscribe();
+          watching.unsubscribe();
+        };
+      }),
+      (stop) => Effect.sync(stop),
+    ),
+  );
 }

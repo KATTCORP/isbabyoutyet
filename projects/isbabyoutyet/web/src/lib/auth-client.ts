@@ -1,15 +1,16 @@
 import type { QueryClient } from "@raf-query/react";
 import { hashKey } from "@raf-query/react";
-import type { ConvexReader } from "@workspace/convex-query";
+import type { ConvexReader, ConvexWatchClient } from "@workspace/convex-query";
 import { createAuthClient } from "better-auth/react";
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import type { FunctionReturnType } from "convex/server";
+import { Effect, Option, Stream } from "effect";
 import type { ConvexReactClient } from "convex/react";
 import { parseConvexTokenFromAuthResponse } from "@isbabyoutyet/backend/src/convexToken";
 import { isValidTimeZone, TIME_ZONE_HINT_HEADER } from "@isbabyoutyet/backend/src/timeZone";
 import { parseVisitorIdHint, VISITOR_ID_HINT_HEADER } from "@isbabyoutyet/backend/src/visitorId";
 import type { TranslationFunction } from "@/lib/i18n";
-import { convexQuery } from "@workspace/convex-query";
+import { convexQuery, watchConvexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { peekVisitorId } from "@/lib/use-visitor-id";
 
@@ -103,51 +104,37 @@ function meMatchesPresence(
 export const SETTLED_ME_WAIT_MS = 10_000;
 
 /**
- * Starts reading `profile.get` (call this *before* sign-in / sign-up /
- * sign-out) and resolves once the live result matches `opts.presence`.
+ * Watches `profile.get` (call this *before* sign-in / sign-up / sign-out) and
+ * resolves once a value matches `opts.presence`, or after
+ * {@link SETTLED_ME_WAIT_MS}.
  *
- * On a matching result every other cache entry is removed, so the next
- * screen loads with the new identity.
+ * On a match every other cache entry is removed, so the next screen loads
+ * with the new identity.
  *
  * @internal
  */
-export function waitForMe(opts: { presence: MePresence; queryClient: QueryClient<ConvexReader> }) {
-  const signal = AbortSignal.timeout(SETTLED_ME_WAIT_MS);
-  if (signal.aborted) {
-    return Promise.resolve();
+export async function waitForMe(opts: {
+  convexClient: ConvexWatchClient;
+  presence: MePresence;
+  queryClient: QueryClient<ConvexReader>;
+}) {
+  // Convex can answer with the old identity until the auth change re-runs the
+  // query, so wait for a matching value instead of reading once.
+  const me = await Effect.runPromise(
+    watchConvexQuery(
+      { client: opts.convexClient, queryClient: opts.queryClient },
+      { args: {}, query: api.profile.get },
+    ).pipe(
+      Stream.filter((value) => meMatchesPresence(value, opts.presence)),
+      Stream.runHead,
+      Effect.timeoutOption(SETTLED_ME_WAIT_MS),
+      Effect.map(Option.flatten),
+    ),
+  );
+  if (Option.isSome(me)) {
+    const meHash = hashKey(convexQuery(api.profile.get)({}).queryKey);
+    opts.queryClient.remove({ predicate: (query) => query.hash !== meHash });
   }
-
-  const profile = convexQuery(api.profile.get);
-  const meHash = hashKey(profile({}).queryKey);
-  const matches = () => {
-    const me = opts.queryClient.getData(profile, {});
-    return me !== undefined && meMatchesPresence(me, opts.presence);
-  };
-  const stop = new AbortController();
-  const combined = AbortSignal.any([signal, stop.signal]);
-
-  return new Promise<void>((resolve) => {
-    // The watch client can answer with the old identity until Convex pushes
-    // the new one, so follow the live entry instead of fetching once.
-    const unsubscribe = opts.queryClient.subscribe((event) => {
-      if (event.query.hash === meHash && matches()) {
-        stop.abort();
-      }
-    });
-    opts.queryClient.prefetch(profile, {});
-
-    const onAbort = () => {
-      unsubscribe();
-      if (matches()) {
-        opts.queryClient.remove({ predicate: (query) => query.hash !== meHash });
-      }
-      resolve();
-    };
-    combined.addEventListener("abort", onAbort, { once: true });
-    if (matches()) {
-      stop.abort();
-    }
-  });
 }
 
 type AuthThenGoOpts = {
@@ -165,6 +152,7 @@ export async function signInThenGo(
   opts: AuthThenGoOpts & { t: TranslationFunction },
 ) {
   const settled = waitForMe({
+    convexClient: opts.convexClient,
     presence: "present",
     queryClient: opts.queryClient,
   });
@@ -189,6 +177,7 @@ export async function signUpThenGo(
   opts: AuthThenGoOpts & { t: TranslationFunction },
 ) {
   const settled = waitForMe({
+    convexClient: opts.convexClient,
     presence: "present",
     queryClient: opts.queryClient,
   });
@@ -248,6 +237,7 @@ export async function resetPasswordThenGo(
  */
 export async function signOutThenGo(opts: AuthThenGoOpts & { t: TranslationFunction }) {
   const settled = waitForMe({
+    convexClient: opts.convexClient,
     presence: "absent",
     queryClient: opts.queryClient,
   });

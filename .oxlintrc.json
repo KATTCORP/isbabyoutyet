@@ -636,6 +636,7 @@
       "files": [
         "packages/convex-cli/src/**",
         "packages/convex-query/src/**",
+        "projects/isbabyoutyet/web/src/lib/auth-client.ts",
         "projects/isbabyoutyet/web/src/lib/browser-push-capability.ts",
         "packages/scripts/src/**",
         "projects/isbabyoutyet/backend/scripts/**"

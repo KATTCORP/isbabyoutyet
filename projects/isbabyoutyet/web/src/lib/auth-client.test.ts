@@ -1,3 +1,4 @@
+import { getFunctionName } from "convex/server";
 import { expect, test, vi } from "vitest";
 import { TIME_ZONE_HINT_HEADER } from "@isbabyoutyet/backend/src/timeZone";
 import { VISITOR_ID_HINT_HEADER } from "@isbabyoutyet/backend/src/visitorId";
@@ -28,14 +29,6 @@ function makeClients() {
   return Object.assign(stub, { convexClient, setAuth });
 }
 
-function seedCachedQueries(
-  clients: ReturnType<typeof makeClients>,
-  profile: typeof signedInProfile | null,
-) {
-  clients.queryClient.setData(convexQuery(api.profile.get), {}, profile);
-  clients.queryClient.setData(convexQuery(api.baby.listByUser), {}, []);
-}
-
 test("getBrowserAuthHeaders includes the stored visitor id when present", () => {
   localStorage.setItem("encouragement-visitor-id", "visitor-from-guestbook");
   try {
@@ -56,39 +49,65 @@ test("getBrowserAuthHeaders omits visitor id when none is stored", () => {
   expect(VISITOR_ID_HINT_HEADER in headers).toBe(false);
 });
 
-test("waitForMe keeps me and drops the rest of the cache when present", async () => {
-  await using clients = makeClients();
-  seedCachedQueries(clients, signedInProfile);
+/** A Convex backend whose `profile.get` answers with `serverProfile.current`. */
+function profileBackendResource(initial: typeof signedInProfile | null) {
+  const serverProfile = { current: initial };
+  const stub = stubQueryClientResource(async (query) => {
+    if (getFunctionName(query) === getFunctionName(api.profile.get)) {
+      return serverProfile.current;
+    }
+    throw new Error(`unexpected query ${getFunctionName(query)}`);
+  });
+  stub.queryClient.setData(convexQuery(api.baby.listByUser), {}, []);
+  return Object.assign(stub, { serverProfile });
+}
 
-  await waitForMe({ presence: "present", queryClient: clients.queryClient });
+test("waitForMe watches me itself and drops the rest of the cache when present", async () => {
+  await using clients = profileBackendResource(signedInProfile);
+
+  await waitForMe({
+    convexClient: clients.backend.client,
+    presence: "present",
+    queryClient: clients.queryClient,
+  });
 
   expect(clients.queryClient.getData(convexQuery(api.profile.get), {})).toEqual(signedInProfile);
   expect(clients.queryClient.getData(convexQuery(api.baby.listByUser), {})).toBeUndefined();
 });
 
 test("waitForMe keeps me and drops the rest of the cache when absent", async () => {
-  await using clients = makeClients();
-  seedCachedQueries(clients, null);
+  await using clients = profileBackendResource(null);
 
-  await waitForMe({ presence: "absent", queryClient: clients.queryClient });
+  await waitForMe({
+    convexClient: clients.backend.client,
+    presence: "absent",
+    queryClient: clients.queryClient,
+  });
 
   expect(clients.queryClient.getData(convexQuery(api.profile.get), {})).toBeNull();
   expect(clients.queryClient.getData(convexQuery(api.baby.listByUser), {})).toBeUndefined();
 });
 
-test("waitForMe waits for the new identity to reach the cache", async () => {
-  await using clients = makeClients();
-  seedCachedQueries(clients, null);
+test("waitForMe waits until Convex answers with the new identity", async () => {
+  await using clients = profileBackendResource(null);
   let settled = false;
 
-  const waiting = waitForMe({ presence: "present", queryClient: clients.queryClient }).then(() => {
+  const waiting = waitForMe({
+    convexClient: clients.backend.client,
+    presence: "present",
+    queryClient: clients.queryClient,
+  }).then(() => {
     settled = true;
   });
-  await Promise.resolve();
+  await vi.waitFor(() => {
+    expect(clients.backend.subscriptions()).toHaveLength(1);
+  });
+  await clients.backend.refresh();
   expect(settled).toBe(false);
   expect(clients.queryClient.getData(convexQuery(api.baby.listByUser), {})).toEqual([]);
 
-  clients.queryClient.setData(convexQuery(api.profile.get), {}, signedInProfile);
+  clients.serverProfile.current = signedInProfile;
+  await clients.backend.refresh();
   await waiting;
 
   expect(clients.queryClient.getData(convexQuery(api.profile.get), {})).toEqual(signedInProfile);
