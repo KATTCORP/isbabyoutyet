@@ -1328,7 +1328,7 @@ export function TimelineFeed(props: TimelineFeedProps) {
   );
   // Pending on the server and until the browser hashes its visitor id; read
   // the status instead of `use` so the feed never suspends on it.
-  const [visitorTag] = useQuery(visitorTagQuery, props.visitorTag, { throwOnError: true });
+  const [visitorTag] = useQuery(visitorTagQuery, props.visitorTag);
   const currentVisitorTag = visitorTag.status === "fulfilled" ? visitorTag.value : null;
   const removeUpdate = useMutation(api.updates.remove);
   const setAsCurrentPhoto = useMutation(api.updates.setAsCurrentPhoto);
