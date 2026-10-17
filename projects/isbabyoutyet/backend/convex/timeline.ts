@@ -5,6 +5,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { Milestone, MilestoneDates } from "../src/types";
 import { getCurrentStatus, MILESTONE_FIELDS, MILESTONES } from "../src/types";
+import { visitorTag } from "../src/visitorId";
 import { babyIdOrPublicIdValidator, findBabyByIdOrPublicId } from "./babyLookup";
 import type { EncouragementAuthor } from "./encouragementIdentity";
 import { encouragementIsMine, resolveEncouragementAuthor } from "./encouragementIdentity";
@@ -67,9 +68,11 @@ async function hydrateUpdate(
  * Public shape of an encouragement in the feed. Deliberately excludes
  * `author`, `visitorId` (the edit/delete credential), `userId`, and the
  * `userAgent` / `locale` / `timezone` metadata. `isMine` is computed from
- * the server-resolved author (signed-in user and/or visitor id).
+ * the server-resolved author (the signed-in user). `visitorTag` lets the
+ * browser check visitor-id ownership itself, so the feed's args do not depend
+ * on browser storage.
  */
-function toPublicEncouragement(
+async function toPublicEncouragement(
   encouragement: Doc<"encouragements">,
   author: EncouragementAuthor | null,
 ) {
@@ -79,6 +82,10 @@ function toPublicEncouragement(
     createdAt: encouragement.createdAt,
     isMine: encouragementIsMine(encouragement, author),
     message: encouragement.message,
+    visitorTag: await visitorTag({
+      babyId: encouragement.babyId,
+      visitorId: encouragement.visitorId,
+    }),
   };
 }
 
@@ -113,7 +120,7 @@ async function hydrateTimelineItem(
       }
       return {
         _id: opts.item._id,
-        encouragement: toPublicEncouragement(encouragement, opts.author),
+        encouragement: await toPublicEncouragement(encouragement, opts.author),
         kind: "encouragement" as const,
         postedAt: opts.item.postedAt,
       };
@@ -126,9 +133,7 @@ export type TimelineItem = NonNullable<Awaited<ReturnType<typeof hydrateTimeline
 export const listByBaby = query({
   args: {
     babyId: babyIdOrPublicIdValidator,
-    /** The caller's visitor id, used to mark their posts with `isMine`. */
     paginationOpts: paginationOptsValidator,
-    visitorId: v.union(v.string(), v.null()),
   },
   handler: async (ctx, args) => {
     const baby = await findBabyByIdOrPublicId(ctx.db, args.babyId);
@@ -137,7 +142,7 @@ export const listByBaby = query({
     }
     const babyId = baby._id;
     const currentPhotoId = baby.photoId ?? null;
-    const author = await resolveEncouragementAuthor(ctx, args.visitorId);
+    const author = await resolveEncouragementAuthor(ctx, null);
 
     const result = await ctx.db
       .query("timelineItems")

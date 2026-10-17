@@ -222,7 +222,6 @@ function AdminTransfersPage() {
   const [transfersData, transfersQuery] = useQuery(
     convexPaginatedQuery(api.admin.listPublicIdTransfers),
     Route.useLoaderData(),
-    { throwOnError: true },
   );
 
   return (

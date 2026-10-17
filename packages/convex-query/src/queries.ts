@@ -54,6 +54,7 @@ export type ConvexQueryFactory<TQuery extends QueryReference> = (
   data: FunctionReturnType<TQuery>;
   error: ConvexQueryError;
   services: ConvexReader;
+  throwOnError: true;
 }>;
 
 /** The raf-query factory {@link convexPaginatedQuery} returns for `TQuery`. */
@@ -64,33 +65,35 @@ export type ConvexPaginatedQueryFactory<TQuery extends PaginatedQueryReference> 
   page: FunctionReturnType<TQuery>;
   pageParam: PaginationOptions;
   services: ConvexReader;
+  throwOnError: true;
 }>;
 
 /**
  * The raf-query factory for a Convex query: its input is the function's args.
  * Data stays live through {@link connectConvexLive}, so it never goes stale.
  * Call it inline; entries are keyed by function name and args, so every call
- * for the same query reaches the same cache entry.
+ * for the same query reaches the same cache entry. It sets `throwOnError`, so
+ * reads get the data and failures reach the route's error boundary; pass
+ * `throwOnError: false` on a read to get a `Result` instead.
 
  *
  * @example
  * // loader
  * profile: queryClient.ensure(convexQuery(api.profile.get), {}),
  * // component
- * const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile, {
- *   throwOnError: true,
- * });
+ * const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile);
  */
 export function convexQuery<TQuery extends QueryReference>(
   query: TQuery,
 ): ConvexQueryFactory<TQuery> {
   const functionName = getFunctionName(query);
   return (args) =>
-    queryOptions<FunctionReturnType<TQuery>, ConvexQueryError, ConvexReader>({
+    queryOptions({
       queryFn: () => readConvexQuery(query, args),
       queryKey: [CONVEX_QUERY_KEY, functionName, args],
       retry: false,
       staleTime: Infinity,
+      throwOnError: true,
     });
 }
 
@@ -117,21 +120,19 @@ export function convexPaginatedQuery<TQuery extends PaginatedQueryReference>(
   query: TQuery,
 ): ConvexPaginatedQueryFactory<TQuery> {
   const functionName = getFunctionName(query);
-  return (input) =>
-    infiniteQueryOptions<
-      FunctionReturnType<TQuery>,
-      PaginationOptions,
-      ConvexQueryError,
-      ConvexReader
-    >({
-      getNextPageParam: (lastPage) =>
+  return (input) => {
+    const initialPageParam: PaginationOptions = { cursor: null, numItems: input.numItems };
+    return infiniteQueryOptions({
+      getNextPageParam: (lastPage: FunctionReturnType<TQuery>): PaginationOptions | null =>
         lastPage.isDone ? null : { cursor: lastPage.continueCursor, numItems: input.numItems },
-      initialPageParam: { cursor: null, numItems: input.numItems },
+      initialPageParam,
       queryFn: (context) => readConvexQuery(query, pageArgs<TQuery>(input.args, context.pageParam)),
       queryKey: [CONVEX_PAGINATED_QUERY_KEY, functionName, input.args, input.numItems],
       retry: false,
       staleTime: Infinity,
+      throwOnError: true,
     });
+  };
 }
 
 /** Loader handle from `queryClient.ensure(convexQuery(query), args)`. */

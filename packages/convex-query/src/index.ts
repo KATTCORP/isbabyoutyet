@@ -1,4 +1,4 @@
-export { connectConvexLive } from "./live.ts";
+export { connectConvexLive, watchConvexQuery } from "./live.ts";
 export {
   CONVEX_PAGINATED_QUERY_KEY,
   CONVEX_QUERY_KEY,

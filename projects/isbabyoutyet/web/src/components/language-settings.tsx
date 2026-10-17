@@ -50,7 +50,7 @@ const defaultTimeZoneOption = {
 };
 
 export function LanguageSettings(props: { profile: EnsuredConvexQuery<typeof api.profile.get> }) {
-  const [profile] = useQuery(convexQuery(api.profile.get), props.profile, { throwOnError: true });
+  const [profile] = useQuery(convexQuery(api.profile.get), props.profile);
   const onUpdateLocale = useMutation(api.profile.updateLocale);
   const onUpdateTimeZone = useMutation(api.profile.updateTimeZone);
   const { locale, t } = useI18n();

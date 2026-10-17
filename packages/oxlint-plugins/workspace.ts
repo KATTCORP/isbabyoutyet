@@ -11,6 +11,7 @@ import { noManualMemoization } from "./no-manual-memoization.ts";
 import { noMock } from "./no-mock.ts";
 import { noOptional } from "./no-optional.ts";
 import { noOverzealousDestructuring } from "./no-overzealous-destructuring.ts";
+import { noRafQueryWaterfall } from "./no-raf-query-waterfall.ts";
 import { noRhfWatch } from "./no-rhf-watch.ts";
 import { noUseEffect } from "./no-use-effect.ts";
 import { noUseState } from "./no-use-state.ts";
@@ -30,6 +31,7 @@ const plugin = eslintCompatPlugin({
     "no-mock": noMock,
     "no-optional": noOptional,
     "no-overzealous-destructuring": noOverzealousDestructuring,
+    "no-raf-query-waterfall": noRafQueryWaterfall,
     "no-rhf-watch": noRhfWatch,
     "no-undocumented-optional": noUndocumentedOptional,
     "no-use-effect": noUseEffect,

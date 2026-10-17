@@ -13,6 +13,7 @@ import {
   testPhotoBlob,
 } from "./test.setup";
 import { insertUpdateWithTimelineItem } from "./timeline";
+import { visitorTag } from "../src/visitorId";
 
 const FIRST_PAGE = { cursor: null, numItems: 20 };
 
@@ -82,7 +83,6 @@ test("a text-only update tops the feed without changing the status", async () =>
   const feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toMatchObject([
     { kind: "update", update: { message: "Long walk today. Still comfy in there" } },
@@ -130,7 +130,6 @@ test("the public feed never leaks visitor credentials or metadata", async () => 
   const anonymous = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   const item = anonymous.page[0];
   if (item?.kind !== "encouragement") {
@@ -142,19 +141,16 @@ test("the public feed never leaks visitor credentials or metadata", async () => 
   expect(item.encouragement).not.toHaveProperty("userAgent");
   expect(item.encouragement).not.toHaveProperty("locale");
   expect(item.encouragement).not.toHaveProperty("timezone");
+  expect(JSON.stringify(item)).not.toContain("visitor-secret");
   expect(item.encouragement.isMine).toBe(false);
 
-  // The author sees their own post marked as theirs
-  const asAuthor = await t.query(api.timeline.listByBaby, {
-    babyId,
-    paginationOpts: FIRST_PAGE,
-    visitorId: "visitor-secret",
-  });
-  const ownItem = asAuthor.page[0];
-  if (ownItem?.kind !== "encouragement") {
-    throw new Error("expected encouragement item");
-  }
-  expect(ownItem.encouragement.isMine).toBe(true);
+  // Only the author's browser can reproduce the visitor tag
+  expect(await visitorTag({ babyId, visitorId: "visitor-secret" })).toBe(
+    item.encouragement.visitorTag,
+  );
+  expect(await visitorTag({ babyId, visitorId: "visitor-other" })).not.toBe(
+    item.encouragement.visitorTag,
+  );
 });
 
 test("a photo-only update does not blank the latest message", async () => {
@@ -199,7 +195,6 @@ test("posting requires content and ownership", async () => {
   const feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page[0]).toMatchObject({ kind: "update", update: { message: null } });
   expect(feed.page[0]?.kind === "update" && feed.page[0].update.photoUrl).toBeTruthy();
@@ -336,7 +331,6 @@ test("journey selection does not block backend milestone writes", async () => {
   const feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toMatchObject([{ kind: "update", update: { milestone: "labor_started" } }]);
 });
@@ -366,7 +360,6 @@ test("changing selection leaves existing updates and notifications untouched", a
   const feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toHaveLength(1);
   expect(feed.page[0]).toMatchObject({
@@ -419,7 +412,6 @@ test("selection changes do not filter empty historical milestone rows", async ()
   const feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toMatchObject([{ kind: "update", update: { milestone: "labor_started" } }]);
 });
@@ -517,7 +509,6 @@ test("milestones are posted, redated, and unmarked through explicit update opera
   let feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toHaveLength(1);
   const marked = feed.page[0];
@@ -542,7 +533,6 @@ test("milestones are posted, redated, and unmarked through explicit update opera
   feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toMatchObject([
     {
@@ -559,7 +549,6 @@ test("milestones are posted, redated, and unmarked through explicit update opera
   feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toEqual([]);
 });
@@ -581,7 +570,6 @@ test("encouragements dual-write timeline rows and cascade on delete", async () =
   let feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toMatchObject([
     { encouragement: { authorName: "Uncle Bob" }, kind: "encouragement" },
@@ -592,7 +580,6 @@ test("encouragements dual-write timeline rows and cascade on delete", async () =
   feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toEqual([]);
   const softDeleted = await t.run(async (ctx) => {
@@ -631,7 +618,6 @@ test("removing a milestone update unmarks it and cancels the pending push", asyn
   const feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toEqual([]);
 });
@@ -709,7 +695,6 @@ test("photo updates keep old photos; removing one falls back to the previous", a
   const feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toMatchObject([
     { kind: "update", update: { message: "Bump week 39" } },
@@ -758,7 +743,6 @@ test("text updates never displace the current page photo; pinning brings back an
   const feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   const photoFlags = feed.page
     .filter((item) => item.kind === "update" && item.update.photoUrl)
@@ -849,7 +833,6 @@ test("posting a milestone sets occurredAt to the announce time", async () => {
   const feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toHaveLength(1);
   const item = feed.page[0];
@@ -882,7 +865,6 @@ test("posting a milestone can backdate the event clock without moving the feed",
   const feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   expect(feed.page).toHaveLength(1);
   const item = feed.page[0];
@@ -948,7 +930,6 @@ test("getUpdatePhoto returns the public photo payload for a timeline update", as
   const feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   const item = feed.page[0];
   if (item?.kind !== "update") {
@@ -984,7 +965,6 @@ test("getUpdatePhoto returns null for text-only updates", async () => {
   const feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   const item = feed.page[0];
   if (item?.kind !== "update") {
@@ -1021,7 +1001,6 @@ test("getUpdatePhoto returns null when the update belongs to another baby", asyn
   const feed = await t.query(api.timeline.listByBaby, {
     babyId,
     paginationOpts: FIRST_PAGE,
-    visitorId: null,
   });
   const item = feed.page[0];
   if (item?.kind !== "update") {

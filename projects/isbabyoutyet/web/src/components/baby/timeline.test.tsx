@@ -10,7 +10,7 @@ import type { BabyData } from "@isbabyoutyet/backend/src/types";
 import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
 import { isPlainObject } from "@workspace/runtime/guards";
 import { LocaleProvider } from "@/lib/i18n";
-import { peekVisitorId } from "@/lib/use-visitor-id";
+import { visitorTagQuery } from "@/lib/visitor-tag";
 import { TimelineFeed, UpdateComposer } from "@/components/baby/timeline";
 import { EncouragementForm } from "@/components/baby/encouragements";
 import { createConvexTestHarness, type ConvexTestHarness } from "@/test/convexTestHarness";
@@ -114,7 +114,7 @@ async function renderComposer(
 async function prefetchTimeline(harness: ConvexTestHarness, publicId: string) {
   await harness.refresh();
   return await harness.queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
-    args: { babyId: publicId, visitorId: peekVisitorId() },
+    args: { babyId: publicId },
     numItems: 20,
   });
 }
@@ -150,6 +150,7 @@ async function renderTimelineFeed(
             isOwner={opts.isOwner}
             publicId={opts.publicId}
             timeline={timeline}
+            visitorTag={harness.queryClient.prefetch(visitorTagQuery, opts.babyId)}
           />
         </LocaleProvider>
       </ConvexProvider>
@@ -271,7 +272,6 @@ test("an empty event-time picker does not post occurredAt", async () => {
     const feed = await harness.client.query(api.timeline.listByBaby, {
       babyId: baby.publicId,
       paginationOpts: { cursor: null, numItems: 20 },
-      visitorId: null,
     });
     const milestoneUpdate = feed.page.find(
       (item) => item.kind === "update" && item.update.milestone === "labor_started",
@@ -304,7 +304,6 @@ test("a filled event-time picker posts the backdated occurredAt", async () => {
     const feed = await harness.client.query(api.timeline.listByBaby, {
       babyId: baby.publicId,
       paginationOpts: { cursor: null, numItems: 20 },
-      visitorId: null,
     });
     const milestoneUpdate = feed.page.find(
       (item) => item.kind === "update" && item.update.milestone === "labor_started",
@@ -588,7 +587,6 @@ test("owners can delete an encouragement and toast success", async () => {
   const timeline = await harness.client.query(api.timeline.listByBaby, {
     babyId: baby.publicId,
     paginationOpts: { cursor: null, numItems: 20 },
-    visitorId: null,
   });
   expect(timeline.page.some((item) => item.kind === "encouragement")).toBe(false);
 });
@@ -600,6 +598,7 @@ test("authors can edit their own encouragement within the edit window", async ()
   });
   await using harness = await createConvexTestHarness({ identity: null });
   const baby = await seedOwnerBaby(harness);
+  await harness.withIdentity(null);
   await harness.client.mutation(api.encouragements.create, {
     authorName: "Me",
     babyId: baby.babyId,
@@ -632,13 +631,41 @@ test("authors can edit their own encouragement within the edit window", async ()
   const timeline = await harness.client.query(api.timeline.listByBaby, {
     babyId: baby.publicId,
     paginationOpts: { cursor: null, numItems: 20 },
-    visitorId: "visitor-1",
   });
   expect(
     timeline.page.some(
       (item) => item.kind === "encouragement" && item.encouragement?.message === "Updated message",
     ),
   ).toBe(true);
+});
+
+test("other visitors cannot edit someone else's encouragement", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+  const baby = await seedOwnerBaby(harness);
+  await harness.withIdentity(null);
+  await harness.client.mutation(api.encouragements.create, {
+    authorName: "Someone",
+    babyId: baby.babyId,
+    locale: null,
+    message: "Not yours",
+    timezone: null,
+    userAgent: null,
+    visitorId: "visitor-1",
+  });
+
+  await using feed = await renderTimelineFeed(harness, {
+    baby: notYetBaby,
+    babyId: baby.babyId,
+    isOwner: false,
+    publicId: baby.publicId,
+    visitorId: "visitor-2",
+  });
+
+  await vi.waitFor(() => {
+    expect(feed.getByText("Not yours")).toBeTruthy();
+  });
+  expect(feed.queryByRole("button", { name: "Edit message" })).toBeNull();
+  expect(feed.queryByText("(you)")).toBeNull();
 });
 
 test("update delete and set-as-photo handlers toast on success and error", async () => {
@@ -672,7 +699,6 @@ test("update delete and set-as-photo handlers toast on success and error", async
     const afterDelete = await harness.client.query(api.timeline.listByBaby, {
       babyId: baby.publicId,
       paginationOpts: { cursor: null, numItems: 20 },
-      visitorId: null,
     });
     expect(afterDelete.page.some((item) => item.kind === "update")).toBe(false);
   }
@@ -846,6 +872,34 @@ test("EncouragementForm prefills the account name when localStorage is empty", a
   expect(htmlInput(view.getByLabelText("Your name")).value).toBe("Ada Lovelace");
 });
 
+test("a first-time visitor's new encouragement is marked as theirs", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+  const baby = await seedOwnerBaby(harness);
+  await harness.withIdentity(null);
+
+  await using feed = await renderTimelineFeed(harness, {
+    baby: notYetBaby,
+    babyId: baby.babyId,
+    isOwner: false,
+    publicId: baby.publicId,
+    visitorId: undefined,
+  });
+  await using form = await renderWithConvexTest({
+    harness,
+    ui: <EncouragementForm accountName={null} babyId={baby.babyId} babyName={notYetBaby.name} />,
+    wrap: null,
+  });
+
+  fireEvent.change(form.getByLabelText("Your name"), { target: { value: "New Visitor" } });
+  fireEvent.change(form.getByLabelText("Message"), { target: { value: "First post!" } });
+  fireEvent.click(form.getByRole("button", { name: "Send some love" }));
+
+  await vi.waitFor(() => {
+    expect(feed.getByText("First post!")).toBeTruthy();
+    expect(feed.getByText("(you)")).toBeTruthy();
+  });
+});
+
 test("EncouragementForm submit reaches the Convex mutation", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
   const baby = await seedOwnerBaby(harness);
@@ -867,7 +921,6 @@ test("EncouragementForm submit reaches the Convex mutation", async () => {
   const feed = await harness.client.query(api.timeline.listByBaby, {
     babyId: baby.publicId,
     paginationOpts: { cursor: null, numItems: 20 },
-    visitorId: null,
   });
   expect(
     feed.page.some(

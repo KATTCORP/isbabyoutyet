@@ -1,6 +1,5 @@
 import type { QueryHandle } from "@raf-query/react";
 import { useQuery } from "@raf-query/react";
-import { use } from "react";
 import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
 
 export type BrowserPushHandle = QueryHandle<typeof browserPushCapabilityQuery>;
@@ -11,9 +10,6 @@ export type BrowserPushHandle = QueryHandle<typeof browserPushCapabilityQuery>;
  * never detects.
  */
 export function useBrowserPushCapability(handle: BrowserPushHandle) {
-  const [promise, controls] = useQuery(browserPushCapabilityQuery, handle, {
-    throwOnError: true,
-  });
-  const capability = controls.isPending ? null : use(promise);
-  return [capability, controls.refetch] as const;
+  const [capability, controls] = useQuery(browserPushCapabilityQuery, handle);
+  return [capability.status === "fulfilled" ? capability.value : null, controls.refetch] as const;
 }

@@ -110,7 +110,6 @@ function AdminUsersPage() {
   const [usersData, usersQuery] = useQuery(
     convexPaginatedQuery(api.admin.listUsers),
     Route.useLoaderData(),
-    { throwOnError: true },
   );
 
   return (
