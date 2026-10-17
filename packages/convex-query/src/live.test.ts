@@ -223,12 +223,11 @@ describe("connectConvexLive", () => {
 
     firstPage.release();
     await Promise.all([refetch, refreshed]);
-    await vi.waitFor(() => {
-      expect(live.queryClient.getData(messageList, input)?.pages.map((page) => page.page)).toEqual([
-        ["new", "a", "b"],
-        ["c", "d"],
-      ]);
-    });
+    // raf-query keeps the page written after the refetch read it.
+    expect(live.queryClient.getData(messageList, input)?.pages.map((page) => page.page)).toEqual([
+      ["new", "a", "b"],
+      ["c", "d"],
+    ]);
   });
 
   it("follows the page boundaries a refetch moves", async () => {
