@@ -23,8 +23,8 @@ const SERVICE_WORKER_READY_TIMEOUT_MS = 5000;
 
 /**
  * This device's push state for a baby page. Only a browser can tell, so it
- * never runs on the server (`ssr: false`): the server renders it pending, and
- * the browser detects once it renders. `staleTime` 0: every loader prefetch
+ * is only enabled in a browser: the server renders it pending, and the
+ * browser detects once it renders. `staleTime` 0: every loader prefetch
  * rechecks, as permission can change outside the app.
  */
 export function browserPushCapabilityQuery(babyRef: string) {
@@ -32,7 +32,7 @@ export function browserPushCapabilityQuery(babyRef: string) {
     queryFn: () => resolveBrowserPushCapability(babyRef),
     queryKey: [BROWSER_PUSH_CAPABILITY_KEY, babyRef],
     retry: false,
-    ssr: false,
+    enabled: typeof window !== "undefined",
     staleTime: 0,
   });
 }
