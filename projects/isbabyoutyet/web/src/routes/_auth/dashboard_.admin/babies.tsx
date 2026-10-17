@@ -13,28 +13,14 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
-import { z } from "zod";
 import { convexPaginatedQuery } from "@workspace/convex-query";
 import { ADMIN_PAGE_SIZE, AdminTableCard, formatWhen } from "@/components/admin/admin-table-card";
 import type { TranslationFunction } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n";
+import type { AdminBabiesSearch } from "@/routes/_auth/dashboard_.admin/route";
 
-const adminBabiesSearchSchema = z.object({
-  hideDemo: z.boolean().default(true),
-  order: z.enum(["asc", "desc"]).default("desc"),
-  sort: z.enum(["created", "updated"]).default("created"),
-});
-
-type AdminBabiesSearch = z.infer<typeof adminBabiesSearchSchema>;
 type SortBy = AdminBabiesSearch["sort"];
 type SortOrder = AdminBabiesSearch["order"];
-
-/** Default admin babies list: newest created first, demos hidden. */
-export const ADMIN_BABIES_DEFAULT_SEARCH = {
-  hideDemo: true,
-  order: "desc",
-  sort: "created",
-} as const satisfies AdminBabiesSearch;
 
 type BabyRow = {
   _id: string;
@@ -49,8 +35,11 @@ type BabyRow = {
 
 export const Route = createFileRoute("/_auth/dashboard_/admin/babies")({
   component: AdminBabiesPage,
-  validateSearch: adminBabiesSearchSchema,
-  loaderDeps: (opts) => opts.search,
+  loaderDeps: (opts) => ({
+    hideDemo: opts.search.hideDemo,
+    order: opts.search.order,
+    sort: opts.search.sort,
+  }),
   loader: async (opts) => {
     // Paged queries stay blocking on the client too: the query cache makes
     // revisits free, and suspense churn on paginated tables isn't worth it.

@@ -7,8 +7,8 @@ import { LocaleProvider } from "@/lib/i18n";
 import type { TranslationFunction } from "@/lib/i18n";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
+import { ADMIN_BABIES_DEFAULT_SEARCH } from "@/routes/_auth/dashboard_.admin/route";
 import {
-  ADMIN_BABIES_DEFAULT_SEARCH,
   BabiesSection,
   Route as AdminBabiesRoute,
   nextSortSearch,

@@ -4,9 +4,10 @@ import {
   Link,
   Outlet,
   redirect,
+  retainSearchParams,
+  stripSearchParams,
   useMatchRoute,
   useNavigate,
-  useSearch,
 } from "@tanstack/react-router";
 import { ArrowLeftIcon, ShieldIcon } from "@phosphor-icons/react";
 import { Button } from "@workspace/ui/components/button";
@@ -20,15 +21,42 @@ import {
 import { Field, FieldLabel } from "@workspace/ui/components/field";
 import { Switch } from "@workspace/ui/components/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui/components/tabs";
+import { z } from "zod";
 import { useI18n } from "@/lib/i18n";
-import { ADMIN_BABIES_DEFAULT_SEARCH } from "@/routes/_auth/dashboard_.admin/babies";
 
 export const ADMIN_TABS = ["babies", "transfers", "users"] as const;
 
 type AdminTab = (typeof ADMIN_TABS)[number];
 
+/**
+ * The babies tab's sort and filter. They live on the layout, not the babies
+ * route, so `retainSearchParams` can carry them through the other tabs and
+ * switching back restores them.
+ */
+const adminBabiesSearchSchema = z.object({
+  hideDemo: z.boolean().default(true),
+  order: z.enum(["asc", "desc"]).default("desc"),
+  sort: z.enum(["created", "updated"]).default("created"),
+});
+
+export type AdminBabiesSearch = z.infer<typeof adminBabiesSearchSchema>;
+
+/** Default admin babies list: newest created first, demos hidden. */
+export const ADMIN_BABIES_DEFAULT_SEARCH = {
+  hideDemo: true,
+  order: "desc",
+  sort: "created",
+} as const satisfies AdminBabiesSearch;
+
 export const Route = createFileRoute("/_auth/dashboard_/admin")({
   component: AdminDashboardPage,
+  validateSearch: adminBabiesSearchSchema,
+  search: {
+    middlewares: [
+      retainSearchParams(["hideDemo", "order", "sort"]),
+      stripSearchParams(ADMIN_BABIES_DEFAULT_SEARCH),
+    ],
+  },
   // Child loaders run alongside this route's loader, so the guard must run in
   // beforeLoad to stop them before any admin query is fetched.
   beforeLoad: (opts) => {
@@ -40,19 +68,19 @@ export const Route = createFileRoute("/_auth/dashboard_/admin")({
 
 export function AdminDashboardPage() {
   const matchRoute = useMatchRoute();
-  const search = useSearch({ strict: false });
+  const search = Route.useSearch();
   const navigate = useNavigate();
 
   let tab: AdminTab = "babies";
-  if (matchRoute({ to: "/dashboard/admin/transfers" })) {
+  if (matchRoute({ includeSearch: false, to: "/dashboard/admin/transfers" })) {
     tab = "transfers";
-  } else if (matchRoute({ to: "/dashboard/admin/users" })) {
+  } else if (matchRoute({ includeSearch: false, to: "/dashboard/admin/users" })) {
     tab = "users";
   }
 
   return (
     <AdminDashboardView
-      hideDemo={tab === "babies" ? (search.hideDemo ?? ADMIN_BABIES_DEFAULT_SEARCH.hideDemo) : null}
+      hideDemo={tab === "babies" ? search.hideDemo : null}
       onHideDemoChange={(hideDemo) => {
         void navigate({
           replace: true,
