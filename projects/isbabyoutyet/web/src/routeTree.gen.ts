@@ -24,7 +24,7 @@ import { Route as BabyPublicIdRouteRouteImport } from './routes/baby/$publicId/r
 import { Route as AuthDashboardIndexRouteImport } from './routes/_auth/dashboard/index'
 import { Route as AuthDashboardSettingsRouteImport } from './routes/_auth/dashboard/settings'
 import { Route as AuthDashboardAddRouteImport } from './routes/_auth/dashboard_.add'
-import { Route as AuthDashboardAdminRouteImport } from './routes/_auth/dashboard_.admin'
+import { Route as AuthDashboardAdminRouteRouteImport } from './routes/_auth/dashboard_.admin/route'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCachePurgeRouteImport } from './routes/api/cache/purge'
 import { Route as BabyPublicIdIndexRouteImport } from './routes/baby/$publicId/index'
@@ -35,6 +35,10 @@ import { Route as BabyPublicIdShareRouteImport } from './routes/baby/$publicId/s
 import { Route as BabyPublicIdSignupRouteImport } from './routes/baby/$publicId/signup'
 import { Route as BabyManifest_idRouteImport } from './routes/baby/manifest/$_id'
 import { Route as OgBabyPublicIdRouteImport } from './routes/og.baby.$publicId'
+import { Route as AuthDashboardAdminIndexRouteImport } from './routes/_auth/dashboard_.admin/index'
+import { Route as AuthDashboardAdminBabiesRouteImport } from './routes/_auth/dashboard_.admin/babies'
+import { Route as AuthDashboardAdminTransfersRouteImport } from './routes/_auth/dashboard_.admin/transfers'
+import { Route as AuthDashboardAdminUsersRouteImport } from './routes/_auth/dashboard_.admin/users'
 import { Route as BabyPublicIdAuthPostRouteImport } from './routes/baby/$publicId/_auth/post'
 import { Route as BabyPublicIdAuthSettingsRouteImport } from './routes/baby/$publicId/_auth/settings'
 import { Route as BabyPublicIdUpdatesUpdateIdPhotoRouteImport } from './routes/baby/$publicId/updates.$updateId.photo'
@@ -113,7 +117,7 @@ const AuthDashboardAddRoute = AuthDashboardAddRouteImport.update({
   path: '/dashboard/add',
   getParentRoute: () => AuthRouteRoute,
 } as any)
-const AuthDashboardAdminRoute = AuthDashboardAdminRouteImport.update({
+const AuthDashboardAdminRouteRoute = AuthDashboardAdminRouteRouteImport.update({
   id: '/dashboard_/admin',
   path: '/dashboard/admin',
   getParentRoute: () => AuthRouteRoute,
@@ -167,6 +171,28 @@ const OgBabyPublicIdRoute = OgBabyPublicIdRouteImport.update({
   path: '/baby/$publicId',
   getParentRoute: () => OgRoute,
 } as any)
+const AuthDashboardAdminIndexRoute = AuthDashboardAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthDashboardAdminRouteRoute,
+} as any)
+const AuthDashboardAdminBabiesRoute =
+  AuthDashboardAdminBabiesRouteImport.update({
+    id: '/babies',
+    path: '/babies',
+    getParentRoute: () => AuthDashboardAdminRouteRoute,
+  } as any)
+const AuthDashboardAdminTransfersRoute =
+  AuthDashboardAdminTransfersRouteImport.update({
+    id: '/transfers',
+    path: '/transfers',
+    getParentRoute: () => AuthDashboardAdminRouteRoute,
+  } as any)
+const AuthDashboardAdminUsersRoute = AuthDashboardAdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AuthDashboardAdminRouteRoute,
+} as any)
 const BabyPublicIdAuthPostRoute = BabyPublicIdAuthPostRouteImport.update({
   id: '/post',
   path: '/post',
@@ -197,9 +223,9 @@ export interface FileRoutesByFullPath {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/dashboard/admin': typeof AuthDashboardAdminRouteRouteWithChildren
   '/dashboard/settings': typeof AuthDashboardSettingsRoute
   '/dashboard/add': typeof AuthDashboardAddRoute
-  '/dashboard/admin': typeof AuthDashboardAdminRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cache/purge': typeof ApiCachePurgeRoute
   '/baby/$publicId/login': typeof BabyPublicIdLoginRoute
@@ -210,8 +236,12 @@ export interface FileRoutesByFullPath {
   '/og/baby/$publicId': typeof OgBabyPublicIdRoute
   '/dashboard/': typeof AuthDashboardIndexRoute
   '/baby/$publicId/': typeof BabyPublicIdIndexRoute
+  '/dashboard/admin/babies': typeof AuthDashboardAdminBabiesRoute
+  '/dashboard/admin/transfers': typeof AuthDashboardAdminTransfersRoute
+  '/dashboard/admin/users': typeof AuthDashboardAdminUsersRoute
   '/baby/$publicId/post': typeof BabyPublicIdAuthPostRoute
   '/baby/$publicId/settings': typeof BabyPublicIdAuthSettingsRoute
+  '/dashboard/admin/': typeof AuthDashboardAdminIndexRoute
   '/baby/$publicId/updates/$updateId/photo': typeof BabyPublicIdUpdatesUpdateIdPhotoRoute
 }
 export interface FileRoutesByTo {
@@ -227,7 +257,6 @@ export interface FileRoutesByTo {
   '/baby/$publicId': typeof BabyPublicIdIndexRoute
   '/dashboard/settings': typeof AuthDashboardSettingsRoute
   '/dashboard/add': typeof AuthDashboardAddRoute
-  '/dashboard/admin': typeof AuthDashboardAdminRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cache/purge': typeof ApiCachePurgeRoute
   '/baby/$publicId/login': typeof BabyPublicIdLoginRoute
@@ -237,8 +266,12 @@ export interface FileRoutesByTo {
   '/baby/manifest/$_id': typeof BabyManifest_idRoute
   '/og/baby/$publicId': typeof OgBabyPublicIdRoute
   '/dashboard': typeof AuthDashboardIndexRoute
+  '/dashboard/admin/babies': typeof AuthDashboardAdminBabiesRoute
+  '/dashboard/admin/transfers': typeof AuthDashboardAdminTransfersRoute
+  '/dashboard/admin/users': typeof AuthDashboardAdminUsersRoute
   '/baby/$publicId/post': typeof BabyPublicIdAuthPostRoute
   '/baby/$publicId/settings': typeof BabyPublicIdAuthSettingsRoute
+  '/dashboard/admin': typeof AuthDashboardAdminIndexRoute
   '/baby/$publicId/updates/$updateId/photo': typeof BabyPublicIdUpdatesUpdateIdPhotoRoute
 }
 export interface FileRoutesById {
@@ -255,10 +288,10 @@ export interface FileRoutesById {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/_auth/dashboard_/admin': typeof AuthDashboardAdminRouteRouteWithChildren
   '/baby/$publicId/_auth': typeof BabyPublicIdAuthRouteRouteWithChildren
   '/_auth/dashboard/settings': typeof AuthDashboardSettingsRoute
   '/_auth/dashboard_/add': typeof AuthDashboardAddRoute
-  '/_auth/dashboard_/admin': typeof AuthDashboardAdminRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cache/purge': typeof ApiCachePurgeRoute
   '/baby/$publicId/login': typeof BabyPublicIdLoginRoute
@@ -269,8 +302,12 @@ export interface FileRoutesById {
   '/og/baby/$publicId': typeof OgBabyPublicIdRoute
   '/_auth/dashboard/': typeof AuthDashboardIndexRoute
   '/baby/$publicId/': typeof BabyPublicIdIndexRoute
+  '/_auth/dashboard_/admin/babies': typeof AuthDashboardAdminBabiesRoute
+  '/_auth/dashboard_/admin/transfers': typeof AuthDashboardAdminTransfersRoute
+  '/_auth/dashboard_/admin/users': typeof AuthDashboardAdminUsersRoute
   '/baby/$publicId/_auth/post': typeof BabyPublicIdAuthPostRoute
   '/baby/$publicId/_auth/settings': typeof BabyPublicIdAuthSettingsRoute
+  '/_auth/dashboard_/admin/': typeof AuthDashboardAdminIndexRoute
   '/baby/$publicId/updates/$updateId/photo': typeof BabyPublicIdUpdatesUpdateIdPhotoRoute
 }
 export interface FileRouteTypes {
@@ -287,9 +324,9 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset-password'
     | '/auth/signup'
+    | '/dashboard/admin'
     | '/dashboard/settings'
     | '/dashboard/add'
-    | '/dashboard/admin'
     | '/api/auth/$'
     | '/api/cache/purge'
     | '/baby/$publicId/login'
@@ -300,8 +337,12 @@ export interface FileRouteTypes {
     | '/og/baby/$publicId'
     | '/dashboard/'
     | '/baby/$publicId/'
+    | '/dashboard/admin/babies'
+    | '/dashboard/admin/transfers'
+    | '/dashboard/admin/users'
     | '/baby/$publicId/post'
     | '/baby/$publicId/settings'
+    | '/dashboard/admin/'
     | '/baby/$publicId/updates/$updateId/photo'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -317,7 +358,6 @@ export interface FileRouteTypes {
     | '/baby/$publicId'
     | '/dashboard/settings'
     | '/dashboard/add'
-    | '/dashboard/admin'
     | '/api/auth/$'
     | '/api/cache/purge'
     | '/baby/$publicId/login'
@@ -327,8 +367,12 @@ export interface FileRouteTypes {
     | '/baby/manifest/$_id'
     | '/og/baby/$publicId'
     | '/dashboard'
+    | '/dashboard/admin/babies'
+    | '/dashboard/admin/transfers'
+    | '/dashboard/admin/users'
     | '/baby/$publicId/post'
     | '/baby/$publicId/settings'
+    | '/dashboard/admin'
     | '/baby/$publicId/updates/$updateId/photo'
   id:
     | '__root__'
@@ -344,10 +388,10 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset-password'
     | '/auth/signup'
+    | '/_auth/dashboard_/admin'
     | '/baby/$publicId/_auth'
     | '/_auth/dashboard/settings'
     | '/_auth/dashboard_/add'
-    | '/_auth/dashboard_/admin'
     | '/api/auth/$'
     | '/api/cache/purge'
     | '/baby/$publicId/login'
@@ -358,8 +402,12 @@ export interface FileRouteTypes {
     | '/og/baby/$publicId'
     | '/_auth/dashboard/'
     | '/baby/$publicId/'
+    | '/_auth/dashboard_/admin/babies'
+    | '/_auth/dashboard_/admin/transfers'
+    | '/_auth/dashboard_/admin/users'
     | '/baby/$publicId/_auth/post'
     | '/baby/$publicId/_auth/settings'
+    | '/_auth/dashboard_/admin/'
     | '/baby/$publicId/updates/$updateId/photo'
   fileRoutesById: FileRoutesById
 }
@@ -491,7 +539,7 @@ declare module '@tanstack/react-router' {
       id: '/_auth/dashboard_/admin'
       path: '/dashboard/admin'
       fullPath: '/dashboard/admin'
-      preLoaderRoute: typeof AuthDashboardAdminRouteImport
+      preLoaderRoute: typeof AuthDashboardAdminRouteRouteImport
       parentRoute: typeof AuthRouteRoute
     }
     '/api/auth/$': {
@@ -564,6 +612,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OgBabyPublicIdRouteImport
       parentRoute: typeof OgRoute
     }
+    '/_auth/dashboard_/admin/': {
+      id: '/_auth/dashboard_/admin/'
+      path: '/'
+      fullPath: '/dashboard/admin/'
+      preLoaderRoute: typeof AuthDashboardAdminIndexRouteImport
+      parentRoute: typeof AuthDashboardAdminRouteRoute
+    }
+    '/_auth/dashboard_/admin/babies': {
+      id: '/_auth/dashboard_/admin/babies'
+      path: '/babies'
+      fullPath: '/dashboard/admin/babies'
+      preLoaderRoute: typeof AuthDashboardAdminBabiesRouteImport
+      parentRoute: typeof AuthDashboardAdminRouteRoute
+    }
+    '/_auth/dashboard_/admin/transfers': {
+      id: '/_auth/dashboard_/admin/transfers'
+      path: '/transfers'
+      fullPath: '/dashboard/admin/transfers'
+      preLoaderRoute: typeof AuthDashboardAdminTransfersRouteImport
+      parentRoute: typeof AuthDashboardAdminRouteRoute
+    }
+    '/_auth/dashboard_/admin/users': {
+      id: '/_auth/dashboard_/admin/users'
+      path: '/users'
+      fullPath: '/dashboard/admin/users'
+      preLoaderRoute: typeof AuthDashboardAdminUsersRouteImport
+      parentRoute: typeof AuthDashboardAdminRouteRoute
+    }
     '/baby/$publicId/_auth/post': {
       id: '/baby/$publicId/_auth/post'
       path: '/post'
@@ -601,16 +677,36 @@ const AuthDashboardRouteRouteChildren: AuthDashboardRouteRouteChildren = {
 const AuthDashboardRouteRouteWithChildren =
   AuthDashboardRouteRoute._addFileChildren(AuthDashboardRouteRouteChildren)
 
+interface AuthDashboardAdminRouteRouteChildren {
+  AuthDashboardAdminBabiesRoute: typeof AuthDashboardAdminBabiesRoute
+  AuthDashboardAdminTransfersRoute: typeof AuthDashboardAdminTransfersRoute
+  AuthDashboardAdminUsersRoute: typeof AuthDashboardAdminUsersRoute
+  AuthDashboardAdminIndexRoute: typeof AuthDashboardAdminIndexRoute
+}
+
+const AuthDashboardAdminRouteRouteChildren: AuthDashboardAdminRouteRouteChildren =
+  {
+    AuthDashboardAdminBabiesRoute: AuthDashboardAdminBabiesRoute,
+    AuthDashboardAdminTransfersRoute: AuthDashboardAdminTransfersRoute,
+    AuthDashboardAdminUsersRoute: AuthDashboardAdminUsersRoute,
+    AuthDashboardAdminIndexRoute: AuthDashboardAdminIndexRoute,
+  }
+
+const AuthDashboardAdminRouteRouteWithChildren =
+  AuthDashboardAdminRouteRoute._addFileChildren(
+    AuthDashboardAdminRouteRouteChildren,
+  )
+
 interface AuthRouteRouteChildren {
   AuthDashboardRouteRoute: typeof AuthDashboardRouteRouteWithChildren
+  AuthDashboardAdminRouteRoute: typeof AuthDashboardAdminRouteRouteWithChildren
   AuthDashboardAddRoute: typeof AuthDashboardAddRoute
-  AuthDashboardAdminRoute: typeof AuthDashboardAdminRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthDashboardRouteRoute: AuthDashboardRouteRouteWithChildren,
+  AuthDashboardAdminRouteRoute: AuthDashboardAdminRouteRouteWithChildren,
   AuthDashboardAddRoute: AuthDashboardAddRoute,
-  AuthDashboardAdminRoute: AuthDashboardAdminRoute,
 }
 
 const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(

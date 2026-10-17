@@ -26,7 +26,6 @@ import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { useI18n } from "@/lib/i18n";
 import { useDashboardSettingsOverlay } from "@/lib/overlay-nav";
 import type { OverlayControl } from "@/lib/overlay-nav";
-import { ADMIN_DEFAULT_SEARCH } from "@/routes/_auth/dashboard_.admin";
 
 export const Route = createFileRoute("/_auth/dashboard/settings")({
   component: DashboardSettingsRoute,
@@ -140,11 +139,7 @@ export function DashboardSettingsSheetView(props: {
 
             {props.isAdmin ? (
               <SettingsSection title={t("Admin")}>
-                <Item
-                  render={
-                    <Link preload="viewport" search={ADMIN_DEFAULT_SEARCH} to="/dashboard/admin" />
-                  }
-                >
+                <Item render={<Link preload="viewport" to="/dashboard/admin/babies" />}>
                   <ItemMedia variant="icon">
                     <ShieldIcon />
                   </ItemMedia>
