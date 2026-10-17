@@ -42,7 +42,6 @@ export function ScheduledNotificationToast(props: ScheduledNotificationToastProp
   const [notificationsData] = useQuery(
     convexQuery(api.baby.getScheduledNotifications),
     props.notifications,
-    { throwOnError: true },
   );
   // FORBIDDEN only happens for non-managers, who never render this component —
   // treat it like "nothing scheduled" so the types stay honest.
@@ -50,7 +49,6 @@ export function ScheduledNotificationToast(props: ScheduledNotificationToastProp
   const [subscriptionCountData] = useQuery(
     convexQuery(api.pushSubscriptions.getSubscriptionCount),
     props.subscriptionCount,
-    { throwOnError: true },
   );
   const subscriptionCount = subscriptionCountData === FORBIDDEN ? 0 : subscriptionCountData;
   const tickEnabled = notifications.length > 0;

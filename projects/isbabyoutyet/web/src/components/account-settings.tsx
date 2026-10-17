@@ -180,7 +180,7 @@ function EditorActions() {
 export function AccountSettings(props: { profile: EnsuredConvexQuery<typeof api.profile.get> }) {
   const { t } = useI18n();
   const changeAccountEmail = useMutation(api.accountEmail.change);
-  const [profile] = useQuery(convexQuery(api.profile.get), props.profile, { throwOnError: true });
+  const [profile] = useQuery(convexQuery(api.profile.get), props.profile);
 
   const sessionUser =
     profile === null || profile === undefined

@@ -50,15 +50,13 @@ loader: async (opts) =>
     ),
   }),
 
-const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile, {
-  throwOnError: true,
-});
+const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile);
 ```
 
-The query functions are Effects with a typed `ConvexQueryError`, so on a
-client with a `layer` `useQuery` returns a `Result` by default. Pass
-`throwOnError: true` to read the data and let failures reach the route's error
-boundary.
+The query functions are Effects with a typed `ConvexQueryError`. Both
+factories set `throwOnError: true`, so reads get the data and failures reach
+the route's error boundary. Pass `throwOnError: false` on a read to get a
+`Result` instead.
 
 Type props that receive a loader handle with `EnsuredConvexQuery<typeof
 api.profile.get>` or `EnsuredConvexPaginatedQuery<typeof

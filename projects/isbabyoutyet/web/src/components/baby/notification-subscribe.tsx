@@ -57,7 +57,6 @@ export function NotificationSubscribe(props: NotificationSubscribeProps) {
   const [vapidPublicKey] = useQuery(
     convexQuery(api.pushSubscriptions.getPublicKey),
     props.vapidPublicKey,
-    { throwOnError: true },
   );
   const [isLoading, runAction] = usePendingAction();
 

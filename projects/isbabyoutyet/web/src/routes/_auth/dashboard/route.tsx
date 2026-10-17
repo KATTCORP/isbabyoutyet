@@ -36,12 +36,8 @@ export function DashboardPageLayout() {
 function DashboardPage() {
   const loaderData = Route.useLoaderData();
   const { t } = useI18n();
-  const [babies] = useQuery(convexQuery(api.baby.listByUser), loaderData.babies, {
-    throwOnError: true,
-  });
-  const [progress] = useQuery(convexQuery(api.onboarding.getMine), loaderData.onboarding, {
-    throwOnError: true,
-  });
+  const [babies] = useQuery(convexQuery(api.baby.listByUser), loaderData.babies);
+  const [progress] = useQuery(convexQuery(api.onboarding.getMine), loaderData.onboarding);
 
   return (
     <div className="flex min-h-screen flex-col bg-background bg-dots">

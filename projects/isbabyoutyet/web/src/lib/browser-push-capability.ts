@@ -34,6 +34,7 @@ export function browserPushCapabilityQuery(babyRef: string) {
     queryKey: [BROWSER_PUSH_CAPABILITY_KEY, babyRef],
     retry: false,
     staleTime: 0,
+    throwOnError: true,
   });
 }
 

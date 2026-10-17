@@ -275,26 +275,19 @@ function BabyPageLayout() {
     throw notFound();
   }
 
-  const [babyDoc] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby, {
-    throwOnError: true,
-  });
+  const [babyDoc] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
   if (!babyDoc) {
     throw notFound();
   }
   const baby = docToBabyData(babyDoc);
 
-  const [latestUpdate] = useQuery(convexQuery(api.timeline.latestUpdate), loaderData.latestUpdate, {
-    throwOnError: true,
-  });
-  const [me] = useQuery(convexQuery(api.profile.get), loaderData.me, { throwOnError: true });
+  const [latestUpdate] = useQuery(convexQuery(api.timeline.latestUpdate), loaderData.latestUpdate);
+  const [me] = useQuery(convexQuery(api.profile.get), loaderData.me);
   const [managerBabyResult] = useQuery(
     convexQuery(api.baby.getManagerBaby),
     loaderData.managerBaby,
-    { throwOnError: true },
   );
-  const [myAccess] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess, {
-    throwOnError: true,
-  });
+  const [myAccess] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
 
   const completeOnboardingStep = useCompleteOnboardingStep();
   const share = useBabyShareOverlayLinks(params.publicId);

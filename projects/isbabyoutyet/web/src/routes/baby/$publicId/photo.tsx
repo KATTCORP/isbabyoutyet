@@ -28,9 +28,7 @@ export function BabyPhotoOverlay() {
   const loaderData = Route.useLoaderData();
   const photo = useBabyPhotoOverlay(params.publicId);
 
-  const [babyData] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby, {
-    throwOnError: true,
-  });
+  const [babyData] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
   const babyDoc = useLastMatch(babyData, (v) => {
     if (!v?.photoUrl) {
       return false;
