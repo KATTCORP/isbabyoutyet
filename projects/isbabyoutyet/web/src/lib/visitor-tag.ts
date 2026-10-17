@@ -6,7 +6,7 @@ import { peekVisitorId } from "@/lib/use-visitor-id";
 /**
  * This browser's visitor tag on a baby page, matched against the feed's
  * `visitorTag` to mark the visitor's own encouragements. The visitor id lives
- * in localStorage, so it never runs on the server (`ssr: false`). `null` until
+ * in localStorage, so it is only enabled in a browser. `null` until
  * the visitor first posts; invalidate it then.
  *
  * An Effect with a `never` error, so readers can pass `throwOnError: true`:
@@ -15,6 +15,7 @@ import { peekVisitorId } from "@/lib/use-visitor-id";
  */
 export function visitorTagQuery(babyId: string) {
   return queryOptions({
+    enabled: globalThis.window !== undefined,
     queryFn: () => {
       const visitorId = peekVisitorId();
       return visitorId
@@ -22,7 +23,6 @@ export function visitorTagQuery(babyId: string) {
         : Effect.succeed(null);
     },
     queryKey: ["visitorTag", babyId],
-    ssr: false,
     staleTime: Infinity,
   });
 }

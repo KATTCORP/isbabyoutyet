@@ -5,15 +5,15 @@ import type { ConvexReader } from "@workspace/convex-query";
 const BROWSER_IMAGE_PREFETCH_KEY = "browserImagePrefetch";
 
 /**
- * Decodes an image into the browser cache. Never runs on the server
- * (`ssr: false`): the SSR'd `<img>` loads it there.
+ * Decodes an image into the browser cache. Only enabled in a browser: on
+ * the server the SSR'd `<img>` loads it.
  */
 export function browserImageQuery(imageUrl: string) {
   return queryOptions({
+    enabled: globalThis.window !== undefined,
     queryFn: () => loadBrowserImage(imageUrl),
     queryKey: [BROWSER_IMAGE_PREFETCH_KEY, imageUrl],
     retry: false,
-    ssr: false,
     staleTime: Infinity,
   });
 }

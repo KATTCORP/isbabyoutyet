@@ -2,6 +2,7 @@ import { getFunctionName } from "convex/server";
 import { expect, test } from "vitest";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { visitorTag } from "@isbabyoutyet/backend/src/visitorId";
+import { stubNoWindowResource } from "@/test/stubJsdomWindow";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { visitorTagQuery } from "./visitor-tag";
 
@@ -42,9 +43,11 @@ test("a visitor who has never posted has no tag", async () => {
 
 test("the server never hashes, so the tag stays pending through SSR", async () => {
   using _visitor = storedVisitorIdResource("visitor-1");
+  using _window = stubNoWindowResource();
   await using stub = stubQueryClientResource(rejectConvexQueries, { isServer: true });
 
   stub.queryClient.prefetch(visitorTagQuery, "baby-1");
+  await new Promise((resolve) => setTimeout(resolve, 10));
 
   expect(stub.queryClient.getData(visitorTagQuery, "baby-1")).toBeUndefined();
 });

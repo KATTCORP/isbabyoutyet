@@ -322,6 +322,20 @@ function acquireJsdomWindowStubs() {
 }
 
 /**
+ * Hides `window` for the lifetime of the returned resource, as on the server,
+ * so browser-only queries (`enabled: globalThis.window !== undefined`) stay
+ * disabled. Render with `react-dom/server` meanwhile: the DOM renderer needs
+ * `window`.
+ */
+export function stubNoWindowResource() {
+  const original = globalThis.window;
+  vi.stubGlobal("window", undefined);
+  return makeResource({}, () => {
+    vi.stubGlobal("window", original);
+  });
+}
+
+/**
  * Installs jsdom host-API stubs for the lifetime of the returned resource.
  * Nested calls share one install (refcount); restoring is idempotent.
  */
