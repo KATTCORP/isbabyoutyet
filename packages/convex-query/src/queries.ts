@@ -2,7 +2,6 @@ import type {
   InfiniteQueryOptions,
   QueryHandle,
   QueryHandleWithData,
-  QueryKey,
   QueryOptions,
 } from "@raf-query/react";
 import { infiniteQueryOptions, queryOptions } from "@raf-query/react";
@@ -89,7 +88,7 @@ export function convexQuery<TQuery extends QueryReference>(
 ): ConvexQueryFactory<TQuery> {
   const functionName = getFunctionName(query);
   return (args) =>
-    queryOptions<FunctionReturnType<TQuery>, ConvexQueryError, ConvexReader, QueryKey, true>({
+    queryOptions({
       queryFn: () => readConvexQuery(query, args),
       queryKey: [CONVEX_QUERY_KEY, functionName, args],
       retry: false,
@@ -121,24 +120,19 @@ export function convexPaginatedQuery<TQuery extends PaginatedQueryReference>(
   query: TQuery,
 ): ConvexPaginatedQueryFactory<TQuery> {
   const functionName = getFunctionName(query);
-  return (input) =>
-    infiniteQueryOptions<
-      FunctionReturnType<TQuery>,
-      PaginationOptions,
-      ConvexQueryError,
-      ConvexReader,
-      QueryKey,
-      true
-    >({
-      getNextPageParam: (lastPage) =>
+  return (input) => {
+    const initialPageParam: PaginationOptions = { cursor: null, numItems: input.numItems };
+    return infiniteQueryOptions({
+      getNextPageParam: (lastPage: FunctionReturnType<TQuery>): PaginationOptions | null =>
         lastPage.isDone ? null : { cursor: lastPage.continueCursor, numItems: input.numItems },
-      initialPageParam: { cursor: null, numItems: input.numItems },
+      initialPageParam,
       queryFn: (context) => readConvexQuery(query, pageArgs<TQuery>(input.args, context.pageParam)),
       queryKey: [CONVEX_PAGINATED_QUERY_KEY, functionName, input.args, input.numItems],
       retry: false,
       staleTime: Infinity,
       throwOnError: true,
     });
+  };
 }
 
 /** Loader handle from `queryClient.ensure(convexQuery(query), args)`. */
