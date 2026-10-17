@@ -30,7 +30,8 @@ import {
 } from "@workspace/ui/components/popover";
 import { cn } from "@workspace/ui/lib/utils";
 import { useMutation } from "convex/react";
-import { useQuery, useWaterfall } from "@raf-query/react";
+import type { QueryHandle } from "@raf-query/react";
+import { useQuery } from "@raf-query/react";
 import { convexPaginatedQuery } from "@workspace/convex-query";
 import type { EnsuredConvexPaginatedQuery } from "@workspace/convex-query";
 import {
@@ -49,7 +50,7 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
-import { Fragment, use, useId, useRef } from "react";
+import { Fragment, useId, useRef } from "react";
 import type { DragEvent, ReactElement, ReactNode } from "react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { Streamdown } from "streamdown";
@@ -75,6 +76,7 @@ import {
 import { FormControl, FormField, FormItem, FormMessage } from "@workspace/ui/components/form";
 import { useFormState, useWatch } from "react-hook-form";
 import { htmlDateTimeNow, optionalHtmlDateTime } from "@/lib/html-date";
+import { visitorTagQuery } from "@/lib/visitor-tag";
 import { useStoredVisitorId } from "@/lib/use-visitor-id";
 import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
 import type { TranslationFunction, TranslationKey } from "@/lib/i18n";
@@ -1126,6 +1128,7 @@ function TimelinePhoto(props: TimelinePhotoProps) {
 
 type EncouragementTimelineItemProps = {
   currentVisitorId: string;
+  currentVisitorTag: string | null;
   isOwner: boolean;
   item: EncouragementItemData;
   onDelete: (id: Id<"encouragements">, visitorId: string | undefined) => Promise<void>;
@@ -1205,7 +1208,9 @@ function EncouragementTimelineItem(props: EncouragementTimelineItemProps) {
   const encouragement = props.item.encouragement;
   const overlay = useFormGuard({ defaultOpen: false });
 
-  const isOwnPost = encouragement.isMine;
+  const isOwnPost =
+    encouragement.isMine ||
+    (props.currentVisitorTag !== null && props.currentVisitorTag === encouragement.visitorTag);
   const canEdit = isOwnPost && isWithinEditWindow(encouragement.createdAt);
   const canDelete = props.isOwner || canEdit;
   const initial = encouragement.authorName.trim().charAt(0).toUpperCase() || "💛";
@@ -1296,6 +1301,8 @@ type TimelineFeedProps = {
   publicId: string;
   /** Prefetched infinite timeline handle from the route loader (SSR first page). */
   timeline: EnsuredConvexPaginatedQuery<typeof api.timeline.listByBaby>;
+  /** This browser's {@link visitorTagQuery}, started by the route loader. */
+  visitorTag: QueryHandle<typeof visitorTagQuery>;
 };
 
 type RemoveUpdateFn = (
@@ -1313,33 +1320,28 @@ type UpdateEncouragementFn = (
 
 /** Hooks into Convex, then delegates to the pure `TimelineFeedView`. */
 export function TimelineFeed(props: TimelineFeedProps) {
-  // visitorId only marks the caller's own encouragements (isMine); the
-  // credential itself is never returned by the query. Hydration reads the SSR
-  // snapshot "" so the first paint matches the server's handle (no
-  // visitorId), then the stored id switches the feed to the visitor's copy.
   const currentVisitorId = useStoredVisitorId();
-  const timelineHandle = useWaterfall(convexPaginatedQuery(api.timeline.listByBaby), {
-    ...props.timeline.input,
-    args: { ...props.timeline.input.args, visitorId: currentVisitorId || null },
-  });
-  // Keep the SSR pages on screen while the visitor's own copy loads.
-  const [timelinePromise, timelineQuery] = useQuery(
+  const [timeline, timelineQuery] = useQuery(
     convexPaginatedQuery(api.timeline.listByBaby),
-    timelineHandle,
-    { throwOnError: true, whilePending: "previous" },
+    props.timeline,
   );
+  // Pending on the server and until the browser hashes its visitor id; read
+  // the status instead of `use` so the feed never suspends on it.
+  const [visitorTag] = useQuery(visitorTagQuery, props.visitorTag);
+  const currentVisitorTag = visitorTag.status === "fulfilled" ? visitorTag.value : null;
   const removeUpdate = useMutation(api.updates.remove);
   const setAsCurrentPhoto = useMutation(api.updates.setAsCurrentPhoto);
   const removeEncouragement = useMutation(api.encouragements.remove);
   const updateEncouragement = useMutation(api.encouragements.update);
 
-  const items = use(timelinePromise).pages.flatMap((page) => page.page);
+  const items = timeline.pages.flatMap((page) => page.page);
 
   return (
     <TimelineFeedView
       baby={props.baby}
       babyName={props.babyName}
       currentVisitorId={currentVisitorId}
+      currentVisitorTag={currentVisitorTag}
       fetchNextPage={timelineQuery.fetchNextPage}
       hasNextPage={timelineQuery.hasNextPage}
       isFetchingNextPage={timelineQuery.isFetchingNextPage}
@@ -1358,6 +1360,7 @@ type TimelineFeedViewProps = {
   baby: BabyData;
   babyName: string;
   currentVisitorId: string;
+  currentVisitorTag: string | null;
   fetchNextPage: () => void;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
@@ -1483,6 +1486,7 @@ function TimelineFeedView(props: TimelineFeedViewProps) {
                     ) : (
                       <EncouragementTimelineItem
                         currentVisitorId={props.currentVisitorId}
+                        currentVisitorTag={props.currentVisitorTag}
                         isOwner={props.isOwner}
                         item={item}
                         onDelete={handleDeleteEncouragement}

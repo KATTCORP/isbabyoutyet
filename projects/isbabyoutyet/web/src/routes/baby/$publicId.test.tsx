@@ -347,6 +347,8 @@ const beforeLoad: (
 ) => Promise<object | void | null> = routeModule.Route.options.beforeLoad;
 
 async function runBabyLoader(queryClient: QueryClient<ConvexReader>) {
+  // As `beforeLoad` does before every loader run.
+  await queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: "baby-smith" });
   return await loader({ context: { queryClient }, params: { publicId: "baby-smith" } });
 }
 
@@ -367,7 +369,7 @@ test("loader ensures the same set for visitors; gated queries come back forbidde
   expect(result.baby).toMatchObject({ data: expect.anything(), input: { id: "baby-smith" } });
   expect(result.timeline).toMatchObject({
     data: expect.anything(),
-    input: { args: { babyId: "baby-smith", visitorId: null }, numItems: 20 },
+    input: { args: { babyId: "baby-smith" }, numItems: 20 },
   });
   expect(queryClient.getData(convexQuery(api.baby.getByPublicId), { id: "baby-smith" })).toEqual(
     BABY_DOC,

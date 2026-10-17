@@ -2,9 +2,10 @@ import { QueryClient } from "@raf-query/react";
 import { makeAsyncResource, makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { expect, test, vi } from "vitest";
 import { browserImageQuery, prefetchBrowserImage } from "@/lib/image-prefetch";
+import { stubNoWindowResource } from "@/test/stubJsdomWindow";
 
-function queryClientResource() {
-  const queryClient = new QueryClient({ isServer: false });
+function queryClientResource(opts: { isServer: boolean } = { isServer: false }) {
+  const queryClient = new QueryClient({ isServer: opts.isServer });
   return makeAsyncResource(queryClient, async () => {
     await queryClient.dispose();
   });
@@ -49,22 +50,20 @@ test("prefetches the image into the query cache in the browser", async () => {
 });
 
 test("does not construct Image while prefetching on the server", async () => {
-  await using queryClient = queryClientResource();
+  using _window = stubNoWindowResource();
+  await using queryClient = queryClientResource({ isServer: true });
   const url = "https://cdn.example/full.jpg";
-  const originalWindow = globalThis.window;
-  vi.stubGlobal("window", undefined);
-  await using _window = makeResource({}, () => {
-    vi.unstubAllGlobals();
-    globalThis.window = originalWindow;
-  });
 
+  const OriginalImage = globalThis.Image;
   const ImageSpy = vi.fn<() => void>();
   vi.stubGlobal("Image", ImageSpy);
+  await using _image = makeResource({}, () => {
+    vi.stubGlobal("Image", OriginalImage);
+  });
 
-  const prefetchSpy = vi.spyOn(queryClient, "prefetch");
   prefetchBrowserImage(queryClient, url);
+  await Promise.resolve();
 
-  expect(prefetchSpy).not.toHaveBeenCalled();
   expect(ImageSpy).not.toHaveBeenCalled();
   expect(queryClient.getData(browserImageQuery, url)).toBeUndefined();
 });

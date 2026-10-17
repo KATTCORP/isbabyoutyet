@@ -7,7 +7,7 @@ import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
-import { installMatchMediaStub } from "@/test/stubJsdomWindow";
+import { installMatchMediaStub, stubNoWindowResource } from "@/test/stubJsdomWindow";
 import { seedOwnedBaby, signUpTestUser } from "@/test/convexTestSeed";
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
@@ -336,6 +336,7 @@ test("does not detect push while prefetching on the server", async () => {
     hasPushManager: true,
     hasServiceWorker: true,
   });
+  using _window = stubNoWindowResource();
 
   const handle = stub.queryClient.prefetch(browserPushCapabilityQuery, babyRef);
   // Detection always settles on some capability; on the server none appears.

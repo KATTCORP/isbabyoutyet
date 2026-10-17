@@ -9,6 +9,7 @@ import {
 import { Input } from "@workspace/ui/components/input";
 import { Textarea } from "@workspace/ui/components/textarea";
 import { useMutation } from "convex/react";
+import { useQueryClient } from "@raf-query/react";
 import type { FunctionArgs } from "convex/server";
 import { PaperPlaneTiltIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ import {
 import { useEncouragementMessageDraft } from "@/lib/use-encouragement-message-draft";
 import { useClientHydration } from "@/lib/use-client-hydration";
 import { getVisitorId } from "@/lib/use-visitor-id";
+import { visitorTagQuery } from "@/lib/visitor-tag";
 import { useWatch } from "react-hook-form";
 
 type EncouragementFormProps = {
@@ -94,6 +96,7 @@ function EncouragementFormFields(
 ) {
   const { t } = useI18n();
   const createEncouragement = useMutation(api.encouragements.create);
+  const queryClient = useQueryClient();
   const schema = encouragementSchema(t, props.babyId);
 
   const form = useZodForm({
@@ -140,6 +143,8 @@ function EncouragementFormFields(
             success: t("Your kind words have been sent! 💕"),
           });
           await promise;
+          // A first post creates the visitor id, so the tag is no longer `null`.
+          void queryClient.invalidate(visitorTagQuery, props.babyId);
           clearEncouragementMessageDraft(props.babyId);
           form.reset({ authorName: values.authorName, message: "" });
         }}

@@ -186,7 +186,6 @@ export function OwnerMessageNotifyLiveSwitch(props: OwnerMessageNotifyLiveSwitch
   const [vapidPublicKey] = useQuery(
     convexQuery(api.pushSubscriptions.getPublicKey),
     props.vapidPublicKey,
-    { throwOnError: true },
   );
   const [isPending, runAction] = usePendingAction();
   const subscribeAsOwnerMutationFn = useMutation(api.pushSubscriptions.subscribeAsOwner);

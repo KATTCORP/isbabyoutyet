@@ -33,7 +33,6 @@ export function BabyUpdatePhotoOverlay() {
   const [updatePhotoData] = useQuery(
     convexQuery(api.timeline.getUpdatePhoto),
     loaderData.updatePhoto,
-    { throwOnError: true },
   );
   const updatePhoto = useLastMatch(updatePhotoData, (v) => !!v);
   if (!updatePhoto) {

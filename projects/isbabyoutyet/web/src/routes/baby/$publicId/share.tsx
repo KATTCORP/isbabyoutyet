@@ -56,12 +56,8 @@ export function BabyShareOverlay() {
   const { t } = useI18n();
   const [copied, showCopied] = useTransientFlag(2000);
   const share = useBabyShareOverlay(params.publicId);
-  const [babyData] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby, {
-    throwOnError: true,
-  });
-  const [myAccessData] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess, {
-    throwOnError: true,
-  });
+  const [babyData] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
+  const [myAccessData] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
   const sharePreview = babyData ? getBabySeo(babyData, params.publicId) : null;
   if (!sharePreview) {
     throw notFound();

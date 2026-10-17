@@ -1,9 +1,15 @@
 import type { QueryClient } from "@raf-query/react";
-import { Query } from "@raf-query/react";
-import type { DefaultFunctionArgs, PaginationOptions } from "convex/server";
-import { makeFunctionReference } from "convex/server";
+import { hashKey, Query } from "@raf-query/react";
+import type {
+  DefaultFunctionArgs,
+  FunctionArgs,
+  FunctionReturnType,
+  PaginationOptions,
+} from "convex/server";
+import { getFunctionName, makeFunctionReference } from "convex/server";
 import type { Value } from "convex/values";
-import { Predicate } from "effect";
+import { Effect, Predicate, Queue, Stream } from "effect";
+import type { QueryReference } from "./queries.ts";
 import {
   CONVEX_PAGINATED_QUERY_KEY,
   CONVEX_QUERY_KEY,
@@ -11,8 +17,6 @@ import {
   convexQuery,
 } from "./queries.ts";
 import type { ConvexReader, ConvexWatchClient } from "./reader.ts";
-
-function noop() {}
 
 /** A cache entry this module keeps live, decoded from its key. */
 type LiveKey =
@@ -69,20 +73,18 @@ function pageCursors(data: Query.State<unknown>["data"]): ReadonlyArray<string |
   return cursors;
 }
 
-function querySubscriptions(
+function querySubscription(
   key: Extract<LiveKey, { kind: "query" }>,
   queryClient: QueryClient<ConvexReader>,
-): ReadonlyArray<Subscription> {
+): Subscription {
   const factory = convexQuery(makeFunctionReference<"query">(key.name));
-  return [
-    {
-      args: key.args,
-      id: "query",
-      name: key.name,
-      onError: () => void queryClient.invalidate(factory, key.args),
-      onResult: (value) => queryClient.setData(factory, key.args, value),
-    },
-  ];
+  return {
+    args: key.args,
+    id: "query",
+    name: key.name,
+    onError: () => void queryClient.invalidate(factory, key.args),
+    onResult: (value) => queryClient.setData(factory, key.args, value),
+  };
 }
 
 /**
@@ -134,7 +136,7 @@ function subscriptionsFor(
   }
   switch (key.kind) {
     case "query": {
-      return querySubscriptions(key, queryClient);
+      return [querySubscription(key, queryClient)];
     }
     case "paginated": {
       const cursors = pageCursors(state.data);
@@ -147,38 +149,31 @@ function subscriptionsFor(
   }
 }
 
-/** A live subscription: `redeliver` writes its latest result again, ignoring errors. */
-interface Watching {
-  redeliver(): void;
-  unsubscribe(): void;
-}
+/** A live subscription, or `null` while it is being claimed. */
+type Watching = { unsubscribe(): void } | null;
 
-const claimed: Watching = { redeliver: noop, unsubscribe: noop };
-
-function subscribe(subscription: Subscription, client: ConvexWatchClient): Watching {
+function subscribe(subscription: Subscription, client: ConvexWatchClient) {
   const watch = client.watchQuery(
     makeFunctionReference<"query">(subscription.name),
     subscription.args,
   );
-  const update = (opts: { reportErrors: boolean }) => {
+  const update = () => {
     let value;
     try {
       value = watch.localQueryResult();
     } catch {
-      if (opts.reportErrors) {
-        subscription.onError();
-      }
+      subscription.onError();
       return;
     }
     if (value !== undefined) {
       subscription.onResult(value);
     }
   };
-  const unsubscribe = watch.onUpdate(() => update({ reportErrors: true }));
+  const unsubscribe = watch.onUpdate(update);
   // A result the client already holds (the read that filled the entry keeps
   // its subscription briefly) won't trigger `onUpdate` again.
-  update({ reportErrors: true });
-  return { redeliver: () => update({ reportErrors: false }), unsubscribe };
+  update();
+  return { unsubscribe };
 }
 
 /**
@@ -194,36 +189,12 @@ export function connectConvexLive(opts: {
 }): () => void {
   /** Entry hash → subscription id → its watch. */
   const live = new Map<string, Map<string, Watching>>();
-  /** Hashes of live entries with a full refetch in flight. */
-  const fetching = new Set<string>();
 
   const stop = (hash: string) => {
     const subscriptions = live.get(hash);
     live.delete(hash);
-    fetching.delete(hash);
     for (const watching of subscriptions?.values() ?? []) {
-      watching.unsubscribe();
-    }
-  };
-
-  /**
-   * A full refetch replaces the data with what it read, page by page, so it
-   * can undo results written while it ran. Write the subscriptions' latest
-   * results again once it lands. (A page load keeps them.)
-   */
-  const redeliverAfterRefetch = (query: Query.Query) => {
-    const state = Query.getUnsafe(query);
-    if (state.isFetching) {
-      if (live.has(query.hash) && state.fetchDirection === undefined) {
-        fetching.add(query.hash);
-      }
-      return;
-    }
-    if (!fetching.delete(query.hash) || state.status !== "success") {
-      return;
-    }
-    for (const watching of live.get(query.hash)?.values() ?? []) {
-      watching.redeliver();
+      watching?.unsubscribe();
     }
   };
 
@@ -243,14 +214,14 @@ export function connectConvexLive(opts: {
     for (const [id, watching] of current) {
       if (!wanted.has(id)) {
         current.delete(id);
-        watching.unsubscribe();
+        watching?.unsubscribe();
       }
     }
     for (const [id, subscription] of wanted) {
       if (!current.has(id)) {
         // Claimed before subscribing: a result the client already holds is
         // written synchronously, and that cache update re-enters `sync`.
-        current.set(id, claimed);
+        current.set(id, null);
         current.set(id, subscribe(subscription, opts.client));
       }
     }
@@ -262,7 +233,6 @@ export function connectConvexLive(opts: {
       return;
     }
     sync(event.query);
-    redeliverAfterRefetch(event.query);
   });
   for (const query of opts.queryClient.getAll()) {
     sync(query);
@@ -274,4 +244,64 @@ export function connectConvexLive(opts: {
       stop(hash);
     }
   };
+}
+
+/**
+ * A {@link convexQuery} entry's values as a stream: the cached value first,
+ * if there is one, then every new value the entry takes.
+ *
+ * The entry is read through the cache, so it shares one request with any
+ * `ensure` or `prefetch` of the same query and args. While the stream runs it
+ * also holds its own Convex subscription and writes every result into the
+ * entry, so it doesn't depend on {@link connectConvexLive} or another reader
+ * to see the server's next answer. A failing subscription invalidates the
+ * entry, as the live sync does, and the stream keeps waiting.
+ *
+ * @example
+ * // the first profile with a user, without waiting more than 10s
+ * watchConvexQuery({ client, queryClient }, { args: {}, query: api.profile.get }).pipe(
+ *   Stream.filter((me) => me !== null),
+ *   Stream.runHead,
+ *   Effect.timeoutOption("10 seconds"),
+ * );
+ */
+export function watchConvexQuery<TQuery extends QueryReference>(
+  opts: { client: ConvexWatchClient; queryClient: QueryClient<ConvexReader> },
+  watch: { args: FunctionArgs<TQuery>; query: TQuery },
+) {
+  const factory = convexQuery(watch.query);
+  const hash = hashKey(factory(watch.args).queryKey);
+  return Stream.callback<FunctionReturnType<TQuery>>((queue) =>
+    Effect.acquireRelease(
+      Effect.sync(() => {
+        let last: FunctionReturnType<TQuery> | undefined;
+        const emit = () => {
+          const value = opts.queryClient.getData(factory, watch.args);
+          if (value !== undefined && value !== last) {
+            last = value;
+            Queue.offerUnsafe(queue, value);
+          }
+        };
+        const unsubscribe = opts.queryClient.subscribe((event) => {
+          if (event.query.hash === hash) {
+            emit();
+          }
+        });
+        emit();
+        opts.queryClient.prefetch(factory, watch.args);
+        const watching = subscribe(
+          querySubscription(
+            { args: watch.args, kind: "query", name: getFunctionName(watch.query) },
+            opts.queryClient,
+          ),
+          opts.client,
+        );
+        return () => {
+          unsubscribe();
+          watching.unsubscribe();
+        };
+      }),
+      (stop) => Effect.sync(stop),
+    ),
+  );
 }

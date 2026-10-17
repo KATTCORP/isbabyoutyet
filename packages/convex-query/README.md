@@ -11,6 +11,7 @@ live bridge keeps every cached entry subscribed, so components read plain
 reader.ts   ConvexReader Effect service: browser watch reads, server snapshot reads
 queries.ts  convexQuery / convexPaginatedQuery factories (stable keys, Effect queryFns)
 live.ts     connectConvexLive: subscribe cached entries, write results into the cache
+            watchConvexQuery: one entry's values as an Effect Stream
 testing.ts  makeTestConvexClient: a watch client over any async runner (convex-test)
 ```
 
@@ -50,15 +51,13 @@ loader: async (opts) =>
     ),
   }),
 
-const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile, {
-  throwOnError: true,
-});
+const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile);
 ```
 
-The query functions are Effects with a typed `ConvexQueryError`, so on a
-client with a `layer` `useQuery` returns a `Result` by default. Pass
-`throwOnError: true` to read the data and let failures reach the route's error
-boundary.
+The query functions are Effects with a typed `ConvexQueryError`. Both
+factories set `throwOnError: true`, so reads get the data and failures reach
+the route's error boundary. Pass `throwOnError: false` on a read to get a
+`Result` instead.
 
 Type props that receive a loader handle with `EnsuredConvexQuery<typeof
 api.profile.get>` or `EnsuredConvexPaginatedQuery<typeof
@@ -73,6 +72,22 @@ Read data in a loader from the handle `ensure` resolves with:
 `(await queryClient.ensure(...)).data`. Effects that compose several reads
 (for example push-capability detection) call `readConvexQuery(query, args)`
 directly.
+
+## Waiting for a value
+
+`watchConvexQuery({ client, queryClient }, { args, query })` is an Effect
+`Stream` of one entry's values: the cached value, then every change. It reads
+through the cache (so it shares the request with loaders' `ensure`) and holds
+its own Convex subscription while it runs, writing each result into the entry.
+Compose it to wait for a value, for example the profile after sign-in:
+
+```ts
+watchConvexQuery({ client, queryClient }, { args: {}, query: api.profile.get }).pipe(
+  Stream.filter((me) => me !== null),
+  Stream.runHead,
+  Effect.timeoutOption("10 seconds"),
+);
+```
 
 ## Testing
 

@@ -155,6 +155,8 @@
     "eslint/no-underscore-dangle": ["error", { "allow": ["_id", "_creationTime", "_exhaustive"] }],
     "workspace/no-manual-memoization": "error",
     "workspace/no-convex-query-hooks": "error",
+    // `useWaterfall` starts a query during render; start it in the loader.
+    "workspace/no-raf-query-waterfall": "error",
     "workspace/no-use-effect": "error",
     "workspace/no-use-state": "error",
     // Always on — including projects/*/web/src/lib — so banned hooks cannot be
@@ -634,6 +636,7 @@
       "files": [
         "packages/convex-cli/src/**",
         "packages/convex-query/src/**",
+        "projects/isbabyoutyet/web/src/lib/auth-client.ts",
         "projects/isbabyoutyet/web/src/lib/browser-push-capability.ts",
         "packages/scripts/src/**",
         "projects/isbabyoutyet/backend/scripts/**"
