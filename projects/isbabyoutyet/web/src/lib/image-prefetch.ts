@@ -10,10 +10,10 @@ const BROWSER_IMAGE_PREFETCH_KEY = "browserImagePrefetch";
  */
 export function browserImageQuery(imageUrl: string) {
   return queryOptions({
+    enabled: globalThis.window !== undefined,
     queryFn: () => loadBrowserImage(imageUrl),
     queryKey: [BROWSER_IMAGE_PREFETCH_KEY, imageUrl],
     retry: false,
-    enabled: typeof window !== "undefined",
     staleTime: Infinity,
   });
 }

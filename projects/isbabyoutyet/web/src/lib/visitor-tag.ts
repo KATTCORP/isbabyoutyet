@@ -15,6 +15,7 @@ import { peekVisitorId } from "@/lib/use-visitor-id";
  */
 export function visitorTagQuery(babyId: string) {
   return queryOptions({
+    enabled: globalThis.window !== undefined,
     queryFn: () => {
       const visitorId = peekVisitorId();
       return visitorId
@@ -22,7 +23,6 @@ export function visitorTagQuery(babyId: string) {
         : Effect.succeed(null);
     },
     queryKey: ["visitorTag", babyId],
-    enabled: typeof window !== "undefined",
     staleTime: Infinity,
   });
 }

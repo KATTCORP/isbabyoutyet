@@ -29,10 +29,10 @@ const SERVICE_WORKER_READY_TIMEOUT_MS = 5000;
  */
 export function browserPushCapabilityQuery(babyRef: string) {
   return queryOptions({
+    enabled: globalThis.window !== undefined,
     queryFn: () => resolveBrowserPushCapability(babyRef),
     queryKey: [BROWSER_PUSH_CAPABILITY_KEY, babyRef],
     retry: false,
-    enabled: typeof window !== "undefined",
     staleTime: 0,
   });
 }
