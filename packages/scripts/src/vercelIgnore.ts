@@ -21,10 +21,16 @@ export type BuildDecision =
   | { readonly files: ReadonlyArray<string>; readonly kind: "build"; readonly reason: string }
   | { readonly kind: "skip"; readonly reason: string };
 
-/** Runs `git` with these arguments: trimmed stdout, or `null` when it fails. */
+/**
+ * Runs `git` with these arguments: trimmed stdout, or `null` when it fails.
+ * @internal
+ */
 export type Git = (args: ReadonlyArray<string>) => string | null;
 
-/** The `VERCEL_*` system env vars that pick the diff base. */
+/**
+ * The `VERCEL_*` system env vars that pick the diff base.
+ * @internal
+ */
 export type VercelDeploy = {
   /** `VERCEL_GIT_COMMIT_REF` */
   readonly branch: string | undefined;
