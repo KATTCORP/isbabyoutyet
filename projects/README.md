@@ -17,8 +17,10 @@ project, every workspace it depends on (read from `package.json`), and root
 install files (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`,
 `turbo.json`, `.nvmrc`, `.npmrc`). Docs, tests and agent config never count.
 It diffs against the branch's last successful deploy, or the merge-base with
-`main` on a first deploy, and builds whenever it cannot tell. Vercel runs it
-before install, so it may only import Node built-ins and relative `.ts` files.
+`main` on a first deploy, and builds whenever it cannot tell. Vercel's clone is
+shallow and has no `origin`, so it fetches the base from the GitHub repo. Vercel
+runs it before install, so it may only import Node built-ins and relative `.ts`
+files.
 
 ## Rules for every `projects/*/web`
 
