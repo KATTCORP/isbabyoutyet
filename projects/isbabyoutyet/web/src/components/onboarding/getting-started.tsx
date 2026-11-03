@@ -27,18 +27,21 @@ type TourBaby = {
   publicId: string;
 };
 
-type GettingStartedCardProps = {
-  className: string | undefined;
-  effectiveSteps: Array<string>;
-  minimized: boolean;
+type ChecklistStepProps = {
   onDismiss: () => void;
   /** Baby-page: scroll to and highlight a control */
   onGoToStep: ((stepId: OnboardingStepId) => void) | undefined;
-  onMinimize: (minimized: boolean) => void;
   /** Current route context for CTAs */
   surface: "dashboard" | "baby";
   /** First owned baby — preferred deep-link target from dashboard CTAs only */
   tourBaby: TourBaby | null;
+};
+
+type GettingStartedCardProps = ChecklistStepProps & {
+  className: string | undefined;
+  effectiveSteps: Array<string>;
+  minimized: boolean;
+  onMinimize: (minimized: boolean) => void;
 };
 
 type StepAction =
@@ -311,7 +314,7 @@ export function GettingStartedCard(props: GettingStartedCardProps) {
   );
 }
 
-type ChecklistContentsProps = GettingStartedCardProps & {
+type ChecklistContentsProps = ChecklistStepProps & {
   closeWithDrawerClose: boolean;
   done: Set<string>;
   nextStep: OnboardingStep | undefined;
@@ -354,7 +357,6 @@ function ChecklistContents(props: ChecklistContentsProps) {
                 closeWithDrawerClose={props.closeWithDrawerClose}
                 isDone={isDone}
                 onBeforeAction={props.onBeforeAction}
-                step={step}
                 title={t(step.title)}
               />
             </li>
@@ -403,7 +405,6 @@ function StepRow(props: {
   closeWithDrawerClose: boolean;
   isDone: boolean;
   onBeforeAction: (() => void) | undefined;
-  step: OnboardingStep;
   title: string;
 }) {
   const inner = (

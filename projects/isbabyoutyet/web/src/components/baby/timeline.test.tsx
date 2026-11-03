@@ -145,7 +145,6 @@ async function renderTimelineFeed(
         <LocaleProvider locale="en-GB">
           <TimelineFeed
             baby={opts.baby}
-            babyId={opts.babyId}
             babyName={opts.baby.name}
             isOwner={opts.isOwner}
             publicId={opts.publicId}

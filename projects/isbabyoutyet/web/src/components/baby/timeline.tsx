@@ -1295,7 +1295,6 @@ function EncouragementTimelineItem(props: EncouragementTimelineItemProps) {
 
 type TimelineFeedProps = {
   baby: BabyData;
-  babyId: Id<"baby">;
   babyName: string;
   isOwner: boolean;
   publicId: string;

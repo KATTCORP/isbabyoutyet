@@ -431,7 +431,6 @@ function BabyPageLayout() {
             >
               <TimelineFeed
                 baby={baby}
-                babyId={babyDoc._id}
                 babyName={baby.name}
                 isOwner={canManage}
                 publicId={babyDoc.publicId}
