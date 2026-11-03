@@ -426,7 +426,7 @@ function BabyPageLayout() {
             </section>
 
             <section
-              className="rounded-[2rem] border-2 border-border bg-card p-6 pop-shadow md:p-8"
+              className="rounded-[2rem] border-2 border-border bg-card px-4 py-6 pop-shadow sm:p-6 md:p-8"
               id={BABY_FEED_HASH}
             >
               <TimelineFeed
