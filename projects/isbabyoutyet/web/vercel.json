@@ -3,5 +3,6 @@
   "framework": "tanstack-start",
   "buildCommand": "cd ../../.. && pnpm turbo run build:vercel configure:vercel --filter=@isbabyoutyet/web... --env-mode=loose",
   "installCommand": "cd ../../.. && pnpm install",
+  "ignoreCommand": "node ../../../packages/scripts/src/vercelIgnoreBuild.ts",
   "trailingSlash": false
 }

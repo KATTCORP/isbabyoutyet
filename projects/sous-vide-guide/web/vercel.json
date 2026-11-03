@@ -3,5 +3,6 @@
   "framework": "tanstack-start",
   "buildCommand": "pnpm build",
   "installCommand": "cd ../../.. && pnpm install",
+  "ignoreCommand": "node ../../../packages/scripts/src/vercelIgnoreBuild.ts",
   "trailingSlash": false
 }
