@@ -1,5 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
+import type { ESTree, Scope } from "@oxlint/plugins";
+
 /**
  * Report route loader data that nothing in the route file reads.
  *
@@ -49,6 +51,10 @@ function containingFunction(node) {
   return current;
 }
 
+function isParam(node) {
+  return isFunction(node.parent) && node.parent.params.includes(node);
+}
+
 function staticKey(node) {
   if (node.type === "Identifier") {
     return node.name;
@@ -84,7 +90,10 @@ function calleeName(callee) {
 
 function unwrap(node) {
   let current = node;
-  while (current && (TRANSPARENT_WRAPPERS.has(current.type) || current.type === "AwaitExpression")) {
+  while (
+    current &&
+    (TRANSPARENT_WRAPPERS.has(current.type) || current.type === "AwaitExpression")
+  ) {
     current = current.type === "AwaitExpression" ? current.argument : current.expression;
   }
   return current;
@@ -151,10 +160,14 @@ export const noUnusedLoaderData = defineRule({
     /** Loader function → its route options object. */
     const loaderFunctions = new Map();
     /** Loader-data expressions whose target route is resolved on `Program:exit`. */
-    const reads = [];
+    const reads: {
+      kind: "call" | "expression" | "pattern";
+      node: ESTree.Node;
+      routeName: string | null;
+    }[] = [];
 
     function findVariable(identifier) {
-      let scope = sourceCode.getScope(identifier);
+      let scope: Scope | null = sourceCode.getScope(identifier);
       while (scope) {
         const variable = scope.set.get(identifier.name);
         if (variable) {
@@ -211,7 +224,7 @@ export const noUnusedLoaderData = defineRule({
         return { kind: "value", node: value };
       }
       if (value.type === "ObjectExpression") {
-        const entries = [];
+        const entries: { key: string; node: ESTree.Node; value: ESTree.Node }[] = [];
         for (const property of value.properties) {
           if (property.type === "SpreadElement") {
             const spread = resolveReturn(property.argument, depth + 1);
@@ -390,22 +403,36 @@ export const noUnusedLoaderData = defineRule({
       }
     }
 
+    function addLoader(property) {
+      if (
+        propertyKey(property) !== "loader" ||
+        !isFunction(property.value) ||
+        property.parent?.type !== "ObjectExpression" ||
+        !isRouteOptions(property.parent)
+      ) {
+        return;
+      }
+      const options = property.parent;
+      routes.set(options, { name: routeVariableName(options), returns: [] });
+      loaderFunctions.set(property.value, options);
+      if (property.value.body.type !== "BlockStatement") {
+        routes.get(options).returns.push(property.value.body);
+      }
+    }
+
+    function collectReadUsage(read, usage) {
+      if (read.kind === "pattern") {
+        if (!collectPatternUsage(read.node.value, usage)) {
+          readIdentifierReferences(read.node.parent.parent, read.node.value.name, usage);
+        }
+      } else if (read.kind === "expression" || !collectSelectUsage(read.node, usage)) {
+        collectUsage(read.node, usage);
+      }
+    }
+
     return {
       Property(node) {
-        if (
-          propertyKey(node) !== "loader" ||
-          !isFunction(node.value) ||
-          node.parent?.type !== "ObjectExpression" ||
-          !isRouteOptions(node.parent)
-        ) {
-          return;
-        }
-        const options = node.parent;
-        routes.set(options, { name: routeVariableName(options), returns: [] });
-        loaderFunctions.set(node.value, options);
-        if (node.value.body.type !== "BlockStatement") {
-          routes.get(options).returns.push(node.value.body);
-        }
+        addLoader(node);
       },
 
       ReturnStatement(node) {
@@ -434,7 +461,7 @@ export const noUnusedLoaderData = defineRule({
       },
 
       ObjectPattern(node) {
-        if (!isFunction(node.parent) || !node.parent.params.includes(node)) {
+        if (!isParam(node)) {
           return;
         }
         for (const property of node.properties) {
@@ -455,13 +482,7 @@ export const noUnusedLoaderData = defineRule({
 
         for (const read of reads) {
           const usage = { keys: new Set(), whole: false };
-          if (read.kind === "pattern") {
-            if (!collectPatternUsage(read.node.value, usage)) {
-              readIdentifierReferences(read.node.parent.parent, read.node.value.name, usage);
-            }
-          } else if (read.kind === "expression" || !collectSelectUsage(read.node, usage)) {
-            collectUsage(read.node, usage);
-          }
+          collectReadUsage(read, usage);
           for (const options of targetRoutes(read)) {
             const target = usages.get(options);
             target.whole ||= usage.whole;
