@@ -440,6 +440,7 @@
         "workspace/no-optional": "error",
         "workspace/no-overzealous-destructuring": "error",
         "workspace/no-rhf-watch": "error",
+        "workspace/no-unused-props": "error",
         // Automatic JSX runtime — no React import required.
         "react/react-in-jsx-scope": "off"
       }
