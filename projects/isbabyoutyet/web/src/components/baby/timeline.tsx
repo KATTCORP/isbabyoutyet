@@ -779,6 +779,14 @@ const MILESTONE_EMOJI = {
   labor_started: "💫",
 } satisfies Record<Milestone, string>;
 
+/**
+ * Feed items are a speech bubble beside a gutter avatar from `sm` up. On
+ * phones the gutter would squeeze the text into a narrow column, so the avatar
+ * moves inline into the header and the bubble tightens its padding instead.
+ */
+const TIMELINE_BUBBLE =
+  "min-w-0 flex-1 rounded-2xl border-2 p-3 sm:rounded-3xl sm:rounded-ss-lg sm:p-4";
+
 const emptyActionSchema = z.object({});
 
 function PinAsPagePhotoForm(props: {
@@ -956,13 +964,19 @@ function UpdateTimelineItem(props: UpdateTimelineItemProps) {
     <div className="group flex items-start gap-3">
       <span
         aria-hidden="true"
-        className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-primary/25 bg-primary/10 text-lg"
+        className="mt-1 hidden size-10 shrink-0 items-center justify-center rounded-full border-2 border-primary/25 bg-primary/10 text-lg sm:flex"
       >
         {bubbleEmoji}
       </span>
-      <div className="min-w-0 flex-1 rounded-3xl rounded-tl-lg border-2 border-primary/20 bg-primary/5 p-4">
+      <div className={cn(TIMELINE_BUBBLE, "border-primary/20 bg-primary/5")}>
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="flex size-6 shrink-0 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-xs sm:hidden"
+            >
+              {bubbleEmoji}
+            </span>
             <span className="font-medium text-foreground truncate">
               {t("{{name}}'s family", { name: props.babyName })}
             </span>
@@ -1219,35 +1233,33 @@ function EncouragementTimelineItem(props: EncouragementTimelineItemProps) {
     <div className="group flex items-start gap-3">
       <span
         aria-hidden="true"
-        className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-border bg-secondary/40 text-base font-black text-secondary-foreground"
+        className="mt-1 hidden size-10 shrink-0 items-center justify-center rounded-full border-2 border-border bg-secondary/40 text-base font-black text-secondary-foreground sm:flex"
       >
         {initial}
       </span>
-      <div className="min-w-0 flex-1 rounded-3xl rounded-tl-lg border-2 border-border/70 bg-muted/30 p-4">
+      <div className={cn(TIMELINE_BUBBLE, "border-border/70 bg-muted/30")}>
         <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-medium text-foreground truncate">
-                {encouragement.authorName}
-              </span>
-              <span
-                className="text-xs text-muted-foreground shrink-0"
-                title={new Date(encouragement.createdAt).toLocaleString(locale, {
-                  timeZone: props.timeZone,
-                })}
-              >
-                {getRelativeTimeFromTimestamp(encouragement.createdAt, locale)}
-              </span>
-              {isOwnPost && <span className="text-xs text-primary/70 shrink-0">{t("(you)")}</span>}
-            </div>
-
-            <div className="min-w-0 max-w-none break-words text-sm text-muted-foreground prose prose-sm [overflow-wrap:anywhere] dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-a:text-primary [&_code]:whitespace-pre-wrap [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto">
-              <Streamdown>{encouragement.message}</Streamdown>
-            </div>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-secondary/40 text-xs font-black text-secondary-foreground sm:hidden"
+            >
+              {initial}
+            </span>
+            <span className="font-medium text-foreground truncate">{encouragement.authorName}</span>
+            <span
+              className="text-xs text-muted-foreground shrink-0"
+              title={new Date(encouragement.createdAt).toLocaleString(locale, {
+                timeZone: props.timeZone,
+              })}
+            >
+              {getRelativeTimeFromTimestamp(encouragement.createdAt, locale)}
+            </span>
+            {isOwnPost && <span className="text-xs text-primary/70 shrink-0">{t("(you)")}</span>}
           </div>
 
           {(canEdit || canDelete) && (
-            <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity shrink-0">
+            <div className="-my-1 flex gap-1 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity shrink-0">
               {canEdit && (
                 <Popover {...overlay.rootProps}>
                   <PopoverTrigger
@@ -1285,6 +1297,10 @@ function EncouragementTimelineItem(props: EncouragementTimelineItemProps) {
               )}
             </div>
           )}
+        </div>
+
+        <div className="mt-1 min-w-0 max-w-none break-words text-sm text-muted-foreground prose prose-sm [overflow-wrap:anywhere] dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-a:text-primary [&_code]:whitespace-pre-wrap [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto">
+          <Streamdown>{encouragement.message}</Streamdown>
         </div>
       </div>
     </div>

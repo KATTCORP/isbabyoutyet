@@ -529,6 +529,41 @@ test("renders historical milestone badges regardless of current selection", asyn
   expect(feed.getByText("Labour started")).toBeTruthy();
 });
 
+test("timeline avatars stay decorative beside the visible author name", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+  const baby = await seedOwnerBaby(harness);
+  await seedTimelineEncouragement(harness, {
+    authorName: "Grandma",
+    babyId: baby.babyId,
+    message: "Can't wait to meet you!",
+  });
+  await postTestUpdate(harness, { babyId: baby.babyId, message: "A family update" });
+
+  await using feed = await renderTimelineFeed(harness, {
+    baby: notYetBaby,
+    babyId: baby.babyId,
+    isOwner: true,
+    publicId: baby.publicId,
+    visitorId: undefined,
+  });
+
+  const encouragement = await updateRow(feed, "Can't wait to meet you!");
+  expect(encouragement.getByText("Grandma")).toBeTruthy();
+  const initials = encouragement.getAllByText("G");
+  expect(initials.length).toBeGreaterThan(0);
+  for (const initial of initials) {
+    expect(initial.getAttribute("aria-hidden")).toBe("true");
+  }
+
+  const update = await updateRow(feed, "A family update");
+  expect(update.getByText("Baby Smith's family")).toBeTruthy();
+  const bubbles = update.getAllByText("💬");
+  expect(bubbles.length).toBeGreaterThan(0);
+  for (const bubble of bubbles) {
+    expect(bubble.getAttribute("aria-hidden")).toBe("true");
+  }
+});
+
 test("timeline photos link to the update photo overlay", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
   const baby = await seedOwnerBaby(harness);
