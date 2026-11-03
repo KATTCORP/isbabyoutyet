@@ -23,13 +23,16 @@ type OnboardingSession = {
   isPending: boolean;
 };
 
-type OnboardingHostProps = {
-  /** Baby-page owners only — visitors never see the tour */
-  enabled: boolean | undefined;
+type OnboardingHostAuthedProps = {
   onboarding: EnsuredConvexQuery<typeof api.onboarding.getMine>;
   /** Hide spotlight tips (e.g. while a modal is open) */
   spotlight: boolean | undefined;
   surface: "dashboard" | "baby";
+};
+
+type OnboardingHostProps = OnboardingHostAuthedProps & {
+  /** Baby-page owners only — visitors never see the tour */
+  enabled: boolean | undefined;
 };
 
 function isHtmlElement(value: Element | null): value is HTMLElement {
@@ -117,7 +120,7 @@ export function OnboardingHostWithSession(
   return <OnboardingHostAuthed {...props} />;
 }
 
-function OnboardingHostAuthed(props: OnboardingHostProps) {
+function OnboardingHostAuthed(props: OnboardingHostAuthedProps) {
   const [progress] = useQuery(convexQuery(api.onboarding.getMine), props.onboarding);
   const {
     completeStep,
