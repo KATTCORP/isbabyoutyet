@@ -672,7 +672,9 @@
       // order (`validateSearch` before `loader`, `loader` before `head`).
       "files": ["projects/*/web/src/routes/**/*.{ts,tsx}"],
       "rules": {
-        "perfectionist/sort-objects": "off"
+        "perfectionist/sort-objects": "off",
+        // An unread loader key is dead data; an unread handle is a wasted query.
+        "workspace/no-unused-loader-data": "error"
       }
     }
   ]
