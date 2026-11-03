@@ -74,7 +74,10 @@ const PRODUCTION_REF = `refs/remotes/origin/${PRODUCTION_BRANCH}`;
 /** Vercel clones 10 commits deep. Deepen in steps before giving up and building. */
 const FETCH_DEPTHS = [100, 1000];
 
-/** Reads the `packages:` block list from `pnpm-workspace.yaml`. */
+/**
+ * Reads the `packages:` block list from `pnpm-workspace.yaml`.
+ * @internal
+ */
 export function parseWorkspaceGlobs(yaml: string) {
   const globs: Array<string> = [];
   let inPackages = false;
@@ -95,6 +98,10 @@ export function parseWorkspaceGlobs(yaml: string) {
   return globs;
 }
 
+/**
+ * Reads a workspace `package.json`; `null` when it has no name.
+ * @internal
+ */
 export function parseWorkspacePackage(opts: { dir: string; manifest: string }) {
   const value: unknown = JSON.parse(opts.manifest);
   if (!isPlainObject(value) || !isString(value.name)) {
