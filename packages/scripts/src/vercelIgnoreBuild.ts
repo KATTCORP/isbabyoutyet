@@ -38,6 +38,9 @@ function decide(): BuildDecision {
       branch: process.env.VERCEL_GIT_COMMIT_REF,
       environment: process.env.VERCEL_ENV,
       previousSha: process.env.VERCEL_GIT_PREVIOUS_SHA,
+      provider: process.env.VERCEL_GIT_PROVIDER,
+      repoOwner: process.env.VERCEL_GIT_REPO_OWNER,
+      repoSlug: process.env.VERCEL_GIT_REPO_SLUG,
     },
     git,
   });

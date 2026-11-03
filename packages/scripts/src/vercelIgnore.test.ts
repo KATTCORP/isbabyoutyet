@@ -265,9 +265,18 @@ const PREVIEW: VercelDeploy = {
   branch: "cursor/feature",
   environment: "preview",
   previousSha: undefined,
+  provider: "github",
+  repoOwner: "KATTCORP",
+  repoSlug: "isbabyoutyet",
 };
+const GITHUB = "https://github.com/KATTCORP/isbabyoutyet.git";
 const MERGE_BASE = "merge-base HEAD refs/remotes/origin/main";
+const ORIGIN = "remote get-url origin";
 const SHALLOW = "rev-parse --is-shallow-repository";
+
+function fetches(calls: ReadonlyArray<string>) {
+  return calls.filter((call) => call.startsWith("fetch"));
+}
 
 describe("resolveDiffBase", () => {
   test("uses the previous deploy when its commit is present", () => {
@@ -278,15 +287,41 @@ describe("resolveDiffBase", () => {
     expect(git.calls).toStrictEqual(["cat-file -e abc^{commit}"]);
   });
 
-  test("fetches the previous deploy into a shallow clone", () => {
+  test("fetches the previous deploy into a shallow clone from origin", () => {
     const git = scriptedGit([
       ["cat-file -e abc^{commit}", [null, ""]],
       [SHALLOW, ["true"]],
-      ["fetch --no-tags --depth=1 origin abc", [""]],
+      [ORIGIN, [GITHUB]],
     ]);
     expect(
       resolveDiffBase({ deploy: { ...PREVIEW, previousSha: "abc" }, git: git.git }),
     ).toMatchObject({ kind: "found", sha: "abc" });
+    expect(fetches(git.calls)).toStrictEqual(["fetch --no-tags --depth=1 origin abc"]);
+  });
+
+  test("fetches from the GitHub repo Vercel names when there is no origin", () => {
+    const git = scriptedGit([
+      ["cat-file -e abc^{commit}", [null, ""]],
+      [SHALLOW, ["true"]],
+    ]);
+    expect(
+      resolveDiffBase({ deploy: { ...PREVIEW, previousSha: "abc" }, git: git.git }),
+    ).toMatchObject({ kind: "found", sha: "abc" });
+    expect(fetches(git.calls)).toStrictEqual([`fetch --no-tags --depth=1 ${GITHUB} abc`]);
+  });
+
+  test("never fetches without origin or a GitHub repo to fetch from", () => {
+    const git = scriptedGit([
+      [MERGE_BASE, [null]],
+      ["rev-parse HEAD", ["head"]],
+      [SHALLOW, ["true"]],
+    ]);
+    const deploy = { ...PREVIEW, provider: "gitlab" };
+    expect(resolveDiffBase({ deploy, git: git.git })).toMatchObject({ kind: "unknown" });
+    expect(
+      resolveDiffBase({ deploy: { ...deploy, previousSha: "abc" }, git: git.git }),
+    ).toMatchObject({ kind: "unknown" });
+    expect(fetches(git.calls)).toStrictEqual([]);
   });
 
   test("gives up on a previous deploy that cannot be fetched", () => {
@@ -304,7 +339,7 @@ describe("resolveDiffBase", () => {
     expect(resolveDiffBase({ deploy: PREVIEW, git: git.git })).toMatchObject({
       kind: "unknown",
     });
-    expect(git.calls.filter((call) => call.startsWith("fetch"))).toStrictEqual([]);
+    expect(fetches(git.calls)).toStrictEqual([]);
   });
 
   test.each([
@@ -313,9 +348,9 @@ describe("resolveDiffBase", () => {
     { branch: "hotfix", environment: "production" },
   ])("has no base for production without a previous deploy ($branch, $environment)", (row) => {
     const git = scriptedGit([[MERGE_BASE, ["def"]]]);
-    expect(
-      resolveDiffBase({ deploy: { ...row, previousSha: undefined }, git: git.git }),
-    ).toMatchObject({ kind: "unknown" });
+    expect(resolveDiffBase({ deploy: { ...PREVIEW, ...row }, git: git.git })).toMatchObject({
+      kind: "unknown",
+    });
     expect(git.calls).toStrictEqual([]);
   });
 
@@ -335,9 +370,9 @@ describe("resolveDiffBase", () => {
       [SHALLOW, ["true"]],
     ]);
     expect(resolveDiffBase({ deploy: PREVIEW, git: git.git })).toMatchObject({ sha: "def" });
-    expect(git.calls.filter((call) => call.startsWith("fetch"))).toStrictEqual([
-      "fetch --no-tags --depth=100 origin head +refs/heads/main:refs/remotes/origin/main",
-      "fetch --no-tags --depth=1000 origin head +refs/heads/main:refs/remotes/origin/main",
+    expect(fetches(git.calls)).toStrictEqual([
+      `fetch --no-tags --depth=100 ${GITHUB} head +refs/heads/main:refs/remotes/origin/main`,
+      `fetch --no-tags --depth=1000 ${GITHUB} head +refs/heads/main:refs/remotes/origin/main`,
     ]);
   });
 

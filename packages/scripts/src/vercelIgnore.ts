@@ -32,6 +32,12 @@ export type VercelDeploy = {
   readonly environment: string | undefined;
   /** `VERCEL_GIT_PREVIOUS_SHA`: last successful deploy of this project and branch. */
   readonly previousSha: string | undefined;
+  /** `VERCEL_GIT_PROVIDER` */
+  readonly provider: string | undefined;
+  /** `VERCEL_GIT_REPO_OWNER` */
+  readonly repoOwner: string | undefined;
+  /** `VERCEL_GIT_REPO_SLUG` */
+  readonly repoSlug: string | undefined;
 };
 
 export type DiffBase =
@@ -199,30 +205,48 @@ export function decideBuild(opts: {
     : { kind: "skip", reason: `none of ${changed} are build inputs of ${project.name}` };
 }
 
-function isShallow(git: Git) {
-  return git(["rev-parse", "--is-shallow-repository"]) === "true";
+type ResolveOptions = { deploy: VercelDeploy; git: Git };
+
+/**
+ * Where to deepen a shallow clone from, or `null` to never fetch. Vercel's clone
+ * has no `origin` remote, so fall back to the public GitHub URL. Full clones are
+ * never fetched into: `fetch --depth` would make them shallow.
+ */
+function fetchSource(opts: ResolveOptions) {
+  if (opts.git(["rev-parse", "--is-shallow-repository"]) !== "true") {
+    return null;
+  }
+  if (opts.git(["remote", "get-url", "origin"]) !== null) {
+    return "origin";
+  }
+  const deploy = opts.deploy;
+  return deploy.provider === "github" && deploy.repoOwner && deploy.repoSlug
+    ? `https://github.com/${deploy.repoOwner}/${deploy.repoSlug}.git`
+    : null;
 }
 
-function hasCommit(opts: { git: Git; sha: string }) {
+function hasCommit(opts: ResolveOptions & { sha: string }) {
   const verify = ["cat-file", "-e", `${opts.sha}^{commit}`];
   if (opts.git(verify) !== null) {
     return true;
   }
-  // `fetch --depth` would make a full clone shallow, so only deepen Vercel's clone.
-  if (!isShallow(opts.git)) {
+  const source = fetchSource(opts);
+  if (source === null) {
     return false;
   }
-  opts.git(["fetch", "--no-tags", "--depth=1", "origin", opts.sha]);
+  opts.git(["fetch", "--no-tags", "--depth=1", source, opts.sha]);
   return opts.git(verify) !== null;
 }
 
-function mergeBaseWithProduction(git: Git) {
+function mergeBaseWithProduction(opts: ResolveOptions) {
+  const git = opts.git;
   const local = git(["merge-base", "HEAD", PRODUCTION_REF]);
   if (local) {
     return local;
   }
   const head = git(["rev-parse", "HEAD"]);
-  if (!head || !isShallow(git)) {
+  const source = fetchSource(opts);
+  if (!head || source === null) {
     return null;
   }
   for (const depth of FETCH_DEPTHS) {
@@ -230,7 +254,7 @@ function mergeBaseWithProduction(git: Git) {
       "fetch",
       "--no-tags",
       `--depth=${depth}`,
-      "origin",
+      source,
       head,
       `+refs/heads/${PRODUCTION_BRANCH}:${PRODUCTION_REF}`,
     ]);
@@ -247,17 +271,17 @@ function mergeBaseWithProduction(git: Git) {
  * else (a branch's first deploy) against its merge-base with `main`. Production
  * without a previous deploy has no safe base, so it builds.
  */
-export function resolveDiffBase(opts: { deploy: VercelDeploy; git: Git }): DiffBase {
+export function resolveDiffBase(opts: ResolveOptions): DiffBase {
   const previousSha = opts.deploy.previousSha;
   if (previousSha) {
-    return hasCommit({ git: opts.git, sha: previousSha })
+    return hasCommit({ ...opts, sha: previousSha })
       ? { kind: "found", sha: previousSha, source: "VERCEL_GIT_PREVIOUS_SHA" }
       : { kind: "unknown", reason: `previous deploy ${previousSha} is not fetchable` };
   }
   if (opts.deploy.environment === "production" || opts.deploy.branch === PRODUCTION_BRANCH) {
     return { kind: "unknown", reason: "production has no previous successful deploy" };
   }
-  const sha = mergeBaseWithProduction(opts.git);
+  const sha = mergeBaseWithProduction(opts);
   return sha
     ? { kind: "found", sha, source: `merge-base with ${PRODUCTION_BRANCH}` }
     : { kind: "unknown", reason: `no merge-base with ${PRODUCTION_BRANCH}` };
