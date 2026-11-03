@@ -69,7 +69,7 @@
       ]
     },
     "packages/scripts": {
-      "entry": ["src/collectCoverage.ts!", "src/compareCoverage.ts!"]
+      "entry": ["src/collectCoverage.ts!", "src/compareCoverage.ts!", "src/vercelIgnoreBuild.ts!"]
     },
     "packages/convex-cli": {},
     "packages/runtime": {},
