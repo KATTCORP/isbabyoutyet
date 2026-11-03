@@ -10,6 +10,8 @@ import type { BuildDecision } from "./vercelIgnore.ts";
 import { decideBuild, readWorkspacePackages, resolveDiffBase } from "./vercelIgnore.ts";
 
 const MAX_LISTED_FILES = 20;
+/** Re-vendoring `.repos/` lists tens of thousands of paths, past the 1 MiB default. */
+const GIT_OUTPUT_BYTES = 256 * 1024 * 1024;
 
 function git(args: ReadonlyArray<string>) {
   try {
@@ -17,7 +19,9 @@ function git(args: ReadonlyArray<string>) {
       encoding: "utf8",
       // A fetch that needs credentials must fail (and build), not wait on a prompt.
       env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
-      stdio: ["ignore", "pipe", "inherit"],
+      maxBuffer: GIT_OUTPUT_BYTES,
+      // Probes such as `cat-file -e` fail by design; only fetch errors help in the log.
+      stdio: ["ignore", "pipe", args[0] === "fetch" ? "inherit" : "ignore"],
     }).trim();
   } catch {
     return null;
