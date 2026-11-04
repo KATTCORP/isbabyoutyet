@@ -1746,15 +1746,22 @@ function NewerItemsDivider(props: {
 }) {
   const { t } = useI18n();
   const newer = props.newer;
+  const hiddenLabel = newer.more
+    ? t("More than {{count}} newer", { count: newer.count })
+    : t("{{count}} newer", { count: newer.count });
+  const showLabel = t("Show {{count}} more", { count: Math.min(newer.count, TIMELINE_PAGE_SIZE) });
   return (
-    <div className="flex items-center gap-2 sm:gap-3" data-newer-divider="">
+    // Narrow screens put "Jump to latest" under the button, the rules level
+    // with the button; wider ones keep all three on the rule's line.
+    <div className="flex items-start gap-2 sm:items-center sm:gap-3" data-newer-divider="">
       <p className="sr-only" role="status">
         {newer.isFetching ? t("Loading newer updates & encouragements…") : null}
       </p>
-      <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-border" />
-      <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5">
+      <span aria-hidden="true" className="mt-3.5 h-px min-w-4 flex-1 bg-border sm:mt-0" />
+      <div className="flex flex-col items-center sm:flex-row sm:gap-1">
         <Button
-          className="rounded-full font-semibold text-muted-foreground hover:text-foreground"
+          aria-label={`${hiddenLabel}, ${showLabel}`}
+          className="gap-1.5 rounded-full font-semibold text-muted-foreground hover:text-foreground"
           onClick={() => {
             // raf-query would queue a second page behind the one in flight.
             if (newer.isFetching) {
@@ -1769,26 +1776,22 @@ function NewerItemsDivider(props: {
           size="sm"
           variant="ghost"
         >
-          <span>
-            {newer.more
-              ? t("More than {{count}} newer", { count: newer.count })
-              : t("{{count}} newer", { count: newer.count })}
-          </span>
-          <span className="sr-only">,</span> <span aria-hidden="true">·</span>{" "}
+          {hiddenLabel}
+          <span aria-hidden="true">·</span>
           <span className="inline-flex items-center gap-1 font-bold text-primary">
             {newer.isFetching ? (
               <CircleNotchIcon aria-hidden="true" className="animate-spin" weight="bold" />
             ) : (
               <ArrowUpIcon aria-hidden="true" weight="bold" />
             )}
-            {t("Show {{count}} more", { count: Math.min(newer.count, TIMELINE_PAGE_SIZE) })}
+            {showLabel}
           </span>
         </Button>
-        <span aria-hidden="true" className="text-xs text-muted-foreground">
+        <span aria-hidden="true" className="hidden text-xs text-muted-foreground sm:inline">
           ·
         </span>
         <Link
-          className="rounded-full px-2 py-1 text-[0.8rem] font-medium text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="rounded-full px-2 py-0.5 text-xs sm:py-1 sm:text-[0.8rem] font-medium text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
           hash={BABY_FEED_HASH}
           params={{ publicId: props.publicId }}
           search={{}}
@@ -1797,7 +1800,7 @@ function NewerItemsDivider(props: {
           {t("Jump to latest")}
         </Link>
       </div>
-      <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-border" />
+      <span aria-hidden="true" className="mt-3.5 h-px min-w-4 flex-1 bg-border sm:mt-0" />
     </div>
   );
 }

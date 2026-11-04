@@ -1385,7 +1385,7 @@ test("a linked item opens the feed at it, two newer items above it, the rest beh
   expect(feed.queryByText("Message 33")).toBeNull();
 
   const showMore = feed.getByRole("button", { name: "23 newer, Show 20 more" });
-  expect(feed.getByText("23 newer").closest("button")).toBe(showMore);
+  expect(showMore.textContent).toBe("23 newer·Show 20 more");
   // The divider sits above the context, the rules either side of it decorative.
   const divider = htmlElement(showMore.closest("[data-newer-divider]"));
   const firstRow = htmlElement(feed.container.querySelector('[id^="item-"]'));
