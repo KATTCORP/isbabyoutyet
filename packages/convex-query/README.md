@@ -77,6 +77,13 @@ before the first page. raf-query prepends backward pages, and each page's
 live and pinned the same way, so a backward page that is full never takes in
 items beyond it until the next `fetchPreviousPage`.
 
+To open with a little context before the start, load the entry with
+`ensureBidirectionalPaginatedQuery(queryClient, { input, previousNumItems,
+queries })`. It reads a short first backward page of `previousNumItems`
+alongside the first page, not after it, so a loader adds no waterfall.
+Later `fetchPreviousPage`s load full `numItems` pages. While the short page
+is the top page, it stays live at its own size, so newer items stay out of it.
+
 Read data in a loader from the handle `ensure` resolves with:
 `(await queryClient.ensure(...)).data`. Effects that compose several reads
 (for example push-capability detection) call `readConvexQuery(query, args)`

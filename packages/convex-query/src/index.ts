@@ -17,6 +17,7 @@ export {
   type EnsuredConvexBidirectionalPaginatedQuery,
   type EnsuredConvexPaginatedQuery,
   type EnsuredConvexQuery,
+  ensureBidirectionalPaginatedQuery,
   type PaginatedQueryInput,
   type PageDirection,
   type PaginatedQueryReference,

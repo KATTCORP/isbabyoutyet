@@ -11,6 +11,7 @@ import {
   convexBidirectionalPaginatedQuery,
   convexPaginatedQuery,
   convexQuery,
+  ensureBidirectionalPaginatedQuery,
 } from "./queries.ts";
 import { ConvexReader } from "./reader.ts";
 import { makeTestConvexClient } from "./testing.ts";
@@ -30,10 +31,8 @@ const listNewerMessages = makeFunctionReference<
 
 const message = convexQuery(getMessage);
 const messageList = convexPaginatedQuery(listMessages);
-const aroundMessage = convexBidirectionalPaginatedQuery({
-  backward: listNewerMessages,
-  forward: listMessages,
-});
+const aroundQueries = { backward: listNewerMessages, forward: listMessages };
+const aroundMessage = convexBidirectionalPaginatedQuery(aroundQueries);
 
 /** Cursors are item ids: a page starts after its cursor and, if pinned, ends at `endCursor`. */
 function paginate(items: ReadonlyArray<string>, opts: PaginationOptions): PaginationResult<string> {
@@ -328,6 +327,50 @@ describe("connectConvexLive", () => {
     ]);
   });
 
+  it("keeps a short first backward page at its own size, open-ended on top, then pinned", async () => {
+    const live = setup();
+    const input = { args: { room: "lobby" }, numItems: 2 };
+    await ensureBidirectionalPaginatedQuery(live.queryClient, {
+      input,
+      previousNumItems: 1,
+      queries: aroundQueries,
+    });
+    vi.advanceTimersByTime(5000);
+    const newerSubscriptions = () =>
+      live.backend
+        .subscriptions()
+        .filter((subscription) => subscription.name === "messages:listNewer")
+        .map((subscription) => subscription.args);
+    expect(newerSubscriptions()).toEqual([
+      { paginationOpts: { cursor: null, numItems: 1 }, room: "lobby" },
+    ]);
+
+    // Newer than the short page's one item: it stays out, for a count to show.
+    live.newer.push("n5");
+    await live.backend.refresh();
+    expect(live.queryClient.getData(aroundMessage, input)?.pages.map((page) => page.page)).toEqual([
+      ["n1"],
+      ["a", "b"],
+    ]);
+
+    await Effect.runPromise(
+      Query.fetchPreviousPage(live.queryClient.getQuery(aroundMessage, input)),
+    );
+    vi.advanceTimersByTime(5000);
+    expect(newerSubscriptions()).toEqual(
+      expect.arrayContaining([
+        { paginationOpts: { cursor: null, endCursor: "n1", numItems: 1 }, room: "lobby" },
+        { paginationOpts: { cursor: "n1", numItems: 2 }, room: "lobby" },
+      ]),
+    );
+    expect(newerSubscriptions()).toHaveLength(2);
+    expect(live.queryClient.getData(aroundMessage, input)?.pages.map((page) => page.page)).toEqual([
+      ["n2", "n3"],
+      ["n1"],
+      ["a", "b"],
+    ]);
+  });
+
   it("invalidates the entry when its subscription fails", async () => {
     const live = setup();
     await live.queryClient.ensure(message, { id: "a" });
@@ -397,6 +440,14 @@ describe("connectConvexLive", () => {
       {
         data: { pageParams: [{ cursor: null, direction: "sideways" }], pages: [page] },
         key: [CONVEX_PAGINATED_QUERY_KEY, "messages:list", args, 5],
+      },
+      {
+        data: { pageParams: [{ cursor: null }], pages: [page] },
+        key: [CONVEX_PAGINATED_QUERY_KEY, "messages:list", args, 6],
+      },
+      {
+        data: { pageParams: [{ cursor: null, numItems: "7" }], pages: [page] },
+        key: [CONVEX_PAGINATED_QUERY_KEY, "messages:list", args, 7],
       },
     ];
     for (const entry of entries) {

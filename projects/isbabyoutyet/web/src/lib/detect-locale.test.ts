@@ -37,6 +37,10 @@ test("keeps British and American English copy distinct", () => {
   ).toBe("Pick soft pastels, bold colors or whatever feels like you.");
 });
 
+test("American English falls back to the British copy it doesn't override", () => {
+  expect(translate("en-US", "Show {{count}} more", { count: 20 })).toBe("Show 20 more");
+});
+
 test("reads Accept-Language from the current request", () => {
   expect(
     detectLocaleFromRequestHeaders(undefined, {

@@ -5,20 +5,28 @@ import {
   convexBidirectionalPaginatedQuery,
   convexPaginatedQuery,
   convexQuery,
+  ensureBidirectionalPaginatedQuery,
 } from "@workspace/convex-query";
 import { z } from "zod";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 
 export const TIMELINE_PAGE_SIZE = 20;
 
-/**
- * The feed read from a linked item: the item and older ones forward (the
- * skeleton sentinel loads more), newer ones backward on "Show newer" only.
- */
-export const linkedTimelineQuery = convexBidirectionalPaginatedQuery({
+/** How many items newer than a linked one load with it, above it, for context. */
+export const LINKED_ITEM_CONTEXT = 2;
+
+const linkedTimelineQueries = {
   backward: api.timeline.listNewerThanItem,
   forward: api.timeline.listFromItem,
-});
+};
+
+/**
+ * The feed read from a linked item: the item and older ones forward (the
+ * skeleton sentinel loads more), newer ones backward: the
+ * {@link LINKED_ITEM_CONTEXT} right above it with the item, the rest a page
+ * per "Show more".
+ */
+export const linkedTimelineQuery = convexBidirectionalPaginatedQuery(linkedTimelineQueries);
 
 /** Where the feed on screen starts: the latest items, or a linked item. */
 export type TimelineFeedAnchor = { kind: "latest" } | { itemId: string; kind: "linked" };
@@ -61,10 +69,14 @@ async function loadLinkedTimeline(
   const args = linkedTimelineArgs(opts);
   const loaded = await allKeyed({
     newerCount: queryClient.ensure(convexQuery(api.timeline.countNewerThanItem), args),
-    window: queryClient.ensure(linkedTimelineQuery, { args, numItems: TIMELINE_PAGE_SIZE }),
+    window: ensureBidirectionalPaginatedQuery(queryClient, {
+      input: { args, numItems: TIMELINE_PAGE_SIZE },
+      previousNumItems: LINKED_ITEM_CONTEXT,
+      queries: linkedTimelineQueries,
+    }),
   });
-  // A cached window has its "Show newer" pages first; only the item's own
-  // pages, forward from it, say whether it's visible.
+  // Newer pages come first; only the item's own pages, forward from it, say
+  // whether it's visible.
   const itemPage = loaded.window.data.pages.find((page) => "linkedItemVisible" in page);
   if (itemPage && "linkedItemVisible" in itemPage && itemPage.linkedItemVisible) {
     return { itemId: opts.itemId, kind: "linked" as const, ...loaded };

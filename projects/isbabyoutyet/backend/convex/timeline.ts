@@ -282,8 +282,8 @@ function newerThan(ctx: QueryCtx, anchor: Doc<"timelineItems">) {
 export const NEWER_THAN_ITEM_COUNT_CAP = 100;
 
 /**
- * How many feed items are newer than a linked item, for the "Show N newer"
- * button. Capped so a link deep in a busy feed stays a bounded read: past
+ * How many feed items are newer than a linked item, for the divider above
+ * it. Capped so a link deep in a busy feed stays a bounded read: past
  * the cap, `count` is the cap and `more` is true.
  */
 export const countNewerThanItem = query({
