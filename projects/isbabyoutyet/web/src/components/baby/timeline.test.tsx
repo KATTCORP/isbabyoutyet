@@ -145,6 +145,7 @@ async function renderTimelineFeedFrom(
   // As the baby route's loader does on a client navigation.
   await harness.refresh();
   const feed = await loadTimelineFeed(harness.queryClient, {
+    followedFrom: undefined,
     item: opts.item,
     publicId: opts.publicId,
   });
@@ -1056,17 +1057,19 @@ function timelineFeedViewTree(opts: {
   return (
     <LocaleProvider locale="en-GB">
       <TimelineFeedView
+        anchor={{ kind: "latest" }}
         baby={notYetBaby}
         babyName={notYetBaby.name}
         currentVisitorId="visitor-test"
         currentVisitorTag={null}
         fetchNextPage={opts.fetchNextPage}
         hasNextPage={opts.hasNextPage}
+        highlightedItemId={null}
         isFetchingNextPage={opts.isFetchingNextPage}
         isOwner={false}
         items={opts.items}
-        linked={null}
         linkUnavailable={false}
+        newer={null}
         publicId="baby-smith"
         removeEncouragement={vi.fn()}
         removeUpdate={vi.fn()}

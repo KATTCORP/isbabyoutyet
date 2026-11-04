@@ -30,7 +30,7 @@ import { useFormGuard } from "@workspace/form-guard";
 import type { FormGuardHandle } from "@workspace/form-guard";
 
 /** History state marker for push-opened overlays. */
-const overlayHistoryState = { overlay: true as const };
+const overlayHistoryState = { overlay: true as const, timelineFeed: undefined };
 
 function isOverlayHistoryState(state: { overlay: true | undefined }) {
   return state.overlay === true;

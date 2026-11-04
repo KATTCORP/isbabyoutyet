@@ -6,6 +6,7 @@ import {
   convexPaginatedQuery,
   convexQuery,
 } from "@workspace/convex-query";
+import { z } from "zod";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 
 export const TIMELINE_PAGE_SIZE = 20;
@@ -19,31 +20,58 @@ export const linkedTimelineQuery = convexBidirectionalPaginatedQuery({
   forward: api.timeline.listFromItem,
 });
 
+/** Where the feed on screen starts: the latest items, or a linked item. */
+export type TimelineFeedAnchor = { kind: "latest" } | { itemId: string; kind: "linked" };
+
+/**
+ * History state for a link followed from the feed at `anchor`, so the loader
+ * can keep that feed when it already shows the item, instead of reopening it.
+ */
+export function followedFromFeed(anchor: TimelineFeedAnchor) {
+  return { overlay: undefined, timelineFeed: anchor };
+}
+
 /** Convex ids are short base32-ish strings; anything else can't be an item. */
 const FEED_ITEM_ID = /^[0-9a-z]{1,64}$/i;
 
+const timelineFeedAnchorSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("latest") }),
+  z.object({ itemId: z.string().regex(FEED_ITEM_ID), kind: z.literal("linked") }),
+]);
+
+function latestTimelineInput(publicId: string) {
+  return { args: { babyId: publicId }, numItems: TIMELINE_PAGE_SIZE };
+}
+
+function linkedTimelineArgs(opts: { itemId: string; publicId: string }) {
+  return { babyId: opts.publicId, itemId: opts.itemId };
+}
+
 function loadLatestTimeline(queryClient: QueryClient<ConvexReader>, publicId: string) {
-  return queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
-    args: { babyId: publicId },
-    numItems: TIMELINE_PAGE_SIZE,
-  });
+  return queryClient.ensure(
+    convexPaginatedQuery(api.timeline.listByBaby),
+    latestTimelineInput(publicId),
+  );
 }
 
 async function loadLinkedTimeline(
   queryClient: QueryClient<ConvexReader>,
   opts: { itemId: string; publicId: string },
 ) {
-  const args = { babyId: opts.publicId, itemId: opts.itemId };
+  const args = linkedTimelineArgs(opts);
   const loaded = await allKeyed({
     newerCount: queryClient.ensure(convexQuery(api.timeline.countNewerThanItem), args),
     window: queryClient.ensure(linkedTimelineQuery, { args, numItems: TIMELINE_PAGE_SIZE }),
   });
-  const firstPage = loaded.window.data.pages[0];
-  if (firstPage && "linkedItemVisible" in firstPage && firstPage.linkedItemVisible) {
+  // A cached window has its "Show newer" pages first; only the item's own
+  // pages, forward from it, say whether it's visible.
+  const itemPage = loaded.window.data.pages.find((page) => "linkedItemVisible" in page);
+  if (itemPage && "linkedItemVisible" in itemPage && itemPage.linkedItemVisible) {
     return { itemId: opts.itemId, kind: "linked" as const, ...loaded };
   }
-  // Waterfall: whether to fall back depends on the window's first page.
+  // Waterfall: whether to fall back depends on the item's page.
   return {
+    highlightedItemId: null,
     kind: "latest" as const,
     linkUnavailable: true,
     timeline: await loadLatestTimeline(queryClient, opts.publicId),
@@ -51,16 +79,50 @@ async function loadLinkedTimeline(
 }
 
 /**
+ * The feed `item` was followed from, if this browser's cache still has
+ * `item` loaded in it, so the page can keep that feed. Reads nothing.
+ */
+function feedShowingItem(
+  queryClient: QueryClient<ConvexReader>,
+  opts: { followedFrom: TimelineFeedAnchor | undefined; item: string; publicId: string },
+) {
+  const parsed = timelineFeedAnchorSchema.safeParse(opts.followedFrom);
+  if (queryClient.isServer || !parsed.success) {
+    return null;
+  }
+  const anchor = parsed.data;
+  const pages =
+    anchor.kind === "latest"
+      ? queryClient.getData(
+          convexPaginatedQuery(api.timeline.listByBaby),
+          latestTimelineInput(opts.publicId),
+        )?.pages
+      : queryClient.getData(linkedTimelineQuery, {
+          args: linkedTimelineArgs({ itemId: anchor.itemId, publicId: opts.publicId }),
+          numItems: TIMELINE_PAGE_SIZE,
+        })?.pages;
+  const items = pages?.flatMap((page) => page.page) ?? [];
+  return items.some((item) => item._id === opts.item) ? anchor : null;
+}
+
+/**
  * The baby page's feed: the latest items, or the window around `item` when
  * a link names one. A link to an item that's gone, hidden, malformed or on
  * another baby's page falls back to the latest items with `linkUnavailable`.
+ *
+ * `followedFrom` (history state) names the feed `item`'s link was followed
+ * from. When that feed already shows `item`, it stays as loaded and only
+ * the highlight moves, so following a timestamp never collapses the pages
+ * scrolled through. The server never has it, so a cold load always opens
+ * the feed at `item`.
  */
 export async function loadTimelineFeed(
   queryClient: QueryClient<ConvexReader>,
-  opts: { item: string | null; publicId: string },
+  opts: { followedFrom: TimelineFeedAnchor | undefined; item: string | null; publicId: string },
 ) {
   if (opts.item === null) {
     return {
+      highlightedItemId: null,
       kind: "latest" as const,
       linkUnavailable: false,
       timeline: await loadLatestTimeline(queryClient, opts.publicId),
@@ -68,12 +130,30 @@ export async function loadTimelineFeed(
   }
   if (!FEED_ITEM_ID.test(opts.item)) {
     return {
+      highlightedItemId: null,
       kind: "latest" as const,
       linkUnavailable: true,
       timeline: await loadLatestTimeline(queryClient, opts.publicId),
     };
   }
-  return await loadLinkedTimeline(queryClient, { itemId: opts.item, publicId: opts.publicId });
+  const shown = feedShowingItem(queryClient, {
+    followedFrom: opts.followedFrom,
+    item: opts.item,
+    publicId: opts.publicId,
+  });
+  if (shown?.kind === "latest") {
+    return {
+      highlightedItemId: opts.item,
+      kind: "latest" as const,
+      linkUnavailable: false,
+      timeline: await loadLatestTimeline(queryClient, opts.publicId),
+    };
+  }
+  const feed = await loadLinkedTimeline(queryClient, {
+    itemId: shown?.itemId ?? opts.item,
+    publicId: opts.publicId,
+  });
+  return feed.kind === "linked" ? { ...feed, highlightedItemId: opts.item } : feed;
 }
 
 export type TimelineFeedLoad = Awaited<ReturnType<typeof loadTimelineFeed>>;

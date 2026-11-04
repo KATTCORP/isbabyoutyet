@@ -102,7 +102,11 @@ export const Route = createFileRoute("/baby/$publicId")({
           babyId: publicId,
         },
       ),
-      timeline: loadTimelineFeed(queryClient, { item: opts.deps.item, publicId }),
+      timeline: loadTimelineFeed(queryClient, {
+        followedFrom: opts.location.state.timelineFeed,
+        item: opts.deps.item,
+        publicId,
+      }),
       vapidPublicKey: queryClient.ensure(convexQuery(api.pushSubscriptions.getPublicKey), {}),
     });
 
