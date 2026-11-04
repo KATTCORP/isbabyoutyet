@@ -54,7 +54,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { Fragment, useId, useRef } from "react";
 import type { DragEvent, ReactElement, ReactNode } from "react";
-import { AnimatePresence, MotionConfig, motion } from "motion/react";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/react";
 import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -805,8 +805,8 @@ const emptyActionSchema = z.object({});
  * Never preloaded: the router preloads links in view, and every row has one.
  *
  * Clicked in the app, the item is already on screen: the history state names
- * this feed so the loader keeps it, and the page doesn't scroll, so only the
- * highlight moves. A cold load of the same URL opens the feed at the item.
+ * this feed so the loader keeps it, and the item scrolls to where a cold load
+ * of the same URL puts it, without resetting the page to the top first.
  */
 function TimelineItemPermalink(props: {
   feedAnchor: TimelineFeedAnchor;
@@ -818,6 +818,7 @@ function TimelineItemPermalink(props: {
 }) {
   const { locale, t } = useI18n();
   const time = getRelativeTimeFromTimestamp(props.postedAt, locale);
+  const reducedMotion = useReducedMotion();
   return (
     <Link
       aria-label={
@@ -827,7 +828,7 @@ function TimelineItemPermalink(props: {
       }
       className="shrink-0 rounded-sm text-xs text-muted-foreground underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       hash={feedItemDomId(props.itemId)}
-      hashScrollIntoView={false}
+      hashScrollIntoView={{ behavior: reducedMotion ? "auto" : "smooth", block: "start" }}
       params={{ publicId: props.publicId }}
       preload={false}
       resetScroll={false}
