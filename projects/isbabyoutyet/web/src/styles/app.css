@@ -145,3 +145,35 @@ body {
     animation: none;
   }
 }
+
+/*
+ * Linked feed item (`?item=`): a theme-tinted outline that flares when the
+ * page lands on it, then settles into a quiet marker for as long as the link
+ * is open. The outline is the focus indicator too, so it's never removed.
+ */
+@keyframes timeline-linked-item-in {
+  0%,
+  35% {
+    background-color: color-mix(in oklab, var(--primary) 12%, transparent);
+    outline-color: color-mix(in oklab, var(--primary) 70%, transparent);
+    outline-offset: 8px;
+  }
+  100% {
+    background-color: transparent;
+    outline-color: color-mix(in oklab, var(--primary) 35%, transparent);
+    outline-offset: 6px;
+  }
+}
+
+.timeline-linked-item {
+  animation: timeline-linked-item-in 2.4s ease-out both;
+  border-radius: 1.5rem;
+  outline: 2px solid color-mix(in oklab, var(--primary) 35%, transparent);
+  outline-offset: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-linked-item {
+    animation: none;
+  }
+}

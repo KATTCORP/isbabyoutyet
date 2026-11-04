@@ -32,17 +32,20 @@ import { cn } from "@workspace/ui/lib/utils";
 import { useMutation } from "convex/react";
 import type { QueryHandle } from "@raf-query/react";
 import { useQuery } from "@raf-query/react";
-import { convexPaginatedQuery } from "@workspace/convex-query";
-import type { EnsuredConvexPaginatedQuery } from "@workspace/convex-query";
+import { convexPaginatedQuery, convexQuery } from "@workspace/convex-query";
 import {
+  ArrowUpIcon,
   BellRingingIcon,
   CameraIcon,
   CheckIcon,
+  CircleNotchIcon,
   ConfettiIcon,
   HeartIcon,
   HeartbeatIcon,
   HospitalIcon,
   ImageIcon,
+  LinkBreakIcon,
+  LinkSimpleIcon,
   PaperPlaneTiltIcon,
   PencilSimpleIcon,
   PushPinIcon,
@@ -86,6 +89,16 @@ import { useLiveInsertIds } from "@/lib/use-live-insert-ids";
 import { useObjectUrl } from "@/lib/use-object-url";
 import { useBabyUpdatePhotoOverlayLinks } from "@/lib/overlay-nav";
 import { BlurImage } from "@/components/blur-image";
+import { copyTextToClipboard } from "@/lib/copy-text";
+import { keepScrollAnchor } from "@/lib/keep-scroll-anchor";
+import { canonicalUrl } from "@/lib/site-url";
+import type { TimelineFeedLoad } from "@/lib/timeline-feed";
+import { linkedTimelineQuery, TIMELINE_PAGE_SIZE } from "@/lib/timeline-feed";
+import {
+  BABY_FEED_HASH,
+  babyFeedItemUrl,
+  feedItemDomId,
+} from "@isbabyoutyet/backend/src/babyFeedUrl";
 import { MILESTONE_LABEL_KEYS } from "./translation-keys";
 
 const EDIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
@@ -791,6 +804,39 @@ const TIMELINE_BUBBLE =
 
 const emptyActionSchema = z.object({});
 
+/** Copies the item's {@link babyFeedItemUrl}, like the share dialog copies the page's. */
+function CopyItemLinkButton(props: { itemId: Id<"timelineItems">; publicId: string }) {
+  const { t } = useI18n();
+  const copyLink = async () => {
+    try {
+      await copyTextToClipboard(
+        canonicalUrl(babyFeedItemUrl({ itemId: props.itemId, publicId: props.publicId })),
+      );
+      toast.success(t("Link copied"));
+    } catch (error) {
+      toast.error(
+        t("Failed to copy to clipboard: {{detail}}", {
+          detail: error instanceof Error ? error.message : t("Unknown error"),
+        }),
+      );
+    }
+  };
+  return (
+    <Button
+      aria-label={t("Copy link")}
+      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+      onClick={() => {
+        void copyLink();
+      }}
+      size="icon"
+      title={t("Copy link")}
+      variant="ghost"
+    >
+      <LinkSimpleIcon className="w-4 h-4" />
+    </Button>
+  );
+}
+
 function PinAsPagePhotoForm(props: {
   onSetAsCurrentPhoto: (updateId: Id<"updates">) => Promise<void>;
   updateId: Id<"updates">;
@@ -1034,57 +1080,56 @@ function UpdateTimelineItem(props: UpdateTimelineItemProps) {
             </span>
           </div>
 
-          {props.isOwner && (
-            <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity shrink-0">
-              {canPinPhoto && (
-                <PinAsPagePhotoForm
-                  onSetAsCurrentPhoto={props.onSetAsCurrentPhoto}
-                  updateId={update._id}
-                />
-              )}
-              {deleteBlocker ? (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <span
-                        aria-label={t("Delete the {{status}} status first", {
-                          status: MILESTONE_LABELS[deleteBlocker],
-                        })}
-                        className="inline-flex"
-                      />
-                    }
-                  >
-                    {deleteButton}
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {t("Delete the {{status}} status first", {
-                      status: MILESTONE_LABELS[deleteBlocker],
-                    })}
-                  </TooltipContent>
-                </Tooltip>
-              ) : (
-                <DeleteUpdateForm
-                  description={[
-                    update.milestone
-                      ? t("This also unmarks the milestone on the status card.")
-                      : t("This removes the update from the timeline."),
-                    update.photoUrl
-                      ? t(
-                          "If this photo is the current page photo, the previous one takes its place.",
-                        )
-                      : "",
-                    t("This action cannot be undone."),
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  onDelete={props.onDelete}
-                  title={t("Delete update?")}
-                  trigger={deleteButton}
-                  updateId={update._id}
-                />
-              )}
-            </div>
-          )}
+          <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity shrink-0">
+            <CopyItemLinkButton itemId={props.item._id} publicId={props.publicId} />
+            {canPinPhoto && (
+              <PinAsPagePhotoForm
+                onSetAsCurrentPhoto={props.onSetAsCurrentPhoto}
+                updateId={update._id}
+              />
+            )}
+            {!props.isOwner ? null : deleteBlocker ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span
+                      aria-label={t("Delete the {{status}} status first", {
+                        status: MILESTONE_LABELS[deleteBlocker],
+                      })}
+                      className="inline-flex"
+                    />
+                  }
+                >
+                  {deleteButton}
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t("Delete the {{status}} status first", {
+                    status: MILESTONE_LABELS[deleteBlocker],
+                  })}
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <DeleteUpdateForm
+                description={[
+                  update.milestone
+                    ? t("This also unmarks the milestone on the status card.")
+                    : t("This removes the update from the timeline."),
+                  update.photoUrl
+                    ? t(
+                        "If this photo is the current page photo, the previous one takes its place.",
+                      )
+                    : "",
+                  t("This action cannot be undone."),
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onDelete={props.onDelete}
+                title={t("Delete update?")}
+                trigger={deleteButton}
+                updateId={update._id}
+              />
+            )}
+          </div>
         </div>
 
         {/* Photo first when present; the caption/message sits last so long
@@ -1149,6 +1194,7 @@ type EncouragementTimelineItemProps = {
   item: EncouragementItemData;
   onDelete: (id: Id<"encouragements">, visitorId: string | undefined) => Promise<void>;
   onUpdate: (args: FunctionArgs<typeof api.encouragements.update>) => Promise<void>;
+  publicId: string;
   timeZone: string;
 };
 
@@ -1260,45 +1306,44 @@ function EncouragementTimelineItem(props: EncouragementTimelineItemProps) {
             {isOwnPost && <span className="text-xs text-primary/70 shrink-0">{t("(you)")}</span>}
           </div>
 
-          {(canEdit || canDelete) && (
-            <div className="-my-1 flex gap-1 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity shrink-0">
-              {canEdit && (
-                <Popover {...overlay.rootProps}>
-                  <PopoverTrigger
-                    render={
-                      <Button
-                        aria-label={t("Edit encouragement")}
-                        className="h-8 w-8"
-                        size="icon"
-                        variant="ghost"
-                      />
-                    }
-                  >
-                    <PencilSimpleIcon className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="w-80 max-w-[calc(100vw-1rem)]">
-                    <FormGuardProvider guard={overlay}>
-                      <EncouragementEditForm
-                        encouragementId={encouragement._id}
-                        initialMessage={encouragement.message}
-                        onClose={overlay.close}
-                        onSave={props.onUpdate}
-                        visitorId={props.currentVisitorId}
-                      />
-                    </FormGuardProvider>
-                  </PopoverContent>
-                </Popover>
-              )}
-              {canDelete && (
-                <DeleteEncouragementForm
-                  authorName={encouragement.authorName}
-                  encouragementId={encouragement._id}
-                  onDelete={props.onDelete}
-                  visitorId={canEdit ? props.currentVisitorId : undefined}
-                />
-              )}
-            </div>
-          )}
+          <div className="-my-1 flex gap-1 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity shrink-0">
+            <CopyItemLinkButton itemId={props.item._id} publicId={props.publicId} />
+            {canEdit && (
+              <Popover {...overlay.rootProps}>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      aria-label={t("Edit encouragement")}
+                      className="h-8 w-8"
+                      size="icon"
+                      variant="ghost"
+                    />
+                  }
+                >
+                  <PencilSimpleIcon className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80 max-w-[calc(100vw-1rem)]">
+                  <FormGuardProvider guard={overlay}>
+                    <EncouragementEditForm
+                      encouragementId={encouragement._id}
+                      initialMessage={encouragement.message}
+                      onClose={overlay.close}
+                      onSave={props.onUpdate}
+                      visitorId={props.currentVisitorId}
+                    />
+                  </FormGuardProvider>
+                </PopoverContent>
+              </Popover>
+            )}
+            {canDelete && (
+              <DeleteEncouragementForm
+                authorName={encouragement.authorName}
+                encouragementId={encouragement._id}
+                onDelete={props.onDelete}
+                visitorId={canEdit ? props.currentVisitorId : undefined}
+              />
+            )}
+          </div>
         </div>
 
         <div className="mt-1 min-w-0 max-w-none break-words text-sm text-muted-foreground prose prose-sm [overflow-wrap:anywhere] dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-a:text-primary [&_code]:whitespace-pre-wrap [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto">
@@ -1311,13 +1356,19 @@ function EncouragementTimelineItem(props: EncouragementTimelineItemProps) {
 
 // --- Feed ---
 
+type LatestTimelineFeedLoad = Extract<TimelineFeedLoad, { kind: "latest" }>;
+type LinkedTimelineFeedLoad = Extract<TimelineFeedLoad, { kind: "linked" }>;
+
 type TimelineFeedProps = {
   baby: BabyData;
   babyName: string;
+  /**
+   * Prefetched by the route loader (SSR first page): the latest items, or
+   * the window around the item a link names.
+   */
+  feed: TimelineFeedLoad;
   isOwner: boolean;
   publicId: string;
-  /** Prefetched infinite timeline handle from the route loader (SSR first page). */
-  timeline: EnsuredConvexPaginatedQuery<typeof api.timeline.listByBaby>;
   /** This browser's {@link visitorTagQuery}, started by the route loader. */
   visitorTag: QueryHandle<typeof visitorTagQuery>;
 };
@@ -1337,41 +1388,120 @@ type UpdateEncouragementFn = (
 
 /** Hooks into Convex, then delegates to the pure `TimelineFeedView`. */
 export function TimelineFeed(props: TimelineFeedProps) {
-  const currentVisitorId = useStoredVisitorId();
-  const [timeline, timelineQuery] = useQuery(
-    convexPaginatedQuery(api.timeline.listByBaby),
-    props.timeline,
+  const feed = props.feed;
+  // Keyed so following another link starts a fresh feed, live-insert
+  // baseline included.
+  return feed.kind === "linked" ? (
+    <LinkedTimelineFeed {...props} feed={feed} key={feed.itemId} />
+  ) : (
+    <LatestTimelineFeed {...props} feed={feed} key="latest" />
   );
+}
+
+/** The view props both feeds share: who's looking, and what they can do. */
+function useTimelineFeedViewBase(props: TimelineFeedProps) {
+  const currentVisitorId = useStoredVisitorId();
   // Pending on the server and until the browser hashes its visitor id; read
   // the status instead of `use` so the feed never suspends on it.
   const [visitorTag] = useQuery(visitorTagQuery, props.visitorTag);
-  const currentVisitorTag = visitorTag.status === "fulfilled" ? visitorTag.value : null;
   const removeUpdate = useMutation(api.updates.remove);
   const setAsCurrentPhoto = useMutation(api.updates.setAsCurrentPhoto);
   const removeEncouragement = useMutation(api.encouragements.remove);
   const updateEncouragement = useMutation(api.encouragements.update);
+  return {
+    baby: props.baby,
+    babyName: props.babyName,
+    currentVisitorId,
+    currentVisitorTag: visitorTag.status === "fulfilled" ? visitorTag.value : null,
+    isOwner: props.isOwner,
+    publicId: props.publicId,
+    removeEncouragement,
+    removeUpdate,
+    setAsCurrentPhoto,
+    updateEncouragement,
+  };
+}
 
-  const items = timeline.pages.flatMap((page) => page.page);
-
+function LatestTimelineFeed(props: TimelineFeedProps & { feed: LatestTimelineFeedLoad }) {
+  const base = useTimelineFeedViewBase(props);
+  const [timeline, timelineQuery] = useQuery(
+    convexPaginatedQuery(api.timeline.listByBaby),
+    props.feed.timeline,
+  );
   return (
     <TimelineFeedView
-      baby={props.baby}
-      babyName={props.babyName}
-      currentVisitorId={currentVisitorId}
-      currentVisitorTag={currentVisitorTag}
+      {...base}
       fetchNextPage={timelineQuery.fetchNextPage}
       hasNextPage={timelineQuery.hasNextPage}
       isFetchingNextPage={timelineQuery.isFetchingNextPage}
-      isOwner={props.isOwner}
-      items={items}
-      publicId={props.publicId}
-      removeEncouragement={removeEncouragement}
-      removeUpdate={removeUpdate}
-      setAsCurrentPhoto={setAsCurrentPhoto}
-      updateEncouragement={updateEncouragement}
+      items={timeline.pages.flatMap((page) => page.page)}
+      linked={null}
+      linkUnavailable={props.feed.linkUnavailable}
     />
   );
 }
+
+/**
+ * The feed from a linked item down. Older items load as the skeleton
+ * scrolls in, like the latest feed; newer ones only on "Show newer", so
+ * nothing above the item moves it. Live items newer than everything loaded
+ * only raise that button's count, until the reader has caught up.
+ */
+function LinkedTimelineFeed(props: TimelineFeedProps & { feed: LinkedTimelineFeedLoad }) {
+  const base = useTimelineFeedViewBase(props);
+  const [feedWindow, windowQuery] = useQuery(linkedTimelineQuery, props.feed.window);
+  const [newerCount] = useQuery(
+    convexQuery(api.timeline.countNewerThanItem),
+    props.feed.newerCount,
+  );
+  const isNewerPage = (index: number) => feedWindow.pageParams[index]?.direction === "backward";
+  // Newer pages read up from the item; reversed, they read in feed order.
+  const items = feedWindow.pages.flatMap((page, index) =>
+    isNewerPage(index) ? page.page.toReversed() : page.page,
+  );
+  const newerShown = feedWindow.pages.flatMap((page, index) =>
+    isNewerPage(index) ? page.page : [],
+  ).length;
+  const newerHidden = Math.max(0, newerCount.count - newerShown);
+  return (
+    <TimelineFeedView
+      {...base}
+      fetchNextPage={windowQuery.fetchNextPage}
+      hasNextPage={windowQuery.hasNextPage}
+      isFetchingNextPage={windowQuery.isFetchingNextPage}
+      items={items}
+      linked={{
+        itemId: props.feed.itemId,
+        newer:
+          windowQuery.hasPreviousPage && newerHidden > 0
+            ? {
+                count: newerHidden,
+                isFetching: windowQuery.isFetchingPreviousPage,
+                more: newerCount.more,
+                show: windowQuery.fetchPreviousPage,
+              }
+            : null,
+      }}
+      linkUnavailable={false}
+    />
+  );
+}
+
+/** Items newer than a linked one that aren't showing yet. */
+type NewerTimelineItems = {
+  /** How many; at least this many when `more`. */
+  count: number;
+  isFetching: boolean;
+  more: boolean;
+  /** Loads the next page of them, above what's showing. */
+  show: () => Promise<void>;
+};
+
+type LinkedTimelineItem = {
+  itemId: string;
+  /** Null once everything newer is showing. */
+  newer: NewerTimelineItems | null;
+};
 
 type TimelineFeedViewProps = {
   baby: BabyData;
@@ -1383,12 +1513,24 @@ type TimelineFeedViewProps = {
   isFetchingNextPage: boolean;
   isOwner: boolean;
   items: Array<TimelineItemData>;
+  /** The feed opened from a link (`?item=`), or null for the latest items. */
+  linked: LinkedTimelineItem | null;
+  /** A link named an item that isn't here, so this is the latest instead. */
+  linkUnavailable: boolean;
   publicId: string;
   removeEncouragement: RemoveEncouragementFn;
   removeUpdate: RemoveUpdateFn;
   setAsCurrentPhoto: SetAsCurrentPhotoFn;
   updateEncouragement: UpdateEncouragementFn;
 };
+
+/**
+ * Moves focus to the linked item when it mounts, so keyboard and screen
+ * reader users start there too. The hash scroll positions it, not focus.
+ */
+function focusLinkedItem(node: HTMLElement | null) {
+  node?.focus({ preventScroll: true });
+}
 
 /**
  * Presentational timeline feed body — wired by {@link TimelineFeed}.
@@ -1399,6 +1541,8 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
   const hasNextPage = props.hasNextPage;
   const isFetchingNextPage = props.isFetchingNextPage;
   const fetchNextPage = props.fetchNextPage;
+  const linkedItemId = props.linked?.itemId ?? null;
+  const newer = props.linked?.newer ?? null;
   const liveInsertIds = useLiveInsertIds(
     props.items.map((item) => ({ id: item._id, sortKey: item.postedAt })),
   );
@@ -1465,6 +1609,8 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
         <h3 className="text-lg font-extrabold text-foreground">{t("Updates & encouragements")}</h3>
       </div>
 
+      {props.linkUnavailable ? <UnavailableLinkNotice publicId={props.publicId} /> : null}
+
       {props.items.length === 0 && !hasNextPage ? (
         <div className="rounded-3xl border-2 border-dashed border-border py-10 text-center">
           <p aria-hidden="true" className="text-3xl">
@@ -1479,16 +1625,35 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
         </div>
       ) : null}
 
+      {newer ? (
+        <ShowNewerItems
+          firstItemId={props.items[0]?._id ?? null}
+          newer={newer}
+          publicId={props.publicId}
+        />
+      ) : null}
+
       <MotionConfig reducedMotion={TIMELINE_REDUCED_MOTION}>
-        <div aria-busy={isFetchingNextPage} className="relative flex flex-col gap-4">
+        <div
+          aria-busy={isFetchingNextPage || (newer?.isFetching ?? false)}
+          className="relative flex flex-col gap-4"
+        >
           <AnimatePresence initial={false} mode={TIMELINE_PRESENCE_MODE}>
             {props.items.map((item) => {
               const isLiveInsert = liveInsertIds.has(item._id);
+              const isLinked = item._id === linkedItemId;
               return (
                 <motion.div
+                  aria-current={isLinked ? "true" : undefined}
+                  className={cn("scroll-mt-24", isLinked && "timeline-linked-item")}
                   data-live-insert={isLiveInsert ? "" : undefined}
+                  id={feedItemDomId(item._id)}
                   key={item._id}
-                  layout={TIMELINE_ITEM_LAYOUT}
+                  // Layout animations would slide every item down when newer
+                  // ones load above the linked item, the jump this avoids.
+                  layout={props.linked ? false : TIMELINE_ITEM_LAYOUT}
+                  ref={isLinked ? focusLinkedItem : undefined}
+                  tabIndex={isLinked ? -1 : undefined}
                 >
                   <motion.div
                     animate={TIMELINE_ITEM_VISIBLE}
@@ -1515,6 +1680,7 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
                         item={item}
                         onDelete={handleDeleteEncouragement}
                         onUpdate={handleUpdateEncouragement}
+                        publicId={props.publicId}
                         timeZone={props.baby.timeZone}
                       />
                     )}
@@ -1542,6 +1708,90 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Above a linked item: newer items load on a click only, never on scroll,
+ * and the item stays put on screen while they land above it. A skeleton
+ * here (as below) would itself push the item down, so the button stays.
+ */
+function ShowNewerItems(props: {
+  firstItemId: string | null;
+  newer: NewerTimelineItems;
+  publicId: string;
+}) {
+  const { t } = useI18n();
+  const newer = props.newer;
+  const nextPageCount = Math.min(newer.count, TIMELINE_PAGE_SIZE);
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <p className="sr-only" role="status">
+        {newer.isFetching ? t("Loading newer updates & encouragements…") : null}
+      </p>
+      <Button
+        className="rounded-full font-bold"
+        onClick={() => {
+          // raf-query would queue a second page behind the one in flight.
+          if (newer.isFetching) {
+            return;
+          }
+          const anchor =
+            props.firstItemId === null
+              ? null
+              : document.getElementById(feedItemDomId(props.firstItemId));
+          void (anchor ? keepScrollAnchor(anchor, newer.show) : newer.show());
+        }}
+        variant="outline"
+      >
+        {newer.isFetching ? (
+          <CircleNotchIcon aria-hidden="true" className="size-4 animate-spin" weight="bold" />
+        ) : (
+          <ArrowUpIcon aria-hidden="true" className="size-4" weight="bold" />
+        )}
+        {t("Show {{count}} newer", { count: nextPageCount })}
+      </Button>
+      {newer.more || newer.count > nextPageCount ? (
+        <p className="text-xs text-muted-foreground">
+          {newer.more
+            ? t("More than {{count}} newer in all", { count: newer.count })
+            : t("{{count}} newer in all", { count: newer.count })}
+          {" · "}
+          <Link
+            className="font-semibold text-foreground underline-offset-2 hover:underline"
+            hash={BABY_FEED_HASH}
+            params={{ publicId: props.publicId }}
+            search={{}}
+            to="/baby/$publicId"
+          >
+            {t("Jump to latest")}
+          </Link>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** A link named an item that's gone, hidden, or on another page. */
+function UnavailableLinkNotice(props: { publicId: string }) {
+  const { t } = useI18n();
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/30 p-3 text-sm">
+      <LinkBreakIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
+      <p className="min-w-0 flex-1 font-medium text-foreground" role="status">
+        {t("That update or message isn't here any more, so here's the latest.")}
+      </p>
+      <Link
+        aria-label={t("Dismiss notice")}
+        className="-m-1 rounded-full p-1 text-muted-foreground hover:text-foreground"
+        params={{ publicId: props.publicId }}
+        resetScroll={false}
+        search={{}}
+        to="/baby/$publicId"
+      >
+        <XIcon aria-hidden="true" className="size-4" />
+      </Link>
     </div>
   );
 }
