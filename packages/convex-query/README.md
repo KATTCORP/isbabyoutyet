@@ -68,6 +68,15 @@ loaded page except the last stays pinned to its end cursor while live, so
 inserts and deletes grow or shrink a page instead of shifting items between
 pages.
 
+`convexBidirectionalPaginatedQuery({ forward, backward })` grows one infinite
+query from a starting point in both directions, over two paginated queries
+that take the same args. `forward` loads the first page and every
+`fetchNextPage`; `backward` loads only on `fetchPreviousPage`, starting right
+before the first page. raf-query prepends backward pages, and each page's
+`pageParams` entry says which `direction` it came from. Both directions stay
+live and pinned the same way, so a backward page that is full never takes in
+items beyond it until the next `fetchPreviousPage`.
+
 Read data in a loader from the handle `ensure` resolves with:
 `(await queryClient.ensure(...)).data`. Effects that compose several reads
 (for example push-capability detection) call `readConvexQuery(query, args)`

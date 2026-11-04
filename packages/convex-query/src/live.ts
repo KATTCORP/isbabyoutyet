@@ -9,10 +9,12 @@ import type {
 import { getFunctionName, makeFunctionReference } from "convex/server";
 import type { Value } from "convex/values";
 import { Effect, Predicate, Queue, Stream } from "effect";
-import type { QueryReference } from "./queries.ts";
+import type { PageDirection, QueryReference } from "./queries.ts";
 import {
+  CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY,
   CONVEX_PAGINATED_QUERY_KEY,
   CONVEX_QUERY_KEY,
+  convexBidirectionalPaginatedQuery,
   convexPaginatedQuery,
   convexQuery,
 } from "./queries.ts";
@@ -25,6 +27,13 @@ type LiveKey =
       readonly args: DefaultFunctionArgs;
       readonly kind: "paginated";
       readonly name: string;
+      readonly numItems: number;
+    }
+  | {
+      readonly args: DefaultFunctionArgs;
+      readonly backwardName: string;
+      readonly forwardName: string;
+      readonly kind: "bidirectional";
       readonly numItems: number;
     };
 
@@ -41,8 +50,24 @@ interface Subscription {
 function liveKey(key: ReadonlyArray<unknown>): LiveKey | null {
   const tag = key[0];
   const name = key[1];
+  if (!Predicate.isString(name)) {
+    return null;
+  }
+  if (tag === CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY && key.length === 5) {
+    const backwardName = key[2];
+    const args = key[3];
+    const numItems = key[4];
+    if (
+      Predicate.isString(backwardName) &&
+      Predicate.isObject(args) &&
+      Predicate.isNumber(numItems)
+    ) {
+      return { args, backwardName, forwardName: name, kind: "bidirectional", numItems };
+    }
+    return null;
+  }
   const args = key[2];
-  if (!Predicate.isString(name) || !Predicate.isObject(args)) {
+  if (!Predicate.isObject(args)) {
     return null;
   }
   if (tag === CONVEX_QUERY_KEY && key.length === 3) {
@@ -55,11 +80,17 @@ function liveKey(key: ReadonlyArray<unknown>): LiveKey | null {
   return null;
 }
 
-function pageCursors(data: Query.State<unknown>["data"]): ReadonlyArray<string | null> | null {
+/** A loaded page's cursor, and the direction it was loaded in (`null` for one-way queries). */
+interface PageStart {
+  readonly cursor: string | null;
+  readonly direction: PageDirection | null;
+}
+
+function pageStarts(data: Query.State<unknown>["data"]): ReadonlyArray<PageStart> | null {
   if (!Predicate.hasProperty(data, "pageParams") || !Array.isArray(data.pageParams)) {
     return null;
   }
-  const cursors: Array<string | null> = [];
+  const starts: Array<PageStart> = [];
   for (const param of data.pageParams) {
     if (!Predicate.hasProperty(param, "cursor")) {
       return null;
@@ -68,9 +99,13 @@ function pageCursors(data: Query.State<unknown>["data"]): ReadonlyArray<string |
     if (cursor !== null && !Predicate.isString(cursor)) {
       return null;
     }
-    cursors.push(cursor);
+    const direction = Predicate.hasProperty(param, "direction") ? param.direction : null;
+    if (direction !== null && direction !== "forward" && direction !== "backward") {
+      return null;
+    }
+    starts.push({ cursor, direction });
   }
-  return cursors;
+  return starts;
 }
 
 function querySubscription(
@@ -87,42 +122,123 @@ function querySubscription(
   };
 }
 
+/** A run of pages that continue one another through one Convex query. */
+interface PageChain {
+  readonly cursors: ReadonlyArray<string | null>;
+  readonly direction: PageDirection | null;
+  readonly name: string;
+}
+
+/** Reads and writes the paged entry a chain's subscriptions feed. */
+interface PagedEntry {
+  invalidate(): void;
+  /** Replaces the loaded page that starts at `start`, if it is still loaded. */
+  writePage(start: PageStart, page: Value): void;
+}
+
 /**
- * One subscription per loaded page. Every page but the last is pinned to end
- * where the next page starts (`endCursor`), so items added or removed inside
- * a page grow or shrink that page instead of shifting items across page
- * boundaries — the gaps and duplicates of re-running each page's original
- * `numItems` window.
+ * One subscription per page of a chain. Every page but the last is pinned to
+ * end where the next page starts (`endCursor`), so items added or removed
+ * inside a page grow or shrink that page instead of shifting items across
+ * page boundaries — the gaps and duplicates of re-running each page's
+ * original `numItems` window.
  */
-function pageSubscriptions(
-  key: Extract<LiveKey, { kind: "paginated" }>,
-  opts: { cursors: ReadonlyArray<string | null>; queryClient: QueryClient<ConvexReader> },
+function chainSubscriptions(
+  chain: PageChain,
+  opts: { args: DefaultFunctionArgs; entry: PagedEntry; numItems: number },
 ): ReadonlyArray<Subscription> {
-  const factory = convexPaginatedQuery(makeFunctionReference<"query">(key.name));
-  const input = { args: key.args, numItems: key.numItems };
-  return opts.cursors.map((cursor, index) => {
-    const endCursor = opts.cursors[index + 1];
+  return chain.cursors.map((cursor, index) => {
+    const endCursor = chain.cursors[index + 1];
     const paginationOpts: PaginationOptions =
       endCursor === undefined
-        ? { cursor, numItems: key.numItems }
-        : { cursor, endCursor, numItems: key.numItems };
+        ? { cursor, numItems: opts.numItems }
+        : { cursor, endCursor, numItems: opts.numItems };
     return {
-      args: { ...key.args, paginationOpts },
-      id: JSON.stringify([index, cursor, endCursor ?? null]),
-      name: key.name,
-      onError: () => void opts.queryClient.invalidate(factory, input),
+      args: { ...opts.args, paginationOpts },
+      id: JSON.stringify([chain.direction, cursor, endCursor ?? null]),
+      name: chain.name,
+      onError: opts.entry.invalidate,
       onResult: (page) => {
-        const data = opts.queryClient.getData(factory, input);
-        if (data?.pageParams[index]?.cursor !== cursor) {
-          return;
-        }
-        opts.queryClient.setData(factory, input, {
-          pageParams: data.pageParams,
-          pages: data.pages.with(index, page),
-        });
+        opts.entry.writePage({ cursor, direction: chain.direction }, page);
       },
     };
   });
+}
+
+/** Where the page that starts at `start` sits in `data`, or -1 once it is gone. */
+function pageIndex(data: Query.State<unknown>["data"], start: PageStart) {
+  return (pageStarts(data) ?? []).findIndex(
+    (candidate) => candidate.cursor === start.cursor && candidate.direction === start.direction,
+  );
+}
+
+function pagedSubscriptions(
+  key: Exclude<LiveKey, { kind: "query" }>,
+  opts: { queryClient: QueryClient<ConvexReader>; starts: ReadonlyArray<PageStart> },
+): ReadonlyArray<Subscription> {
+  const input = { args: key.args, numItems: key.numItems };
+  switch (key.kind) {
+    case "paginated": {
+      const factory = convexPaginatedQuery(makeFunctionReference<"query">(key.name));
+      const entry: PagedEntry = {
+        invalidate: () => void opts.queryClient.invalidate(factory, input),
+        writePage: (start, page) => {
+          const data = opts.queryClient.getData(factory, input);
+          const index = pageIndex(data, start);
+          if (data && index !== -1) {
+            opts.queryClient.setData(factory, input, {
+              pageParams: data.pageParams,
+              pages: data.pages.with(index, page),
+            });
+          }
+        },
+      };
+      const chain = {
+        cursors: opts.starts.map((start) => start.cursor),
+        direction: null,
+        name: key.name,
+      };
+      return chainSubscriptions(chain, { args: key.args, entry, numItems: key.numItems });
+    }
+    case "bidirectional": {
+      const factory = convexBidirectionalPaginatedQuery({
+        backward: makeFunctionReference<"query">(key.backwardName),
+        forward: makeFunctionReference<"query">(key.forwardName),
+      });
+      const entry: PagedEntry = {
+        invalidate: () => void opts.queryClient.invalidate(factory, input),
+        writePage: (start, page) => {
+          const data = opts.queryClient.getData(factory, input);
+          const index = pageIndex(data, start);
+          if (data && index !== -1) {
+            opts.queryClient.setData(factory, input, {
+              pageParams: data.pageParams,
+              pages: data.pages.with(index, page),
+            });
+          }
+        },
+      };
+      const cursorsOf = (direction: PageDirection) =>
+        opts.starts.filter((start) => start.direction === direction).map((start) => start.cursor);
+      // Backward pages are prepended, so their chain runs from the end of
+      // the list towards its start.
+      const chains: ReadonlyArray<PageChain> = [
+        { cursors: cursorsOf("forward"), direction: "forward", name: key.forwardName },
+        {
+          cursors: cursorsOf("backward").toReversed(),
+          direction: "backward",
+          name: key.backwardName,
+        },
+      ];
+      return chains.flatMap((chain) =>
+        chainSubscriptions(chain, { args: key.args, entry, numItems: key.numItems }),
+      );
+    }
+    default: {
+      const _exhaustive: never = key;
+      return _exhaustive;
+    }
+  }
 }
 
 function subscriptionsFor(
@@ -134,19 +250,11 @@ function subscriptionsFor(
   if (!key || !state.hasData) {
     return [];
   }
-  switch (key.kind) {
-    case "query": {
-      return [querySubscription(key, queryClient)];
-    }
-    case "paginated": {
-      const cursors = pageCursors(state.data);
-      return cursors ? pageSubscriptions(key, { cursors, queryClient }) : [];
-    }
-    default: {
-      const _exhaustive: never = key;
-      return _exhaustive;
-    }
+  if (key.kind === "query") {
+    return [querySubscription(key, queryClient)];
   }
+  const starts = pageStarts(state.data);
+  return starts ? pagedSubscriptions(key, { queryClient, starts }) : [];
 }
 
 /** A live subscription, or `null` while it is being claimed. */
