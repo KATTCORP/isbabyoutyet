@@ -32,11 +32,48 @@ function normalizeTransferMotivation(value: string) {
   return motivation;
 }
 
+/**
+ * The active baby whose current slug is `publicId`. Soft-deleted babies keep
+ * their `publicId` so they stay recoverable, but they no longer hold it: a
+ * new baby may take the same slug, so the index can return several rows.
+ */
 export async function findBabyByCurrentPublicId(db: DatabaseReader, publicId: string) {
-  return await db
+  const babies = db
     .query("baby")
     .withIndex("by_publicId", (q) => q.eq("publicId", publicId))
-    .first();
+    .order("desc");
+  for await (const baby of babies) {
+    if (isActive(baby)) {
+      return baby;
+    }
+  }
+  return null;
+}
+
+/**
+ * Active babies that previously used `publicId`, newest history row first.
+ * History rows of soft-deleted (or missing) babies are skipped, so a deleted
+ * page releases its old slugs too.
+ */
+async function* activeBabiesByHistoricalPublicId(db: DatabaseReader, publicId: string) {
+  const rows = db
+    .query("babyPublicIdHistory")
+    .withIndex("by_publicId", (q) => q.eq("publicId", publicId))
+    .order("desc");
+  for await (const row of rows) {
+    const baby = await db.get(row.babyId);
+    if (baby && isActive(baby)) {
+      yield baby;
+    }
+  }
+}
+
+/** The active baby that most recently used `publicId` before its current slug. */
+export async function findBabyByHistoricalPublicId(db: DatabaseReader, publicId: string) {
+  for await (const baby of activeBabiesByHistoricalPublicId(db, publicId)) {
+    return baby;
+  }
+  return null;
 }
 
 async function deletePublicIdHistory(ctx: MutationCtx, publicId: string) {
@@ -64,28 +101,15 @@ export async function isPublicIdTaken(opts: {
     return true;
   }
 
-  const existingBaby = await opts.db
-    .query("baby")
-    .withIndex("by_publicId", (q) => q.eq("publicId", opts.publicId))
-    .first();
-
-  if (existingBaby) {
+  if (await findBabyByCurrentPublicId(opts.db, opts.publicId)) {
     return true;
   }
 
   // Historical public IDs stay reserved, except the same owner reclaiming theirs.
-  const historicEntry = await opts.db
-    .query("babyPublicIdHistory")
-    .withIndex("by_publicId", (q) => q.eq("publicId", opts.publicId))
-    .first();
-
-  if (!historicEntry) {
-    return false;
-  }
-
-  const historicBaby = await opts.db.get(historicEntry.babyId);
-  if (historicBaby && historicBaby.ownerTokenIdentifier !== opts.excludeTokenIdentifier) {
-    return true;
+  for await (const historicBaby of activeBabiesByHistoricalPublicId(opts.db, opts.publicId)) {
+    if (historicBaby.ownerTokenIdentifier !== opts.excludeTokenIdentifier) {
+      return true;
+    }
   }
 
   return false;
@@ -145,7 +169,7 @@ export async function transferBabyPublicId(
   }
 
   const claimant = await findBabyByCurrentPublicId(ctx.db, fromPublicId);
-  if (!claimant || !isActive(claimant)) {
+  if (!claimant) {
     throw new Error(`No baby currently uses public ID "${fromPublicId}"`);
   }
 

@@ -15,6 +15,7 @@ import { tokenIdentifierForAuthUserId } from "./authIdentity";
 import { clearUserOnboarding, skipUserOnboarding } from "./onboarding";
 import { DEFAULT_TIME_ZONE } from "../src/timeZone";
 import { isActive } from "./softDelete";
+import { findBabyByCurrentPublicId } from "./babyPublicId";
 import { internalMutationWithTriggers } from "./triggers";
 
 async function seedDemoDataHandler(ctx: MutationCtx) {
@@ -161,11 +162,9 @@ async function ensureMiloSeedExtras(
   ctx: MutationCtx,
   opts: { addedByUserId: string; coParentUserId: string },
 ) {
-  const milo = await ctx.db
-    .query("baby")
-    .withIndex("by_publicId", (q) => q.eq("publicId", "baby-born"))
-    .unique();
-  if (!milo || !isActive(milo)) {
+  // A deleted Milo releases `baby-born`, so another user's page may hold it now.
+  const milo = await findBabyByCurrentPublicId(ctx.db, "baby-born");
+  if (!milo || milo.userId !== opts.addedByUserId) {
     return;
   }
 

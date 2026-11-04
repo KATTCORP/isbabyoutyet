@@ -3,6 +3,7 @@ import { expect, test } from "vitest";
 import { api } from "./_generated/api";
 import schema from "./schema";
 import {
+  findBabyByCurrentPublicId,
   generateUniquePublicId,
   isPublicIdTaken,
   normalizePublicId,
@@ -108,6 +109,57 @@ test("isPublicIdTaken treats history whose baby row is gone as free", async () =
         publicId: "orphan-slug",
       }),
     ).toBe(false);
+  });
+});
+
+test("isPublicIdTaken treats current and historical slugs of soft-deleted babies as free", async () => {
+  const t = await setup();
+  const asAlice = t.withIdentity({ subject: "alice" });
+  const created = await asAlice.mutation(
+    api.baby.create,
+    createBabyArgs({ dueDate: "2026-09-01", name: "Old Name" }),
+  );
+  await asAlice.mutation(api.baby.update, {
+    id: created.babyId,
+    patch: { name: "New Name" },
+  });
+  await asAlice.mutation(api.baby.remove, { babyId: created.babyId });
+
+  await t.run(async (ctx) => {
+    for (const publicId of ["new-name", "old-name"]) {
+      expect(await isPublicIdTaken({ db: ctx.db, excludeTokenIdentifier: "other", publicId })).toBe(
+        false,
+      );
+    }
+    expect(await findBabyByCurrentPublicId(ctx.db, "new-name")).toBeNull();
+  });
+});
+
+test("findBabyByCurrentPublicId skips soft-deleted rows that share the slug", async () => {
+  const t = await setup();
+  const asAlice = t.withIdentity({ subject: "alice" });
+  const asBob = t.withIdentity({ subject: "bob" });
+  const active = await asAlice.mutation(
+    api.baby.create,
+    createBabyArgs({ dueDate: "2026-09-01", name: "Shared" }),
+  );
+  const deleted = await asBob.mutation(
+    api.baby.create,
+    createBabyArgs({ dueDate: "2026-09-01", name: "Shared Too" }),
+  );
+  await asBob.mutation(api.baby.remove, { babyId: deleted.babyId });
+  // Newer deleted row on the same slug, as after a staff transfer onto it.
+  await t.run(async (ctx) => {
+    await ctx.db.patch(deleted.babyId, { publicId: "shared" });
+  });
+
+  await t.run(async (ctx) => {
+    expect(await findBabyByCurrentPublicId(ctx.db, "shared")).toMatchObject({
+      _id: active.babyId,
+    });
+  });
+  expect(await t.query(api.baby.getByPublicId, { id: "shared" })).toMatchObject({
+    _id: active.babyId,
   });
 });
 
