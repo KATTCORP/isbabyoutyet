@@ -329,16 +329,18 @@ type BabyLoaderResult = {
 };
 type RouteContextStub = { context: { queryClient: QueryClient<ConvexReader> } };
 
-function loaderQueryClientResource(handlers: QueryHandlers) {
+/** Answers by function name; `read` collects every name asked for. */
+function loaderQueryClientResource(handlers: QueryHandlers, read: Array<string> = []) {
   return stubQueryClientResource((query) => {
     const name = getFunctionName(query);
+    read.push(name);
     return Promise.resolve(name in handlers ? handlers[name] : null);
   });
 }
 
 // @ts-expect-error — stub opts are the fields the loader reads
 const loader: (
-  opts: RouteContextStub & { params: { publicId: string } },
+  opts: RouteContextStub & { deps: { item: string | null }; params: { publicId: string } },
 ) => Promise<BabyLoaderResult> = routeModule.Route.options.loader;
 
 // @ts-expect-error — stub opts are the fields beforeLoad reads
@@ -346,10 +348,13 @@ const beforeLoad: (
   opts: RouteContextStub & { location: { href: string }; params: { publicId: string } },
 ) => Promise<object | void | null> = routeModule.Route.options.beforeLoad;
 
-async function runBabyLoader(queryClient: QueryClient<ConvexReader>) {
+async function runBabyLoader(
+  queryClient: QueryClient<ConvexReader>,
+  deps: { item: string | null } = { item: null },
+) {
   // As `beforeLoad` does before every loader run.
   await queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: "baby-smith" });
-  return await loader({ context: { queryClient }, params: { publicId: "baby-smith" } });
+  return await loader({ context: { queryClient }, deps, params: { publicId: "baby-smith" } });
 }
 
 test("loader ensures the same set for visitors; gated queries come back forbidden", async () => {
@@ -368,8 +373,12 @@ test("loader ensures the same set for visitors; gated queries come back forbidde
 
   expect(result.baby).toMatchObject({ data: expect.anything(), input: { id: "baby-smith" } });
   expect(result.timeline).toMatchObject({
-    data: expect.anything(),
-    input: { args: { babyId: "baby-smith" }, numItems: 20 },
+    kind: "latest",
+    linkUnavailable: false,
+    timeline: {
+      data: expect.anything(),
+      input: { args: { babyId: "baby-smith" }, numItems: 20 },
+    },
   });
   expect(queryClient.getData(convexQuery(api.baby.getByPublicId), { id: "baby-smith" })).toEqual(
     BABY_DOC,
@@ -478,6 +487,59 @@ test("loader prefetches browser push capability on the client", async () => {
       kind: "unsupported",
     });
   });
+});
+
+test("a linked item loads the window from it and the newer count, not the latest page", async () => {
+  const read: Array<string> = [];
+  await using stub = loaderQueryClientResource(
+    {
+      "baby:getByPublicId": BABY_DOC,
+      "timeline:countNewerThanItem": { count: 3, more: false },
+      "timeline:listFromItem": { ...EMPTY_PAGE, linkedItemVisible: true },
+    },
+    read,
+  );
+  const result = await runBabyLoader(stub.queryClient, { item: "k57linked" });
+
+  const args = { babyId: "baby-smith", itemId: "k57linked" };
+  expect(result.timeline).toMatchObject({
+    itemId: "k57linked",
+    kind: "linked",
+    newerCount: { data: { count: 3, more: false }, input: args },
+    window: { input: { args, numItems: 20 } },
+  });
+  expect(read).not.toContain("timeline:listByBaby");
+  // "Show newer" loads on demand, never with the page.
+  expect(read).not.toContain("timeline:listNewerThanItem");
+});
+
+test("a link to an item that isn't visible falls back to the latest page", async () => {
+  await using stub = loaderQueryClientResource({
+    "baby:getByPublicId": BABY_DOC,
+    "timeline:countNewerThanItem": { count: 0, more: false },
+    "timeline:listByBaby": EMPTY_PAGE,
+    "timeline:listFromItem": { ...EMPTY_PAGE, linkedItemVisible: false },
+  });
+  const result = await runBabyLoader(stub.queryClient, { item: "k57gone" });
+
+  expect(result.timeline).toMatchObject({
+    kind: "latest",
+    linkUnavailable: true,
+    timeline: { input: { args: { babyId: "baby-smith" }, numItems: 20 } },
+  });
+});
+
+test("a malformed item id falls back to the latest page without asking for it", async () => {
+  const read: Array<string> = [];
+  await using stub = loaderQueryClientResource(
+    { "baby:getByPublicId": BABY_DOC, "timeline:listByBaby": EMPTY_PAGE },
+    read,
+  );
+  const result = await runBabyLoader(stub.queryClient, { item: "../not an id" });
+
+  expect(result.timeline).toMatchObject({ kind: "latest", linkUnavailable: true });
+  expect(read).not.toContain("timeline:listFromItem");
+  expect(read).not.toContain("timeline:countNewerThanItem");
 });
 
 test("docToBabyData coalesces missing public due date text to null", () => {

@@ -23,7 +23,7 @@ import {
 import { allKeyed, useQuery } from "@raf-query/react";
 import { z } from "zod";
 import type { FunctionReturnType } from "convex/server";
-import { convexPaginatedQuery, convexQuery } from "@workspace/convex-query";
+import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { openGraphImageMeta } from "@/lib/seo";
 import { getBabySeo } from "@/lib/seo";
@@ -33,6 +33,7 @@ import { babyPageRobotsHeaders, searchRobotsMeta } from "@/lib/robots";
 import { useI18n } from "@/lib/i18n";
 import { BABY_FEED_HASH } from "@isbabyoutyet/backend/src/babyFeedUrl";
 import { useHashScroll } from "@/lib/use-hash-scroll";
+import { loadTimelineFeed } from "@/lib/timeline-feed";
 import { useDemoToast } from "@/lib/use-demo-toast";
 import { isHomepageDemoPublicId } from "@isbabyoutyet/backend/src/seedCredentials";
 import {
@@ -43,13 +44,14 @@ import {
   useBabySignupOverlayLinks,
 } from "@/lib/overlay-nav";
 
-const TIMELINE_PAGE_SIZE = 20;
-
 export const Route = createFileRoute("/baby/$publicId")({
   component: BabyPageLayout,
   validateSearch: z.object({
     beta: z.boolean().optional(),
+    /** A linked feed item (`babyFeedItemUrl`); the loader checks it, whatever it parsed as. */
+    item: z.coerce.string().optional(),
   }),
+  loaderDeps: (opts) => ({ item: opts.search.item ?? null }),
 
   beforeLoad: async (opts) => {
     const queryClient = opts.context.queryClient;
@@ -100,10 +102,7 @@ export const Route = createFileRoute("/baby/$publicId")({
           babyId: publicId,
         },
       ),
-      timeline: queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
-        args: { babyId: publicId },
-        numItems: TIMELINE_PAGE_SIZE,
-      }),
+      timeline: loadTimelineFeed(queryClient, { item: opts.deps.item, publicId }),
       vapidPublicKey: queryClient.ensure(convexQuery(api.pushSubscriptions.getPublicKey), {}),
     });
 
@@ -432,9 +431,9 @@ function BabyPageLayout() {
               <TimelineFeed
                 baby={baby}
                 babyName={baby.name}
+                feed={loaderData.timeline}
                 isOwner={canManage}
                 publicId={babyDoc.publicId}
-                timeline={loaderData.timeline}
                 visitorTag={loaderData.visitorTag}
               />
             </section>
