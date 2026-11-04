@@ -34,6 +34,7 @@ import {
 } from "@/test/convexTestSeed";
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
+import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { htmlButton, htmlInput, htmlTextArea, htmlImage, htmlElement } from "@/test/htmlElement";
 
 function isMutationArgsRecord<TArgs>(args: TArgs): args is TArgs & object {
@@ -1291,18 +1292,23 @@ test("a live encouragement during the next-page fetch neither duplicates nor dro
 
 // --- Linked items (`?item=`) ---
 
-/** Linked at `Message 30`, with `Message 31` to `Message 55` newer. */
+/** Linked at `Message 30`, with `Message 31` to `Message 55` newer by default. */
 const LINKED_INDEX = 30;
-const NEWEST_INDEX = 55;
+const NEWER_COUNT = 25;
 const LINKED_MESSAGE = `Message ${LINKED_INDEX}`;
 
 /**
- * `olderCount` messages below the linked one. Tests that only page newer
- * items keep it small: jsdom re-renders every row on each page.
+ * `olderCount` messages below the linked one and `newerCount` above it.
+ * Tests that only page newer items keep `olderCount` small: jsdom re-renders
+ * every row on each page.
  */
-async function seedLinkedFeed(harness: ConvexTestHarness, opts: { olderCount: number }) {
+async function seedLinkedFeed(
+  harness: ConvexTestHarness,
+  opts: { newerCount: number; olderCount: number },
+) {
   const baby = await seedOwnerBaby(harness);
-  for (let index = LINKED_INDEX - opts.olderCount; index <= NEWEST_INDEX; index++) {
+  const newestIndex = LINKED_INDEX + opts.newerCount;
+  for (let index = LINKED_INDEX - opts.olderCount; index <= newestIndex; index++) {
     await seedTimelineEncouragement(harness, {
       authorName: "Family",
       babyId: baby.babyId,
@@ -1311,7 +1317,7 @@ async function seedLinkedFeed(harness: ConvexTestHarness, opts: { olderCount: nu
   }
   const all = await harness.client.query(api.timeline.listByBaby, {
     babyId: baby.publicId,
-    paginationOpts: { cursor: null, numItems: NEWEST_INDEX },
+    paginationOpts: { cursor: null, numItems: newestIndex + 1 },
   });
   const linked = all.page.find(
     (item) => item.kind === "encouragement" && item.encouragement.message === LINKED_MESSAGE,
@@ -1322,7 +1328,10 @@ async function seedLinkedFeed(harness: ConvexTestHarness, opts: { olderCount: nu
   return { baby, itemId: linked._id };
 }
 
-async function renderLinkedFeed(harness: ConvexTestHarness, opts: { olderCount: number }) {
+async function renderLinkedFeed(
+  harness: ConvexTestHarness,
+  opts: { newerCount: number; olderCount: number },
+) {
   const seeded = await seedLinkedFeed(harness, opts);
   const feed = await renderTimelineFeedFrom(harness, {
     baby: notYetBaby,
@@ -1350,10 +1359,16 @@ function linkedRow(view: ReturnType<typeof render>) {
   return htmlElement(view.container.querySelector('[aria-current="true"]'));
 }
 
-test("a linked item opens the feed at it, highlighted and focused, with newer ones held back", async () => {
+/** The divider's button, named by how many newer items are hidden and how many it shows. */
+const SHOW_MORE = /newer, Show \d+ more$/;
+
+test("a linked item opens the feed at it, two newer items above it, the rest behind a divider", async () => {
   await using _io = stubIntersectionObserver();
   await using harness = await createConvexTestHarness({ identity: null });
-  await using feed = await renderLinkedFeed(harness, { olderCount: 29 });
+  await using feed = await renderLinkedFeed(harness, {
+    newerCount: NEWER_COUNT,
+    olderCount: 29,
+  });
 
   const linked = linkedRow(feed);
   expect(linked.id).toBe(`item-${feed.itemId}`);
@@ -1363,22 +1378,62 @@ test("a linked item opens the feed at it, highlighted and focused, with newer on
   expect(within(linked).getByText(LINKED_MESSAGE)).toBeTruthy();
 
   const messages = feedMessages(feed);
-  expect(messages).toHaveLength(20);
-  expect(messages[0]).toBe(LINKED_MESSAGE);
+  expect(messages).toHaveLength(22);
+  expect(messages.slice(0, 3)).toEqual(["Message 32", "Message 31", LINKED_MESSAGE]);
   expect(messages.at(-1)).toBe("Message 11");
-  expect(feed.queryByText("Message 31")).toBeNull();
+  expect(feed.container.querySelectorAll('[aria-current="true"]')).toHaveLength(1);
+  expect(feed.queryByText("Message 33")).toBeNull();
 
-  expect(feed.getByRole("button", { name: "Show 20 newer" })).toBeTruthy();
-  expect(feed.getByText(/^25 newer in all/)).toBeTruthy();
-  expect(feed.getByRole("link", { name: "Jump to latest" }).getAttribute("href")).toBe(
+  const showMore = feed.getByRole("button", { name: "23 newer, Show 20 more" });
+  expect(feed.getByText("23 newer").closest("button")).toBe(showMore);
+  // The divider sits above the context, the rules either side of it decorative.
+  const divider = htmlElement(showMore.closest("[data-newer-divider]"));
+  const firstRow = htmlElement(feed.container.querySelector('[id^="item-"]'));
+  expect(divider.compareDocumentPosition(firstRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const rules = divider.querySelectorAll('[aria-hidden="true"]:empty');
+  expect(rules).toHaveLength(2);
+  expect(within(divider).getByRole("link", { name: "Jump to latest" }).getAttribute("href")).toBe(
     `/baby/${feed.publicId}#feed`,
   );
+});
+
+test.each([
+  { context: [], newerCount: 0 },
+  { context: ["Message 31"], newerCount: 1 },
+  { context: ["Message 32", "Message 31"], newerCount: 2 },
+])("a linked item with $newerCount newer shows them all, with no divider", async (row) => {
+  await using _io = stubIntersectionObserver();
+  await using harness = await createConvexTestHarness({ identity: null });
+  await using feed = await renderLinkedFeed(harness, { newerCount: row.newerCount, olderCount: 1 });
+
+  expect(feedMessages(feed)).toEqual([...row.context, LINKED_MESSAGE, "Message 29"]);
+  expect(linkedRow(feed).id).toBe(`item-${feed.itemId}`);
+  expect(feed.queryByRole("button", { name: SHOW_MORE })).toBeNull();
+  expect(feed.container.querySelector("[data-newer-divider]")).toBeNull();
+  expect(feed.queryByRole("link", { name: "Jump to latest" })).toBeNull();
+});
+
+test("a linked item with one more newer than its context offers just that one", async () => {
+  await using _io = stubIntersectionObserver();
+  await using harness = await createConvexTestHarness({ identity: null });
+  await using feed = await renderLinkedFeed(harness, { newerCount: 3, olderCount: 1 });
+
+  expect(feedMessages(feed).slice(0, 3)).toEqual(["Message 32", "Message 31", LINKED_MESSAGE]);
+  fireEvent.click(feed.getByRole("button", { name: "1 newer, Show 1 more" }));
+
+  await vi.waitFor(() => {
+    expect(feedMessages(feed)[0]).toBe("Message 33");
+  });
+  expect(feed.container.querySelector("[data-newer-divider]")).toBeNull();
 });
 
 test("the skeleton below a linked item loads older items and never newer ones", async () => {
   await using io = stubIntersectionObserver();
   await using harness = await createConvexTestHarness({ identity: null });
-  await using feed = await renderLinkedFeed(harness, { olderCount: 29 });
+  await using feed = await renderLinkedFeed(harness, {
+    newerCount: NEWER_COUNT,
+    olderCount: 29,
+  });
   await vi.waitFor(() => {
     expect(io.watching()).toHaveLength(1);
   });
@@ -1390,42 +1445,47 @@ test("the skeleton below a linked item loads older items and never newer ones", 
     expect(feed.getByText("Message 1")).toBeTruthy();
   });
   expect(feed.queryByTestId("timeline-load-more")).toBeNull();
-  expect(feed.queryByText("Message 31")).toBeNull();
-  expect(feed.getByRole("button", { name: "Show 20 newer" })).toBeTruthy();
+  expect(feed.queryByText("Message 33")).toBeNull();
+  expect(feed.getByRole("button", { name: "23 newer, Show 20 more" })).toBeTruthy();
 });
 
-test("Show newer adds pages above the linked item in feed order, on click only", async () => {
+test("Show more adds a page above the context in feed order, on click only", async () => {
   await using _io = stubIntersectionObserver();
   await using harness = await createConvexTestHarness({ identity: null });
-  await using feed = await renderLinkedFeed(harness, { olderCount: 2 });
+  await using feed = await renderLinkedFeed(harness, {
+    newerCount: NEWER_COUNT,
+    olderCount: 2,
+  });
   const linked = linkedRow(feed);
 
-  fireEvent.click(feed.getByRole("button", { name: "Show 20 newer" }));
+  fireEvent.click(feed.getByRole("button", { name: "23 newer, Show 20 more" }));
 
   await vi.waitFor(() => {
-    expect(feed.getByRole("button", { name: "Show 5 newer" })).toBeTruthy();
+    expect(feed.getByRole("button", { name: "3 newer, Show 3 more" })).toBeTruthy();
   });
   const messages = feedMessages(feed);
-  expect(messages.slice(0, 21)).toEqual([
-    ...Array.from({ length: 20 }, (_, index) => `Message ${50 - index}`),
+  expect(messages.slice(0, 23)).toEqual([
+    ...Array.from({ length: 22 }, (_, index) => `Message ${52 - index}`),
     LINKED_MESSAGE,
   ]);
-  expect(feed.queryByText(/newer in all/)).toBeNull();
   // The same node, still marked: nothing re-mounted the linked item.
   expect(linkedRow(feed)).toBe(linked);
 
-  fireEvent.click(feed.getByRole("button", { name: "Show 5 newer" }));
+  fireEvent.click(feed.getByRole("button", { name: "3 newer, Show 3 more" }));
 
   await vi.waitFor(() => {
     expect(feedMessages(feed)[0]).toBe("Message 55");
   });
-  expect(feed.queryByRole("button", { name: /newer/ })).toBeNull();
+  expect(feed.container.querySelector("[data-newer-divider]")).toBeNull();
 });
 
 test("live items above a linked one raise the count until the reader catches up", async () => {
   await using _io = stubIntersectionObserver();
   await using harness = await createConvexTestHarness({ identity: null });
-  await using feed = await renderLinkedFeed(harness, { olderCount: 2 });
+  await using feed = await renderLinkedFeed(harness, {
+    newerCount: NEWER_COUNT,
+    olderCount: 2,
+  });
   const postLive = async (message: string) => {
     await harness.convexClient.mutation(api.encouragements.create, {
       authorName: "Auntie",
@@ -1441,20 +1501,20 @@ test("live items above a linked one raise the count until the reader catches up"
   await postLive("Live before catching up");
 
   await vi.waitFor(() => {
-    expect(feed.getByText(/^26 newer in all/)).toBeTruthy();
+    expect(feed.getByRole("button", { name: "24 newer, Show 20 more" })).toBeTruthy();
   });
   expect(feed.queryByText("Live before catching up")).toBeNull();
-  expect(feedMessages(feed)[0]).toBe(LINKED_MESSAGE);
+  expect(feedMessages(feed).slice(0, 3)).toEqual(["Message 32", "Message 31", LINKED_MESSAGE]);
 
-  fireEvent.click(feed.getByRole("button", { name: "Show 20 newer" }));
+  fireEvent.click(feed.getByRole("button", { name: "24 newer, Show 20 more" }));
   await vi.waitFor(() => {
-    expect(feed.getByRole("button", { name: "Show 6 newer" })).toBeTruthy();
+    expect(feed.getByRole("button", { name: "4 newer, Show 4 more" })).toBeTruthy();
   });
-  fireEvent.click(feed.getByRole("button", { name: "Show 6 newer" }));
+  fireEvent.click(feed.getByRole("button", { name: "4 newer, Show 4 more" }));
   await vi.waitFor(() => {
     expect(feedMessages(feed)[0]).toBe("Live before catching up");
   });
-  expect(feed.queryByRole("button", { name: /newer/ })).toBeNull();
+  expect(feed.queryByRole("button", { name: SHOW_MORE })).toBeNull();
 
   // Caught up: the top of the feed is live again, like the latest feed.
   await postLive("Live after catching up");
@@ -1462,7 +1522,69 @@ test("live items above a linked one raise the count until the reader catches up"
   await vi.waitFor(() => {
     expect(feedMessages(feed)[0]).toBe("Live after catching up");
   });
-  expect(feed.queryByRole("button", { name: /newer/ })).toBeNull();
+  expect(feed.queryByRole("button", { name: SHOW_MORE })).toBeNull();
+});
+
+test("a link deep in a busy feed says more than the cap are newer", async () => {
+  await using _io = stubIntersectionObserver();
+  await using harness = await createConvexTestHarness({ identity: null });
+  await using feed = await renderLinkedFeed(harness, { newerCount: 101, olderCount: 0 });
+
+  expect(feed.getByRole("button", { name: "More than 98 newer, Show 20 more" })).toBeTruthy();
+});
+
+test("the server render has the context above the linked item and the divider above both", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+  const seeded = await seedLinkedFeed(harness, { newerCount: NEWER_COUNT, olderCount: 2 });
+  await using server = stubQueryClientResource(
+    (query, args) => harness.client.query(query, args),
+    { isServer: true },
+  );
+  const feed = await loadTimelineFeed(server.queryClient, {
+    followedFrom: undefined,
+    item: seeded.itemId,
+    publicId: seeded.baby.publicId,
+  });
+  const router = createRouter({
+    history: createMemoryHistory({ initialEntries: [`/baby/${seeded.baby.publicId}`] }),
+    routeTree: createRootRoute({
+      component: () => (
+        <QueryClientProvider client={server.queryClient}>
+          <ConvexProvider
+            // @ts-expect-error — integration client is not ConvexReactClient
+            client={harness.convexClient}
+          >
+            <LocaleProvider locale="en-GB">
+              <TimelineFeed
+                baby={notYetBaby}
+                babyName={notYetBaby.name}
+                feed={feed}
+                isOwner={false}
+                publicId={seeded.baby.publicId}
+                visitorTag={server.queryClient.prefetch(visitorTagQuery, seeded.baby.babyId)}
+              />
+            </LocaleProvider>
+          </ConvexProvider>
+        </QueryClientProvider>
+      ),
+    }),
+  });
+  await router.load();
+
+  const html = renderToString(<RouterProvider router={router} />);
+
+  const positions = [
+    "23 newer",
+    "Show 20 more",
+    "Message 32",
+    "Message 31",
+    'aria-current="true"',
+    LINKED_MESSAGE,
+    "Message 29",
+  ].map((text) => html.indexOf(text));
+  expect(positions).not.toContain(-1);
+  expect(positions).toEqual(positions.toSorted((a, b) => a - b));
+  expect(html).not.toContain("Message 33");
 });
 
 test("a link to an item that isn't here shows the latest items with a notice", async () => {
@@ -1492,7 +1614,7 @@ test("a link to an item that isn't here shows the latest items with a notice", a
   );
   expect(feed.getByText("Can't wait to meet you!")).toBeTruthy();
   expect(feed.container.querySelector('[aria-current="true"]')).toBeNull();
-  expect(feed.queryByRole("button", { name: /newer/ })).toBeNull();
+  expect(feed.queryByRole("button", { name: SHOW_MORE })).toBeNull();
 });
 
 async function seedUpdateAndEncouragement(harness: ConvexTestHarness) {

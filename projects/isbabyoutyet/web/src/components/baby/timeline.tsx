@@ -1458,10 +1458,11 @@ function LatestTimelineFeed(props: TimelineFeedProps & { feed: LatestTimelineFee
 }
 
 /**
- * The feed from a linked item down. Older items load as the skeleton
- * scrolls in, like the latest feed; newer ones only on "Show newer", so
- * nothing above the item moves it. Live items newer than everything loaded
- * only raise that button's count, until the reader has caught up.
+ * The feed from a linked item down, with the few items right above it for
+ * context. Older items load as the skeleton scrolls in, like the latest
+ * feed; the other newer ones only on "Show more", so nothing above the item
+ * moves it. Live items newer than everything loaded only raise the
+ * divider's count, until the reader has caught up.
  */
 function LinkedTimelineFeed(props: TimelineFeedProps & { feed: LinkedTimelineFeedLoad }) {
   const base = useTimelineFeedViewBase(props);
@@ -1641,7 +1642,7 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
       ) : null}
 
       {newer ? (
-        <ShowNewerItems
+        <NewerItemsDivider
           firstItemId={props.items[0]?._id ?? null}
           newer={newer}
           publicId={props.publicId}
@@ -1733,62 +1734,70 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
 }
 
 /**
- * Above a linked item: newer items load on a click only, never on scroll,
- * and the item stays put on screen while they land above it. A skeleton
- * here (as below) would itself push the item down, so the button stays.
+ * Above a linked item and the few newer ones loaded with it: the rest load a
+ * page per click, never on scroll, and what's on screen stays put while they
+ * land above it. A skeleton here (as below) would itself push the item down,
+ * so this is a divider with a button, like a thread's "N more replies".
  */
-function ShowNewerItems(props: {
+function NewerItemsDivider(props: {
   firstItemId: string | null;
   newer: NewerTimelineItems;
   publicId: string;
 }) {
   const { t } = useI18n();
   const newer = props.newer;
-  const nextPageCount = Math.min(newer.count, TIMELINE_PAGE_SIZE);
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div className="flex items-center gap-2 sm:gap-3" data-newer-divider="">
       <p className="sr-only" role="status">
         {newer.isFetching ? t("Loading newer updates & encouragements…") : null}
       </p>
-      <Button
-        className="rounded-full font-bold"
-        onClick={() => {
-          // raf-query would queue a second page behind the one in flight.
-          if (newer.isFetching) {
-            return;
-          }
-          const anchor =
-            props.firstItemId === null
-              ? null
-              : document.getElementById(feedItemDomId(props.firstItemId));
-          void (anchor ? keepScrollAnchor(anchor, newer.show) : newer.show());
-        }}
-        variant="outline"
-      >
-        {newer.isFetching ? (
-          <CircleNotchIcon aria-hidden="true" className="size-4 animate-spin" weight="bold" />
-        ) : (
-          <ArrowUpIcon aria-hidden="true" className="size-4" weight="bold" />
-        )}
-        {t("Show {{count}} newer", { count: nextPageCount })}
-      </Button>
-      {newer.more || newer.count > nextPageCount ? (
-        <p className="text-xs text-muted-foreground">
-          {newer.more
-            ? t("More than {{count}} newer in all", { count: newer.count })
-            : t("{{count}} newer in all", { count: newer.count })}
-          {" · "}
-          <Link
-            className="font-semibold text-foreground underline-offset-2 hover:underline"
-            hash={BABY_FEED_HASH}
-            params={{ publicId: props.publicId }}
-            search={{}}
-            to="/baby/$publicId"
-          >
-            {t("Jump to latest")}
-          </Link>
-        </p>
-      ) : null}
+      <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-border" />
+      <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5">
+        <Button
+          className="rounded-full font-semibold text-muted-foreground hover:text-foreground"
+          onClick={() => {
+            // raf-query would queue a second page behind the one in flight.
+            if (newer.isFetching) {
+              return;
+            }
+            const anchor =
+              props.firstItemId === null
+                ? null
+                : document.getElementById(feedItemDomId(props.firstItemId));
+            void (anchor ? keepScrollAnchor(anchor, newer.show) : newer.show());
+          }}
+          size="sm"
+          variant="ghost"
+        >
+          <span>
+            {newer.more
+              ? t("More than {{count}} newer", { count: newer.count })
+              : t("{{count}} newer", { count: newer.count })}
+          </span>
+          <span className="sr-only">,</span> <span aria-hidden="true">·</span>{" "}
+          <span className="inline-flex items-center gap-1 font-bold text-primary">
+            {newer.isFetching ? (
+              <CircleNotchIcon aria-hidden="true" className="animate-spin" weight="bold" />
+            ) : (
+              <ArrowUpIcon aria-hidden="true" weight="bold" />
+            )}
+            {t("Show {{count}} more", { count: Math.min(newer.count, TIMELINE_PAGE_SIZE) })}
+          </span>
+        </Button>
+        <span aria-hidden="true" className="text-xs text-muted-foreground">
+          ·
+        </span>
+        <Link
+          className="rounded-full px-2 py-1 text-[0.8rem] font-medium text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+          hash={BABY_FEED_HASH}
+          params={{ publicId: props.publicId }}
+          search={{}}
+          to="/baby/$publicId"
+        >
+          {t("Jump to latest")}
+        </Link>
+      </div>
+      <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-border" />
     </div>
   );
 }
