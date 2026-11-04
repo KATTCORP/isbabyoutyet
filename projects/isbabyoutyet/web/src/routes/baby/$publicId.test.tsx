@@ -836,7 +836,11 @@ function watchFeedResource(harness: ConvexTestHarness) {
         query.mock.calls.map((call) =>
           isFunction(call[0]) ? "inline query" : getFunctionName(call[0]),
         ),
-      scrolls: () => scrollIntoView.mock.calls.length + scrollTo.mock.calls.length,
+      /** The elements scrolled into view, in order, and how often the window scrolled. */
+      scrolled: () => ({
+        intoView: scrollIntoView.mock.contexts,
+        windowScrolls: scrollTo.mock.calls.length,
+      }),
     },
     () => {
       query.mockRestore();
@@ -893,7 +897,12 @@ test("following a timestamp on the latest feed highlights the item in place", as
   expect(ctx.view.container.querySelectorAll('[id^="item-"]')).toHaveLength(TIMELINE_PAGE_SIZE + 2);
   expect(ctx.view.queryByRole("button", { name: SHOW_NEWER })).toBeNull();
   expect(watched.reads()).toEqual([]);
-  expect(watched.scrolls()).toBe(0);
+  await vi.waitFor(() => {
+    expect(watched.scrolled()).toEqual({
+      intoView: [messageRow(ctx.view, "Message 2")],
+      windowScrolls: 0,
+    });
+  });
 });
 
 test("going back after following a timestamp keeps the feed and clears the highlight", async () => {
@@ -943,7 +952,12 @@ test("following a timestamp in a linked window keeps the window and moves the hi
   expect(ctx.view.getByText("Message 1")).toBeTruthy();
   expect(ctx.view.queryByRole("button", { name: SHOW_NEWER })).toBeNull();
   expect(watched.reads()).toEqual([]);
-  expect(watched.scrolls()).toBe(0);
+  await vi.waitFor(() => {
+    expect(watched.scrolled()).toEqual({
+      intoView: [messageRow(ctx.view, "Message 5")],
+      windowScrolls: 0,
+    });
+  });
 
   ctx.router.history.back();
 
