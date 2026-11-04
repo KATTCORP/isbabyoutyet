@@ -19,7 +19,7 @@ import {
 } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
 import { RadioGroup, RadioGroupItem } from "@workspace/ui/components/radio-group";
-import { Spinner } from "@workspace/ui/components/spinner";
+import { Skeleton } from "@workspace/ui/components/skeleton";
 import { Textarea } from "@workspace/ui/components/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/components/tooltip";
 import {
@@ -95,6 +95,8 @@ const TIMELINE_REDUCED_MOTION = "user" as const;
 const TIMELINE_ITEM_HIDDEN = { opacity: 0, scale: 0.96, y: -12 };
 const TIMELINE_ITEM_VISIBLE = { opacity: 1, scale: 1, y: 0 };
 const TIMELINE_ITEM_TRANSITION = { damping: 32, stiffness: 420, type: "spring" } as const;
+/** Start the next page about half a phone screen before the skeleton scrolls in. */
+const TIMELINE_PRELOAD_MARGIN = "0px 0px 400px 0px";
 
 type TimelineItemData = FunctionReturnType<typeof api.timeline.listByBaby>["page"][number];
 type UpdateItemData = Extract<TimelineItemData, { kind: "update" }>;
@@ -1390,8 +1392,9 @@ type TimelineFeedViewProps = {
 
 /**
  * Presentational timeline feed body — wired by {@link TimelineFeed}.
+ * @internal Exported for tests.
  */
-function TimelineFeedView(props: TimelineFeedViewProps) {
+export function TimelineFeedView(props: TimelineFeedViewProps) {
   const { t } = useI18n();
   const hasNextPage = props.hasNextPage;
   const isFetchingNextPage = props.isFetchingNextPage;
@@ -1399,12 +1402,18 @@ function TimelineFeedView(props: TimelineFeedViewProps) {
   const liveInsertIds = useLiveInsertIds(
     props.items.map((item) => ({ id: item._id, sortKey: item.postedAt })),
   );
+  // raf-query queues a second `fetchNextPage` behind one in flight (loading
+  // two pages), so the sentinel stays disarmed until the page lands.
+  const canLoadMore = hasNextPage && !isFetchingNextPage;
   const loadMoreRef = useIntersectionAction({
-    enabled: hasNextPage && !isFetchingNextPage,
+    enabled: canLoadMore,
     onIntersect: () => {
-      void fetchNextPage();
+      if (canLoadMore) {
+        void fetchNextPage();
+      }
     },
-    threshold: 0.1,
+    rootMargin: TIMELINE_PRELOAD_MARGIN,
+    threshold: 0,
   });
 
   const handleDeleteUpdate = async (updateId: Id<"updates">) => {
@@ -1456,7 +1465,7 @@ function TimelineFeedView(props: TimelineFeedViewProps) {
         <h3 className="text-lg font-extrabold text-foreground">{t("Updates & encouragements")}</h3>
       </div>
 
-      {props.items.length === 0 ? (
+      {props.items.length === 0 && !hasNextPage ? (
         <div className="rounded-3xl border-2 border-dashed border-border py-10 text-center">
           <p aria-hidden="true" className="text-3xl">
             💌
@@ -1471,7 +1480,7 @@ function TimelineFeedView(props: TimelineFeedViewProps) {
       ) : null}
 
       <MotionConfig reducedMotion={TIMELINE_REDUCED_MOTION}>
-        <div className="relative flex flex-col gap-4">
+        <div aria-busy={isFetchingNextPage} className="relative flex flex-col gap-4">
           <AnimatePresence initial={false} mode={TIMELINE_PRESENCE_MODE}>
             {props.items.map((item) => {
               const isLiveInsert = liveInsertIds.has(item._id);
@@ -1517,12 +1526,47 @@ function TimelineFeedView(props: TimelineFeedViewProps) {
         </div>
       </MotionConfig>
 
-      <div className="py-2" ref={loadMoreRef}>
-        {isFetchingNextPage ? (
-          <div className="text-center text-muted-foreground">
-            <Spinner className="mx-auto" />
-          </div>
-        ) : null}
+      {/* The skeleton is the infinite-scroll sentinel. The status sits
+          outside the aria-busy list so screen readers still announce it. */}
+      {hasNextPage ? (
+        <div
+          className="flex flex-col gap-4 **:data-[slot=skeleton]:motion-reduce:animate-none"
+          data-testid="timeline-load-more"
+          ref={loadMoreRef}
+        >
+          <p className="sr-only" role="status">
+            {isFetchingNextPage ? t("Loading more updates & encouragements…") : null}
+          </p>
+          {TIMELINE_SKELETON_LINE_WIDTHS.map((lineWidths) => (
+            <TimelineItemSkeleton key={lineWidths.join()} lineWidths={lineWidths} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** One entry per skeleton item: the width of each of its text lines. */
+const TIMELINE_SKELETON_LINE_WIDTHS = [
+  ["w-full", "w-11/12", "w-3/5"],
+  ["w-10/12", "w-1/2"],
+  ["w-11/12", "w-4/5", "w-2/5"],
+] as const;
+
+/** Placeholder shaped like {@link EncouragementTimelineItem}. */
+function TimelineItemSkeleton(props: { lineWidths: ReadonlyArray<string> }) {
+  return (
+    <div aria-hidden="true" className="flex items-start gap-3">
+      <Skeleton className="mt-1 hidden size-10 shrink-0 rounded-full sm:block" />
+      <div className={cn(TIMELINE_BUBBLE, "space-y-2.5 border-border/50 bg-muted/20")}>
+        <div className="flex items-center gap-2">
+          <Skeleton className="size-6 shrink-0 rounded-full sm:hidden" />
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-3 w-14" />
+        </div>
+        {props.lineWidths.map((width) => (
+          <Skeleton className={cn("h-3.5", width)} key={width} />
+        ))}
       </div>
     </div>
   );

@@ -2,6 +2,8 @@ import { fireEvent, render, within } from "@testing-library/react";
 import { convexPaginatedQuery } from "@workspace/convex-query";
 import { QueryClientProvider } from "@raf-query/react";
 import { ConvexProvider } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
+import { renderToString } from "react-dom/server";
 import { expect, test, vi } from "vitest";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
@@ -11,7 +13,7 @@ import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
 import { isPlainObject } from "@workspace/runtime/guards";
 import { LocaleProvider } from "@/lib/i18n";
 import { visitorTagQuery } from "@/lib/visitor-tag";
-import { TimelineFeed, UpdateComposer } from "@/components/baby/timeline";
+import { TimelineFeed, TimelineFeedView, UpdateComposer } from "@/components/baby/timeline";
 import { EncouragementForm } from "@/components/baby/encouragements";
 import { createConvexTestHarness, type ConvexTestHarness } from "@/test/convexTestHarness";
 import {
@@ -962,4 +964,312 @@ test("EncouragementForm submit reaches the Convex mutation", async () => {
     ),
   ).toBe(true);
   expect(sessionStorage.getItem(`encouragement-message-draft:${baby.babyId}`)).toBeNull();
+});
+
+// --- Infinite scroll: the skeleton is the sentinel ---
+
+type TimelinePageItems = FunctionReturnType<typeof api.timeline.listByBaby>["page"];
+
+/**
+ * A controllable IntersectionObserver: nothing intersects until the test calls
+ * `intersect()`, which (like the browser) only reaches observers that are
+ * still watching a node.
+ */
+function stubIntersectionObserver() {
+  const observers: Array<FakeIntersectionObserver> = [];
+
+  class FakeIntersectionObserver implements IntersectionObserver {
+    readonly callback: IntersectionObserverCallback;
+    disconnected = false;
+    readonly root = null;
+    readonly rootMargin: string;
+    readonly scrollMargin = "0px";
+    targets: Array<Element> = [];
+    readonly thresholds: ReadonlyArray<number>;
+
+    constructor(callback: IntersectionObserverCallback, options: IntersectionObserverInit) {
+      this.callback = callback;
+      this.rootMargin = options.rootMargin ?? "0px";
+      this.thresholds = [options.threshold ?? 0].flat();
+      observers.push(this);
+    }
+    observe(target: Element) {
+      this.targets.push(target);
+    }
+    unobserve(target: Element) {
+      this.targets = this.targets.filter((candidate) => candidate !== target);
+    }
+    disconnect() {
+      this.disconnected = true;
+      this.targets = [];
+    }
+    takeRecords() {
+      return [];
+    }
+    fire() {
+      this.callback(
+        this.targets.map(
+          (target) =>
+            /* SAFETY: the hook under test only reads isIntersecting and target. */
+            ({ isIntersecting: true, target }) as IntersectionObserverEntry,
+        ),
+        this,
+      );
+    }
+  }
+
+  const original = globalThis.IntersectionObserver;
+  vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
+  const watching = () => observers.filter((observer) => observer.targets.length > 0);
+  return makeResource(
+    {
+      intersect() {
+        for (const observer of watching()) {
+          observer.fire();
+        }
+      },
+      observers,
+      watching,
+    },
+    () => {
+      vi.stubGlobal("IntersectionObserver", original);
+    },
+  );
+}
+
+function timelineFeedViewTree(opts: {
+  fetchNextPage: () => void;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  items: TimelinePageItems;
+}) {
+  return (
+    <LocaleProvider locale="en-GB">
+      <TimelineFeedView
+        baby={notYetBaby}
+        babyName={notYetBaby.name}
+        currentVisitorId="visitor-test"
+        currentVisitorTag={null}
+        fetchNextPage={opts.fetchNextPage}
+        hasNextPage={opts.hasNextPage}
+        isFetchingNextPage={opts.isFetchingNextPage}
+        isOwner={false}
+        items={opts.items}
+        publicId="baby-smith"
+        removeEncouragement={vi.fn()}
+        removeUpdate={vi.fn()}
+        setAsCurrentPhoto={vi.fn()}
+        updateEncouragement={vi.fn()}
+      />
+    </LocaleProvider>
+  );
+}
+
+async function seedFirstTimelinePage(harness: ConvexTestHarness) {
+  const baby = await seedOwnerBaby(harness);
+  await seedTimelineEncouragement(harness, {
+    authorName: "Grandma",
+    babyId: baby.babyId,
+    message: "Can't wait to meet you!",
+  });
+  const firstPage = await harness.client.query(api.timeline.listByBaby, {
+    babyId: baby.publicId,
+    paginationOpts: { cursor: null, numItems: 20 },
+  });
+  return firstPage.page;
+}
+
+test("while more pages exist the feed ends in a skeleton that is the scroll sentinel", async () => {
+  await using io = stubIntersectionObserver();
+  await using harness = await createConvexTestHarness({ identity: null });
+  const items = await seedFirstTimelinePage(harness);
+
+  await using feed = await renderWithTestRouter(
+    timelineFeedViewTree({
+      fetchNextPage: vi.fn(),
+      hasNextPage: true,
+      isFetchingNextPage: false,
+      items,
+    }),
+  );
+
+  const sentinel = feed.getByTestId("timeline-load-more");
+  const skeletons = sentinel.querySelectorAll('[data-slot="skeleton"]');
+  expect(sentinel.querySelectorAll(':scope > [aria-hidden="true"]')).toHaveLength(3);
+  for (const skeleton of skeletons) {
+    expect(skeleton.closest('[aria-hidden="true"]')).not.toBeNull();
+  }
+  expect(within(sentinel).getByRole("status").textContent).toBe("");
+  expect(feed.container.querySelector('[aria-busy="true"]')).toBeNull();
+
+  const watching = io.watching();
+  expect(watching).toHaveLength(1);
+  expect(watching[0]?.targets).toEqual([sentinel]);
+  expect(watching[0]?.rootMargin).toBe("0px 0px 400px 0px");
+});
+
+test("reaching the skeleton fetches the next page once and not again while it loads", async () => {
+  await using io = stubIntersectionObserver();
+  await using harness = await createConvexTestHarness({ identity: null });
+  const items = await seedFirstTimelinePage(harness);
+  const fetchNextPage = vi.fn<() => void>();
+  const state = { fetchNextPage, hasNextPage: true, isFetchingNextPage: false, items };
+
+  await using feed = await renderWithTestRouter(timelineFeedViewTree(state));
+
+  io.intersect();
+  expect(fetchNextPage).toHaveBeenCalledTimes(1);
+
+  feed.rerender(timelineFeedViewTree({ ...state, isFetchingNextPage: true }));
+  expect(io.watching()).toHaveLength(0);
+  io.intersect();
+  expect(fetchNextPage).toHaveBeenCalledTimes(1);
+  expect(feed.getByTestId("timeline-load-more")).toBeTruthy();
+  expect(feed.getByRole("status").textContent).toBe("Loading more updates & messages…");
+  expect(feed.container.querySelector('[aria-busy="true"]')).not.toBeNull();
+
+  // The page landed and more remain: a fresh observer re-arms the skeleton.
+  feed.rerender(timelineFeedViewTree(state));
+  expect(io.watching()).toHaveLength(1);
+  io.intersect();
+  expect(fetchNextPage).toHaveBeenCalledTimes(2);
+});
+
+test("the last page removes the skeleton and disconnects its observer", async () => {
+  await using io = stubIntersectionObserver();
+  await using harness = await createConvexTestHarness({ identity: null });
+  const items = await seedFirstTimelinePage(harness);
+  const fetchNextPage = vi.fn<() => void>();
+  const state = { fetchNextPage, hasNextPage: true, isFetchingNextPage: false, items };
+
+  await using feed = await renderWithTestRouter(timelineFeedViewTree(state));
+  expect(io.watching()).toHaveLength(1);
+
+  feed.rerender(timelineFeedViewTree({ ...state, hasNextPage: false }));
+  expect(feed.queryByTestId("timeline-load-more")).toBeNull();
+  expect(feed.queryByRole("status")).toBeNull();
+  expect(io.watching()).toHaveLength(0);
+  expect(io.observers.every((observer) => observer.disconnected)).toBe(true);
+  io.intersect();
+  expect(fetchNextPage).not.toHaveBeenCalled();
+});
+
+test("an exhausted feed never renders a skeleton or creates an observer", async () => {
+  await using io = stubIntersectionObserver();
+  await using harness = await createConvexTestHarness({ identity: null });
+  const items = await seedFirstTimelinePage(harness);
+
+  await using feed = await renderWithTestRouter(
+    timelineFeedViewTree({
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      items,
+    }),
+  );
+
+  expect(feed.getByText("Can't wait to meet you!")).toBeTruthy();
+  expect(feed.queryByTestId("timeline-load-more")).toBeNull();
+  expect(io.observers).toHaveLength(0);
+});
+
+test("unmounting the feed disconnects the skeleton's observer", async () => {
+  await using io = stubIntersectionObserver();
+  await using harness = await createConvexTestHarness({ identity: null });
+  const items = await seedFirstTimelinePage(harness);
+
+  {
+    await using _feed = await renderWithTestRouter(
+      timelineFeedViewTree({
+        fetchNextPage: vi.fn(),
+        hasNextPage: true,
+        isFetchingNextPage: false,
+        items,
+      }),
+    );
+    expect(io.watching()).toHaveLength(1);
+  }
+
+  expect(io.observers.length).toBeGreaterThan(0);
+  expect(io.observers.every((observer) => observer.disconnected)).toBe(true);
+});
+
+test("an empty page with more to come shows the skeleton instead of the empty state", async () => {
+  await using _io = stubIntersectionObserver();
+
+  await using feed = await renderWithTestRouter(
+    timelineFeedViewTree({
+      fetchNextPage: vi.fn(),
+      hasNextPage: true,
+      isFetchingNextPage: false,
+      items: [],
+    }),
+  );
+
+  expect(feed.queryByText("Nothing here yet")).toBeNull();
+  expect(feed.getByTestId("timeline-load-more")).toBeTruthy();
+});
+
+test("the server render includes the skeleton without creating an observer", async () => {
+  await using io = stubIntersectionObserver();
+
+  const html = renderToString(
+    timelineFeedViewTree({
+      fetchNextPage: vi.fn(),
+      hasNextPage: true,
+      isFetchingNextPage: false,
+      items: [],
+    }),
+  );
+
+  expect(html).toContain('data-testid="timeline-load-more"');
+  expect(html).toContain('data-slot="skeleton"');
+  expect(io.observers).toHaveLength(0);
+});
+
+test("a live encouragement during the next-page fetch neither duplicates nor drops items", async () => {
+  await using io = stubIntersectionObserver();
+  await using harness = await createConvexTestHarness({ identity: null });
+  const baby = await seedOwnerBaby(harness);
+  const seededMessages = Array.from({ length: 24 }, (_, index) => `Older message ${index + 1}`);
+  for (const message of seededMessages) {
+    await seedTimelineEncouragement(harness, {
+      authorName: "Family",
+      babyId: baby.babyId,
+      message,
+    });
+  }
+
+  await using feed = await renderTimelineFeed(harness, {
+    baby: notYetBaby,
+    babyId: baby.babyId,
+    isOwner: false,
+    publicId: baby.publicId,
+    visitorId: undefined,
+  });
+  await vi.waitFor(() => {
+    expect(io.watching()).toHaveLength(1);
+  });
+  expect(feed.queryByText("Older message 1")).toBeNull();
+
+  io.intersect();
+  await harness.convexClient.mutation(api.encouragements.create, {
+    authorName: "Auntie",
+    babyId: baby.babyId,
+    locale: null,
+    message: "Live while paging",
+    timezone: null,
+    userAgent: null,
+    visitorId: "visitor-live",
+  });
+
+  await vi.waitFor(() => {
+    expect(feed.getByText("Live while paging")).toBeTruthy();
+    expect(feed.getByText("Older message 1")).toBeTruthy();
+    expect(feed.queryByTestId("timeline-load-more")).toBeNull();
+  });
+  for (const message of [...seededMessages, "Live while paging"]) {
+    expect(feed.getAllByText(message)).toHaveLength(1);
+  }
+  expect(feed.container.querySelectorAll(".group")).toHaveLength(seededMessages.length + 1);
 });
