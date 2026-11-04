@@ -45,7 +45,6 @@ import {
   HospitalIcon,
   ImageIcon,
   LinkBreakIcon,
-  LinkSimpleIcon,
   PaperPlaneTiltIcon,
   PencilSimpleIcon,
   PushPinIcon,
@@ -89,16 +88,10 @@ import { useLiveInsertIds } from "@/lib/use-live-insert-ids";
 import { useObjectUrl } from "@/lib/use-object-url";
 import { useBabyUpdatePhotoOverlayLinks } from "@/lib/overlay-nav";
 import { BlurImage } from "@/components/blur-image";
-import { copyTextToClipboard } from "@/lib/copy-text";
 import { keepScrollAnchor } from "@/lib/keep-scroll-anchor";
-import { canonicalUrl } from "@/lib/site-url";
 import type { TimelineFeedLoad } from "@/lib/timeline-feed";
 import { linkedTimelineQuery, TIMELINE_PAGE_SIZE } from "@/lib/timeline-feed";
-import {
-  BABY_FEED_HASH,
-  babyFeedItemUrl,
-  feedItemDomId,
-} from "@isbabyoutyet/backend/src/babyFeedUrl";
+import { BABY_FEED_HASH, feedItemDomId } from "@isbabyoutyet/backend/src/babyFeedUrl";
 import { MILESTONE_LABEL_KEYS } from "./translation-keys";
 
 const EDIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
@@ -804,36 +797,38 @@ const TIMELINE_BUBBLE =
 
 const emptyActionSchema = z.object({});
 
-/** Copies the item's {@link babyFeedItemUrl}, like the share dialog copies the page's. */
-function CopyItemLinkButton(props: { itemId: Id<"timelineItems">; publicId: string }) {
-  const { t } = useI18n();
-  const copyLink = async () => {
-    try {
-      await copyTextToClipboard(
-        canonicalUrl(babyFeedItemUrl({ itemId: props.itemId, publicId: props.publicId })),
-      );
-      toast.success(t("Link copied"));
-    } catch (error) {
-      toast.error(
-        t("Failed to copy to clipboard: {{detail}}", {
-          detail: error instanceof Error ? error.message : t("Unknown error"),
-        }),
-      );
-    }
-  };
+/**
+ * An item's relative time as its permalink (`babyFeedItemUrl`), like a
+ * Facebook comment's timestamp: a real href, so it's in the server render
+ * and the browser's own "Copy link" works, that opens the feed at the item.
+ * Never preloaded: the router preloads links in view, and every row has one.
+ */
+function TimelineItemPermalink(props: {
+  itemId: Id<"timelineItems">;
+  kind: TimelineItemData["kind"];
+  postedAt: number;
+  publicId: string;
+  title: string;
+}) {
+  const { locale, t } = useI18n();
+  const time = getRelativeTimeFromTimestamp(props.postedAt, locale);
   return (
-    <Button
-      aria-label={t("Copy link")}
-      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-      onClick={() => {
-        void copyLink();
-      }}
-      size="icon"
-      title={t("Copy link")}
-      variant="ghost"
+    <Link
+      aria-label={
+        props.kind === "update"
+          ? t("{{time}}, link to this update", { time })
+          : t("{{time}}, link to this message", { time })
+      }
+      className="shrink-0 rounded-sm text-xs text-muted-foreground underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      hash={feedItemDomId(props.itemId)}
+      params={{ publicId: props.publicId }}
+      preload={false}
+      search={{ item: props.itemId }}
+      title={props.title}
+      to="/baby/$publicId"
     >
-      <LinkSimpleIcon className="w-4 h-4" />
-    </Button>
+      <time dateTime={new Date(props.postedAt).toISOString()}>{time}</time>
+    </Link>
   );
 }
 
@@ -1068,68 +1063,70 @@ function UpdateTimelineItem(props: UpdateTimelineItemProps) {
                 {t("Page photo")}
               </Badge>
             )}
-            <span
-              className="text-xs text-muted-foreground shrink-0"
+            <TimelineItemPermalink
+              itemId={props.item._id}
+              kind="update"
+              postedAt={props.item.postedAt}
+              publicId={props.publicId}
               title={t("Posted {{date}}", {
                 date: new Date(props.item.postedAt).toLocaleString(locale, {
                   timeZone: props.baby.timeZone,
                 }),
               })}
-            >
-              {getRelativeTimeFromTimestamp(props.item.postedAt, locale)}
-            </span>
+            />
           </div>
 
-          <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity shrink-0">
-            <CopyItemLinkButton itemId={props.item._id} publicId={props.publicId} />
-            {canPinPhoto && (
-              <PinAsPagePhotoForm
-                onSetAsCurrentPhoto={props.onSetAsCurrentPhoto}
-                updateId={update._id}
-              />
-            )}
-            {!props.isOwner ? null : deleteBlocker ? (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <span
-                      aria-label={t("Delete the {{status}} status first", {
-                        status: MILESTONE_LABELS[deleteBlocker],
-                      })}
-                      className="inline-flex"
-                    />
-                  }
-                >
-                  {deleteButton}
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t("Delete the {{status}} status first", {
-                    status: MILESTONE_LABELS[deleteBlocker],
-                  })}
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <DeleteUpdateForm
-                description={[
-                  update.milestone
-                    ? t("This also unmarks the milestone on the status card.")
-                    : t("This removes the update from the timeline."),
-                  update.photoUrl
-                    ? t(
-                        "If this photo is the current page photo, the previous one takes its place.",
-                      )
-                    : "",
-                  t("This action cannot be undone."),
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                onDelete={props.onDelete}
-                title={t("Delete update?")}
-                trigger={deleteButton}
-                updateId={update._id}
-              />
-            )}
-          </div>
+          {props.isOwner && (
+            <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity shrink-0">
+              {canPinPhoto && (
+                <PinAsPagePhotoForm
+                  onSetAsCurrentPhoto={props.onSetAsCurrentPhoto}
+                  updateId={update._id}
+                />
+              )}
+              {deleteBlocker ? (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        aria-label={t("Delete the {{status}} status first", {
+                          status: MILESTONE_LABELS[deleteBlocker],
+                        })}
+                        className="inline-flex"
+                      />
+                    }
+                  >
+                    {deleteButton}
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t("Delete the {{status}} status first", {
+                      status: MILESTONE_LABELS[deleteBlocker],
+                    })}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <DeleteUpdateForm
+                  description={[
+                    update.milestone
+                      ? t("This also unmarks the milestone on the status card.")
+                      : t("This removes the update from the timeline."),
+                    update.photoUrl
+                      ? t(
+                          "If this photo is the current page photo, the previous one takes its place.",
+                        )
+                      : "",
+                    t("This action cannot be undone."),
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  onDelete={props.onDelete}
+                  title={t("Delete update?")}
+                  trigger={deleteButton}
+                  updateId={update._id}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         {/* Photo first when present; the caption/message sits last so long
@@ -1295,55 +1292,57 @@ function EncouragementTimelineItem(props: EncouragementTimelineItemProps) {
               {initial}
             </span>
             <span className="font-medium text-foreground truncate">{encouragement.authorName}</span>
-            <span
-              className="text-xs text-muted-foreground shrink-0"
+            <TimelineItemPermalink
+              itemId={props.item._id}
+              kind="encouragement"
+              postedAt={encouragement.createdAt}
+              publicId={props.publicId}
               title={new Date(encouragement.createdAt).toLocaleString(locale, {
                 timeZone: props.timeZone,
               })}
-            >
-              {getRelativeTimeFromTimestamp(encouragement.createdAt, locale)}
-            </span>
+            />
             {isOwnPost && <span className="text-xs text-primary/70 shrink-0">{t("(you)")}</span>}
           </div>
 
-          <div className="-my-1 flex gap-1 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity shrink-0">
-            <CopyItemLinkButton itemId={props.item._id} publicId={props.publicId} />
-            {canEdit && (
-              <Popover {...overlay.rootProps}>
-                <PopoverTrigger
-                  render={
-                    <Button
-                      aria-label={t("Edit encouragement")}
-                      className="h-8 w-8"
-                      size="icon"
-                      variant="ghost"
-                    />
-                  }
-                >
-                  <PencilSimpleIcon className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-80 max-w-[calc(100vw-1rem)]">
-                  <FormGuardProvider guard={overlay}>
-                    <EncouragementEditForm
-                      encouragementId={encouragement._id}
-                      initialMessage={encouragement.message}
-                      onClose={overlay.close}
-                      onSave={props.onUpdate}
-                      visitorId={props.currentVisitorId}
-                    />
-                  </FormGuardProvider>
-                </PopoverContent>
-              </Popover>
-            )}
-            {canDelete && (
-              <DeleteEncouragementForm
-                authorName={encouragement.authorName}
-                encouragementId={encouragement._id}
-                onDelete={props.onDelete}
-                visitorId={canEdit ? props.currentVisitorId : undefined}
-              />
-            )}
-          </div>
+          {(canEdit || canDelete) && (
+            <div className="-my-1 flex gap-1 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity shrink-0">
+              {canEdit && (
+                <Popover {...overlay.rootProps}>
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        aria-label={t("Edit encouragement")}
+                        className="h-8 w-8"
+                        size="icon"
+                        variant="ghost"
+                      />
+                    }
+                  >
+                    <PencilSimpleIcon className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-80 max-w-[calc(100vw-1rem)]">
+                    <FormGuardProvider guard={overlay}>
+                      <EncouragementEditForm
+                        encouragementId={encouragement._id}
+                        initialMessage={encouragement.message}
+                        onClose={overlay.close}
+                        onSave={props.onUpdate}
+                        visitorId={props.currentVisitorId}
+                      />
+                    </FormGuardProvider>
+                  </PopoverContent>
+                </Popover>
+              )}
+              {canDelete && (
+                <DeleteEncouragementForm
+                  authorName={encouragement.authorName}
+                  encouragementId={encouragement._id}
+                  onDelete={props.onDelete}
+                  visitorId={canEdit ? props.currentVisitorId : undefined}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         <div className="mt-1 min-w-0 max-w-none break-words text-sm text-muted-foreground prose prose-sm [overflow-wrap:anywhere] dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-a:text-primary [&_code]:whitespace-pre-wrap [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto">

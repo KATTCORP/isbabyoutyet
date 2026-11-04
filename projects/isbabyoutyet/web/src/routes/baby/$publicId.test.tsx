@@ -4,6 +4,7 @@ import type { JsonValue } from "@workspace/runtime/json";
 import { convexTest } from "convex-test";
 import type { FunctionReturnType } from "convex/server";
 import { getFunctionName } from "convex/server";
+import { fireEvent, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { StatusDisplay } from "@/components/baby/status-display";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
@@ -28,7 +29,8 @@ import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { getBabySeo } from "@/lib/seo";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
-import { seedOwnedBaby } from "@/test/convexTestSeed";
+import { seedOwnedBaby, seedTimelineEncouragement } from "@/test/convexTestSeed";
+import { htmlElement } from "@/test/htmlElement";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 
 const routeModule = await import("@/routes/baby/$publicId/route");
@@ -670,4 +672,40 @@ test("notification #feed landmark is the messages list, not the compose box", as
   expect(feed).toBeTruthy();
   expect(feed?.contains(ctx.view.getByRole("heading", { name: "Updates & messages" }))).toBe(true);
   expect(feed?.contains(ctx.view.getByLabelText("Message"))).toBe(false);
+});
+
+test("following an item's timestamp opens the feed at that item", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
+  for (const message of ["Message 1", "Message 2", "Message 3"]) {
+    await seedTimelineEncouragement(harness, {
+      authorName: "Family",
+      babyId: baby.babyId,
+      message,
+    });
+  }
+  await harness.withIdentity(null);
+  await using ctx = await renderMountedFileRoute({
+    harness,
+    initialEntry: `/baby/${baby.publicId}`,
+    overlayHistory: null,
+    path: "/baby/$publicId",
+    route: routeModule.Route,
+    wrap: null,
+  });
+  const row = htmlElement((await ctx.view.findByText("Message 2")).closest('[id^="item-"]'));
+  expect(ctx.view.container.querySelector('[aria-current="true"]')).toBeNull();
+
+  fireEvent.click(within(row).getByRole("link", { name: /link to this message$/ }));
+
+  await vi.waitFor(() => {
+    const linked = htmlElement(ctx.view.container.querySelector('[aria-current="true"]'));
+    expect(linked.id).toBe(row.id);
+    expect(document.activeElement).toBe(linked);
+  });
+  const itemId = row.id.replace(/^item-/, "");
+  expect(ctx.router.state.location.search).toEqual({ item: itemId });
+  expect(ctx.router.state.location.hash).toBe(row.id);
+  expect(ctx.view.getByRole("button", { name: "Show 1 newer" })).toBeTruthy();
+  expect(ctx.view.queryByText("Message 3")).toBeNull();
 });

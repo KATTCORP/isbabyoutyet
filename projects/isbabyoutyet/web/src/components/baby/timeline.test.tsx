@@ -1,5 +1,11 @@
 import { fireEvent, render, within } from "@testing-library/react";
 import { QueryClientProvider } from "@raf-query/react";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
 import { ConvexProvider } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { renderToString } from "react-dom/server";
@@ -7,6 +13,7 @@ import { expect, test, vi } from "vitest";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
+import { babyFeedItemUrl } from "@isbabyoutyet/backend/src/babyFeedUrl";
 import type { BabyData } from "@isbabyoutyet/backend/src/types";
 import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
 import { isPlainObject } from "@workspace/runtime/guards";
@@ -1485,46 +1492,89 @@ test("a link to an item that isn't here shows the latest items with a notice", a
   expect(feed.queryByRole("button", { name: /newer/ })).toBeNull();
 });
 
-test("every item's Copy link copies its absolute link", async () => {
-  const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
-  const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
-  await using _clipboard = makeResource({}, () => {
-    if (clipboardDescriptor) {
-      Object.defineProperty(navigator, "clipboard", clipboardDescriptor);
-    } else {
-      Reflect.deleteProperty(navigator, "clipboard");
-    }
-  });
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-  await using harness = await createConvexTestHarness({ identity: null });
+async function seedUpdateAndEncouragement(harness: ConvexTestHarness) {
   const baby = await seedOwnerBaby(harness);
+  await postTestUpdate(harness, { babyId: baby.babyId, message: "Family news" });
   await seedTimelineEncouragement(harness, {
     authorName: "Grandma",
     babyId: baby.babyId,
     message: "Can't wait to meet you!",
   });
-  const [item] = (
+  const items = (
     await harness.client.query(api.timeline.listByBaby, {
       babyId: baby.publicId,
-      paginationOpts: { cursor: null, numItems: 1 },
+      paginationOpts: { cursor: null, numItems: 20 },
     })
   ).page;
+  const update = items.find((item) => item.kind === "update");
+  const encouragement = items.find((item) => item.kind === "encouragement");
+  if (update?.kind !== "update" || encouragement?.kind !== "encouragement") {
+    throw new Error("Seeded items missing");
+  }
+  return { baby, encouragement, items, update };
+}
 
-  // A visitor who can't edit or delete still gets the link.
+test("every item's timestamp is its permalink, for updates and encouragements", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+  const seeded = await seedUpdateAndEncouragement(harness);
+
   await using feed = await renderTimelineFeed(harness, {
     baby: notYetBaby,
-    babyId: baby.babyId,
+    babyId: seeded.baby.babyId,
     isOwner: false,
-    publicId: baby.publicId,
+    publicId: seeded.baby.publicId,
     visitorId: "someone-else",
   });
-  const row = await updateRow(feed, "Can't wait to meet you!");
-  expect(row.queryByRole("button", { name: "Delete encouragement" })).toBeNull();
-  fireEvent.click(row.getByRole("button", { name: "Copy link" }));
 
-  await vi.waitFor(() => {
-    expect(writeText).toHaveBeenCalledWith(
-      `https://isbabyoutyet.com/baby/${baby.publicId}?item=${item?._id}#item-${item?._id}`,
-    );
+  const updateLink = htmlElement(
+    (await updateRow(feed, "Family news")).getByRole("link", { name: /link to this update$/ }),
+  );
+  expect(updateLink.getAttribute("href")).toBe(
+    babyFeedItemUrl({ itemId: seeded.update._id, publicId: seeded.baby.publicId }),
+  );
+  expect(updateLink.querySelector("time")?.getAttribute("datetime")).toBe(
+    new Date(seeded.update.postedAt).toISOString(),
+  );
+  expect(updateLink.getAttribute("aria-label")).toBe(
+    `${updateLink.textContent}, link to this update`,
+  );
+
+  const encouragementRow = await updateRow(feed, "Can't wait to meet you!");
+  const encouragementLink = htmlElement(
+    encouragementRow.getByRole("link", { name: /link to this message$/ }),
+  );
+  expect(encouragementLink.getAttribute("href")).toBe(
+    babyFeedItemUrl({ itemId: seeded.encouragement._id, publicId: seeded.baby.publicId }),
+  );
+  expect(encouragementLink.querySelector("time")?.getAttribute("datetime")).toBe(
+    new Date(seeded.encouragement.encouragement.createdAt).toISOString(),
+  );
+  expect(feed.queryByRole("button", { name: /copy link/i })).toBeNull();
+});
+
+test("the server render links every timestamp", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+  const seeded = await seedUpdateAndEncouragement(harness);
+  const router = createRouter({
+    history: createMemoryHistory({ initialEntries: ["/baby/baby-smith"] }),
+    routeTree: createRootRoute({
+      component: () =>
+        timelineFeedViewTree({
+          fetchNextPage: vi.fn(),
+          hasNextPage: false,
+          isFetchingNextPage: false,
+          items: seeded.items,
+        }),
+    }),
   });
+  await router.load();
+
+  const html = renderToString(<RouterProvider router={router} />);
+
+  for (const item of [seeded.update, seeded.encouragement]) {
+    expect(html).toContain(
+      `href="${babyFeedItemUrl({ itemId: item._id, publicId: "baby-smith" })}"`,
+    );
+  }
+  expect(html.match(/<time datetime="/gi)).toHaveLength(2);
 });
