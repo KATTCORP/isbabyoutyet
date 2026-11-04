@@ -1281,13 +1281,18 @@ test("a live encouragement during the next-page fetch neither duplicates nor dro
 
 // --- Linked items (`?item=`) ---
 
-/** `Message 1` (oldest) to `Message 55`, linked at `Message 30`: 25 newer, 29 older. */
-const LINKED_FEED_SIZE = 55;
-const LINKED_MESSAGE = "Message 30";
+/** Linked at `Message 30`, with `Message 31` to `Message 55` newer. */
+const LINKED_INDEX = 30;
+const NEWEST_INDEX = 55;
+const LINKED_MESSAGE = `Message ${LINKED_INDEX}`;
 
-async function seedLinkedFeed(harness: ConvexTestHarness) {
+/**
+ * `olderCount` messages below the linked one. Tests that only page newer
+ * items keep it small: jsdom re-renders every row on each page.
+ */
+async function seedLinkedFeed(harness: ConvexTestHarness, opts: { olderCount: number }) {
   const baby = await seedOwnerBaby(harness);
-  for (let index = 1; index <= LINKED_FEED_SIZE; index++) {
+  for (let index = LINKED_INDEX - opts.olderCount; index <= NEWEST_INDEX; index++) {
     await seedTimelineEncouragement(harness, {
       authorName: "Family",
       babyId: baby.babyId,
@@ -1296,7 +1301,7 @@ async function seedLinkedFeed(harness: ConvexTestHarness) {
   }
   const all = await harness.client.query(api.timeline.listByBaby, {
     babyId: baby.publicId,
-    paginationOpts: { cursor: null, numItems: LINKED_FEED_SIZE },
+    paginationOpts: { cursor: null, numItems: NEWEST_INDEX },
   });
   const linked = all.page.find(
     (item) => item.kind === "encouragement" && item.encouragement.message === LINKED_MESSAGE,
@@ -1307,8 +1312,8 @@ async function seedLinkedFeed(harness: ConvexTestHarness) {
   return { baby, itemId: linked._id };
 }
 
-async function renderLinkedFeed(harness: ConvexTestHarness) {
-  const seeded = await seedLinkedFeed(harness);
+async function renderLinkedFeed(harness: ConvexTestHarness, opts: { olderCount: number }) {
+  const seeded = await seedLinkedFeed(harness, opts);
   const feed = await renderTimelineFeedFrom(harness, {
     baby: notYetBaby,
     babyId: seeded.baby.babyId,
@@ -1338,7 +1343,7 @@ function linkedRow(view: ReturnType<typeof render>) {
 test("a linked item opens the feed at it, highlighted and focused, with newer ones held back", async () => {
   await using _io = stubIntersectionObserver();
   await using harness = await createConvexTestHarness({ identity: null });
-  await using feed = await renderLinkedFeed(harness);
+  await using feed = await renderLinkedFeed(harness, { olderCount: 29 });
 
   const linked = linkedRow(feed);
   expect(linked.id).toBe(`item-${feed.itemId}`);
@@ -1363,7 +1368,7 @@ test("a linked item opens the feed at it, highlighted and focused, with newer on
 test("the skeleton below a linked item loads older items and never newer ones", async () => {
   await using io = stubIntersectionObserver();
   await using harness = await createConvexTestHarness({ identity: null });
-  await using feed = await renderLinkedFeed(harness);
+  await using feed = await renderLinkedFeed(harness, { olderCount: 29 });
   await vi.waitFor(() => {
     expect(io.watching()).toHaveLength(1);
   });
@@ -1382,7 +1387,7 @@ test("the skeleton below a linked item loads older items and never newer ones", 
 test("Show newer adds pages above the linked item in feed order, on click only", async () => {
   await using _io = stubIntersectionObserver();
   await using harness = await createConvexTestHarness({ identity: null });
-  await using feed = await renderLinkedFeed(harness);
+  await using feed = await renderLinkedFeed(harness, { olderCount: 2 });
   const linked = linkedRow(feed);
 
   fireEvent.click(feed.getByRole("button", { name: "Show 20 newer" }));
@@ -1410,7 +1415,7 @@ test("Show newer adds pages above the linked item in feed order, on click only",
 test("live items above a linked one raise the count until the reader catches up", async () => {
   await using _io = stubIntersectionObserver();
   await using harness = await createConvexTestHarness({ identity: null });
-  await using feed = await renderLinkedFeed(harness);
+  await using feed = await renderLinkedFeed(harness, { olderCount: 2 });
   const postLive = async (message: string) => {
     await harness.convexClient.mutation(api.encouragements.create, {
       authorName: "Auntie",
