@@ -1233,7 +1233,11 @@ test("a live encouragement during the next-page fetch neither duplicates nor dro
   const baby = await seedOwnerBaby(harness);
   const seededMessages = Array.from({ length: 24 }, (_, index) => `Older message ${index + 1}`);
   for (const message of seededMessages) {
-    await seedTimelineEncouragement(harness, { authorName: "Family", babyId: baby.babyId, message });
+    await seedTimelineEncouragement(harness, {
+      authorName: "Family",
+      babyId: baby.babyId,
+      message,
+    });
   }
 
   await using feed = await renderTimelineFeed(harness, {
