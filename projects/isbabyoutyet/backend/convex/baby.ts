@@ -271,13 +271,19 @@ export const create = mutationWithTriggers({
 });
 
 /**
- * Soft-deletes a baby page. Only the owner (creator) can do this.
- * Pending push notifications are cancelled; feed rows stay recoverable.
+ * Soft-deletes a baby page. Only the owner (creator) can do this, and only
+ * before the baby is born. Pending push notifications are cancelled; the baby
+ * and feed rows stay recoverable, but the page's public IDs are released.
  */
 export const remove = mutationWithTriggers({
   args: { babyId: v.id("baby") },
   handler: async (ctx, args) => {
     await requireBabyOwner(ctx, args.babyId);
+
+    const status = await loadCurrentStatus(ctx, args.babyId);
+    if (status.type === "born") {
+      throw new Error("Baby pages can't be deleted once the baby is born");
+    }
 
     const pendingNotifications = await ctx.db
       .query("scheduledNotifications")

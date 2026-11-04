@@ -821,3 +821,90 @@ test("owner can soft-delete a baby; it disappears from lists and public lookup",
   });
   expect(notifications.every((n) => n.status === "cancelled")).toBe(true);
 });
+
+test("a born baby page cannot be deleted until the Born status is removed", async () => {
+  await using _timers = useFakeTimersResource();
+  const t = await setup();
+  const asAlice = t.withIdentity({ subject: "alice" });
+  const created = await asAlice.mutation(
+    api.baby.create,
+    createBabyArgs({ dueDate: "2026-09-01", name: "Arrived" }),
+  );
+  await asAlice.mutation(
+    api.updates.post,
+    postUpdateArgs({
+      babyId: created.babyId,
+      milestone: "born",
+      occurredAt: Date.parse("2026-08-11T03:00:00.000Z"),
+    }),
+  );
+
+  await expect(asAlice.mutation(api.baby.remove, { babyId: created.babyId })).rejects.toThrow(
+    "Baby pages can't be deleted once the baby is born",
+  );
+  const stored = await t.run(async (ctx) => ctx.db.get(created.babyId));
+  expect(stored?.deletedAt).toBeUndefined();
+  expect(await t.query(api.baby.getByPublicId, { id: created.publicId })).toMatchObject({
+    _id: created.babyId,
+  });
+
+  await asAlice.mutation(api.updates.unmarkMilestone, {
+    babyId: created.babyId,
+    milestone: "born",
+  });
+  await asAlice.mutation(api.baby.remove, { babyId: created.babyId });
+  const removed = await t.run(async (ctx) => ctx.db.get(created.babyId));
+  expect(removed?.deletedAt).toEqual(expect.any(Number));
+});
+
+test("deleting a baby keeps the row but releases its current and previous public IDs", async () => {
+  const t = await setup();
+  const asAlice = t.withIdentity({ subject: "alice" });
+  const asBob = t.withIdentity({ subject: "bob" });
+
+  const deleted = await asAlice.mutation(
+    api.baby.create,
+    createBabyArgs({ dueDate: "2026-09-01", name: "Working Title" }),
+  );
+  await asAlice.mutation(api.baby.update, {
+    id: deleted.babyId,
+    patch: { name: "Juniper" },
+  });
+  await asAlice.mutation(api.baby.remove, { babyId: deleted.babyId });
+
+  const reusedCurrent = await asBob.mutation(
+    api.baby.create,
+    createBabyArgs({ dueDate: "2026-10-01", name: "Juniper" }),
+  );
+  const reusedHistory = await asBob.mutation(
+    api.baby.create,
+    createBabyArgs({ dueDate: "2026-10-01", name: "Working Title" }),
+  );
+  expect(reusedCurrent.publicId).toBe("juniper");
+  expect(reusedHistory.publicId).toBe("working-title");
+
+  expect(await t.query(api.baby.getByPublicId, { id: "juniper" })).toMatchObject({
+    _id: reusedCurrent.babyId,
+  });
+  expect(await t.query(api.baby.getByPublicId, { id: "working-title" })).toMatchObject({
+    _id: reusedHistory.babyId,
+  });
+
+  const stored = await t.run(async (ctx) => ctx.db.get(deleted.babyId));
+  expect(stored).toMatchObject({
+    deletedAt: expect.any(Number),
+    name: "Juniper",
+    publicId: "juniper",
+  });
+
+  // Bob renames away from the slug the deleted page still records, so the
+  // old link redirects to Bob's page instead of the deleted one.
+  await asBob.mutation(api.baby.update, {
+    id: reusedCurrent.babyId,
+    patch: { name: "Juno" },
+  });
+  expect(await t.query(api.baby.getByPublicId, { id: "juniper" })).toMatchObject({
+    _id: reusedCurrent.babyId,
+    publicId: "juno",
+  });
+});

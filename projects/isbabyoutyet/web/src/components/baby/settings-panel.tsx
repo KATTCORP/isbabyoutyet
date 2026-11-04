@@ -500,10 +500,20 @@ export function SettingsPanel(props: SettingsPanelProps) {
                   </ItemMedia>
                   <ItemContent>
                     <ItemTitle>{t("Delete page")}</ItemTitle>
-                    <ItemDescription>{t("Hide this baby page from everyone")}</ItemDescription>
+                    <ItemDescription>
+                      {props.baby.babyBorn
+                        ? t("Baby pages can't be deleted once the baby is born")
+                        : t("Hide this baby page from everyone")}
+                    </ItemDescription>
                   </ItemContent>
                   <ItemActions>
-                    <DeleteBabyPageForm babyName={props.baby.name} onDelete={onDelete} />
+                    {props.baby.babyBorn ? (
+                      <Button disabled size="sm" variant="destructive">
+                        {t("Delete")}
+                      </Button>
+                    ) : (
+                      <DeleteBabyPageForm babyName={props.baby.name} onDelete={onDelete} />
+                    )}
                   </ItemActions>
                 </Item>
               </SettingsSection>
