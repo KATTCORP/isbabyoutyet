@@ -529,7 +529,11 @@ test("a linked item loads its window, the items right above it and the newer cou
     {
       "baby:getByPublicId": BABY_DOC,
       "timeline:countNewerThanItem": { count: 3, more: false },
-      "timeline:listFromItem": { ...EMPTY_PAGE, linkedItemVisible: true, page: [{ _id: "k57linked" }] },
+      "timeline:listFromItem": {
+        ...EMPTY_PAGE,
+        linkedItemVisible: true,
+        page: [{ _id: "k57linked" }],
+      },
       "timeline:listNewerThanItem": {
         continueCursor: "k57above",
         isDone: false,

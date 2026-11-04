@@ -1536,10 +1536,9 @@ test("a link deep in a busy feed says more than the cap are newer", async () => 
 test("the server render has the context above the linked item and the divider above both", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
   const seeded = await seedLinkedFeed(harness, { newerCount: NEWER_COUNT, olderCount: 2 });
-  await using server = stubQueryClientResource(
-    (query, args) => harness.client.query(query, args),
-    { isServer: true },
-  );
+  await using server = stubQueryClientResource((query, args) => harness.client.query(query, args), {
+    isServer: true,
+  });
   const feed = await loadTimelineFeed(server.queryClient, {
     followedFrom: undefined,
     item: seeded.itemId,
