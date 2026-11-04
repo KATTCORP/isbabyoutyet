@@ -267,6 +267,29 @@ test("delete page control appears when onDelete is provided", async () => {
     expect(onDelete).toHaveBeenCalled();
   });
 });
+
+test("delete page control is disabled once the baby is born", async () => {
+  const onDelete = vi.fn<() => void | Promise<void>>().mockResolvedValue(undefined);
+
+  await using view = await renderWithTestRouter(
+    <GuardedSettingsPanel
+      {...absentSettingsProps}
+      baby={{ ...baby, babyBorn: "2026-08-11T03:00:00.000Z" }}
+      onDelete={onDelete}
+      onOpenChange={vi.fn<(open: boolean) => void>()}
+      onUpdate={vi.fn<BabyUpdateHandler>().mockResolvedValue(undefined)}
+      open={true}
+    />,
+  );
+
+  expect(view.getByText("Pages can't be deleted once the baby is born")).toBeTruthy();
+  const deleteButton = htmlButton(view.getByRole("button", { name: "Delete" }));
+  expect(deleteButton.disabled).toBe(true);
+  fireEvent.click(deleteButton);
+  expect(view.queryByRole("heading", { name: "Delete Nova's page?" })).toBeNull();
+  expect(onDelete).not.toHaveBeenCalled();
+});
+
 test("falls back to the default label for an unknown legacy theme", async () => {
   await using view = await renderWithTestRouter(
     <GuardedSettingsPanel

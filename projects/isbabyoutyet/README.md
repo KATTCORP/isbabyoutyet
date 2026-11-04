@@ -33,8 +33,8 @@ Use these terms in code, tests, and copy. Avoid the alternatives listed.
 
 - **Baby page:** the shareable page tracking one baby from due date through
   birth. _Avoid:_ listing, profile, event.
-- **Owner:** created the baby page. Only the owner can delete it or manage
-  co-parents. _Avoid:_ creator, primary parent.
+- **Owner:** created the baby page. Only the owner can delete it (until the
+  baby is born) or manage co-parents. _Avoid:_ creator, primary parent.
 - **Co-parent:** authorized by the owner to post updates, change settings, and
   moderate encouragements, but not to delete the page or manage co-parents.
   _Avoid:_ administrator, collaborator, member.
@@ -49,5 +49,6 @@ Use these terms in code, tests, and copy. Avoid the alternatives listed.
 - **Soft delete:** marking a record deleted but recoverable. This is the
   default; hard deletes are not. _Avoid:_ archive.
 - **Public ID:** the `/baby/{publicId}` slug. Previous slugs are kept so old
-  links redirect, and staff transfers record who, when, and why.
-  _Avoid:_ handle, vanity URL.
+  links redirect, and staff transfers record who, when, and why. A deleted
+  page keeps its slugs on record but releases them, so new pages can reuse
+  them. _Avoid:_ handle, vanity URL.
