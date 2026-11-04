@@ -1,5 +1,6 @@
 import type {
   InfiniteQueryOptions,
+  QueryClient,
   QueryHandle,
   QueryHandleWithData,
   QueryOptions,
@@ -194,7 +195,8 @@ export type ConvexBidirectionalPaginatedQueryFactory<
  * `fetchPreviousPage`, starting right before the first page and moving away
  * from it. raf-query prepends backward pages, so `pages` reads in feed order
  * as long as each backward page is reversed. Nothing loads backward until
- * `fetchPreviousPage` is called. Every page stays live through
+ * `fetchPreviousPage` is called, unless the entry is loaded with
+ * {@link ensureBidirectionalPaginatedQuery}. Every page stays live through
  * {@link connectConvexLive}, pinned like {@link convexPaginatedQuery}'s.
  *
  * @example
@@ -294,6 +296,67 @@ export function convexBidirectionalPaginatedQuery<
       throwOnError: true,
     });
   };
+}
+
+/**
+ * `queryClient.ensure` for a {@link convexBidirectionalPaginatedQuery} entry
+ * that opens with a short first backward page already loaded: the
+ * `previousNumItems` items right before its first page, read alongside that
+ * page rather than after it, so a loader can show a little context above
+ * the start without a waterfall. Later `fetchPreviousPage`s load full
+ * `numItems` pages; refetches and {@link connectConvexLive} treat the short
+ * page like any other backward page. An entry that already has backward
+ * pages is ensured as cached.
+ *
+ * @example
+ * // The linked item, with the two items above it.
+ * feed: ensureBidirectionalPaginatedQuery(queryClient, {
+ *   input: { args: { babyId, itemId }, numItems: 20 },
+ *   previousNumItems: 2,
+ *   queries: { backward: api.timeline.listNewerThanItem, forward: api.timeline.listFromItem },
+ * }),
+ */
+export async function ensureBidirectionalPaginatedQuery<
+  TForward extends PaginatedQueryReference,
+  TBackward extends PaginatedQueryReference,
+>(
+  queryClient: QueryClient<ConvexReader>,
+  opts: {
+    input: BidirectionalPaginatedQueryInput<TForward, TBackward>;
+    previousNumItems: number;
+    queries: BidirectionalPaginatedQueries<TForward, TBackward>;
+  },
+): Promise<EnsuredConvexBidirectionalPaginatedQuery<TForward, TBackward>> {
+  const factory = convexBidirectionalPaginatedQuery(opts.queries);
+  const startsBackward = () =>
+    queryClient.getData(factory, opts.input)?.pageParams[0]?.direction === "backward";
+  if (startsBackward()) {
+    return queryClient.ensure(factory, opts.input);
+  }
+  const paginationOpts = { cursor: null, numItems: opts.previousNumItems };
+  const [handle, previous] = await Promise.all([
+    queryClient.ensure(factory, opts.input),
+    queryClient.runPromise(
+      readConvexQuery(opts.queries.backward, pageArgs<TBackward>(opts.input.args, paginationOpts)),
+    ),
+  ]);
+  const data = queryClient.getData(factory, opts.input);
+  const first = data?.pageParams[0];
+  if (!data || !first || startsBackward()) {
+    return handle;
+  }
+  const previousParam: BidirectionalPageParam = {
+    cursor: null,
+    direction: "backward",
+    next: first,
+    numItems: opts.previousNumItems,
+  };
+  const seeded = {
+    pageParams: [previousParam, ...data.pageParams],
+    pages: [previous, ...data.pages],
+  };
+  queryClient.setData(factory, opts.input, seeded);
+  return { ...handle, data: seeded };
 }
 
 /** Loader handle from `queryClient.ensure(convexQuery(query), args)`. */
