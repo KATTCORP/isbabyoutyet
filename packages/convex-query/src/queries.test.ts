@@ -11,6 +11,7 @@ import type {
   EnsuredConvexQuery,
 } from "./queries.ts";
 import { convexBidirectionalPaginatedQuery, convexPaginatedQuery, convexQuery } from "./queries.ts";
+import type { ConvexWatchClient } from "./reader.ts";
 import { ConvexReader } from "./reader.ts";
 import { makeTestConvexClient } from "./testing.ts";
 
@@ -28,6 +29,7 @@ const listNewerMessages = makeFunctionReference<
 
 function setup() {
   const reads: Array<string> = [];
+  const pageReads: Array<string> = [];
   const backend = makeTestConvexClient(async (query, args) => {
     reads.push(getFunctionName(query));
     if (getFunctionName(query) === "messages:list") {
@@ -44,12 +46,22 @@ function setup() {
     }
     return args.id === "a" ? "hello" : null;
   });
+  // Every watch, including ones a live subscription answers without
+  // re-running the query.
+  const client: ConvexWatchClient = {
+    watchQuery: (query, args) => {
+      if ("paginationOpts" in args) {
+        pageReads.push(`${getFunctionName(query)} ${args.paginationOpts.cursor ?? "null"}`);
+      }
+      return backend.client.watchQuery(query, args);
+    },
+  };
   const queryClient = new QueryClient({
     isServer: false,
-    layer: ConvexReader.layerWatch(backend.client),
+    layer: ConvexReader.layerWatch(client),
   });
   onTestFinished(() => queryClient.dispose());
-  return { queryClient, reads };
+  return { pageReads, queryClient, reads };
 }
 
 test("inline factories infer from the query and share one entry per query and args", async () => {
@@ -125,10 +137,41 @@ test("two-way factories load backward pages only on fetchPreviousPage, prependin
     ["lobby:newer-1"],
     ["lobby:hello"],
   ]);
+  const first = { cursor: null, direction: "forward", next: null, numItems: 10 } as const;
+  const newer = { cursor: null, direction: "backward", next: first, numItems: 10 } as const;
   expect(data?.pageParams).toEqual([
-    { cursor: "newer-1", direction: "backward", numItems: 10 },
-    { cursor: null, direction: "backward", numItems: 10 },
-    { cursor: null, direction: "forward", numItems: 10 },
+    { cursor: "newer-1", direction: "backward", next: newer, numItems: 10 },
+    newer,
+    first,
   ]);
   expect(Query.hasPreviousPageUnsafe(query)).toBe(false);
+});
+
+test("a two-way refetch retraces backward pages with the backward query, then forward", async () => {
+  const ctx = setup();
+  const queryClient = ctx.queryClient;
+  const around = convexBidirectionalPaginatedQuery({
+    backward: listNewerMessages,
+    forward: listMessages,
+  });
+  const input = { args: { room: "lobby" }, numItems: 10 };
+  await queryClient.ensure(around, input);
+  const query = queryClient.getQuery(around, input);
+  await Effect.runPromise(Query.fetchPreviousPage(query));
+  await Effect.runPromise(Query.fetchPreviousPage(query));
+  ctx.pageReads.length = 0;
+
+  await queryClient.invalidate(around, input);
+  await queryClient.fetch(around, input);
+
+  expect(ctx.pageReads).toEqual([
+    "messages:listNewer newer-1",
+    "messages:listNewer null",
+    "messages:list null",
+  ]);
+  expect(queryClient.getData(around, input)?.pages.map((page) => page.page)).toEqual([
+    ["lobby:newer-2"],
+    ["lobby:newer-1"],
+    ["lobby:hello"],
+  ]);
 });

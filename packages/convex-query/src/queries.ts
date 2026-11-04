@@ -145,6 +145,12 @@ export type PageDirection = "backward" | "forward";
 export interface BidirectionalPageParam {
   readonly cursor: string | null;
   readonly direction: PageDirection;
+  /**
+   * A backward page's param for the page after it in `pages`, so a refetch,
+   * which walks forward from the first page, retraces the backward pages
+   * towards the start. `null` on forward pages.
+   */
+  readonly next: BidirectionalPageParam | null;
   readonly numItems: number;
 }
 
@@ -213,17 +219,33 @@ export function convexBidirectionalPaginatedQuery<
     const initialPageParam: BidirectionalPageParam = {
       cursor: null,
       direction: "forward",
+      next: null,
       numItems: input.numItems,
     };
     return infiniteQueryOptions({
+      // raf-query passes (lastPage, pages, lastPageParam, pageParams) here and
+      // (firstPage, pages, firstPageParam, pageParams) below; the rest
+      // parameters keep to `max-params`.
       getNextPageParam: (
-        lastPage: FunctionReturnType<TBackward> | FunctionReturnType<TForward>,
-      ): BidirectionalPageParam | null =>
-        lastPage.isDone
+        ...params: [
+          lastPage: FunctionReturnType<TBackward> | FunctionReturnType<TForward>,
+          pages: unknown,
+          lastPageParam: BidirectionalPageParam,
+        ]
+      ): BidirectionalPageParam | null => {
+        const lastPageParam = params[2];
+        if (lastPageParam.direction === "backward") {
+          return lastPageParam.next;
+        }
+        return params[0].isDone
           ? null
-          : { cursor: lastPage.continueCursor, direction: "forward", numItems: input.numItems },
-      // raf-query passes (firstPage, pages, firstPageParam, pageParams);
-      // the rest parameter keeps to `max-params`.
+          : {
+              cursor: params[0].continueCursor,
+              direction: "forward",
+              next: null,
+              numItems: input.numItems,
+            };
+      },
       getPreviousPageParam: (
         ...params: [
           firstPage: FunctionReturnType<TBackward> | FunctionReturnType<TForward>,
@@ -232,12 +254,23 @@ export function convexBidirectionalPaginatedQuery<
         ]
       ): BidirectionalPageParam | null => {
         const firstPage = params[0];
-        if (params[2].direction === "forward") {
-          return { cursor: null, direction: "backward", numItems: input.numItems };
+        const firstPageParam = params[2];
+        if (firstPageParam.direction === "forward") {
+          return {
+            cursor: null,
+            direction: "backward",
+            next: firstPageParam,
+            numItems: input.numItems,
+          };
         }
         return firstPage.isDone
           ? null
-          : { cursor: firstPage.continueCursor, direction: "backward", numItems: input.numItems };
+          : {
+              cursor: firstPage.continueCursor,
+              direction: "backward",
+              next: firstPageParam,
+              numItems: input.numItems,
+            };
       },
       initialPageParam,
       queryFn: (context) => {
