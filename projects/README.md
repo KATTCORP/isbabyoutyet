@@ -8,6 +8,24 @@ any). Code shared by more than one project goes in `packages/`.
 | [Is Baby Out Yet?](isbabyoutyet/README.md) | `web/`, `backend/` (Convex), `email/` |
 | [Sous Vide Guide](sous-vide-guide/README.md) | `web/` |
 
+## Vercel deploys
+
+Each `web/vercel.json` sets `ignoreCommand` to
+[`vercelIgnoreBuild.ts`](../packages/scripts/src/vercelIgnoreBuild.ts), which
+skips the deploy unless a changed file is a build input. Build inputs are the
+project, every workspace it depends on (read from `package.json`), and root
+install files (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`,
+`turbo.json`, `.nvmrc`, `.npmrc`). Docs, tests and agent config never count.
+It diffs against the branch's last successful deploy, or the merge-base with
+`main` on a first deploy, and builds whenever it cannot tell. Vercel's clone is
+shallow and has no `origin`, so it fetches the base from the GitHub repo.
+
+Vercel runs the step before install, with pnpm 9 on `PATH`. So the command
+first installs `@workspace/scripts` (for Effect) with the `packageManager` pnpm
+through `corepack`, then runs the script with `node`. A failed install or script
+exits 1, which builds. The whole step takes about 3s with Vercel's build cache
+and about 6s without it.
+
 ## Rules for every `projects/*/web`
 
 **No effects or local state in feature code.** `src/components` and
