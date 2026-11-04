@@ -442,8 +442,12 @@ describe("connectConvexLive", () => {
         key: [CONVEX_PAGINATED_QUERY_KEY, "messages:list", args, 5],
       },
       {
-        data: { pageParams: [{ cursor: null, numItems: "6" }], pages: [page] },
+        data: { pageParams: [{ cursor: null }], pages: [page] },
         key: [CONVEX_PAGINATED_QUERY_KEY, "messages:list", args, 6],
+      },
+      {
+        data: { pageParams: [{ cursor: null, numItems: "7" }], pages: [page] },
+        key: [CONVEX_PAGINATED_QUERY_KEY, "messages:list", args, 7],
       },
     ];
     for (const entry of entries) {

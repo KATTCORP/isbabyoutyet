@@ -255,6 +255,24 @@ test("a two-way ensure keeps the backward pages an entry already has", async () 
   ]);
 });
 
+test("two concurrent two-way ensures seed the short backward page once", async () => {
+  const ctx = setupAround();
+  const opts = { input: ctx.input, previousNumItems: 2, queries: ctx.queries };
+
+  const handles = await Promise.all([
+    ensureBidirectionalPaginatedQuery(ctx.queryClient, opts),
+    ensureBidirectionalPaginatedQuery(ctx.queryClient, opts),
+  ]);
+
+  for (const handle of handles) {
+    expect(handle.data.pages.map((page) => page.page)).toEqual([
+      ["n1", "n2"],
+      ["a", "b", "c"],
+    ]);
+  }
+  expect(ctx.queryClient.getData(ctx.around, ctx.input)?.pageParams).toHaveLength(2);
+});
+
 test("a two-way ensure with nothing before the start has no previous page", async () => {
   const ctx = setupAround();
   ctx.newer.length = 0;

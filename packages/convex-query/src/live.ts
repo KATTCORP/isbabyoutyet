@@ -91,11 +91,8 @@ interface LoadedPage extends PageStart {
   readonly numItems: number;
 }
 
-/** `data`'s pages; a page param without its own `numItems` was loaded with `numItems`. */
-function loadedPages(
-  data: Query.State<unknown>["data"],
-  numItems: number,
-): ReadonlyArray<LoadedPage> | null {
+/** `data`'s pages, or `null` unless every page param is one this package's factories make. */
+function loadedPages(data: Query.State<unknown>["data"]): ReadonlyArray<LoadedPage> | null {
   if (!Predicate.hasProperty(data, "pageParams") || !Array.isArray(data.pageParams)) {
     return null;
   }
@@ -112,11 +109,10 @@ function loadedPages(
     if (direction !== null && direction !== "forward" && direction !== "backward") {
       return null;
     }
-    const pageNumItems = Predicate.hasProperty(param, "numItems") ? param.numItems : numItems;
-    if (!Predicate.isNumber(pageNumItems)) {
+    if (!Predicate.hasProperty(param, "numItems") || !Predicate.isNumber(param.numItems)) {
       return null;
     }
-    pages.push({ cursor, direction, numItems: pageNumItems });
+    pages.push({ cursor, direction, numItems: param.numItems });
   }
   return pages;
 }
@@ -199,7 +195,7 @@ function pagedSubscriptions(
         invalidate: () => void opts.queryClient.invalidate(factory, input),
         writePage: (start, page) => {
           const data = opts.queryClient.getData(factory, input);
-          const index = pageIndex(loadedPages(data, key.numItems), start);
+          const index = pageIndex(loadedPages(data), start);
           if (data && index !== -1) {
             opts.queryClient.setData(factory, input, {
               pageParams: data.pageParams,
@@ -220,7 +216,7 @@ function pagedSubscriptions(
         invalidate: () => void opts.queryClient.invalidate(factory, input),
         writePage: (start, page) => {
           const data = opts.queryClient.getData(factory, input);
-          const index = pageIndex(loadedPages(data, key.numItems), start);
+          const index = pageIndex(loadedPages(data), start);
           if (data && index !== -1) {
             opts.queryClient.setData(factory, input, {
               pageParams: data.pageParams,
@@ -262,7 +258,7 @@ function subscriptionsFor(
   if (key.kind === "query") {
     return [querySubscription(key, queryClient)];
   }
-  const pages = loadedPages(state.data, key.numItems);
+  const pages = loadedPages(state.data);
   return pages ? pagedSubscriptions(key, { pages, queryClient }) : [];
 }
 

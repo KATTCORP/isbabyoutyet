@@ -342,8 +342,9 @@ export async function ensureBidirectionalPaginatedQuery<
   ]);
   const data = queryClient.getData(factory, opts.input);
   const first = data?.pageParams[0];
-  if (!data || !first || startsBackward()) {
-    return handle;
+  // Another load may have seeded the entry while this one was reading.
+  if (!data || first?.direction !== "forward") {
+    return queryClient.ensure(factory, opts.input);
   }
   const previousParam: BidirectionalPageParam = {
     cursor: null,
