@@ -18,9 +18,12 @@ install files (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`,
 `turbo.json`, `.nvmrc`, `.npmrc`). Docs, tests and agent config never count.
 It diffs against the branch's last successful deploy, or the merge-base with
 `main` on a first deploy, and builds whenever it cannot tell. Vercel's clone is
-shallow and has no `origin`, so it fetches the base from the GitHub repo. Vercel
-runs it before install, so it may only import Node built-ins and relative `.ts`
-files.
+shallow and has no `origin`, so it fetches the base from the GitHub repo.
+
+Vercel runs the step before install, with pnpm 9 on `PATH`. So the command
+first installs `@workspace/scripts` (for Effect) with the `packageManager` pnpm
+through `corepack`, then runs the script with `node`. A failed install or script
+exits 1, which builds.
 
 ## Rules for every `projects/*/web`
 

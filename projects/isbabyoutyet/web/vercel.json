@@ -3,6 +3,6 @@
   "framework": "tanstack-start",
   "buildCommand": "cd ../../.. && pnpm turbo run build:vercel configure:vercel --filter=@isbabyoutyet/web... --env-mode=loose",
   "installCommand": "cd ../../.. && pnpm install",
-  "ignoreCommand": "node ../../../packages/scripts/src/vercelIgnoreBuild.ts",
+  "ignoreCommand": "(cd ../../.. && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm install --frozen-lockfile --ignore-scripts --filter @workspace/scripts) && node ../../../packages/scripts/src/vercelIgnoreBuild.ts || exit 1",
   "trailingSlash": false
 }
