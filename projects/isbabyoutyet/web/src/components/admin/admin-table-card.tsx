@@ -16,6 +16,7 @@ function InfiniteScrollSentinel(props: { canLoadMore: boolean; onLoadMore: () =>
   const sentinelRef = useIntersectionAction({
     enabled: props.canLoadMore,
     onIntersect: props.onLoadMore,
+    rootMargin: "0px",
     threshold: 0.1,
   });
   return <div aria-hidden="true" className="h-8 w-full" ref={sentinelRef} />;
