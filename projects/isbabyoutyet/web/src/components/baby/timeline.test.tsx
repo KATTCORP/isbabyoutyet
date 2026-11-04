@@ -1095,7 +1095,7 @@ test("while more pages exist the feed ends in a skeleton that is the scroll sent
 
   const sentinel = feed.getByTestId("timeline-load-more");
   const skeletons = sentinel.querySelectorAll('[data-slot="skeleton"]');
-  expect(skeletons.length).toBeGreaterThan(0);
+  expect(sentinel.querySelectorAll(':scope > [aria-hidden="true"]')).toHaveLength(3);
   for (const skeleton of skeletons) {
     expect(skeleton.closest('[aria-hidden="true"]')).not.toBeNull();
   }

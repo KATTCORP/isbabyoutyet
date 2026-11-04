@@ -1550,6 +1550,7 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
 const TIMELINE_SKELETON_LINE_WIDTHS = [
   ["w-full", "w-11/12", "w-3/5"],
   ["w-10/12", "w-1/2"],
+  ["w-11/12", "w-4/5", "w-2/5"],
 ] as const;
 
 /** Placeholder shaped like {@link EncouragementTimelineItem}. */
