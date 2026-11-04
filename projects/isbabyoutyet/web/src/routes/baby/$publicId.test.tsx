@@ -1,9 +1,12 @@
 import type { QueryClient } from "@raf-query/react";
 import type { ConvexReader } from "@workspace/convex-query";
+import { isFunction } from "@workspace/runtime/guards";
 import type { JsonValue } from "@workspace/runtime/json";
 import { convexTest } from "convex-test";
 import type { FunctionReturnType } from "convex/server";
 import { getFunctionName } from "convex/server";
+import type { RenderResult } from "@testing-library/react";
+import { fireEvent, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { StatusDisplay } from "@/components/baby/status-display";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
@@ -23,12 +26,16 @@ import {
 } from "@isbabyoutyet/backend/src/types";
 import { LocaleProvider } from "@/lib/i18n";
 import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
-import { convexQuery } from "@workspace/convex-query";
+import { convexPaginatedQuery, convexQuery } from "@workspace/convex-query";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { getBabySeo } from "@/lib/seo";
+import type { TimelineFeedAnchor } from "@/lib/timeline-feed";
+import { followedFromFeed, TIMELINE_PAGE_SIZE } from "@/lib/timeline-feed";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
+import type { ConvexTestHarness } from "@/test/convexTestHarness";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
-import { seedOwnedBaby } from "@/test/convexTestSeed";
+import { seedOwnedBaby, seedTimelineEncouragement } from "@/test/convexTestSeed";
+import { htmlElement } from "@/test/htmlElement";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 
 const routeModule = await import("@/routes/baby/$publicId/route");
@@ -329,16 +336,31 @@ type BabyLoaderResult = {
 };
 type RouteContextStub = { context: { queryClient: QueryClient<ConvexReader> } };
 
-function loaderQueryClientResource(handlers: QueryHandlers) {
-  return stubQueryClientResource((query) => {
+type QueryRunner = Parameters<typeof stubQueryClientResource>[0];
+
+/** Answers by function name; `read` collects every name asked for. */
+function answerByName(handlers: QueryHandlers, read: Array<string>) {
+  return (query: Parameters<QueryRunner>[0]) => {
     const name = getFunctionName(query);
+    read.push(name);
     return Promise.resolve(name in handlers ? handlers[name] : null);
-  });
+  };
 }
+
+/** A browser query client answering by function name, see {@link answerByName}. */
+function loaderQueryClientResource(handlers: QueryHandlers, read: Array<string> = []) {
+  return stubQueryClientResource(answerByName(handlers, read));
+}
+
+type LoaderLocationStub = { state: { timelineFeed: TimelineFeedAnchor | undefined } };
 
 // @ts-expect-error — stub opts are the fields the loader reads
 const loader: (
-  opts: RouteContextStub & { params: { publicId: string } },
+  opts: RouteContextStub & {
+    deps: { item: string | null };
+    location: LoaderLocationStub;
+    params: { publicId: string };
+  },
 ) => Promise<BabyLoaderResult> = routeModule.Route.options.loader;
 
 // @ts-expect-error — stub opts are the fields beforeLoad reads
@@ -346,10 +368,21 @@ const beforeLoad: (
   opts: RouteContextStub & { location: { href: string }; params: { publicId: string } },
 ) => Promise<object | void | null> = routeModule.Route.options.beforeLoad;
 
-async function runBabyLoader(queryClient: QueryClient<ConvexReader>) {
+async function runBabyLoader(
+  queryClient: QueryClient<ConvexReader>,
+  opts: { item: string | null; timelineFeed: TimelineFeedAnchor | undefined } = {
+    item: null,
+    timelineFeed: undefined,
+  },
+) {
   // As `beforeLoad` does before every loader run.
   await queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: "baby-smith" });
-  return await loader({ context: { queryClient }, params: { publicId: "baby-smith" } });
+  return await loader({
+    context: { queryClient },
+    deps: { item: opts.item },
+    location: { state: { timelineFeed: opts.timelineFeed } },
+    params: { publicId: "baby-smith" },
+  });
 }
 
 test("loader ensures the same set for visitors; gated queries come back forbidden", async () => {
@@ -368,8 +401,12 @@ test("loader ensures the same set for visitors; gated queries come back forbidde
 
   expect(result.baby).toMatchObject({ data: expect.anything(), input: { id: "baby-smith" } });
   expect(result.timeline).toMatchObject({
-    data: expect.anything(),
-    input: { args: { babyId: "baby-smith" }, numItems: 20 },
+    kind: "latest",
+    linkUnavailable: false,
+    timeline: {
+      data: expect.anything(),
+      input: { args: { babyId: "baby-smith" }, numItems: 20 },
+    },
   });
   expect(queryClient.getData(convexQuery(api.baby.getByPublicId), { id: "baby-smith" })).toEqual(
     BABY_DOC,
@@ -477,6 +514,138 @@ test("loader prefetches browser push capability on the client", async () => {
     expect(queryClient.getData(browserPushCapabilityQuery, "baby-smith")).toEqual({
       kind: "unsupported",
     });
+  });
+});
+
+test("a linked item loads the window from it and the newer count, not the latest page", async () => {
+  const read: Array<string> = [];
+  await using stub = loaderQueryClientResource(
+    {
+      "baby:getByPublicId": BABY_DOC,
+      "timeline:countNewerThanItem": { count: 3, more: false },
+      "timeline:listFromItem": { ...EMPTY_PAGE, linkedItemVisible: true },
+    },
+    read,
+  );
+  const result = await runBabyLoader(stub.queryClient, {
+    item: "k57linked",
+    timelineFeed: undefined,
+  });
+
+  const args = { babyId: "baby-smith", itemId: "k57linked" };
+  expect(result.timeline).toMatchObject({
+    itemId: "k57linked",
+    kind: "linked",
+    newerCount: { data: { count: 3, more: false }, input: args },
+    window: { input: { args, numItems: 20 } },
+  });
+  expect(read).not.toContain("timeline:listByBaby");
+  // "Show newer" loads on demand, never with the page.
+  expect(read).not.toContain("timeline:listNewerThanItem");
+});
+
+test("a link to an item that isn't visible falls back to the latest page", async () => {
+  await using stub = loaderQueryClientResource({
+    "baby:getByPublicId": BABY_DOC,
+    "timeline:countNewerThanItem": { count: 0, more: false },
+    "timeline:listByBaby": EMPTY_PAGE,
+    "timeline:listFromItem": { ...EMPTY_PAGE, linkedItemVisible: false },
+  });
+  const result = await runBabyLoader(stub.queryClient, {
+    item: "k57gone",
+    timelineFeed: undefined,
+  });
+
+  expect(result.timeline).toMatchObject({
+    kind: "latest",
+    linkUnavailable: true,
+    timeline: { input: { args: { babyId: "baby-smith" }, numItems: 20 } },
+  });
+});
+
+test("a malformed item id falls back to the latest page without asking for it", async () => {
+  const read: Array<string> = [];
+  await using stub = loaderQueryClientResource(
+    { "baby:getByPublicId": BABY_DOC, "timeline:listByBaby": EMPTY_PAGE },
+    read,
+  );
+  const result = await runBabyLoader(stub.queryClient, {
+    item: "../not an id",
+    timelineFeed: undefined,
+  });
+
+  expect(result.timeline).toMatchObject({ kind: "latest", linkUnavailable: true });
+  expect(read).not.toContain("timeline:listFromItem");
+  expect(read).not.toContain("timeline:countNewerThanItem");
+});
+
+test("an item followed from the feed that loaded it keeps that feed and highlights it", async () => {
+  const read: Array<string> = [];
+  await using stub = loaderQueryClientResource(
+    {
+      "baby:getByPublicId": BABY_DOC,
+      "timeline:listByBaby": { ...EMPTY_PAGE, page: [{ _id: "k57shown" }] },
+    },
+    read,
+  );
+  await runBabyLoader(stub.queryClient);
+  read.length = 0;
+
+  const result = await runBabyLoader(stub.queryClient, {
+    item: "k57shown",
+    timelineFeed: { kind: "latest" },
+  });
+
+  expect(result.timeline).toMatchObject({
+    highlightedItemId: "k57shown",
+    kind: "latest",
+    linkUnavailable: false,
+    timeline: { input: { args: { babyId: "baby-smith" }, numItems: 20 } },
+  });
+  expect(read).toEqual([]);
+});
+
+test("the server opens the feed at the item, whatever feed it was followed from", async () => {
+  await using stub = stubQueryClientResource(
+    answerByName(
+      {
+        "baby:getByPublicId": BABY_DOC,
+        "timeline:countNewerThanItem": { count: 0, more: false },
+        "timeline:listByBaby": { ...EMPTY_PAGE, page: [{ _id: "k57shown" }] },
+        "timeline:listFromItem": { ...EMPTY_PAGE, linkedItemVisible: true },
+      },
+      [],
+    ),
+    { isServer: true },
+  );
+  await runBabyLoader(stub.queryClient);
+
+  const result = await runBabyLoader(stub.queryClient, {
+    item: "k57shown",
+    timelineFeed: { kind: "latest" },
+  });
+
+  expect(result.timeline).toMatchObject({ itemId: "k57shown", kind: "linked" });
+});
+
+test("an item the feed it was followed from hasn't loaded opens the window from it", async () => {
+  await using stub = loaderQueryClientResource({
+    "baby:getByPublicId": BABY_DOC,
+    "timeline:countNewerThanItem": { count: 1, more: false },
+    "timeline:listByBaby": { ...EMPTY_PAGE, page: [{ _id: "k57shown" }] },
+    "timeline:listFromItem": { ...EMPTY_PAGE, linkedItemVisible: true },
+  });
+  await runBabyLoader(stub.queryClient);
+
+  const result = await runBabyLoader(stub.queryClient, {
+    item: "k57older",
+    timelineFeed: { kind: "latest" },
+  });
+
+  expect(result.timeline).toMatchObject({
+    highlightedItemId: "k57older",
+    itemId: "k57older",
+    kind: "linked",
   });
 });
 
@@ -608,4 +777,220 @@ test("notification #feed landmark is the messages list, not the compose box", as
   expect(feed).toBeTruthy();
   expect(feed?.contains(ctx.view.getByRole("heading", { name: "Updates & messages" }))).toBe(true);
   expect(feed?.contains(ctx.view.getByLabelText("Message"))).toBe(false);
+});
+
+// --- Following an item's timestamp: highlight in place, or open the feed at it ---
+
+/** `Message 1` (oldest) to `Message {count}` (newest), posted by a visitor. */
+async function seedFeedMessages(harness: ConvexTestHarness, opts: { count: number }) {
+  const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
+  for (let index = 1; index <= opts.count; index++) {
+    await seedTimelineEncouragement(harness, {
+      authorName: "Family",
+      babyId: baby.babyId,
+      message: `Message ${index}`,
+    });
+  }
+  await harness.withIdentity(null);
+  const all = await harness.client.query(api.timeline.listByBaby, {
+    babyId: baby.publicId,
+    paginationOpts: { cursor: null, numItems: opts.count },
+  });
+  const itemIds = new Map(
+    all.page.flatMap((item) =>
+      item.kind === "encouragement" ? [[item.encouragement.message, item._id] as const] : [],
+    ),
+  );
+  return {
+    itemId: (message: string) => {
+      const itemId = itemIds.get(message);
+      if (!itemId) {
+        throw new Error(`${message} missing`);
+      }
+      return itemId;
+    },
+    publicId: baby.publicId,
+  };
+}
+
+async function renderBabyPage(harness: ConvexTestHarness, initialEntry: string) {
+  return await renderMountedFileRoute({
+    harness,
+    initialEntry,
+    overlayHistory: null,
+    path: "/baby/$publicId",
+    route: routeModule.Route,
+    wrap: null,
+  });
+}
+
+/** Every Convex query the page asks for from here on, and every scroll it makes. */
+function watchFeedResource(harness: ConvexTestHarness) {
+  // With no identity, the harness runs every live query through `t.query`.
+  const query = vi.spyOn(harness.t, "query");
+  const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
+  const scrollTo = vi.spyOn(window, "scrollTo");
+  return makeResource(
+    {
+      reads: () =>
+        query.mock.calls.map((call) =>
+          isFunction(call[0]) ? "inline query" : getFunctionName(call[0]),
+        ),
+      scrolls: () => scrollIntoView.mock.calls.length + scrollTo.mock.calls.length,
+    },
+    () => {
+      query.mockRestore();
+      scrollIntoView.mockRestore();
+      scrollTo.mockRestore();
+    },
+  );
+}
+
+function messageRow(view: RenderResult, message: string) {
+  return htmlElement(view.getByText(message).closest('[id^="item-"]'));
+}
+
+function highlightedRow(view: RenderResult) {
+  return view.container.querySelector('[aria-current="true"]');
+}
+
+function followTimestamp(view: RenderResult, message: string) {
+  fireEvent.click(
+    within(messageRow(view, message)).getByRole("link", { name: /link to this message$/ }),
+  );
+}
+
+const SHOW_NEWER = /^Show \d+ newer$/;
+
+/** The latest feed with its second page loaded, as after scrolling to the skeleton. */
+async function renderLatestFeedTwoPages(harness: ConvexTestHarness) {
+  const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
+  await harness.queryClient.ensure(
+    convexPaginatedQuery(api.timeline.listByBaby),
+    { args: { babyId: seeded.publicId }, numItems: TIMELINE_PAGE_SIZE },
+    { pages: 2 },
+  );
+  const ctx = await renderBabyPage(harness, `/baby/${seeded.publicId}`);
+  await ctx.view.findByText("Message 1");
+  return Object.assign(ctx, { itemId: seeded.itemId });
+}
+
+test("following a timestamp on the latest feed highlights the item in place", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  await using ctx = await renderLatestFeedTwoPages(harness);
+  expect(highlightedRow(ctx.view)).toBeNull();
+  using watched = watchFeedResource(harness);
+
+  followTimestamp(ctx.view, "Message 2");
+
+  const itemId = ctx.itemId("Message 2");
+  await vi.waitFor(() => {
+    expect(ctx.router.state.location.search).toEqual({ item: itemId });
+    expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 2"));
+  });
+  expect(ctx.router.state.location.hash).toBe(`item-${itemId}`);
+  expect(document.activeElement).toBe(messageRow(ctx.view, "Message 2"));
+  expect(ctx.view.container.querySelectorAll('[id^="item-"]')).toHaveLength(TIMELINE_PAGE_SIZE + 2);
+  expect(ctx.view.queryByRole("button", { name: SHOW_NEWER })).toBeNull();
+  expect(watched.reads()).toEqual([]);
+  expect(watched.scrolls()).toBe(0);
+});
+
+test("going back after following a timestamp keeps the feed and clears the highlight", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  await using ctx = await renderLatestFeedTwoPages(harness);
+  followTimestamp(ctx.view, "Message 2");
+  await vi.waitFor(() => {
+    expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 2"));
+  });
+  using watched = watchFeedResource(harness);
+
+  ctx.router.history.back();
+
+  await vi.waitFor(() => {
+    expect(ctx.router.state.location.search).toEqual({});
+    expect(highlightedRow(ctx.view)).toBeNull();
+  });
+  expect(ctx.router.state.location.hash).toBe("");
+  expect(ctx.view.container.querySelectorAll('[id^="item-"]')).toHaveLength(TIMELINE_PAGE_SIZE + 2);
+  expect(watched.reads()).toEqual([]);
+});
+
+test("following a timestamp in a linked window keeps the window and moves the highlight", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const seeded = await seedFeedMessages(harness, { count: 6 });
+  const linkedId = seeded.itemId("Message 2");
+  await using ctx = await renderBabyPage(
+    harness,
+    `/baby/${seeded.publicId}?item=${linkedId}#item-${linkedId}`,
+  );
+  await vi.waitFor(() => {
+    expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 2"));
+  });
+  expect(ctx.view.queryByText("Message 6")).toBeNull();
+  fireEvent.click(ctx.view.getByRole("button", { name: "Show 4 newer" }));
+  await ctx.view.findByText("Message 6");
+  using watched = watchFeedResource(harness);
+
+  followTimestamp(ctx.view, "Message 5");
+
+  await vi.waitFor(() => {
+    expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 5"));
+  });
+  expect(document.activeElement).toBe(messageRow(ctx.view, "Message 5"));
+  expect(ctx.router.state.location.search).toEqual({ item: seeded.itemId("Message 5") });
+  expect(ctx.view.getByText("Message 6")).toBeTruthy();
+  expect(ctx.view.getByText("Message 1")).toBeTruthy();
+  expect(ctx.view.queryByRole("button", { name: SHOW_NEWER })).toBeNull();
+  expect(watched.reads()).toEqual([]);
+  expect(watched.scrolls()).toBe(0);
+
+  ctx.router.history.back();
+
+  await vi.waitFor(() => {
+    expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 2"));
+  });
+  expect(ctx.view.getByText("Message 6")).toBeTruthy();
+  expect(ctx.view.queryByText(/isn't here any more/)).toBeNull();
+  expect(watched.reads()).toEqual([]);
+});
+
+test("opening a link to an item starts the feed at it", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const seeded = await seedFeedMessages(harness, { count: 3 });
+  const itemId = seeded.itemId("Message 2");
+
+  await using ctx = await renderBabyPage(
+    harness,
+    `/baby/${seeded.publicId}?item=${itemId}#item-${itemId}`,
+  );
+
+  await vi.waitFor(() => {
+    expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 2"));
+  });
+  expect(ctx.view.getByRole("button", { name: "Show 1 newer" })).toBeTruthy();
+  expect(ctx.view.queryByText("Message 3")).toBeNull();
+});
+
+test("navigating to an item the feed hasn't loaded opens the feed at it", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
+  await using ctx = await renderBabyPage(harness, `/baby/${seeded.publicId}`);
+  await ctx.view.findByText(`Message ${TIMELINE_PAGE_SIZE + 2}`);
+  expect(ctx.view.queryByText("Message 1")).toBeNull();
+  const itemId = seeded.itemId("Message 1");
+
+  await ctx.router.navigate({
+    hash: `item-${itemId}`,
+    params: { publicId: seeded.publicId },
+    search: { item: itemId },
+    state: followedFromFeed({ kind: "latest" }),
+    to: "/baby/$publicId",
+  });
+
+  await vi.waitFor(() => {
+    expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 1"));
+  });
+  expect(ctx.view.getByRole("button", { name: SHOW_NEWER })).toBeTruthy();
+  expect(ctx.view.queryByText(`Message ${TIMELINE_PAGE_SIZE + 2}`)).toBeNull();
 });
