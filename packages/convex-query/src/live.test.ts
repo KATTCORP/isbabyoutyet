@@ -5,6 +5,8 @@ import { Effect, Fiber, Option, Stream } from "effect";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { connectConvexLive, watchConvexQuery } from "./live.ts";
 import {
+  CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY,
+  CONVEX_PAGINATED_QUERY_KEY,
   CONVEX_QUERY_KEY,
   convexBidirectionalPaginatedQuery,
   convexPaginatedQuery,
@@ -347,11 +349,62 @@ describe("connectConvexLive", () => {
     expect(state.data?.pages[0]?.page).toEqual(["a", "b"]);
   });
 
+  it("invalidates a two-way entry when a page subscription fails", async () => {
+    const live = setup();
+    const input = { args: { room: "lobby" }, numItems: 2 };
+    await live.queryClient.ensure(aroundMessage, input);
+    await Effect.runPromise(
+      Query.fetchPreviousPage(live.queryClient.getQuery(aroundMessage, input)),
+    );
+    live.fail();
+    await live.backend.refresh();
+    const state = Query.getUnsafe(live.queryClient.getQuery(aroundMessage, input));
+    expect(state.isInvalidated).toBe(true);
+    expect(state.data?.pages.map((page) => page.page)).toEqual([
+      ["n1", "n2"],
+      ["a", "b"],
+    ]);
+  });
+
   it("leaves entries that aren't Convex queries alone", async () => {
     const live = setup();
     const other = (id: string) =>
       queryOptions({ queryFn: async () => id, queryKey: [CONVEX_QUERY_KEY, id] });
     await live.queryClient.ensure(other, "a");
+    expect(live.backend.subscriptions()).toEqual([]);
+  });
+
+  it("leaves entries with malformed Convex keys or page params alone", async () => {
+    const live = setup();
+    const args = { room: "lobby" };
+    const page = { continueCursor: "b", isDone: false, page: ["a", "b"] };
+    const entries: ReadonlyArray<{ data: unknown; key: ReadonlyArray<unknown> }> = [
+      { data: "x", key: [CONVEX_QUERY_KEY, 1, args] },
+      { data: "x", key: ["other", "messages:get", args] },
+      {
+        data: { pageParams: [{ cursor: null }], pages: [page] },
+        key: [CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY, "messages:list", 1, args, 2],
+      },
+      { data: { pages: [page] }, key: [CONVEX_PAGINATED_QUERY_KEY, "messages:list", args, 2] },
+      {
+        data: { pageParams: [{}], pages: [page] },
+        key: [CONVEX_PAGINATED_QUERY_KEY, "messages:list", args, 3],
+      },
+      {
+        data: { pageParams: [{ cursor: 1 }], pages: [page] },
+        key: [CONVEX_PAGINATED_QUERY_KEY, "messages:list", args, 4],
+      },
+      {
+        data: { pageParams: [{ cursor: null, direction: "sideways" }], pages: [page] },
+        key: [CONVEX_PAGINATED_QUERY_KEY, "messages:list", args, 5],
+      },
+    ];
+    for (const entry of entries) {
+      const options = () =>
+        queryOptions({ queryFn: async () => entry.data, queryKey: [...entry.key] });
+      await live.queryClient.ensure(options, undefined);
+    }
+    vi.advanceTimersByTime(5000);
     expect(live.backend.subscriptions()).toEqual([]);
   });
 
