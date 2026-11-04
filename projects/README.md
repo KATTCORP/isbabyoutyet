@@ -23,7 +23,8 @@ shallow and has no `origin`, so it fetches the base from the GitHub repo.
 Vercel runs the step before install, with pnpm 9 on `PATH`. So the command
 first installs `@workspace/scripts` (for Effect) with the `packageManager` pnpm
 through `corepack`, then runs the script with `node`. A failed install or script
-exits 1, which builds.
+exits 1, which builds. The whole step takes about 3s with Vercel's build cache
+and about 6s without it.
 
 ## Rules for every `projects/*/web`
 
