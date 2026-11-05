@@ -24,8 +24,8 @@
  * 3. The URL goes to `web/.env.production.local`, which `vite build` loads.
  *    Turbo hashes a task's files before its dependencies run, so the web
  *    build must never be restored from cache: `build:vercel` is uncached.
- *    Production reaches HTTP actions through the custom domain; previews use
- *    their deployment's `.convex.site` URL.
+ *    Production uses its Convex custom domains; previews use their
+ *    deployment's `.convex.cloud` and `.convex.site` URLs.
  *
  * Turbo then runs `build:vercel` (the web app) and `configure:vercel`
  * (`configureVercel.ts`) side by side.
@@ -43,12 +43,16 @@ const convexPackageDir = path.resolve(import.meta.dirname, "..");
 export const webEnvFile = path.resolve(convexPackageDir, "../web/.env.production.local");
 
 /**
- * Convex custom domain for the production deployment's HTTP actions. Only the
- * web server uses it, to proxy `/api/auth`. Leave the deployment's
+ * Convex custom domains for the production deployment: `convexUrl` serves the
+ * Convex API (websocket, queries, mutations) and `convexSiteUrl` serves the
+ * HTTP actions behind the `/api/auth` proxy. Leave the deployment's
  * `CONVEX_SITE_URL` on `.convex.site`: it is the JWT issuer, and every stored
  * `tokenIdentifier` starts with it.
  */
-const PRODUCTION_CONVEX_SITE_URL = "https://convex.isbabyoutyet.com";
+const PRODUCTION_CONVEX_DOMAINS = {
+  convexSiteUrl: "https://actions.isbabyoutyet.com",
+  convexUrl: "https://socket.isbabyoutyet.com",
+};
 
 /**
  * A fresh deployment can answer `start_push` with a 408. It is claimed by
@@ -121,11 +125,9 @@ export const deployVercel = Effect.gen(function* () {
   );
 
   yield* writeWebEnv({
-    convexSiteUrl:
-      plan.kind === "production"
-        ? PRODUCTION_CONVEX_SITE_URL
-        : convexUrl.replace(".convex.cloud", ".convex.site"),
-    convexUrl,
+    ...(plan.kind === "production"
+      ? PRODUCTION_CONVEX_DOMAINS
+      : { convexSiteUrl: convexUrl.replace(".convex.cloud", ".convex.site"), convexUrl }),
     isPreview: deployment.isPreview,
     siteUrl: deployment.siteUrl,
   });
