@@ -88,4 +88,5 @@ so the demo photos in `backend/assets/` are downloaded.
 Set `VITE_SENTRY_DSN` to the `personal-isbabyoutyet` DSN and `SENTRY_AUTH_TOKEN`
 so production builds upload source maps. Convex reports uncaught errors to
 `personal-isbabyoutyet-backend`. Turn that on per deployment under Settings →
-Integrations, using that project's DSN.
+Integrations, using that project's DSN. See
+[`packages/sentry`](../../../packages/sentry/README.md).

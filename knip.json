@@ -86,6 +86,7 @@
     },
     "packages/convex-cli": {},
     "packages/runtime": {},
+    "packages/sentry": {},
     "packages/form-guard": {},
     "projects/isbabyoutyet/email": {
       "entry": ["emails/**/*.{ts,tsx}!", "src/index.ts!"]

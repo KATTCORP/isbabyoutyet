@@ -1,9 +1,5 @@
-import {
-  addIntegration,
-  captureException,
-  tanstackRouterBrowserTracingIntegration,
-} from "@sentry/tanstackstart-react";
 import { createRouter } from "@tanstack/react-router";
+import { addRouterTracing, reportRouterError } from "@workspace/sentry/browser";
 
 import "@/lib/paraglide-setup";
 import { hashScrollIntoViewOptions } from "@/lib/hash-scroll";
@@ -20,16 +16,12 @@ export function getRouter() {
     },
     // Category / cut `#hash` Links use scrollIntoView — see hash-scroll.ts.
     defaultHashScrollIntoView: hashScrollIntoViewOptions(),
-    defaultOnCatch: (error) => {
-      captureException(error);
-    },
+    defaultOnCatch: reportRouterError,
     defaultPreload: "viewport",
     routeTree,
     scrollRestoration: true,
   });
-  if (!router.isServer) {
-    addIntegration(tanstackRouterBrowserTracingIntegration(router));
-  }
+  addRouterTracing(router);
   return router;
 }
 

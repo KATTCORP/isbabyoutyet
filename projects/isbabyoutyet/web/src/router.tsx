@@ -1,9 +1,5 @@
-import {
-  addIntegration,
-  captureException,
-  tanstackRouterBrowserTracingIntegration,
-} from "@sentry/tanstackstart-react";
 import { createRouter, rootRouteId } from "@tanstack/react-router";
+import { addRouterTracing, reportRouterError } from "@workspace/sentry/browser";
 import { QueryClient, QueryClientProvider } from "@raf-query/react";
 import { setupRouterIntegration } from "@raf-query/react/tanstack-router";
 import { connectConvexLive, ConvexReader } from "@workspace/convex-query";
@@ -82,9 +78,7 @@ export function getRouter() {
       token: undefined,
     },
     defaultErrorComponent: RootErrorComponent,
-    defaultOnCatch: (error) => {
-      captureException(error);
-    },
+    defaultOnCatch: reportRouterError,
     scrollRestoration: true,
     // `setClientToken` is the only `setAuth` owner on the browser client.
     // SSR ships the cookie JWT the root `beforeLoad` resolved; the client hands
@@ -102,9 +96,7 @@ export function getRouter() {
   });
 
   setupRouterIntegration({ queryClient, router });
-  if (!router.isServer) {
-    addIntegration(tanstackRouterBrowserTracingIntegration(router));
-  }
+  addRouterTracing(router);
 
   return router;
 }

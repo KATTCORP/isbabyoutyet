@@ -1,12 +1,1 @@
-import {
-  sentryGlobalFunctionMiddleware,
-  sentryGlobalRequestMiddleware,
-} from "@sentry/tanstackstart-react";
-import { createStart } from "@tanstack/react-start";
-
-export const startInstance = createStart(() => {
-  return {
-    functionMiddleware: [sentryGlobalFunctionMiddleware],
-    requestMiddleware: [sentryGlobalRequestMiddleware],
-  };
-});
+export { startInstance } from "@workspace/sentry/start";

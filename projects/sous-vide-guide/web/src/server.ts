@@ -1,7 +1,7 @@
 import "./instrument.server";
 
 import handler, { createServerEntry } from "@tanstack/react-start/server-entry";
-import { wrapFetchWithSentry } from "@sentry/tanstackstart-react";
+import { wrapFetchWithSentry } from "@workspace/sentry/server";
 
 import { withCdnCache } from "@/lib/cdn-cache";
 import { takeLocaleCacheKey } from "@/lib/locale-cache-key";

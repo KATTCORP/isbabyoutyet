@@ -1,9 +1,7 @@
-import { init } from "@sentry/tanstackstart-react";
+import { initBrowserSentry } from "@workspace/sentry/browser";
 
-const dsn = import.meta.env.VITE_SENTRY_DSN;
-if (dsn) {
-  init({
-    dsn,
-    tracesSampleRate: 1,
-  });
-}
+initBrowserSentry({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.MODE,
+  release: import.meta.env.VITE_SENTRY_RELEASE,
+});
