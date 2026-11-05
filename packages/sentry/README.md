@@ -2,8 +2,10 @@
 
 One Sentry setup for every app in this monorepo. Projects live in the `trpclabs`
 org and are named `personal-<app>`, for example `personal-isbabyoutyet` and
-`personal-sous-vide-guide`. `personalProjectSlug` in `src/project.ts` is that
-rule.
+`personal-sous-vide-guide`. An app with Convex also gets
+`personal-<app>-backend`, platform Node.js, for example
+`personal-isbabyoutyet-backend`. `personalProjectSlug` and
+`personalBackendProjectSlug` in `src/project.ts` are those rules.
 
 The TanStack Start SDK (`@sentry/tanstackstart-react`) reports errors and
 traces. Production source maps upload when `SENTRY_AUTH_TOKEN` is set. Convex
@@ -14,7 +16,8 @@ and does not rethrow: the isolate cannot load the SDK.
 ## Wire a new TanStack Start app
 
 1. Create a Sentry project named `personal-<directory>` (the directory under
-   `projects/`).
+   `projects/`). If the app has Convex, also create
+   `personal-<directory>-backend` with platform Node.js.
 2. Set `VITE_SENTRY_DSN` to that project's DSN on the web host. Set
    `SENTRY_AUTH_TOKEN` on the web host so production builds upload source maps.
    Leave them unset locally and the SDK stays off.
@@ -39,12 +42,9 @@ or API for it.
 
 1. Open the deployment in the Convex dashboard.
 2. Go to Settings → Integrations.
-3. Open the Sentry card and paste the DSN for `personal-<app>`, the same
-   project as the web app.
-4. Convex asks for a Node.js Sentry project so it can process stack traces.
-   This repo uses one JavaScript project per app. If Convex frames stay
-   unreadable, create `personal-<app>-backend` with platform Node.js and point
-   the integration at that DSN instead.
+3. Open the Sentry card and paste the DSN for `personal-<app>-backend`.
+   That project is platform Node.js, which is what Convex uses to process
+   stack traces. The web app's `personal-<app>` project stays JavaScript.
 
 Repeat for production, each preview you care about, and the dev deployment.
 

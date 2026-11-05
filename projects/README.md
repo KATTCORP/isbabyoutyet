@@ -11,8 +11,9 @@ any). Code shared by more than one project goes in `packages/`.
 ## Sentry
 
 Each app reports to a Sentry project named `personal-<directory>` in the
-`trpclabs` org (`personal-isbabyoutyet`, `personal-sous-vide-guide`). Shared
-init and source-map upload live in
+`trpclabs` org (`personal-isbabyoutyet`, `personal-sous-vide-guide`). An app
+with Convex also has `personal-<directory>-backend` (Node.js) for uncaught
+function errors. Shared init and source-map upload live in
 [`packages/sentry`](../packages/sentry/README.md). A new app copies the wiring
 described there.
 

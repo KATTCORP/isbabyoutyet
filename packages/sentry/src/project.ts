@@ -14,3 +14,18 @@ export function personalProjectSlug(appName: string) {
   }
   return `${PERSONAL_PROJECT_PREFIX}${appName}`;
 }
+
+const BACKEND_SUFFIX = "-backend";
+
+/**
+ * Node.js Sentry project for a Convex backend. `isbabyoutyet` becomes
+ * `personal-isbabyoutyet-backend`. Convex's exception integration expects
+ * that platform, separate from the web app's JavaScript project.
+ */
+export function personalBackendProjectSlug(appName: string) {
+  const slug = personalProjectSlug(appName);
+  if (slug.endsWith(BACKEND_SUFFIX)) {
+    return slug;
+  }
+  return `${slug}${BACKEND_SUFFIX}`;
+}
