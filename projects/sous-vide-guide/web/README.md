@@ -74,7 +74,10 @@ This app has its own Vercel project; do not repoint the Is Baby Out Yet
 project. [`vercel.json`](vercel.json) sets the framework, install command,
 and build command. In the dashboard, set Root Directory to
 `projects/sous-vide-guide/web`, turn on "include source files outside Root
-Directory", and leave the output directory empty. No env vars are needed.
+Directory", and leave the output directory empty. The app runs without env
+vars. To report errors, set `VITE_SENTRY_DSN` (project
+`personal-sous-vide-guide`) and `SENTRY_AUTH_TOKEN` so production builds upload
+source maps. See [`packages/sentry`](../../../packages/sentry/README.md).
 
 The page is server-rendered, but the HTML is cached on Vercel's CDN for a day
 and served stale while it revalidates (cache keys are per deployment, so a

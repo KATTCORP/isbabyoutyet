@@ -20,7 +20,7 @@ import {
 } from "@workspace/convex-cli";
 import { Console, Effect, Option, Schedule, Schema } from "effect";
 import { homepageDemoSeedLayer, seedHomepageDemo } from "./seedHomepageDemo";
-import { ConvexRuntimeConfig, vercelDeployment } from "./vercelEnv";
+import { ConvexRuntimeConfig, sentryDsn, vercelDeployment } from "./vercelEnv";
 
 class MigrationsFailedError extends Schema.TaggedError<MigrationsFailedError>()(
   "MigrationsFailedError",
@@ -89,13 +89,15 @@ export const configureVercel = Effect.gen(function* () {
     return yield* Console.log("GitHub merge queue — no Convex backend to configure");
   }
   const runtime = yield* ConvexRuntimeConfig;
+  const dsn = yield* sentryDsn;
+  const runtimeEnv = {
+    ...runtime,
+    SITE_URL: deployment.siteUrl,
+    VERCEL_ENV: deployment.isPreview ? "preview" : "production",
+  };
 
   yield* Effect.gen(function* () {
-    yield* setEnv({
-      ...runtime,
-      SITE_URL: deployment.siteUrl,
-      VERCEL_ENV: deployment.isPreview ? "preview" : "production",
-    });
+    yield* setEnv(Option.isSome(dsn) ? { ...runtimeEnv, SENTRY_DSN: dsn.value } : runtimeEnv);
     yield* runMigrations;
     if (deployment.isPreview) {
       yield* runAndLog("seed:seedDemoData");

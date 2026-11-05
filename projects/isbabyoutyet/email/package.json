@@ -17,6 +17,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@workspace/sentry": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-email": "catalog:"

@@ -113,6 +113,23 @@ describe("configureVercel", () => {
       expect(envSet?.stdin).toContain("SITE_URL='https://isbabyoutyet.com'");
       expect(envSet?.stdin).toContain("VERCEL_ENV='production'");
       expect(envSet?.stdin).toContain("VAPID_SUBJECT='mailto:admin@isbabyoutyet.com'");
+      expect(envSet?.stdin).not.toContain("SENTRY_DSN");
+    }),
+  );
+
+  it.effect("copies SENTRY_DSN onto Convex when Vercel has it", () =>
+    Effect.gen(function* () {
+      const convex = fakeConvex({});
+      const dsn = "https://public@example.test/1";
+
+      yield* configureWith({
+        convex,
+        env: { ...productionEnv, SENTRY_DSN: dsn },
+      });
+
+      const envSet = convex.calls[0];
+      expect(envSet?.stdin).toContain(`SENTRY_DSN='${dsn}'`);
+      expect(argvOf(convex)).not.toContain(dsn);
     }),
   );
 

@@ -1,4 +1,7 @@
+import "./instrument.server";
+
 import handler, { createServerEntry } from "@tanstack/react-start/server-entry";
+import { wrapFetchWithSentry } from "@workspace/sentry/server";
 
 import { withCdnCache } from "@/lib/cdn-cache";
 import { takeLocaleCacheKey } from "@/lib/locale-cache-key";
@@ -7,16 +10,18 @@ import { paraglideMiddleware } from "./paraglide/server.js";
 
 registerAcceptLanguageStrategy();
 
-export default createServerEntry({
-  fetch(request) {
-    const cacheKey = takeLocaleCacheKey(request);
-    return paraglideMiddleware(cacheKey.request, async (context) => {
-      const response = await handler.fetch(context.request);
-      return withCdnCache(response, {
-        keyedLocale: cacheKey.locale,
-        locale: context.locale,
-        request: cacheKey.request,
+export default createServerEntry(
+  wrapFetchWithSentry({
+    fetch(request) {
+      const cacheKey = takeLocaleCacheKey(request);
+      return paraglideMiddleware(cacheKey.request, async (context) => {
+        const response = await handler.fetch(context.request);
+        return withCdnCache(response, {
+          keyedLocale: cacheKey.locale,
+          locale: context.locale,
+          request: cacheKey.request,
+        });
       });
-    });
-  },
-});
+    },
+  }),
+);

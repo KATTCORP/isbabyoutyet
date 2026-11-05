@@ -5,6 +5,7 @@ export const convexEnvSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(1),
   EMAIL_FROM: z.email(),
   RESEND_API_KEY: z.string().min(1),
+  SENTRY_DSN: z.string().min(1).optional(),
   SITE_URL: z.url("SITE_URL must be a valid URL"),
   VAPID_PRIVATE_KEY: z.string().min(1),
   VAPID_PUBLIC_KEY: z.string().min(1),

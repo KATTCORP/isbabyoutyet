@@ -18,6 +18,7 @@ export default defineConfig({
       "projects/isbabyoutyet/backend",
       "projects/sous-vide-guide/web",
       "packages/runtime",
+      "packages/sentry",
       "packages/scripts",
       "packages/oxlint-plugins",
       "packages/convex-cli",
