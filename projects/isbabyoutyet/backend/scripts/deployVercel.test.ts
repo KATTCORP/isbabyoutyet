@@ -72,7 +72,7 @@ function deployFlags(convex: ReturnType<typeof fakeConvex>) {
 }
 
 describe("deployVercel", () => {
-  it.effect("production: deploys and hands the URL to the web build", () =>
+  it.effect("production: deploys and hands the URLs to the web build", () =>
     Effect.gen(function* () {
       const convex = fakeConvex(() => Effect.succeed(`${CONVEX_URL}\n`));
       const deploy = deployWith({ convex, env: productionEnv });
@@ -86,7 +86,7 @@ describe("deployVercel", () => {
           [
             webEnvFile,
             [
-              "VITE_CONVEX_SITE_URL=https://happy-otter-123.convex.site",
+              "VITE_CONVEX_SITE_URL=https://convex.isbabyoutyet.com",
               `VITE_CONVEX_URL=${CONVEX_URL}`,
               "VITE_HAS_DEMO_LOGIN=false",
               "VITE_SITE_URL=https://isbabyoutyet.com",
@@ -116,6 +116,9 @@ describe("deployVercel", () => {
         ["--preview-name", "feat/demo"],
         ["--preview-name", "feat/demo"],
       ]);
+      expect(deploy.written.get(webEnvFile)).toContain(
+        "VITE_CONVEX_SITE_URL=https://happy-otter-123.convex.site\n",
+      );
       expect(deploy.written.get(webEnvFile)).toContain("VITE_HAS_DEMO_LOGIN=true\n");
       expect(deploy.written.get(webEnvFile)).toContain(
         "VITE_SITE_URL=https://isbabyoutyet-git-feat-demo.vercel.app\n",
