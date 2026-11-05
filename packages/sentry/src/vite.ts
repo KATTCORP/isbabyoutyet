@@ -1,6 +1,6 @@
 import { sentryTanstackStart } from "@sentry/tanstackstart-react/vite";
 import type { PluginOption } from "vite";
-import { personalProjectSlug, SENTRY_ORG_SLUG } from "./project.js";
+import { personalProjectSlug, SENTRY_ORG_SLUG } from "@workspace/sentry/project";
 
 function present(value: string | undefined) {
   if (value === undefined || value.length === 0) {
