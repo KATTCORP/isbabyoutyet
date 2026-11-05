@@ -12,7 +12,7 @@ any). Code shared by more than one project goes in `packages/`.
 
 Each app reports to a Sentry project named `personal-<directory>` in the
 `trpclabs` org (`personal-isbabyoutyet`, `personal-sous-vide-guide`). Shared
-init, source-map upload, and Convex/email capture live in
+init and source-map upload live in
 [`packages/sentry`](../packages/sentry/README.md). A new app copies the wiring
 described there.
 

@@ -16,9 +16,6 @@ const VercelConfig = Config.all({
 
 const secret = (name: string) => Config.schema(Schema.Redacted(Schema.NonEmptyString), name);
 
-/** Copied onto Convex when the Vercel project has it. Missing is fine. */
-export const sentryDsn = Config.option(secret("SENTRY_DSN"));
-
 /** Set on the Convex deployment, where `convex/` reads them through `convexEnv`. */
 export const ConvexRuntimeConfig = Config.all({
   BETTER_AUTH_SECRET: secret("BETTER_AUTH_SECRET"),

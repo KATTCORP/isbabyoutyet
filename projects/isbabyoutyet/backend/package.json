@@ -42,7 +42,6 @@
     "@isbabyoutyet/email": "workspace:*",
     "@workspace/convex-cli": "workspace:*",
     "@workspace/runtime": "workspace:*",
-    "@workspace/sentry": "workspace:*",
     "better-auth": "catalog:",
     "convex": "catalog:",
     "convex-helpers": "catalog:",

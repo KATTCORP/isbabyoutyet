@@ -1,4 +1,3 @@
-import { captureConfiguredException } from "@workspace/sentry/capture";
 import { createElement } from "react";
 import { render } from "react-email";
 import { passwordResetCopy } from "./copy";
@@ -26,26 +25,21 @@ function emailText(opts: { button: string; ignore: string; intro: string; url: s
 export async function renderPasswordResetEmail(
   input: RenderPasswordResetEmailInput,
 ): Promise<RenderedEmail> {
-  try {
-    const html = await render(
-      createElement(PasswordResetEmail, {
-        resetUrl: input.resetUrl,
-        subjectPrefix: input.subjectPrefix,
-      }),
-    );
+  const html = await render(
+    createElement(PasswordResetEmail, {
+      resetUrl: input.resetUrl,
+      subjectPrefix: input.subjectPrefix,
+    }),
+  );
 
-    return {
-      html,
-      subject: `${input.subjectPrefix}${passwordResetCopy.subject}`,
-      text: emailText({
-        button: passwordResetCopy.button,
-        ignore: passwordResetCopy.ignore,
-        intro: passwordResetCopy.intro,
-        url: input.resetUrl,
-      }),
-    };
-  } catch (error) {
-    await captureConfiguredException({ cause: error, runtime: "email" });
-    throw error;
-  }
+  return {
+    html,
+    subject: `${input.subjectPrefix}${passwordResetCopy.subject}`,
+    text: emailText({
+      button: passwordResetCopy.button,
+      ignore: passwordResetCopy.ignore,
+      intro: passwordResetCopy.intro,
+      url: input.resetUrl,
+    }),
+  };
 }

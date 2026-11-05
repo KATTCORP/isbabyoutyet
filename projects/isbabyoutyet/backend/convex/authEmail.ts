@@ -1,5 +1,4 @@
 import { renderPasswordResetEmail } from "@isbabyoutyet/email";
-import { captureConfiguredException } from "@workspace/sentry/capture";
 import type { RenderedEmail } from "@isbabyoutyet/email";
 import {
   LOCAL_FROM_PLACEHOLDER,
@@ -37,21 +36,16 @@ async function sendRenderedEmail(opts: {
       log: deps.log,
     });
 
-  try {
-    await sender.send({
-      from: {
-        address: identity.address,
-        name: identity.name,
-      },
-      html: opts.rendered.html,
-      subject: opts.rendered.subject,
-      text: opts.rendered.text,
-      to: opts.recipient,
-    });
-  } catch (error) {
-    await captureConfiguredException({ cause: error, runtime: "convex" });
-    throw error;
-  }
+  await sender.send({
+    from: {
+      address: identity.address,
+      name: identity.name,
+    },
+    html: opts.rendered.html,
+    subject: opts.rendered.subject,
+    text: opts.rendered.text,
+    to: opts.recipient,
+  });
 }
 
 /**

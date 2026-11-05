@@ -7,15 +7,15 @@ rule.
 
 The TanStack Start SDK (`@sentry/tanstackstart-react`) reports errors and
 traces. Production source maps upload when `SENTRY_AUTH_TOKEN` is set. Convex
-and email rendering cannot load that SDK, so they post an exception envelope
-from `src/capture.ts` to the same project.
+reports uncaught function errors through its own integration, configured per
+deployment. `src/capture.ts` is only for an error a Convex function catches
+and does not rethrow: the isolate cannot load the SDK.
 
 ## Wire a new TanStack Start app
 
 1. Create a Sentry project named `personal-<directory>` (the directory under
    `projects/`).
-2. Set `VITE_SENTRY_DSN` to that project's DSN on the web host. Set the same
-   value as `SENTRY_DSN` when the app has a Convex backend. Set
+2. Set `VITE_SENTRY_DSN` to that project's DSN on the web host. Set
    `SENTRY_AUTH_TOKEN` on the web host so production builds upload source maps.
    Leave them unset locally and the SDK stays off.
 3. Copy `src/client.tsx`, `src/instrument.client.ts`, `src/instrument.server.ts`,
@@ -27,10 +27,29 @@ from `src/capture.ts` to the same project.
 6. Spread `sentryVitePlugins({ appName })` last in the Vite plugin list.
    `appName` is the directory name, without the `personal-` prefix.
 
-## Convex and email
+## Convex
 
-Call `captureConfiguredException({ cause, runtime })` when a Convex function or
-the email renderer catches a failure, then rethrow. `runtime` is `"convex"` or
-`"email"`. It reads `SENTRY_DSN` and does nothing when that variable is unset.
-`configure:vercel` copies `SENTRY_DSN` onto the Convex deployment when the
-Vercel project has it.
+Convex reports uncaught function errors itself. Do not catch an error, report
+it, and rethrow: the same failure would show up twice. Email rendering runs
+inside a Convex function, so a render failure should throw and let Convex
+report it.
+
+The integration is per deployment, and only on the Pro plan. There is no CLI
+or API for it.
+
+1. Open the deployment in the Convex dashboard.
+2. Go to Settings → Integrations.
+3. Open the Sentry card and paste the DSN for `personal-<app>`, the same
+   project as the web app.
+4. Convex asks for a Node.js Sentry project so it can process stack traces.
+   This repo uses one JavaScript project per app. If Convex frames stay
+   unreadable, create `personal-<app>-backend` with platform Node.js and point
+   the integration at that DSN instead.
+
+Repeat for production, each preview you care about, and the dev deployment.
+
+If a function catches an error and does not rethrow, call
+`captureConfiguredException({ cause, runtime: "convex" })`. It reads
+`SENTRY_DSN` from that deployment and does nothing when the variable is unset.
+Deploys do not copy it. `runtime: "email"` is the same helper for a swallowed
+failure inside the email renderer.

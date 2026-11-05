@@ -119,9 +119,10 @@ function readEnv(name: string) {
 
 /**
  * Report one exception to Sentry's envelope endpoint.
- * Convex's isolate and the email renderer cannot load the TanStack SDK, and
- * this uses the same ingest API that SDK posts to. A missing or unusable DSN,
- * or a failed request, does not throw.
+ * Convex's isolate cannot load the TanStack SDK. Use this only when a function
+ * catches an error and does not rethrow. Uncaught errors are reported by
+ * Convex's own integration. A missing or unusable DSN, or a failed request,
+ * does not throw.
  */
 export async function captureException(opts: CaptureExceptionOptions) {
   if (opts.dsn === null) {
@@ -178,7 +179,11 @@ export async function captureException(opts: CaptureExceptionOptions) {
   }
 }
 
-/** Reads `SENTRY_DSN` from the process environment. No-ops when it is unset. */
+/**
+ * Reads `SENTRY_DSN` from the process environment. No-ops when it is unset.
+ * For an error that is caught and not rethrown. Uncaught Convex errors use
+ * the deployment's Sentry integration instead.
+ */
 export function captureConfiguredException(opts: { cause: unknown; runtime: CaptureRuntime }) {
   const environment = readEnv("VERCEL_ENV") ?? readEnv("NODE_ENV") ?? "development";
   return captureException({

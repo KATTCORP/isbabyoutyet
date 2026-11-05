@@ -86,6 +86,6 @@ outside Root Directory", leave the output directory empty, and enable Git LFS
 so the demo photos in `backend/assets/` are downloaded.
 
 Set `VITE_SENTRY_DSN` to the `personal-isbabyoutyet` DSN and `SENTRY_AUTH_TOKEN`
-so production builds upload source maps. Set the same DSN as `SENTRY_DSN` and
-`configure:vercel` copies it onto Convex. See
+so production builds upload source maps. Convex reports its own uncaught
+errors; turn that on per deployment under Settings → Integrations. See
 [`packages/sentry`](../../../packages/sentry/README.md).

@@ -643,9 +643,6 @@ importers:
       '@workspace/runtime':
         specifier: workspace:*
         version: link:../../../packages/runtime
-      '@workspace/sentry':
-        specifier: workspace:*
-        version: link:../../../packages/sentry
       better-auth:
         specifier: 'catalog:'
         version: 1.6.30(@opentelemetry/api@1.10.0)(@tanstack/react-start@1.168.60(crossws@0.4.12(srvx@1.0.4))(esbuild@0.28.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(rolldown@1.2.12)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@26.6.4)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(solid-js@1.9.15)(vitest@5.0.3)
@@ -719,9 +716,6 @@ importers:
 
   projects/isbabyoutyet/email:
     dependencies:
-      '@workspace/sentry':
-        specifier: workspace:*
-        version: link:../../../packages/sentry
       react:
         specifier: 'catalog:'
         version: 19.3.0
