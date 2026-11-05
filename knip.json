@@ -20,7 +20,11 @@
       },
       "entry": [
         "public/sw.js!",
+        "src/client.tsx!",
+        "src/instrument.client.ts!",
+        "src/instrument.server.ts!",
         "src/server.ts!",
+        "src/start.ts!",
         "src/test/stubJsdomWindow.ts!",
         "src/test/htmlElement.ts!",
         "src/test/renderResource.ts!",
@@ -37,7 +41,16 @@
       "tanstack-router": {
         "entry": ["src/routes/**/*.{ts,tsx}!", "src/router.tsx!"]
       },
-      "entry": ["public/sw.js!", "src/server.ts!", "vite.config.ts!", "src/test/stubJsdomWindow.ts!"]
+      "entry": [
+        "public/sw.js!",
+        "src/client.tsx!",
+        "src/instrument.client.ts!",
+        "src/instrument.server.ts!",
+        "src/server.ts!",
+        "src/start.ts!",
+        "vite.config.ts!",
+        "src/test/stubJsdomWindow.ts!"
+      ]
     },
     "projects/isbabyoutyet/backend": {
       "entry": [
@@ -73,6 +86,7 @@
     },
     "packages/convex-cli": {},
     "packages/runtime": {},
+    "packages/sentry": {},
     "packages/form-guard": {},
     "projects/isbabyoutyet/email": {
       "entry": ["emails/**/*.{ts,tsx}!", "src/index.ts!"]

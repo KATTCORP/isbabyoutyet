@@ -89,13 +89,14 @@ export const configureVercel = Effect.gen(function* () {
     return yield* Console.log("GitHub merge queue — no Convex backend to configure");
   }
   const runtime = yield* ConvexRuntimeConfig;
+  const runtimeEnv = {
+    ...runtime,
+    SITE_URL: deployment.siteUrl,
+    VERCEL_ENV: deployment.isPreview ? "preview" : "production",
+  };
 
   yield* Effect.gen(function* () {
-    yield* setEnv({
-      ...runtime,
-      SITE_URL: deployment.siteUrl,
-      VERCEL_ENV: deployment.isPreview ? "preview" : "production",
-    });
+    yield* setEnv(runtimeEnv);
     yield* runMigrations;
     if (deployment.isPreview) {
       yield* runAndLog("seed:seedDemoData");

@@ -24,6 +24,7 @@
     "@phosphor-icons/react": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
+    "@workspace/sentry": "workspace:*",
     "@workspace/ui": "workspace:*",
     "next-themes": "catalog:",
     "react": "catalog:",

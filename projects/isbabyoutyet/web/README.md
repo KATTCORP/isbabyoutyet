@@ -84,3 +84,9 @@ In the dashboard, set
 Root Directory to `projects/isbabyoutyet/web`, turn on "include source files
 outside Root Directory", leave the output directory empty, and enable Git LFS
 so the demo photos in `backend/assets/` are downloaded.
+
+Set `VITE_SENTRY_DSN` to the `personal-isbabyoutyet` DSN and `SENTRY_AUTH_TOKEN`
+so production builds upload source maps. Convex reports uncaught errors to that
+same project. Turn that on per deployment under Settings → Integrations, and
+tag them `runtime: "convex"`. See
+[`packages/sentry`](../../../packages/sentry/README.md).

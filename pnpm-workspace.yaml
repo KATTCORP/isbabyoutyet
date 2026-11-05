@@ -30,6 +30,7 @@ catalog:
   "@raf-query/react": ^0.11.1
   "@react-email/ui": ^6.11.0
   "@resvg/resvg-js": ^2.6.2
+  "@sentry/tanstackstart-react": 11.11.0
   "@rrazvan.dev/oxlint-plugin-i18n-literal": ^1.0.1
   "@shadcn/react": ^0.3.1
   "@tailwindcss/vite": ^4.3.3
