@@ -1359,7 +1359,13 @@ function linkedRow(view: ReturnType<typeof render>) {
   return htmlElement(view.container.querySelector('[aria-current="true"]'));
 }
 
-/** The divider's button, named by how many newer items are hidden and how many it shows. */
+/**
+ * The divider's button, named by how many newer items are hidden and how many it shows.
+ *
+ * Role queries are slow on a full feed: the first one after each render recomputes every
+ * row's style in jsdom, and a `getByRole` miss also lists every role in its error. So poll
+ * with `queryByRole` in `vi.waitFor`, and check the divider is gone rather than its button.
+ */
 const SHOW_MORE = /newer, Show \d+ more$/;
 
 test("a linked item opens the feed at it, two newer items above it, the rest behind a divider", async () => {
@@ -1461,7 +1467,7 @@ test("Show more adds a page above the context in feed order, on click only", asy
   fireEvent.click(feed.getByRole("button", { name: "23 newer, Show 20 more" }));
 
   await vi.waitFor(() => {
-    expect(feed.getByRole("button", { name: "3 newer, Show 3 more" })).toBeTruthy();
+    expect(feed.queryByRole("button", { name: "3 newer, Show 3 more" })).not.toBeNull();
   });
   const messages = feedMessages(feed);
   expect(messages.slice(0, 23)).toEqual([
@@ -1501,20 +1507,20 @@ test("live items above a linked one raise the count until the reader catches up"
   await postLive("Live before catching up");
 
   await vi.waitFor(() => {
-    expect(feed.getByRole("button", { name: "24 newer, Show 20 more" })).toBeTruthy();
+    expect(feed.queryByRole("button", { name: "24 newer, Show 20 more" })).not.toBeNull();
   });
   expect(feed.queryByText("Live before catching up")).toBeNull();
   expect(feedMessages(feed).slice(0, 3)).toEqual(["Message 32", "Message 31", LINKED_MESSAGE]);
 
   fireEvent.click(feed.getByRole("button", { name: "24 newer, Show 20 more" }));
   await vi.waitFor(() => {
-    expect(feed.getByRole("button", { name: "4 newer, Show 4 more" })).toBeTruthy();
+    expect(feed.queryByRole("button", { name: "4 newer, Show 4 more" })).not.toBeNull();
   });
   fireEvent.click(feed.getByRole("button", { name: "4 newer, Show 4 more" }));
   await vi.waitFor(() => {
     expect(feedMessages(feed)[0]).toBe("Live before catching up");
   });
-  expect(feed.queryByRole("button", { name: SHOW_MORE })).toBeNull();
+  expect(feed.container.querySelector("[data-newer-divider]")).toBeNull();
 
   // Caught up: the top of the feed is live again, like the latest feed.
   await postLive("Live after catching up");
@@ -1522,7 +1528,7 @@ test("live items above a linked one raise the count until the reader catches up"
   await vi.waitFor(() => {
     expect(feedMessages(feed)[0]).toBe("Live after catching up");
   });
-  expect(feed.queryByRole("button", { name: SHOW_MORE })).toBeNull();
+  expect(feed.container.querySelector("[data-newer-divider]")).toBeNull();
 });
 
 test("a link deep in a busy feed says more than the cap are newer", async () => {
