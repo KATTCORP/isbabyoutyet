@@ -86,8 +86,8 @@ describe("deployVercel", () => {
           [
             webEnvFile,
             [
-              "VITE_CONVEX_SITE_URL=https://convex.isbabyoutyet.com",
-              `VITE_CONVEX_URL=${CONVEX_URL}`,
+              "VITE_CONVEX_SITE_URL=https://actions.isbabyoutyet.com",
+              "VITE_CONVEX_URL=https://socket.isbabyoutyet.com",
               "VITE_HAS_DEMO_LOGIN=false",
               "VITE_SITE_URL=https://isbabyoutyet.com",
               "",
@@ -119,6 +119,7 @@ describe("deployVercel", () => {
       expect(deploy.written.get(webEnvFile)).toContain(
         "VITE_CONVEX_SITE_URL=https://happy-otter-123.convex.site\n",
       );
+      expect(deploy.written.get(webEnvFile)).toContain(`VITE_CONVEX_URL=${CONVEX_URL}\n`);
       expect(deploy.written.get(webEnvFile)).toContain("VITE_HAS_DEMO_LOGIN=true\n");
       expect(deploy.written.get(webEnvFile)).toContain(
         "VITE_SITE_URL=https://isbabyoutyet-git-feat-demo.vercel.app\n",
