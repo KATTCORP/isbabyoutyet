@@ -6,7 +6,7 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
-import { sentryVitePlugins } from "@workspace/sentry/vite";
+import { sentryTanstackStart } from "@sentry/tanstackstart-react/vite";
 
 /**
  * Base UI (and recharts, etc.) pull in `use-sync-external-store/shim`, a CJS-only
@@ -221,7 +221,11 @@ const config = defineConfig((env) => ({
       },
     }),
     viteReact({ compiler: true }),
-    ...sentryVitePlugins({ appName: "isbabyoutyet" }),
+    sentryTanstackStart({
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      org: "trpclabs",
+      project: "personal-isbabyoutyet",
+    }),
   ],
   resolve: {
     tsconfigPaths: true,

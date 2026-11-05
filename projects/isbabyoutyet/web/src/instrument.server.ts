@@ -1,7 +1,9 @@
-import { initServerSentry } from "@workspace/sentry/server";
+import { init } from "@sentry/tanstackstart-react";
 
-initServerSentry({
-  dsn: import.meta.env.VITE_SENTRY_DSN,
-  environment: process.env.VERCEL_ENV ?? import.meta.env.MODE,
-  release: import.meta.env.VITE_SENTRY_RELEASE,
-});
+const dsn = import.meta.env.VITE_SENTRY_DSN;
+if (dsn) {
+  init({
+    dsn,
+    tracesSampleRate: 1,
+  });
+}

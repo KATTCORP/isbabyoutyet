@@ -10,12 +10,12 @@ any). Code shared by more than one project goes in `packages/`.
 
 ## Sentry
 
-Each app reports to a Sentry project named `personal-<directory>` in the
-`trpclabs` org (`personal-isbabyoutyet`, `personal-sous-vide-guide`). An app
-with Convex also has `personal-<directory>-backend` (Node.js) for uncaught
-function errors. Shared init and source-map upload live in
-[`packages/sentry`](../packages/sentry/README.md). A new app copies the wiring
-described there.
+A web app reports errors to a Sentry project named `personal-<directory>` in
+the `trpclabs` org (JavaScript), for example `personal-isbabyoutyet`. An app
+with Convex also gets `personal-<directory>-backend` (platform Node.js). Convex
+reports uncaught function errors itself: in each deployment, open Settings →
+Integrations → Sentry and paste that backend project's DSN. Each web app calls
+`@sentry/tanstackstart-react` directly.
 
 ## Vercel deploys
 

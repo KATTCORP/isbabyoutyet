@@ -5,7 +5,7 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
-import { sentryVitePlugins } from "@workspace/sentry/vite";
+import { sentryTanstackStart } from "@sentry/tanstackstart-react/vite";
 import { readFileSync } from "node:fs";
 
 import { localeCacheKeyRoutes } from "./src/lib/locale-cache-key.ts";
@@ -131,7 +131,11 @@ const config = defineConfig({
     // Server entry is the default `src/server.ts` (paraglideMiddleware + Accept-Language).
     tanstackStart(),
     viteReact(),
-    ...sentryVitePlugins({ appName: "sous-vide-guide" }),
+    sentryTanstackStart({
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      org: "trpclabs",
+      project: "personal-sous-vide-guide",
+    }),
   ],
   resolve: {
     tsconfigPaths: true,

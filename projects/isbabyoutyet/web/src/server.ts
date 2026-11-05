@@ -1,7 +1,7 @@
 import "./instrument.server";
 
 import handler, { createServerEntry } from "@tanstack/react-start/server-entry";
-import { wrapFetchWithSentry } from "@workspace/sentry/server";
+import { wrapFetchWithSentry } from "@sentry/tanstackstart-react";
 import { paraglideMiddleware } from "./paraglide/server.js";
 import { applyCachePolicy } from "./lib/cachePolicy";
 
