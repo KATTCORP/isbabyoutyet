@@ -8,9 +8,9 @@ that rule.
 The TanStack Start SDK (`@sentry/tanstackstart-react`) reports errors and
 traces. Production source maps upload when `SENTRY_AUTH_TOKEN` is set.
 
-Convex reports uncaught function errors through its own dashboard integration
-(Settings → Integrations → Sentry, per deployment). This package does not
-capture them.
+Web and Convex share that one project. Convex reports uncaught function errors
+through its dashboard integration (Settings → Integrations → Sentry, per
+deployment), tagged `runtime: "convex"`. This package does not capture them.
 
 ## Wire a new TanStack Start app
 

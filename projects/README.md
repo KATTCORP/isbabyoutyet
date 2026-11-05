@@ -10,11 +10,11 @@ any). Code shared by more than one project goes in `packages/`.
 
 ## Sentry
 
-Each web app reports to a Sentry project named `personal-<directory>` in the
-`trpclabs` org (`personal-isbabyoutyet`, `personal-sous-vide-guide`). Shared
-init and source-map upload live in
+Each app uses one Sentry project named `personal-<directory>` in the `trpclabs`
+org (`personal-isbabyoutyet`, `personal-sous-vide-guide`), shared by the web
+app and Convex. Web init and source-map upload live in
 [`packages/sentry`](../packages/sentry/README.md). Convex reports uncaught
-function errors through its dashboard Sentry integration, not that package.
+function errors through its dashboard integration, tagged `runtime: "convex"`.
 
 ## Vercel deploys
 
