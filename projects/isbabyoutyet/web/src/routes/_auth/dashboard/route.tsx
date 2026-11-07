@@ -17,12 +17,20 @@ export const Route = createFileRoute("/_auth/dashboard")({
   component: DashboardPageLayout,
   loader: async (opts) => {
     const queryClient = opts.context.queryClient;
-    return await allKeyed({
+    const data = await allKeyed({
       babies: queryClient.ensure(convexQuery(api.baby.listByUser), {}),
       onboarding: queryClient.ensure(convexQuery(api.onboarding.getMine), {}),
     });
+    return { ...data, isAdmin: opts.context.isAdmin };
   },
+  // iOS only delivers Web Push to Home Screen apps, and baby-page manifests
+  // are scoped to `/baby/`, so admins install the dashboard for new-baby alerts.
+  head: (opts) => ({
+    links: opts.loaderData?.isAdmin ? [{ href: DASHBOARD_MANIFEST_URL, rel: "manifest" }] : [],
+  }),
 });
+
+export const DASHBOARD_MANIFEST_URL = "/dashboard.webmanifest";
 
 export function DashboardPageLayout() {
   return (

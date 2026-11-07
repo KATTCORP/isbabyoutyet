@@ -1,14 +1,18 @@
 import { fireEvent } from "@testing-library/react";
 import { convexQuery } from "@workspace/convex-query";
 import { expect, test, vi } from "vitest";
-import { makeAsyncResource, makeResource } from "@isbabyoutyet/backend/convex/test.resource";
+import { makeAsyncResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { Dialog, DialogContent } from "@workspace/ui/components/dialog";
 import { LocaleProvider } from "@/lib/i18n";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { seedOwnedBaby } from "@/test/convexTestSeed";
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
-import { seedBrowserPushCapability } from "@/test/browserPush";
+import {
+  seedBrowserPushCapability,
+  stubPushDeviceResource,
+  testPushSubscription,
+} from "@/test/browserPush";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import {
   OwnerMessageNotifyLiveSwitch,
@@ -16,68 +20,6 @@ import {
 } from "./owner-message-notify-switch";
 
 const ENDPOINT = "https://push.example/owner-messages";
-
-function pushSubscription() {
-  // SAFETY: Test fixture is a subset of the production type.
-  return {
-    endpoint: ENDPOINT,
-    toJSON: (): PushSubscriptionJSON => ({
-      endpoint: ENDPOINT,
-      keys: { auth: "auth", p256dh: "p256" },
-    }),
-  } as PushSubscription;
-}
-
-function stubGrantedPush(opts: { existing: PushSubscription | null }) {
-  const restore: Array<() => void> = [];
-  let current = opts.existing;
-
-  function replaceProperty<$Target extends object>(
-    target: $Target,
-    property: { descriptor: PropertyDescriptor; key: string },
-  ) {
-    const existing = Object.getOwnPropertyDescriptor(target, property.key);
-    Object.defineProperty(target, property.key, { configurable: true, ...property.descriptor });
-    restore.push(() => {
-      if (existing) {
-        Object.defineProperty(target, property.key, existing);
-        return;
-      }
-      Reflect.deleteProperty(target, property.key);
-    });
-  }
-
-  const NotificationStub = function Notification() {};
-  Object.defineProperty(NotificationStub, "permission", {
-    configurable: true,
-    get: () => "granted",
-  });
-  replaceProperty(globalThis, {
-    descriptor: { value: NotificationStub },
-    key: "Notification",
-  });
-
-  // SAFETY: Test fixture is a subset of the production type.
-  const registration = {
-    pushManager: {
-      getSubscription: () => Promise.resolve(current),
-      subscribe: () => {
-        current = pushSubscription();
-        return Promise.resolve(current);
-      },
-    },
-  } as ServiceWorkerRegistration;
-  replaceProperty(navigator, {
-    descriptor: { value: { ready: Promise.resolve(registration) } },
-    key: "serviceWorker",
-  });
-
-  return makeResource({}, () => {
-    for (const fn of restore.toReversed()) {
-      fn();
-    }
-  });
-}
 
 async function renderLiveSwitch(opts: {
   capability:
@@ -251,7 +193,10 @@ test("live switch stays disabled while the service worker is not ready", async (
 });
 
 test("turning the live switch on stores an owner message subscription", async () => {
-  await using _env = stubGrantedPush({ existing: pushSubscription() });
+  await using _env = stubPushDeviceResource({
+    existing: testPushSubscription(ENDPOINT),
+    permission: "granted",
+  });
   await using ctx = await renderLiveSwitch({ capability: { kind: "unsubscribed" } });
 
   fireEvent.click(ctx.view.getByRole("switch", { name: "Message notifications" }));
@@ -267,8 +212,8 @@ test("turning the live switch on stores an owner message subscription", async ()
 });
 
 test("turning the live switch off removes the owner message subscription", async () => {
-  const subscription = pushSubscription();
-  await using _env = stubGrantedPush({ existing: subscription });
+  const subscription = testPushSubscription(ENDPOINT);
+  await using _env = stubPushDeviceResource({ existing: subscription, permission: "granted" });
   await using ctx = await renderLiveSwitch({
     capability: {
       family: false,

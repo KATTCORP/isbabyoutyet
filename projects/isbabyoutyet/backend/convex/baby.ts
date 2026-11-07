@@ -265,6 +265,7 @@ export const create = mutationWithTriggers({
       userId: caller.authUserId,
     };
     const babyId = await ctx.db.insert("baby", babyFields);
+    await ctx.scheduler.runAfter(0, internal.pushNotifications.notifyAdminsOfNewBaby, { babyId });
 
     return { babyId, publicId };
   },

@@ -11,6 +11,7 @@
 import type * as accountEmail from "../accountEmail.js";
 import type * as admin from "../admin.js";
 import type * as adminAccess from "../adminAccess.js";
+import type * as adminPushSubscriptions from "../adminPushSubscriptions.js";
 import type * as auth from "../auth.js";
 import type * as authConvexToken from "../authConvexToken.js";
 import type * as authEmail from "../authEmail.js";
@@ -58,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   accountEmail: typeof accountEmail;
   admin: typeof admin;
   adminAccess: typeof adminAccess;
+  adminPushSubscriptions: typeof adminPushSubscriptions;
   auth: typeof auth;
   authConvexToken: typeof authConvexToken;
   authEmail: typeof authEmail;

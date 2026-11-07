@@ -21,7 +21,12 @@ import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { renderResource } from "@/test/renderResource";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
-import { DashboardBabyList, DashboardHeader, Route } from "@/routes/_auth/dashboard/route";
+import {
+  DASHBOARD_MANIFEST_URL,
+  DashboardBabyList,
+  DashboardHeader,
+  Route,
+} from "@/routes/_auth/dashboard/route";
 
 const babySmith = {
   // SAFETY: Seeded convex-test document id.
@@ -198,4 +203,17 @@ test("shows prefetched babies without a spinner", async () => {
   expect(view.queryByText("No babies added yet")).toBeNull();
   expect(view.getByText("Baby Smith")).toBeTruthy();
   expect(view.container.querySelector('[data-tour-id="tour_baby"]')).toBeTruthy();
+});
+
+test("only admins get the installable dashboard manifest, for new-baby alerts on iOS", () => {
+  // @ts-expect-error — stub loader data is the admin flag head reads
+  const head: (opts: { loaderData: { isAdmin: boolean } | undefined }) => {
+    links: Array<{ href: string; rel: string }>;
+  } = Route.options.head;
+
+  expect(head({ loaderData: { isAdmin: true } }).links).toEqual([
+    { href: DASHBOARD_MANIFEST_URL, rel: "manifest" },
+  ]);
+  expect(head({ loaderData: { isAdmin: false } }).links).toEqual([]);
+  expect(head({ loaderData: undefined }).links).toEqual([]);
 });

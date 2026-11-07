@@ -1,6 +1,9 @@
 import type { QueryHandle } from "@raf-query/react";
 import { useQuery } from "@raf-query/react";
-import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
+import {
+  adminBrowserPushCapabilityQuery,
+  browserPushCapabilityQuery,
+} from "@/lib/browser-push-capability";
 
 export type BrowserPushHandle = QueryHandle<typeof browserPushCapabilityQuery>;
 
@@ -11,5 +14,13 @@ export type BrowserPushHandle = QueryHandle<typeof browserPushCapabilityQuery>;
  */
 export function useBrowserPushCapability(handle: BrowserPushHandle) {
   const [capability, controls] = useQuery(browserPushCapabilityQuery, handle);
+  return [capability.status === "fulfilled" ? capability.value : null, controls.refetch] as const;
+}
+
+export type AdminBrowserPushHandle = QueryHandle<typeof adminBrowserPushCapabilityQuery>;
+
+/** Like `useBrowserPushCapability`, for the admin new-baby push on this device. */
+export function useAdminBrowserPushCapability(handle: AdminBrowserPushHandle) {
+  const [capability, controls] = useQuery(adminBrowserPushCapabilityQuery, handle);
   return [capability.status === "fulfilled" ? capability.value : null, controls.refetch] as const;
 }

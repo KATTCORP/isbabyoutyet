@@ -31,6 +31,11 @@ async function deleteByEndpoint(ctx: MutationCtx, endpoint: string) {
     .withIndex("by_endpoint", (q) => q.eq("endpoint", endpoint))) {
     await ctx.db.delete(subscription._id);
   }
+  for await (const subscription of ctx.db
+    .query("adminPushSubscriptions")
+    .withIndex("by_endpoint", (q) => q.eq("endpoint", endpoint))) {
+    await ctx.db.delete(subscription._id);
+  }
 }
 
 export async function deleteOwnerSubscriptionsForIdentity(
