@@ -1,5 +1,10 @@
 import { expect, test } from "vitest";
-import { getOwnerPushMessage, getPushMessage, truncateOwnerPushBody } from "../src/pushMessages";
+import {
+  getAdminNewBabyPushMessage,
+  getOwnerPushMessage,
+  getPushMessage,
+  truncateOwnerPushBody,
+} from "../src/pushMessages";
 import type { OwnerMessagePushEvent } from "../src/pushMessages";
 import { SUPPORTED_LOCALES } from "../src/i18n";
 import type { SupportedLocale } from "../src/i18n";
@@ -112,4 +117,16 @@ test("owner message push copy names the visitor and truncates long notes", () =>
       expect(copy.body.length).toBeGreaterThan(0);
     }
   }
+});
+
+test("admin new-baby push copy follows the admin's language", () => {
+  expect(getAdminNewBabyPushMessage({ babyName: "Nova", locale: "en-GB" })).toEqual({
+    body: "Tap to open the baby page.",
+    title: "New baby page: Nova",
+  });
+  expect(
+    SUPPORTED_LOCALES.map((locale) => getAdminNewBabyPushMessage({ babyName: "Nova", locale }))
+      .map((copy) => copy.title)
+      .every((title) => title.endsWith("Nova")),
+  ).toBe(true);
 });

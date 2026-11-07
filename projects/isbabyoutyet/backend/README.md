@@ -31,6 +31,18 @@ then require the key. The permanent exception is sparse-patch RPCs named
 `update` / `patch*` that take `{ id, patch }`, where every `patch` field is
 `v.optional()` and an omitted key means unchanged.
 
+## Admins
+
+Platform staff are users whose `userProfiles.isAdmin` is `true`. Nothing in
+the app grants it: set it on the profile row in the Convex dashboard. The demo
+seed makes `test@example.com` an admin. `requireAdmin`
+([`adminAccess.ts`](convex/adminAccess.ts)) gates the admin dashboard and
+the **New baby alerts** switch in dashboard settings. Each device an admin
+turns on gets a push for every baby page created through `baby.create`
+([`adminPushSubscriptions.ts`](convex/adminPushSubscriptions.ts)). Seeded and
+homepage-demo babies don't trigger it. Admin status is checked again at send
+time, so a demoted admin's devices stop receiving alerts.
+
 ## Demo seed
 
 `seed:seedDemoData` creates the [demo logins](../README.md#demo-logins) and

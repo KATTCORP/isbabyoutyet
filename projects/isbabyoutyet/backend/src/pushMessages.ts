@@ -128,6 +128,35 @@ export function getPushMessage(opts: {
   return { body: message.body, title: message.title(opts.babyName) };
 }
 
+const adminNewBabyCopy = {
+  "en-GB": {
+    body: "Tap to open the baby page.",
+    title: (name) => `New baby page: ${name}`,
+  },
+  "en-US": {
+    body: "Tap to open the baby page.",
+    title: (name) => `New baby page: ${name}`,
+  },
+  es: {
+    body: "Toca para abrir la página del bebé.",
+    title: (name) => `Nueva página de bebé: ${name}`,
+  },
+  "pt-BR": {
+    body: "Toque para abrir a página do bebê.",
+    title: (name) => `Nova página de bebê: ${name}`,
+  },
+  sv: {
+    body: "Tryck för att öppna bäbissidan.",
+    title: (name) => `Ny bäbissida: ${name}`,
+  },
+} satisfies Record<SupportedLocale, PushCopy>;
+
+/** Staff push to admins when someone creates a baby page. */
+export function getAdminNewBabyPushMessage(opts: { babyName: string; locale: SupportedLocale }) {
+  const message = adminNewBabyCopy[opts.locale];
+  return { body: message.body, title: message.title(opts.babyName) };
+}
+
 export type OwnerMessagePushEvent = "created" | "updated";
 
 const OWNER_PUSH_BODY_MAX_LENGTH = 180;

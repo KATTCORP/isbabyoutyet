@@ -91,9 +91,15 @@ function readSubscriptionFlags(args: { babyId: string; endpoint: string }) {
   );
 }
 
-function resolveBrowserPushCapability(
-  babyRef: string,
-): Effect.Effect<BrowserPushCapability, never, ConvexReader> {
+/** This device's push subscription, before Convex says what it is for. */
+type DevicePushState =
+  | { kind: "unsupported" }
+  | { kind: "needsIosInstall" }
+  | { kind: "serviceWorkerTimeout" }
+  | { kind: "unsubscribed" }
+  | { kind: "subscription"; subscription: PushSubscription };
+
+function resolveDevicePushState(): Effect.Effect<DevicePushState> {
   if (needsIosPushInstall()) {
     return Effect.succeed({ kind: "needsIosInstall" });
   }
@@ -113,15 +119,68 @@ function resolveBrowserPushCapability(
     if (!subscription) {
       return { kind: "unsubscribed" } as const;
     }
+    return { kind: "subscription", subscription } as const;
+  }).pipe(Effect.catch(() => Effect.succeed({ kind: "unsubscribed" } as const)));
+}
+
+function resolveBrowserPushCapability(
+  babyRef: string,
+): Effect.Effect<BrowserPushCapability, never, ConvexReader> {
+  return Effect.gen(function* () {
+    const device = yield* resolveDevicePushState();
+    if (device.kind !== "subscription") {
+      return device;
+    }
     const flags = yield* readSubscriptionFlags({
       babyId: babyRef,
-      endpoint: subscription.endpoint,
+      endpoint: device.subscription.endpoint,
     });
     return {
       family: Boolean(flags.family),
       kind: "subscribed",
       messages: Boolean(flags.messages),
-      subscription,
+      subscription: device.subscription,
     } as const;
   }).pipe(Effect.catch(() => Effect.succeed({ kind: "unsubscribed" } as const)));
+}
+
+export type AdminBrowserPushCapability =
+  | { kind: "unsupported" }
+  | { kind: "needsIosInstall" }
+  | { kind: "serviceWorkerTimeout" }
+  | { kind: "unsubscribed" }
+  | { kind: "subscribed" };
+
+const ADMIN_BROWSER_PUSH_CAPABILITY_KEY = "adminBrowserPushCapability";
+
+function resolveAdminBrowserPushCapability(): Effect.Effect<
+  AdminBrowserPushCapability,
+  never,
+  ConvexReader
+> {
+  return Effect.gen(function* () {
+    const device = yield* resolveDevicePushState();
+    if (device.kind !== "subscription") {
+      return device;
+    }
+    const subscribed = yield* readConvexQuery(api.adminPushSubscriptions.isSubscribed, {
+      endpoint: device.subscription.endpoint,
+    });
+    return subscribed ? ({ kind: "subscribed" } as const) : ({ kind: "unsubscribed" } as const);
+  }).pipe(Effect.catch(() => Effect.succeed({ kind: "unsubscribed" } as const)));
+}
+
+/**
+ * Whether this device gets the signed-in admin's new-baby pushes. Browser
+ * only and never stale, like `browserPushCapabilityQuery`.
+ */
+export function adminBrowserPushCapabilityQuery() {
+  return queryOptions({
+    enabled: globalThis.window !== undefined,
+    queryFn: () => resolveAdminBrowserPushCapability(),
+    queryKey: [ADMIN_BROWSER_PUSH_CAPABILITY_KEY],
+    retry: false,
+    staleTime: 0,
+    throwOnError: true,
+  });
 }

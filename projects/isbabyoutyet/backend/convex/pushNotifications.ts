@@ -8,7 +8,11 @@ import type { Doc } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
 import { env, internalAction } from "./_generated/server";
 import { babyFeedUrl, babyPageUrl } from "../src/babyFeedUrl";
-import { getOwnerPushMessage, getPushMessage } from "../src/pushMessages";
+import {
+  getAdminNewBabyPushMessage,
+  getOwnerPushMessage,
+  getPushMessage,
+} from "../src/pushMessages";
 import { supportedLocaleValidator } from "./i18n";
 import { notifiableStatusValidator, ownerMessagePushEventValidator } from "./pushValidators";
 import { requiredEnv } from "./requiredEnv";
@@ -79,11 +83,11 @@ async function sendNotificationToSubscription(
   }
 }
 
-async function sendPayloadToSubscriptionPages(
+async function sendPayloadToSubscriptionPages<TSubscription extends PushSubscriptionKeys>(
   ctx: ActionCtx,
   opts: {
-    loadPage: (cursor: string | null) => Promise<PaginationResult<PushSubscriptionKeys>>;
-    payload: PushPayload;
+    loadPage: (cursor: string | null) => Promise<PaginationResult<TSubscription>>;
+    payload: (subscription: TSubscription) => PushPayload;
   },
 ) {
   let cursor: string | null = null;
@@ -94,7 +98,7 @@ async function sendPayloadToSubscriptionPages(
     const results = await Promise.allSettled(
       subscriptions.page.map((subscription) =>
         sendNotificationToSubscription(ctx, {
-          payload: opts.payload,
+          payload: opts.payload(subscription),
           subscription,
         }),
       ),
@@ -162,7 +166,7 @@ export const sendNotification = internalAction({
           })),
         };
       },
-      payload: {
+      payload: () => ({
         body,
         icon: "/logo192.png",
         image,
@@ -171,7 +175,7 @@ export const sendNotification = internalAction({
         // Unique tag per baby+type so a later generic update doesn't replace a birth notice
         dismiss: false,
         tag: `baby-update-${args.publicId}-${args.status}`,
-      },
+      }),
     });
 
     // Mark the notification as sent
@@ -224,7 +228,7 @@ export const sendOwnerMessageNotification = internalAction({
 
     await sendPayloadToSubscriptionPages(ctx, {
       loadPage: (cursor) => loadOwnerSubscriptionKeysPage(ctx, { babyId: args.babyId, cursor }),
-      payload: {
+      payload: () => ({
         body: copy.body,
         dismiss: false,
         icon: "/logo192.png",
@@ -232,7 +236,7 @@ export const sendOwnerMessageNotification = internalAction({
         tag: ownerMessagePushTag(args.encouragementId),
         title: copy.title,
         url: babyFeedUrl(args.publicId),
-      },
+      }),
     });
   },
 });
@@ -245,9 +249,45 @@ export const dismissOwnerMessageNotification = internalAction({
   handler: async (ctx, args) => {
     await sendPayloadToSubscriptionPages(ctx, {
       loadPage: (cursor) => loadOwnerSubscriptionKeysPage(ctx, { babyId: args.babyId, cursor }),
-      payload: {
+      payload: () => ({
         dismiss: true,
         tag: ownerMessagePushTag(args.encouragementId),
+      }),
+    });
+  },
+});
+
+/**
+ * Scheduled by `baby.create`: tell every admin device about the new baby page.
+ * Expired endpoints (404/410) are pruned by `sendNotificationToSubscription`.
+ */
+export const notifyAdminsOfNewBaby = internalAction({
+  args: {
+    babyId: v.id("baby"),
+  },
+  handler: async (ctx, args) => {
+    const baby = await ctx.runQuery(internal.adminPushSubscriptions.getNewBaby, {
+      babyId: args.babyId,
+    });
+    if (!baby) {
+      return;
+    }
+    await sendPayloadToSubscriptionPages(ctx, {
+      loadPage: (cursor) =>
+        ctx.runQuery(internal.adminPushSubscriptions.getRecipientsPage, {
+          paginationOpts: { cursor, numItems: 100 },
+        }),
+      payload: (recipient) => {
+        const copy = getAdminNewBabyPushMessage({ babyName: baby.name, locale: recipient.locale });
+        return {
+          body: copy.body,
+          dismiss: false,
+          icon: "/logo192.png",
+          image: undefined,
+          tag: `admin-new-baby-${args.babyId}`,
+          title: copy.title,
+          url: babyPageUrl(baby.publicId),
+        };
       },
     });
   },

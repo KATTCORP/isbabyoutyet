@@ -125,6 +125,17 @@ export default defineSchema({
     .index("by_endpoint", ["endpoint"])
     .index("by_babyId_and_endpoint", ["babyId", "endpoint"])
     .index("by_babyId_and_tokenIdentifier", ["babyId", "tokenIdentifier"]),
+  // Platform admins (`userProfiles.isAdmin`) opt in per device to a push for
+  // every new baby page. One row per endpoint, owned by the admin who enabled it.
+  adminPushSubscriptions: defineTable({
+    userId: v.string(), // Better Auth user id
+    tokenIdentifier: v.string(), // Stable Convex auth identity
+    endpoint: v.string(),
+    p256dh: v.string(),
+    auth: v.string(),
+    userAgent: v.string(),
+    createdAt: v.number(),
+  }).index("by_endpoint", ["endpoint"]),
   scheduledNotifications: defineTable({
     babyId: v.id("baby"), // Reference to the baby
     /** Convex scheduler job ID, set after scheduling. @todo Optional until every row sets this key. */
