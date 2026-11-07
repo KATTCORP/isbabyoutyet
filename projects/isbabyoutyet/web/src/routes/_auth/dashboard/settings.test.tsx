@@ -394,9 +394,9 @@ test("an admin turning on new-baby alerts stores this device's subscription", as
         endpoint: ADMIN_ENDPOINT,
       }),
     ).toBe(true);
-    expect(view.getByRole("switch", { name: "New baby alerts" }).getAttribute("aria-checked")).toBe(
-      "true",
-    );
+    const switched = view.getByRole("switch", { name: "New baby alerts" });
+    expect(switched.getAttribute("aria-checked")).toBe("true");
+    expect(switched.hasAttribute("data-disabled")).toBe(false);
   });
 
   fireEvent.click(view.getByRole("switch", { name: "New baby alerts" }));
