@@ -10,7 +10,7 @@ import { seedOwnedBaby } from "@/test/convexTestSeed";
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
 import {
   seedBrowserPushCapability,
-  stubGrantedPushResource,
+  stubPushDeviceResource,
   testPushSubscription,
 } from "@/test/browserPush";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
@@ -193,9 +193,9 @@ test("live switch stays disabled while the service worker is not ready", async (
 });
 
 test("turning the live switch on stores an owner message subscription", async () => {
-  await using _env = stubGrantedPushResource({
-    endpoint: ENDPOINT,
+  await using _env = stubPushDeviceResource({
     existing: testPushSubscription(ENDPOINT),
+    permission: "granted",
   });
   await using ctx = await renderLiveSwitch({ capability: { kind: "unsubscribed" } });
 
@@ -213,7 +213,7 @@ test("turning the live switch on stores an owner message subscription", async ()
 
 test("turning the live switch off removes the owner message subscription", async () => {
   const subscription = testPushSubscription(ENDPOINT);
-  await using _env = stubGrantedPushResource({ endpoint: ENDPOINT, existing: subscription });
+  await using _env = stubPushDeviceResource({ existing: subscription, permission: "granted" });
   await using ctx = await renderLiveSwitch({
     capability: {
       family: false,

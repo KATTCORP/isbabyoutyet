@@ -2,6 +2,7 @@ import { fireEvent } from "@testing-library/react";
 import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { ReactNode } from "react";
+import { Toaster } from "sonner";
 import { expect, test, vi } from "vitest";
 import { AccountSettingsView } from "@/components/account-settings";
 import { LocaleProvider } from "@/lib/i18n";
@@ -13,7 +14,7 @@ import {
 } from "./settings";
 import {
   seedAdminBrowserPushCapability,
-  stubGrantedPushResource,
+  stubPushDeviceResource,
   testPushSubscription,
 } from "@/test/browserPush";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
@@ -346,36 +347,43 @@ test("the settings loader only prepares admin push for admins", async () => {
   expect(loaded.adminPush?.vapidPublicKey.data).toEqual(expect.any(String));
 });
 
-test("an admin turning on new-baby alerts stores this device's subscription", async () => {
-  await using _push = stubGrantedPushResource({
-    endpoint: ADMIN_ENDPOINT,
-    existing: testPushSubscription(ADMIN_ENDPOINT),
-  });
-  await using harness = await signedInHarness({ isAdmin: true });
+async function renderAdminSheet(harness: ConvexTestHarness) {
   const profile = await harness.queryClient.ensure(convexQuery(api.profile.get), {});
   const vapidPublicKey = await harness.queryClient.ensure(
     convexQuery(api.pushSubscriptions.getPublicKey),
     {},
   );
 
-  await using view = await renderWithConvexTest({
+  return await renderWithConvexTest({
     harness,
     ui: (
-      <DashboardSettingsSheet
-        adminPush={{
-          browserPush: seedAdminBrowserPushCapability(harness.queryClient, {
-            kind: "unsubscribed",
-          }),
-          vapidPublicKey,
-        }}
-        // @ts-expect-error — integration client is not ConvexReactClient
-        convexClient={harness.convexClient}
-        profile={profile}
-        queryClient={harness.queryClient}
-      />
+      <>
+        <DashboardSettingsSheet
+          adminPush={{
+            browserPush: seedAdminBrowserPushCapability(harness.queryClient, {
+              kind: "unsubscribed",
+            }),
+            vapidPublicKey,
+          }}
+          // @ts-expect-error — integration client is not ConvexReactClient
+          convexClient={harness.convexClient}
+          profile={profile}
+          queryClient={harness.queryClient}
+        />
+        <Toaster />
+      </>
     ),
     wrap: null,
   });
+}
+
+test("an admin turning on new-baby alerts stores this device's subscription", async () => {
+  await using _push = stubPushDeviceResource({
+    existing: testPushSubscription(ADMIN_ENDPOINT),
+    permission: "granted",
+  });
+  await using harness = await signedInHarness({ isAdmin: true });
+  await using view = await renderAdminSheet(harness);
 
   const alerts = await vi.waitFor(() => view.getByRole("switch", { name: "New baby alerts" }));
   fireEvent.click(alerts);
@@ -399,4 +407,25 @@ test("an admin turning on new-baby alerts stores this device's subscription", as
       }),
     ).toBe(false);
   });
+});
+
+test("new-baby alerts explain a blocked notification permission instead of subscribing", async () => {
+  await using _push = stubPushDeviceResource({
+    existing: testPushSubscription(ADMIN_ENDPOINT),
+    permission: "denied",
+  });
+  await using harness = await signedInHarness({ isAdmin: true });
+  await using view = await renderAdminSheet(harness);
+
+  fireEvent.click(await vi.waitFor(() => view.getByRole("switch", { name: "New baby alerts" })));
+
+  expect(await view.findByText("Notification permission is required")).toBeTruthy();
+  expect(view.getByRole("switch", { name: "New baby alerts" }).getAttribute("aria-checked")).toBe(
+    "false",
+  );
+  expect(
+    await harness.client.query(api.adminPushSubscriptions.isSubscribed, {
+      endpoint: ADMIN_ENDPOINT,
+    }),
+  ).toBe(false);
 });

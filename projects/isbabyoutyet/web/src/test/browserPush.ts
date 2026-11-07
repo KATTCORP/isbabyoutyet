@@ -44,24 +44,15 @@ export function testPushSubscription(endpoint: string) {
   } as PushSubscription;
 }
 
-function NotificationStub() {}
-Object.defineProperty(NotificationStub, "permission", {
-  configurable: true,
-  get: () => "granted",
-});
-
-function PushManagerStub() {}
-
 /**
- * Notification permission already granted and a ready service worker whose
- * PushManager returns `existing`, or subscribes to `endpoint`.
+ * Notification permission already decided and a ready service worker whose
+ * PushManager already holds `existing`.
  */
-export function stubGrantedPushResource(opts: {
-  endpoint: string;
-  existing: PushSubscription | null;
+export function stubPushDeviceResource(opts: {
+  existing: PushSubscription;
+  permission: NotificationPermission;
 }) {
   const restore: Array<() => void> = [];
-  let current = opts.existing;
 
   function replaceProperty<$Target extends object>(
     target: $Target,
@@ -79,22 +70,18 @@ export function stubGrantedPushResource(opts: {
   }
 
   replaceProperty(globalThis, {
-    descriptor: { value: NotificationStub },
+    descriptor: { value: { permission: opts.permission } },
     key: "Notification",
   });
   replaceProperty(globalThis, {
-    descriptor: { value: PushManagerStub },
+    descriptor: { value: {} },
     key: "PushManager",
   });
 
   // SAFETY: Test fixture is a subset of the production type.
   const registration = {
     pushManager: {
-      getSubscription: () => Promise.resolve(current),
-      subscribe: () => {
-        current = testPushSubscription(opts.endpoint);
-        return Promise.resolve(current);
-      },
+      getSubscription: () => Promise.resolve(opts.existing),
     },
   } as ServiceWorkerRegistration;
   replaceProperty(navigator, {
