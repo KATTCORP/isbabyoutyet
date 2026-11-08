@@ -762,6 +762,13 @@ test("share preview uses the canonical route slug while reactive baby data chang
   expect(seo.canonical).toBe("https://isbabyoutyet.com/baby/juniper-hale");
 });
 
+test("unknown or malformed search params never throw (PERSONAL-ISBABYOUTYET-7)", () => {
+  expect(routeModule.babySearchSchema.parse({ beta: "true", item: 42, utm_source: "x" })).toEqual({
+    item: "42",
+  });
+  expect(routeModule.babySearchSchema.parse({})).toEqual({});
+});
+
 test("logged-out visitors see a sign-in icon in the top dock", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });

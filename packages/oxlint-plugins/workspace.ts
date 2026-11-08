@@ -3,6 +3,7 @@ import { eslintCompatPlugin } from "@oxlint/plugins";
 import { inferCallbackParams } from "./infer-callback-params.ts";
 import { inlineJsxCallback } from "./inline-jsx-callback.ts";
 import { noBannedReactReexport } from "./no-banned-react-reexport.ts";
+import { noChangeArrayByCopy } from "./no-change-array-by-copy.ts";
 import { noUndocumentedOptional } from "./no-convex-optional.ts";
 import { noConvexQueryHooks } from "./no-convex-query-hooks.ts";
 import { noCustomTestTimeout } from "./no-custom-test-timeout.ts";
@@ -26,6 +27,7 @@ const plugin = eslintCompatPlugin({
     "infer-callback-params": inferCallbackParams,
     "inline-jsx-callback": inlineJsxCallback,
     "no-banned-react-reexport": noBannedReactReexport,
+    "no-change-array-by-copy": noChangeArrayByCopy,
     "no-convex-query-hooks": noConvexQueryHooks,
     "no-custom-test-timeout": noCustomTestTimeout,
     "no-invalid-convex-client": noInvalidConvexClient,
