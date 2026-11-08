@@ -59,7 +59,9 @@ tests when timing is non-trivial, `useEffectEvent` for callbacks, and no
 
 **Lint:** web `src/` also bans `?:` optionals (use `T | undefined` or
 `T | null` with a required key), overzealous destructuring, and literal UI
-strings (use i18n).
+strings (use i18n). It also bans `toSorted` / `toReversed` / `toSpliced`
+(`workspace/no-change-array-by-copy`): Vite does not polyfill them, and they
+crash older Safari and Chrome. Sort a copy instead: `[...items].sort()`.
 
 **Tests:** export a presentational `…View` (marked `@internal`) that takes data
 and handlers as props, and keep query/mutation wiring in the container. Render

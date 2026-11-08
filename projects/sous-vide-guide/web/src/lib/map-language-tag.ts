@@ -59,7 +59,7 @@ export function mapAcceptLanguage(header: string | null | undefined): Locale | n
       return { quality, tag };
     })
     .filter((preference) => preference.tag.length > 0)
-    .toSorted((a, b) => b.quality - a.quality);
+    .sort((a, b) => b.quality - a.quality);
 
   for (const preference of preferences) {
     const locale = mapLanguageTag(preference.tag);

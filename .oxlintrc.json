@@ -441,8 +441,20 @@
         "workspace/no-overzealous-destructuring": "error",
         "workspace/no-rhf-watch": "error",
         "workspace/no-unused-props": "error",
+        // Ships to browsers; Vite does not polyfill ES2023 array methods, so
+        // sort a copy (`[...items].sort()`) instead of using `toSorted()`.
+        "workspace/no-change-array-by-copy": "error",
+        "unicorn/no-array-sort": "off",
+        "unicorn/no-array-reverse": "off",
         // Automatic JSX runtime — no React import required.
         "react/react-in-jsx-scope": "off"
+      }
+    },
+    {
+      // Tests run in Node, which has the ES2023 array methods.
+      "files": ["projects/*/web/src/**/*.test.{ts,tsx}", "projects/*/web/src/test/**/*.{ts,tsx}"],
+      "rules": {
+        "workspace/no-change-array-by-copy": "off"
       }
     },
     {

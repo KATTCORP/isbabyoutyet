@@ -44,13 +44,20 @@ import {
   useBabySignupOverlayLinks,
 } from "@/lib/overlay-nav";
 
+/**
+ * Unknown keys are stripped, never rejected: a bad search param must not throw
+ * a `SearchParamError` for a visitor following a shared link.
+ *
+ * @internal exported for tests
+ */
+export const babySearchSchema = z.object({
+  /** A linked feed item (`babyFeedItemUrl`); the loader checks it, whatever it parsed as. */
+  item: z.coerce.string().optional(),
+});
+
 export const Route = createFileRoute("/baby/$publicId")({
   component: BabyPageLayout,
-  validateSearch: z.object({
-    beta: z.boolean().optional(),
-    /** A linked feed item (`babyFeedItemUrl`); the loader checks it, whatever it parsed as. */
-    item: z.coerce.string().optional(),
-  }),
+  validateSearch: babySearchSchema,
   loaderDeps: (opts) => ({ item: opts.search.item ?? null }),
 
   beforeLoad: async (opts) => {

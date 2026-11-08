@@ -1474,7 +1474,7 @@ function LinkedTimelineFeed(props: TimelineFeedProps & { feed: LinkedTimelineFee
   const isNewerPage = (index: number) => feedWindow.pageParams[index]?.direction === "backward";
   // Newer pages read up from the item; reversed, they read in feed order.
   const items = feedWindow.pages.flatMap((page, index) =>
-    isNewerPage(index) ? page.page.toReversed() : page.page,
+    isNewerPage(index) ? [...page.page].reverse() : page.page,
   );
   const newerShown = feedWindow.pages.flatMap((page, index) =>
     isNewerPage(index) ? page.page : [],
