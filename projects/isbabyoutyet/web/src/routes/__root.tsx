@@ -9,6 +9,7 @@ import {
   useRouteContext,
   useRouterState,
 } from "@tanstack/react-router";
+import { legacyPolyfillsHeadScripts } from "@workspace/browser-support/head";
 import type { QueryClient } from "@raf-query/react";
 import type { ConvexReader } from "@workspace/convex-query";
 import type { ConvexHttpClient } from "convex/browser";
@@ -164,6 +165,7 @@ export const Route = createRootRouteWithContext<{
           name: "apple-mobile-web-app-status-bar-style",
         },
       ],
+      scripts: legacyPolyfillsHeadScripts(),
     };
   },
   headers() {

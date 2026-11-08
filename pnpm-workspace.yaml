@@ -59,6 +59,8 @@ catalog:
   convex-helpers: ^0.1.126
   convex-table-history: ^0.1.2
   convex-test: ^0.0.60
+  core-js: ^3.51.0
+  core-js-compat: ^3.51.0
   date-fns: ^4.4.0
   # Same major the Convex CLI parses `env set` / `env list` dotenv text with.
   dotenv: ^16.6.1
@@ -85,6 +87,7 @@ catalog:
   react-hook-form: ^7.89.0
   react-resizable-panels: ^4.14.2
   recharts: ^3.10.1
+  rolldown: ^1.2.12
   satori: ^0.35.0
   sharp: ^0.35.5
   sonner: ^2.0.8

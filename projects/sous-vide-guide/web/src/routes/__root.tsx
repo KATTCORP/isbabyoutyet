@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
+import { legacyPolyfillsHeadScripts } from "@workspace/browser-support/head";
 import { ThemeProvider } from "next-themes";
 import { z } from "zod";
 
@@ -77,6 +78,7 @@ export const Route = createRootRouteWithContext<{ locale: Locale }>()({
         { content: "black-translucent", name: "apple-mobile-web-app-status-bar-style" },
         { content: m.app_name(), name: "apple-mobile-web-app-title" },
       ],
+      scripts: legacyPolyfillsHeadScripts(),
     };
   },
   notFoundComponent: NotFoundComponent,
