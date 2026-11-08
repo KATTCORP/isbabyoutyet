@@ -5,11 +5,11 @@ import { setupRouterIntegration } from "@raf-query/react/tanstack-router";
 import { connectConvexLive, ConvexReader } from "@workspace/convex-query";
 import { isPlainObject, isString } from "@workspace/runtime/guards";
 import { ConvexHttpClient } from "convex/browser";
-import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { ConvexProvider } from "convex/react";
 import { routeTree } from "./routeTree.gen";
 import { RootErrorComponent } from "./routes/__root";
 import { getDetectedLocale } from "./lib/i18n";
-import { setClientToken } from "./lib/auth-client";
+import { SessionConvexReactClient, setClientToken } from "./lib/auth-client";
 
 /** Router preload policy — tested without constructing the full client graph. */
 export const routerPreloadOptions = {
@@ -49,7 +49,9 @@ export function getRouter() {
 
   // expectAuth keeps SSR-authenticated query results from being dropped on
   // hydration; public pages still run once auth resolves as anonymous.
-  const convexClient = new ConvexReactClient(convexUrl, { expectAuth: true });
+  // `SessionConvexReactClient` keeps mutations from going out anonymously
+  // after the signed-in session expires.
+  const convexClient = new SessionConvexReactClient(convexUrl, { expectAuth: true });
   // getRouter runs once per server request, so this HTTP client (authenticated
   // by the root `beforeLoad`) and the QueryClient reading through it serve
   // only this request.

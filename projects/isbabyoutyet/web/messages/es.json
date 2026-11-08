@@ -547,5 +547,6 @@
   "Your kind words have been sent! 💕": "¡Tu mensaje ya está enviado! 💕",
   "Your name": "Tu nombre",
   "Your name has been updated.": "Tu nombre se ha actualizado.",
-  "Your password has been updated.": "Tu contraseña se ha actualizado."
+  "Your password has been updated.": "Tu contraseña se ha actualizado.",
+  "Your session has expired. Please sign in again.": "Tu sesión ha caducado. Vuelve a iniciar sesión."
 }

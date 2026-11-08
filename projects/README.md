@@ -54,14 +54,17 @@ tests when timing is non-trivial, `useEffectEvent` for callbacks, and no
 `ref.current` access during render. It must not re-export the banned hooks.
 `packages/ui` (vendored shadcn) is exempt.
 
+**Browser support:** modern built-ins are fine. Every web app wires
+[`@workspace/browser-support`](../packages/browser-support/README.md), which
+lowers syntax to the browser floor and loads core-js polyfills only in older
+browsers.
+
 **Loaders:** a route's independent queries must prefetch in parallel. Follow
 [`no-loader-waterfalls`](../.agents/skills/no-loader-waterfalls/SKILL.md).
 
 **Lint:** web `src/` also bans `?:` optionals (use `T | undefined` or
 `T | null` with a required key), overzealous destructuring, and literal UI
-strings (use i18n). It also bans `toSorted` / `toReversed` / `toSpliced`
-(`workspace/no-change-array-by-copy`): Vite does not polyfill them, and they
-crash older Safari and Chrome. Sort a copy instead: `[...items].sort()`.
+strings (use i18n).
 
 **Tests:** export a presentational `…View` (marked `@internal`) that takes data
 and handlers as props, and keep query/mutation wiring in the container. Render

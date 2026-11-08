@@ -39,6 +39,7 @@
     "@tanstack/react-start": "catalog:",
     "@vercel/analytics": "catalog:",
     "@vercel/functions": "catalog:",
+    "@workspace/browser-support": "workspace:*",
     "@workspace/convex-query": "workspace:*",
     "@workspace/form-guard": "workspace:*",
     "@workspace/runtime": "workspace:*",

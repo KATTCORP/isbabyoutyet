@@ -5,6 +5,7 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
+import { legacyPolyfills } from "@workspace/browser-support/vite";
 import { sentryVitePlugins } from "@workspace/sentry/vite";
 import { readFileSync } from "node:fs";
 
@@ -131,6 +132,8 @@ const config = defineConfig({
     // Server entry is the default `src/server.ts` (paraglideMiddleware + Accept-Language).
     tanstackStart(),
     viteReact(),
+    // Lowers client syntax to the browser floor and serves core-js to older browsers.
+    legacyPolyfills(),
     ...sentryVitePlugins({ appName: "sous-vide-guide" }),
   ],
   resolve: {

@@ -6,6 +6,7 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
+import { legacyPolyfills } from "@workspace/browser-support/vite";
 import { sentryVitePlugins } from "@workspace/sentry/vite";
 
 /**
@@ -221,6 +222,8 @@ const config = defineConfig((env) => ({
       },
     }),
     viteReact({ compiler: true }),
+    // Lowers client syntax to the browser floor and serves core-js to older browsers.
+    legacyPolyfills(),
     ...sentryVitePlugins({ appName: "isbabyoutyet" }),
   ],
   resolve: {

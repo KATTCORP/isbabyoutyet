@@ -38,7 +38,7 @@ function formatTimeZoneLabel(timeZone: string) {
 const timeZoneOptions = Array.from(
   new Set([DEFAULT_TIME_ZONE, ...Intl.supportedValuesOf("timeZone")]),
 )
-  .sort()
+  .toSorted()
   .map((timeZone) => ({
     label: formatTimeZoneLabel(timeZone),
     value: timeZone,

@@ -87,6 +87,9 @@
     "packages/convex-cli": {},
     "packages/runtime": {},
     "packages/sentry": {},
+    "packages/browser-support": {
+      "ignoreDependencies": ["core-js"]
+    },
     "packages/form-guard": {},
     "projects/isbabyoutyet/email": {
       "entry": ["emails/**/*.{ts,tsx}!", "src/index.ts!"]

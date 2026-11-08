@@ -84,6 +84,6 @@ export function filterSousVideEntries(opts: {
       score: multiTokenScore(trimmed, entryFields(entry)),
     }))
     .filter((row) => row.score > 0)
-    .sort((a, b) => b.score - a.score)
+    .toSorted((a, b) => b.score - a.score)
     .map((row) => row.entry);
 }

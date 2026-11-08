@@ -547,5 +547,6 @@
   "Your kind words have been sent! 💕": "Din fina hälsning har skickats! 💕",
   "Your name": "Ditt namn",
   "Your name has been updated.": "Ditt namn har uppdaterats.",
-  "Your password has been updated.": "Ditt lösenord har uppdaterats."
+  "Your password has been updated.": "Ditt lösenord har uppdaterats.",
+  "Your session has expired. Please sign in again.": "Din session har gått ut. Logga in igen."
 }
