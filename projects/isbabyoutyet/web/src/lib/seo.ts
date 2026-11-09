@@ -64,7 +64,7 @@ function babyPageTitle(baby: BabySeoInput) {
   return translate(locale, "{{title}} – Track Your Baby's Journey", { title });
 }
 
-export function babyPageDescription(
+function babyPageDescription(
   baby: Pick<BabySeoBase, "babyBorn" | "laborStarted" | "locale" | "name" | "wentToHospital"> &
     Partial<{ milestoneVisibility: MilestoneVisibility | null }>,
 ) {
@@ -98,6 +98,7 @@ export function babyPageDescription(
   }
 }
 
+/** @internal */
 export function babyStatusLabel(opts: { locale: SupportedLocale; status: BabyStatus }) {
   switch (opts.status.type) {
     case "born":

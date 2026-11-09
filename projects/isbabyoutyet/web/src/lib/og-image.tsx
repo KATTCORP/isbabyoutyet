@@ -1,18 +1,15 @@
 import satori from "satori";
 import { Resvg } from "@resvg/resvg-js";
 import type { ReactElement } from "react";
-import { getCurrentStatus } from "@isbabyoutyet/backend/src/types";
+import { getCurrentStatus, getMilestonePolicy } from "@isbabyoutyet/backend/src/types";
 import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
-import type { MilestoneVisibility } from "@isbabyoutyet/backend/src/types";
-import { getThemeColors } from "@/components/baby/utils";
+import type { BabyStatus, MilestoneVisibility } from "@isbabyoutyet/backend/src/types";
+import { DEFAULT_TIME_ZONE } from "@isbabyoutyet/backend/src/timeZone";
+import { formatDate, formatDueDate, getOverdueDays } from "@/components/baby/utils";
 import type { BabyDueDateDisplay } from "@/lib/seo";
-import {
-  OG_IMAGE_HEIGHT,
-  OG_IMAGE_WIDTH,
-  babyPageDescription,
-  babyStatusDetail,
-  babyStatusLabel,
-} from "@/lib/seo";
+import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH, babyStatusDetail } from "@/lib/seo";
+import type { OgBabyArt } from "@/lib/og-baby-art";
+import { BabyFace, OG_AVATAR, getOgBabyArt, withAlpha } from "@/lib/og-baby-art";
 import { splitMessageList, translate } from "@/lib/i18n";
 import { CANONICAL_ORIGIN } from "@/lib/site-url";
 
@@ -127,9 +124,131 @@ async function resolvePhotoDataUrl(photoUrl: string | null) {
   }
 }
 
+/** Same answer and subline copy the baby page's status card shows. */
+function babyOgStatusCopy(opts: { baby: BabyOgImageInput; status: BabyStatus }) {
+  const locale = opts.baby.locale;
+  const timeZone = opts.baby.timeZone ?? DEFAULT_TIME_ZONE;
+  const since = (key: "Born" | "Since" | "Started", date: string) =>
+    `${translate(locale, key)} ${formatDate(date, { locale, timeZone })}`;
+  switch (opts.status.type) {
+    case "born": {
+      return {
+        answer: translate(locale, "Yes! Baby is out"),
+        detail: translate(locale, "Welcome to the world, little one"),
+        highlight: true,
+        note: since("Born", opts.status.date),
+      };
+    }
+    case "gone_to_hospital": {
+      return {
+        answer: translate(locale, "Gone to hospital!"),
+        detail: translate(locale, "Almost there now"),
+        highlight: true,
+        note: since("Since", opts.status.date),
+      };
+    }
+    case "labor_started": {
+      return {
+        answer: translate(locale, "Labour started!"),
+        detail: getMilestonePolicy(opts.baby).visibility.showHospital
+          ? translate(locale, "Not gone to hospital yet")
+          : translate(locale, "Things are happening!"),
+        highlight: true,
+        note: since("Started", opts.status.date),
+      };
+    }
+    case "not_yet": {
+      const answer = translate(locale, "Not yet");
+      if (opts.baby.dueDateDisplayMode === "message") {
+        return {
+          answer,
+          detail: opts.baby.publicDueDateText || translate(locale, "Baby is still on the way"),
+          highlight: false,
+          note: opts.baby.publicDueDateText ? translate(locale, "Baby is still on the way") : null,
+        };
+      }
+      return {
+        answer,
+        detail: babyStatusDetail({ baby: opts.baby, status: opts.status }),
+        highlight: getOverdueDays(opts.baby.dueDate, timeZone) > 0,
+        note: translate(locale, "Due date: {{date}}", {
+          date: formatDueDate(opts.baby.dueDate, locale),
+        }),
+      };
+    }
+    default: {
+      const _exhaustive: never = opts.status;
+      return _exhaustive;
+    }
+  }
+}
+
+/** Step font size down as copy gets longer so it stays within two lines. */
+function fitFontSize(opts: { steps: ReadonlyArray<readonly [number, number]>; text: string }) {
+  const length = [...opts.text].length;
+  for (const [maxLength, size] of opts.steps) {
+    if (length <= maxLength) {
+      return size;
+    }
+  }
+  return opts.steps.at(-1)?.[1] ?? 40;
+}
+
+function BabyOgAvatar(props: {
+  art: OgBabyArt;
+  photoDataUrl: string | null;
+  status: BabyStatus["type"];
+}) {
+  const size = OG_AVATAR.r * 2;
+  const palette = props.art.palette;
+  const arch = props.art.avatarFrame === "arch";
+  const width = arch ? size - 30 : size;
+  const height = arch ? size + 40 : size;
+  const frame = {
+    ...props.art.avatarStyle,
+    borderRadius: arch ? `${width / 2}px ${width / 2}px 28px 28px` : 999,
+    display: "flex",
+    height,
+    left: OG_AVATAR.cx - width / 2,
+    overflow: "hidden",
+    position: "absolute",
+    top: OG_AVATAR.cy - height / 2 - (arch ? 10 : 0),
+    width,
+  } as const;
+  if (props.photoDataUrl) {
+    return (
+      <img
+        height={height}
+        src={props.photoDataUrl}
+        style={{ ...frame, objectFit: "cover" }}
+        width={width}
+      />
+    );
+  }
+  return (
+    <div
+      style={{
+        ...frame,
+        alignItems: "center",
+        backgroundColor: palette.card,
+        justifyContent: "center",
+      }}
+    >
+      <BabyFace
+        background={withAlpha(palette.primary, 0.14)}
+        cheek={withAlpha(palette.primary, 0.45)}
+        face={palette.card}
+        hat={palette.primary}
+        ink={palette.heading}
+        status={props.status}
+      />
+    </div>
+  );
+}
+
 export async function createBabyOgImage(baby: BabyOgImageInput) {
   const name = textForOgImage(baby.name) || "?";
-  const ogBaby =
+  const ogBaby: BabyOgImageInput =
     baby.dueDateDisplayMode === "message"
       ? {
           ...baby,
@@ -137,19 +256,13 @@ export async function createBabyOgImage(baby: BabyOgImageInput) {
           publicDueDateText: textForOgImage(baby.publicDueDateText),
         }
       : { ...baby, name };
-  const colors = getThemeColors(ogBaby.theme);
-  const primary = colors[0];
-  const background = colors[1];
-  const accent = colors[2];
+  const art = getOgBabyArt(ogBaby.theme);
+  const palette = art.palette;
   const status = getCurrentStatus(ogBaby);
   const headline = translate(ogBaby.locale, "Is {{name}} out yet?", { name: ogBaby.name });
-  const statusText = babyStatusLabel({ locale: ogBaby.locale, status });
-  const detail =
-    status.type === "not_yet"
-      ? babyStatusDetail({ baby: ogBaby, status })
-      : babyPageDescription(ogBaby);
-  const brand = translate(ogBaby.locale, "Is Baby Out Yet?");
-  const fontText = `${headline}${statusText}${detail}${brand}${SITE_HOST}`;
+  const copy = babyOgStatusCopy({ baby: ogBaby, status });
+  // "…" is drawn when a line clamp truncates a long name or message.
+  const fontText = `${headline}${copy.answer}${copy.detail}${copy.note ?? ""}${SITE_HOST}…`;
   const photoDataUrl = await resolvePhotoDataUrl(ogBaby.photoUrl);
 
   const [bold, black] = await Promise.all([
@@ -157,98 +270,184 @@ export async function createBabyOgImage(baby: BabyOgImageInput) {
     loadNunitoFont({ text: fontText, weight: 900 }),
   ]);
 
-  const initial = ogBaby.name.slice(0, 1).toUpperCase() || ogBaby.name;
+  const headlineSize = fitFontSize({
+    steps: [
+      [16, 64],
+      [22, 58],
+      [30, 52],
+      [44, 44],
+      [Infinity, 38],
+    ],
+    text: headline,
+  });
+  const answerSize = fitFontSize({
+    steps: [
+      [9, 132],
+      [12, 108],
+      [15, 78],
+      [17, 70],
+      [22, 68],
+      [Infinity, 62],
+    ],
+    text: copy.answer,
+  });
+  const detailSize = fitFontSize({
+    steps: [
+      [26, 34],
+      [40, 30],
+      [Infinity, 26],
+    ],
+    text: copy.detail,
+  });
 
   return pngResponse({
     element: (
       <div
         style={{
-          backgroundImage: `linear-gradient(135deg, ${background} 0%, ${accent} 55%, ${primary}33 100%)`,
-          color: "#0f172a",
+          backgroundColor: palette.background,
+          backgroundImage: palette.backgroundImage,
+          backgroundSize: palette.backgroundSize,
+          color: palette.foreground,
           display: "flex",
-          flexDirection: "column",
           fontFamily: "Nunito",
           height: "100%",
-          justifyContent: "space-between",
-          padding: "64px 72px",
+          position: "relative",
           width: "100%",
         }}
       >
-        <div style={{ alignItems: "center", display: "flex", gap: 40 }}>
-          {photoDataUrl ? (
-            <img
-              height={180}
-              src={photoDataUrl}
-              style={{
-                border: `6px solid ${primary}`,
-                borderRadius: 36,
-                height: 180,
-                objectFit: "cover",
-                width: 180,
-              }}
-              width={180}
-            />
-          ) : (
-            <div
-              style={{
-                alignItems: "center",
-                backgroundColor: primary,
-                borderRadius: 36,
-                color: "#fff",
-                display: "flex",
-                fontSize: 84,
-                fontWeight: 900,
-                height: 180,
-                justifyContent: "center",
-                width: 180,
-              }}
-            >
-              {initial}
-            </div>
-          )}
-          <div style={{ display: "flex", flex: 1, flexDirection: "column", gap: 20 }}>
-            <div
-              style={{
-                fontSize: 64,
-                fontWeight: 900,
-                letterSpacing: "-0.03em",
-                lineHeight: 1.1,
-              }}
-            >
-              {headline}
-            </div>
-            <div
-              style={{
-                alignItems: "center",
-                alignSelf: "flex-start",
-                backgroundColor: primary,
-                borderRadius: 999,
-                color: "#fff",
-                display: "flex",
-                fontSize: 28,
-                fontWeight: 700,
-                padding: "10px 22px",
-              }}
-            >
-              {statusText}
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 700, opacity: 0.8 }}>{detail}</div>
-          </div>
-        </div>
+        <svg
+          height={OG_IMAGE_HEIGHT}
+          style={{ left: 0, position: "absolute", top: 0 }}
+          viewBox={`0 0 ${OG_IMAGE_WIDTH} ${OG_IMAGE_HEIGHT}`}
+          width={OG_IMAGE_WIDTH}
+        >
+          {art.back(status.type)}
+        </svg>
+        <BabyOgAvatar art={art} photoDataUrl={photoDataUrl} status={status.type} />
+        <svg
+          height={OG_IMAGE_HEIGHT}
+          style={{ left: 0, position: "absolute", top: 0 }}
+          viewBox={`0 0 ${OG_IMAGE_WIDTH} ${OG_IMAGE_HEIGHT}`}
+          width={OG_IMAGE_WIDTH}
+        >
+          {art.front(status.type)}
+        </svg>
         <div
           style={{
-            alignItems: "flex-end",
-            borderTop: `4px solid ${primary}55`,
-            color: primary,
             display: "flex",
-            fontSize: 28,
-            fontWeight: 700,
-            justifyContent: "space-between",
-            paddingTop: 28,
+            flexDirection: "column",
+            height: "100%",
+            justifyContent: "center",
+            left: 72,
+            paddingTop: 40,
+            position: "absolute",
+            top: 0,
+            width: 590,
           }}
         >
-          <span>{brand}</span>
-          <span style={{ opacity: 0.7 }}>{SITE_HOST}</span>
+          <div
+            style={{
+              alignItems: "center",
+              alignSelf: "flex-start",
+              backgroundColor: palette.card,
+              border: `2px solid ${palette.border}`,
+              borderRadius: 999,
+              color: palette.mutedForeground,
+              display: "flex",
+              fontSize: 22,
+              fontWeight: 900,
+              gap: 10,
+              padding: "6px 18px 6px 14px",
+              position: "absolute",
+              top: 52,
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: palette.primary,
+                borderRadius: 999,
+                display: "flex",
+                height: 14,
+                width: 14,
+              }}
+            />
+            {SITE_HOST}
+          </div>
+          <div
+            style={{
+              color: palette.heading,
+              display: "block",
+              fontSize: headlineSize,
+              fontWeight: 900,
+              letterSpacing: "-0.03em",
+              lineClamp: 2,
+              lineHeight: 1.08,
+              textWrap: "balance",
+            }}
+          >
+            {headline}
+          </div>
+          <div
+            style={{
+              color: palette.primary,
+              display: "block",
+              fontSize: answerSize,
+              fontWeight: 900,
+              letterSpacing: "-0.04em",
+              lineClamp: 2,
+              lineHeight: 1.02,
+              marginTop: 10,
+              paddingBottom: 6,
+              textShadow: art.answerTextShadow,
+              textWrap: "balance",
+              transform: "rotate(-2deg)",
+              transformOrigin: "left center",
+            }}
+          >
+            {copy.answer}
+          </div>
+          <div
+            style={{
+              ...art.cardStyle,
+              alignSelf: "flex-start",
+              backgroundColor: copy.highlight ? palette.primary : palette.card,
+              color: copy.highlight ? palette.primaryForeground : palette.foreground,
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              marginTop: 26,
+              maxWidth: 580,
+              padding: "18px 28px 20px",
+              transform: "rotate(-1.2deg)",
+            }}
+          >
+            <div
+              style={{
+                display: "block",
+                fontSize: detailSize,
+                fontWeight: 900,
+                lineClamp: 2,
+                lineHeight: 1.15,
+              }}
+            >
+              {copy.detail}
+            </div>
+            {copy.note ? (
+              <div
+                style={{
+                  color: copy.highlight
+                    ? withAlpha(palette.primaryForeground, 0.82)
+                    : palette.mutedForeground,
+                  display: "block",
+                  fontSize: 21,
+                  fontWeight: 700,
+                  lineClamp: 1,
+                }}
+              >
+                {copy.note}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     ),
