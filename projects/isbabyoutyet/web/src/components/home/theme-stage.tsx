@@ -17,12 +17,18 @@ const AUTOPLAY_INTERVAL_MS = 3200;
 type ThemeValue = (typeof THEME_OPTIONS)[number]["value"];
 
 const STAGES = [
-  { answerKey: "Not yet", labelKey: "Waiting", type: "not_yet" },
-  { answerKey: "Labour started!", labelKey: "Labour started", type: "labor_started" },
-  { answerKey: "Gone to hospital!", labelKey: "Gone to hospital", type: "gone_to_hospital" },
-  { answerKey: "Yes! Baby is out", labelKey: "Baby born!", type: "born" },
+  { answerKey: "Not yet", emoji: "👶", labelKey: "Waiting", type: "not_yet" },
+  { answerKey: "Labour started!", emoji: "💫", labelKey: "Labour started", type: "labor_started" },
+  {
+    answerKey: "Gone to hospital!",
+    emoji: "🏥",
+    labelKey: "Gone to hospital",
+    type: "gone_to_hospital",
+  },
+  { answerKey: "Yes! Baby is out", emoji: "🎉", labelKey: "Baby born!", type: "born" },
 ] as const satisfies ReadonlyArray<{
   answerKey: TranslationKey;
+  emoji: string;
   labelKey: TranslationKey;
   type: BabyStatus["type"];
 }>;
@@ -101,6 +107,45 @@ function StageConfetti() {
   );
 }
 
+function StageStep(props: {
+  active: boolean;
+  babyName: string;
+  now: string;
+  stage: Stage;
+  theme: ThemeValue;
+}) {
+  const baby = stageBaby({
+    name: props.babyName,
+    now: props.now,
+    stage: props.stage,
+    theme: props.theme,
+  });
+  const currentStatus = getCurrentStatus(baby);
+  // No "latest from the family" box: the notification toast tells that part,
+  // and the stage has to fit on one screen together with its controls.
+  return (
+    <div
+      aria-hidden={!props.active}
+      className={`[grid-area:1/1] transition-[opacity,visibility] duration-500 ease-out motion-reduce:transition-none ${
+        props.active ? "visible opacity-100" : "invisible opacity-0"
+      }`}
+      data-active={props.active ? "" : undefined}
+      inert={!props.active}
+    >
+      <StatusDisplay
+        baby={baby}
+        blurDataUrl={null}
+        currentStatus={currentStatus}
+        latestUpdate={null}
+        photoUrl={null}
+        publicId={null}
+        thumbnailUrl={null}
+      />
+      <ProgressIndicator baby={baby} currentStatus={currentStatus} />
+    </div>
+  );
+}
+
 /**
  * The homepage hero: a real (mini) baby page that plays through the journey
  * and re-skins itself through every theme, until the visitor takes over.
@@ -116,88 +161,86 @@ export function ThemeStage(props: { babyName: string }) {
 
   const stage = STAGES[stageIndex] ?? STAGES[0];
   const theme = THEME_OPTIONS[themeIndex] ?? THEME_OPTIONS[0];
-  const baby = stageBaby({ name: props.babyName, now, stage, theme: theme.value });
-  const currentStatus = getCurrentStatus(baby);
-  const latestMessage: TranslationKey | null =
-    stage.type === "born"
-      ? "Welcome to the world, little one! 🎉"
-      : stage.type === "gone_to_hospital"
-        ? "We've made it in! More news when we have it 💕"
-        : null;
 
   return (
-    <div className="relative mx-auto w-full max-w-[25rem]">
-      {announced > 0 && stage.type !== "not_yet" ? (
-        <div
-          aria-live="polite"
-          className="stage-toast absolute -top-6 right-0 left-6 z-20 flex items-center gap-3 rounded-2xl border-2 border-border bg-card/95 px-4 py-3 text-left shadow-xl backdrop-blur md:-right-10 md:left-auto md:w-72"
-          data-theme-scope={themeKey(theme.value)}
-          key={`${themeIndex}-${stageIndex}-${announced}`}
-        >
-          <span
-            aria-hidden="true"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-lg"
+    <div className="mx-auto w-full max-w-[25rem] lg:flex lg:max-w-none lg:items-center lg:justify-center lg:gap-6">
+      <div className="relative mx-auto w-full max-w-[25rem] lg:mx-0">
+        {announced > 0 && stage.type !== "not_yet" ? (
+          <div
+            aria-live="polite"
+            className="stage-toast absolute -top-6 right-0 left-6 z-20 flex items-center gap-3 rounded-2xl border-2 border-border bg-card/95 px-4 py-3 text-left shadow-xl backdrop-blur md:-right-10 md:left-auto md:w-72"
+            data-theme-scope={themeKey(theme.value)}
+            key={`${themeIndex}-${stageIndex}-${announced}`}
           >
-            🔔
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-black text-foreground">
-              {props.babyName}
+            <span
+              aria-hidden="true"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-lg"
+            >
+              🔔
             </span>
-            <span className="block truncate text-sm font-bold text-muted-foreground">
-              {t(stage.answerKey)}
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-black text-foreground">
+                {props.babyName}
+              </span>
+              <span className="block truncate text-sm font-bold text-muted-foreground">
+                {t(stage.answerKey)}
+              </span>
             </span>
-          </span>
-        </div>
-      ) : null}
+          </div>
+        ) : null}
 
-      <div
-        className="relative overflow-hidden rounded-[2.5rem] border-2 border-border bg-background bg-dots px-4 pt-4 pb-5 pop-shadow-strong"
-        data-baby-theme={themeKey(theme.value)}
-        data-testid="theme-stage"
-        data-theme-scope={themeKey(theme.value)}
-        data-theme-stage=""
-      >
-        <ThemeScope value={theme.value} />
-        <div className="flex items-center justify-between px-1">
-          <span className="rounded-full border-2 border-border bg-background/85 px-3 py-1 text-xs font-extrabold text-foreground">
-            isbabyoutyet
-          </span>
-          <span className="rounded-full bg-primary/15 px-3 py-1 text-xs font-extrabold text-primary">
-            {t(theme.labelKey)}
-          </span>
-        </div>
-        <p className="px-2 pt-5 pb-4 text-center text-2xl font-black tracking-tight text-foreground text-balance">
-          {t("Is {{name}} out yet?", { name: props.babyName })}
-        </p>
-        <section
-          className="min-h-[34rem] rounded-[2rem] border-2 border-border bg-card px-4 pb-5 text-center pop-shadow-strong"
-          data-theme-slot="card"
+        <div
+          className="stage-mockup stage-theme-in relative overflow-hidden rounded-[2.5rem] border-2 border-border bg-background bg-dots px-4 pt-4 pb-5 pop-shadow-strong"
+          data-baby-theme={themeKey(theme.value)}
+          data-testid="theme-stage"
+          data-theme-scope={themeKey(theme.value)}
+          data-theme-stage=""
+          // Re-keyed per theme so the fade-in replays on every theme change.
+          key={themeKey(theme.value)}
         >
-          <StatusDisplay
-            baby={baby}
-            blurDataUrl={null}
-            currentStatus={currentStatus}
-            latestUpdate={
-              latestMessage
-                ? { message: t(latestMessage), postedAt: new Date(now).getTime() }
-                : null
-            }
-            photoUrl={null}
-            publicId={null}
-            thumbnailUrl={null}
-          />
-          <ProgressIndicator baby={baby} currentStatus={currentStatus} />
-        </section>
-        {stage.type === "born" ? <StageConfetti key={`${themeIndex}-${announced}`} /> : null}
+          <ThemeScope value={theme.value} />
+          <div className="flex items-center justify-between px-1">
+            <span className="rounded-full border-2 border-border bg-background/85 px-3 py-1 text-xs font-extrabold text-foreground">
+              isbabyoutyet
+            </span>
+            <span className="rounded-full bg-primary/15 px-3 py-1 text-xs font-extrabold text-primary">
+              {t(theme.labelKey)}
+            </span>
+          </div>
+          <p className="px-2 pt-5 pb-4 text-center text-2xl font-black tracking-tight text-foreground text-balance">
+            {t("Is {{name}} out yet?", { name: props.babyName })}
+          </p>
+          {/*
+          Every step renders in the same grid cell and only the active one is
+          visible, so the card is always as tall as its tallest step and the
+          page never bounces while the demo plays.
+        */}
+          <section
+            className="grid rounded-[2rem] border-2 border-border bg-card px-4 pb-5 text-center pop-shadow-strong"
+            data-theme-slot="card"
+          >
+            {STAGES.map((option, index) => (
+              <StageStep
+                active={index === stageIndex}
+                babyName={props.babyName}
+                key={option.type}
+                now={now}
+                stage={option}
+                theme={theme.value}
+              />
+            ))}
+          </section>
+          {stage.type === "born" ? <StageConfetti key={`${themeIndex}-${announced}`} /> : null}
+        </div>
       </div>
 
-      <div className="mt-6 space-y-4">
-        <div className="flex flex-wrap justify-center gap-2">
+      {/* Below lg: two compact rows under the stage. From lg: a rail beside it. */}
+      <div className="mt-5 flex flex-col items-center gap-3 lg:mt-0 lg:w-40 lg:items-stretch">
+        <div className="flex justify-center gap-2 lg:flex-col">
           {STAGES.map((option, index) => (
             <button
               aria-pressed={index === stageIndex}
-              className={`rounded-full border-2 px-3.5 py-1.5 text-sm font-extrabold transition-transform hover:-rotate-2 ${
+              className={`flex items-center justify-center gap-2 rounded-full border-2 px-3 py-1.5 text-sm font-extrabold transition-transform hover:-rotate-2 lg:justify-start ${
                 index === stageIndex
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border bg-card text-foreground"
@@ -206,22 +249,24 @@ export function ThemeStage(props: { babyName: string }) {
               onClick={() => {
                 pickStage(index);
               }}
+              title={t(option.labelKey)}
               type="button"
             >
-              {t(option.labelKey)}
+              <span aria-hidden="true">{option.emoji}</span>
+              <span className="sr-only lg:not-sr-only">{t(option.labelKey)}</span>
             </button>
           ))}
         </div>
         <div
           aria-label={t("Pick a theme")}
-          className="flex flex-wrap justify-center gap-2"
+          className="flex justify-center gap-2 lg:grid lg:grid-cols-4 lg:justify-items-center"
           role="group"
         >
           {THEME_OPTIONS.map((option, index) => (
             <button
               aria-label={t(option.labelKey)}
               aria-pressed={index === themeIndex}
-              className={`h-9 w-9 overflow-hidden rounded-full border-2 transition-transform hover:scale-110 ${
+              className={`h-8 w-8 overflow-hidden rounded-full border-2 transition-transform hover:scale-110 ${
                 index === themeIndex ? "border-foreground scale-110" : "border-border"
               }`}
               key={themeKey(option.value)}
