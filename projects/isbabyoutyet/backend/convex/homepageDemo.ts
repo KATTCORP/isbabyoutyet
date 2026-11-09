@@ -7,6 +7,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import {
   HOMEPAGE_DEMO_BABIES,
   HOMEPAGE_DEMO_BABY,
+  HOMEPAGE_DEMO_LEGACY_PUBLIC_ID,
   HOMEPAGE_DEMO_OWNER_USER_ID,
   HOMEPAGE_DEMO_THEME,
   isHomepageDemoPublicId,
@@ -80,17 +81,18 @@ function dueDateIso(now: number) {
  * Only wipe/patch babies with the fixed homepage-demo identity. `demo: true`
  * alone is intentionally insufficient because preview login fixtures use it
  * too. The sole exception is the pre-flag Juniper row with the same sentinel
- * owner, token, and reserved public id.
+ * owner and token at the legacy en-GB public id.
  */
 function isManagedHomepageDemo(baby: Doc<"baby">) {
+  const isLegacy = baby.publicId === HOMEPAGE_DEMO_LEGACY_PUBLIC_ID;
   const hasHomepageIdentity =
     baby.userId === HOMEPAGE_DEMO_OWNER_USER_ID &&
     baby.ownerTokenIdentifier === tokenIdentifierForAuthUserId(HOMEPAGE_DEMO_OWNER_USER_ID) &&
-    isHomepageDemoPublicId(baby.publicId);
+    (isHomepageDemoPublicId(baby.publicId) || isLegacy);
   if (!hasHomepageIdentity) {
     return false;
   }
-  return baby.demo === true || baby.publicId === HOMEPAGE_DEMO_BABY.publicId;
+  return baby.demo === true || isLegacy;
 }
 
 function refuseNonDemo(publicId: string) {
@@ -207,9 +209,35 @@ async function requireManagedDemoBaby(ctx: MutationCtx, babyId: Id<"baby">) {
   return baby;
 }
 
+/**
+ * The en-GB demo used to live at the legacy slug. Hand that row over so the
+ * refresh renames it in place instead of leaving a stale page behind.
+ */
+async function findLegacyDemoBaby(ctx: MutationCtx, locale: SupportedLocale) {
+  if (locale !== HOMEPAGE_DEMO_BABY.locale) {
+    return null;
+  }
+  const legacy = await findBabyByPublicId(ctx, HOMEPAGE_DEMO_LEGACY_PUBLIC_ID);
+  return legacy && isManagedHomepageDemo(legacy) ? legacy : null;
+}
+
+/** Keeps `/baby/{old slug}` resolving to the demo after a rename. */
+async function recordLegacyPublicId(ctx: MutationCtx, baby: Doc<"baby">) {
+  const existing = await ctx.db
+    .query("babyPublicIdHistory")
+    .withIndex("by_publicId", (q) => q.eq("publicId", baby.publicId))
+    .order("desc")
+    .first();
+  if (existing?.babyId === baby._id) {
+    return;
+  }
+  await ctx.db.insert("babyPublicIdHistory", { babyId: baby._id, publicId: baby.publicId });
+}
+
 async function ensureBabyDoc(ctx: MutationCtx, opts: { locale: SupportedLocale; now: number }) {
   const demo = HOMEPAGE_DEMO_BABIES[opts.locale];
-  const existing = await findBabyByPublicId(ctx, demo.publicId);
+  const existing =
+    (await findBabyByPublicId(ctx, demo.publicId)) ?? (await findLegacyDemoBaby(ctx, opts.locale));
   const fields = {
     birthJourney: "labor" as const,
     demo: true as const,
@@ -227,7 +255,10 @@ async function ensureBabyDoc(ctx: MutationCtx, opts: { locale: SupportedLocale; 
     if (!isManagedHomepageDemo(existing)) {
       throw refuseNonDemo(demo.publicId);
     }
-    await ctx.db.patch(existing._id, fields);
+    if (existing.publicId !== demo.publicId) {
+      await recordLegacyPublicId(ctx, existing);
+    }
+    await ctx.db.patch(existing._id, { ...fields, publicId: demo.publicId });
     return existing._id;
   }
 

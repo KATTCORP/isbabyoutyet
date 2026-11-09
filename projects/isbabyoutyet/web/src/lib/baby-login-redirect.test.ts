@@ -7,7 +7,7 @@ import {
 
 test.each([
   { publicId: "baby-waiting", redirect: "/baby/baby-waiting" },
-  { publicId: "juniper-hale", redirect: "/baby/juniper-hale" },
+  { publicId: "alba-willis", redirect: "/baby/alba-willis" },
 ])("home link returns to the baby page $redirect", (testCase) => {
   expect(babyLoginHomeLink(testCase.redirect)).toEqual({
     params: { publicId: testCase.publicId },

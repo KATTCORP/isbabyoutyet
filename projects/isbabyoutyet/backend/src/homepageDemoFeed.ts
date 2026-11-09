@@ -87,52 +87,69 @@ export const HOMEPAGE_DEMO_FEED_SLOTS = [
 export const HOMEPAGE_DEMO_FEED_COPY = {
   "en-GB": {
     encouragements: [
-      { authorName: "Grandma Helen", message: "Rest up, sweetheart. Can't wait to meet her! 💕" },
       {
-        authorName: "Sam",
-        message: "The nesting is REAL 😂 Biggest hug. You've got this.",
-      },
-      { authorName: "Maya", message: "YOU'VE GOT THIS. Phone is glued to my hand. Love you both." },
-      { authorName: "Uncle Mateo", message: "One wave at a time. So proud of you two." },
-      { authorName: "Jess", message: "Thinking of you!! Keep us posted when you can." },
-      {
-        authorName: "Priya",
-        message: "You're doing amazing. We've got the dog if you need anything at all!",
+        authorName: "Nanna Jean",
+        message: "Get your feet up, sweetheart. Can't wait to meet her! 💕",
       },
       {
-        authorName: "Grandma Helen",
-        message: "Drive safely. I'll be thinking of you the whole way.",
-      },
-      { authorName: "Aunt Leah", message: "Yessss go go go!! Love you." },
-      {
-        authorName: "Sam",
-        message: "A little calm in the middle of it all. Breathe. You're smashing it.",
-      },
-      { authorName: "Maya", message: "AAAAAAAA I'm pacing. Come on Juniper, you've got this!!" },
-      { authorName: "Uncle Mateo", message: "Nearly there. Sending you all my strength." },
-      {
-        authorName: "Grandma Helen",
-        message: "WELCOME JUNIPER MAE HALE 💕💕💕 Grandma is crying happy tears.",
+        authorName: "Tom",
+        message: "The nesting's gone full throttle I see 😂 Big hug. You've got this.",
       },
       {
-        authorName: "Sam",
-        message: "JUNIPER!!!! She's here she's here she's here. Look at that little face.",
+        authorName: "Becks",
+        message: "OMG IT'S HAPPENING. Phone's glued to my hand. Love you both x",
       },
+      { authorName: "Uncle Rob", message: "One wave at a time, kid. Proper proud of you two." },
+      { authorName: "Jess", message: "Thinking of you!! Keep us posted when you can x" },
       {
         authorName: "Priya",
-        message: "Congrats, you two! Rest up. We'll bring food.",
+        message: "You're smashing it. We've got the dog, so don't give him a second thought!",
       },
-      { authorName: "Jess", message: "Welcome to the world, Juniper. Best news ever." },
+      {
+        authorName: "Nanna Jean",
+        message: "Mind how you go on the roads. I'll be thinking of you the whole way.",
+      },
+      { authorName: "Auntie Lou", message: "Go on girl!! Love you loads." },
+      {
+        authorName: "Tom",
+        message: "Gas and air, the unsung hero of the NHS. Deep breaths, you're doing brilliantly.",
+      },
+      {
+        authorName: "Becks",
+        message: "AAAAAAAA I'm pacing round the kitchen. Come on Alba, chop chop!!",
+      },
+      {
+        authorName: "Uncle Rob",
+        message: "Nearly there. Sending all my strength. Kettle's on for when you're home.",
+      },
+      {
+        authorName: "Nanna Jean",
+        message: "WELCOME ALBA WILLIS 💕💕💕 Nanna's in absolute bits. Happy tears, mind.",
+      },
+      {
+        authorName: "Tom",
+        message:
+          "ALBA!!!! She's here she's here she's here. Look at that little face. Legends, the pair of you.",
+      },
+      {
+        authorName: "Priya",
+        message: "Massive congrats, you two! Rest up. We'll drop round a lasagne.",
+      },
+      {
+        authorName: "Jess",
+        message:
+          "Welcome to the world, little Alba. Best news ever. Wetting the baby's head tonight 🥂",
+      },
     ],
     updates: [
-      "40 weeks and this bump is out of control. Restless night. Is tonight the night?",
-      "Okay, this is it!! Contractions every 7 minutes. Timing them in the app and trying not to lose the plot.",
-      "Contractions are 4 or 5 minutes apart and a lot stronger. Bag's by the door. Midwife says we can stay home a little longer.",
-      "Long night on the ball. Slow, wave-by-wave labour. Every message helps 💛",
-      "Heading in! Contractions are intense and close together. Time to meet our girl.",
-      "Everyone's lovely, the lights are low and the epidural's doing its thing. Now we wait.",
-      "8 cm!! So close now. My partner has been an absolute rock.",
-      "She's here!! Juniper Mae Hale, 7 lb 2 oz. It was a long labour and we're completely smitten. Thanks for all the love these past two days.",
+      "40 weeks and this bump has well and truly taken over. Didn't sleep a wink. Is tonight the night? Place your bets.",
+      "Right, this is it!! Contractions every 7 minutes. Timing them on the app and trying not to lose the plot.",
+      "4 or 5 minutes apart now and properly ramping up. Bag's by the door. Midwife says hang on at home a bit longer, so the kettle's on.",
+      "Long night bouncing on the ball. Slow going, one wave at a time. Every message helps 💛",
+      "Off we go! Contractions are coming thick and fast. Time to meet our girl.",
+      "Midwives are absolute angels, the lights are low and I'm best mates with the gas and air now. Now we wait.",
+      "8 cm!! Nearly there. My other half has been an absolute rock (and only slightly annoying).",
+      "She's here!! Alba Willis, 3.2 kg of absolute perfection. Long old labour but we're completely besotted. Thanks for all the love these past two days.",
     ],
   },
   "en-US": {

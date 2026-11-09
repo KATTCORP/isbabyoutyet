@@ -163,10 +163,10 @@ test("server render redirects to baby-page login when no auth token is available
         runGuard({
           context: guard.context,
           fetchToken,
-          pathname: "/baby/juniper-hale/settings",
-          publicId: "juniper-hale",
+          pathname: "/baby/alba-willis/settings",
+          publicId: "alba-willis",
         }),
-      { pathname: "/baby/juniper-hale/settings", publicId: "juniper-hale" },
+      { pathname: "/baby/alba-willis/settings", publicId: "alba-willis" },
     );
     expect(fetchToken).toHaveBeenCalledTimes(1);
   });

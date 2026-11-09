@@ -28,8 +28,8 @@ test("returns the matching value and updates when a new match arrives", async ()
   expect(hook.result.current).toEqual({ name: "Avery", photoUrl: null });
   expectTypeOf(hook.result.current).toEqualTypeOf<Profile | null>();
 
-  hook.rerender({ value: { name: "Juniper", photoUrl: null } });
-  expect(hook.result.current).toEqual({ name: "Juniper", photoUrl: null });
+  hook.rerender({ value: { name: "Alba", photoUrl: null } });
+  expect(hook.result.current).toEqual({ name: "Alba", photoUrl: null });
 });
 
 test("keeps the last match when the live value stops matching", async () => {

@@ -173,10 +173,10 @@ test("admins can list babies sorted by created or updated with manager emails", 
       dueDate: "2026-08-01",
       dueDateDisplayMode: "exact",
       lastActivityAt: now,
-      name: "Juniper Hale",
+      name: "Alba Willis",
       ownerTokenIdentifier: `https://convex.test|${HOMEPAGE_DEMO_OWNER_USER_ID}`,
       publicDueDateText: null,
-      publicId: "juniper-hale",
+      publicId: "alba-willis",
       subscriptionCount: 0,
       userId: HOMEPAGE_DEMO_OWNER_USER_ID,
     });
@@ -190,8 +190,8 @@ test("admins can list babies sorted by created or updated with manager emails", 
   });
   expect(byCreated.page.some((row) => row.publicId === "baby-deleted")).toBe(false);
   expect(byCreated.page.some((row) => row.publicId === "baby-quiet")).toBe(true);
-  const juniper = byCreated.page.find((row) => row.publicId === "juniper-hale");
-  expect(juniper).toMatchObject({ demo: true, managerEmails: [] });
+  const alba = byCreated.page.find((row) => row.publicId === "alba-willis");
+  expect(alba).toMatchObject({ demo: true, managerEmails: [] });
   for (let i = 1; i < byCreated.page.length; i++) {
     expect(byCreated.page[i - 1]!.createdAt).toBeGreaterThanOrEqual(byCreated.page[i]!.createdAt);
   }
@@ -203,7 +203,7 @@ test("admins can list babies sorted by created or updated with manager emails", 
     sortOrder: "desc",
   });
   expect(hiddenDemos.page.every((row) => row.demo === false)).toBe(true);
-  expect(hiddenDemos.page.some((row) => row.publicId === "juniper-hale")).toBe(false);
+  expect(hiddenDemos.page.some((row) => row.publicId === "alba-willis")).toBe(false);
   expect(hiddenDemos.page.some((row) => row.publicId === "baby-quiet")).toBe(true);
 
   const byCreatedAsc = await asDemo.query(api.admin.listBabies, {
@@ -444,12 +444,12 @@ test("transferPublicId refuses homepage demo slugs and missing babies", async ()
     asDemo.mutation(api.admin.transferPublicId, {
       fromPublicId: "real-baby",
       motivation: "Should not move a demo slug",
-      toPublicId: "juniper-hale",
+      toPublicId: "alba-willis",
     }),
   ).rejects.toThrow("Homepage demo public IDs cannot be transferred");
   await expect(
     asDemo.mutation(api.admin.transferPublicId, {
-      fromPublicId: "juniper-hale",
+      fromPublicId: "alba-willis",
       motivation: "Should not move a demo slug",
       toPublicId: "baby",
     }),

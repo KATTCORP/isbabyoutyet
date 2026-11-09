@@ -28,15 +28,15 @@ function seoBaby<T extends object>(baby: T) {
 
 test("canonical URLs always point at production", () => {
   expect(canonicalUrl("/")).toBe(`${CANONICAL_ORIGIN}/`);
-  expect(canonicalUrl("/baby/juniper-hale")).toBe(`${CANONICAL_ORIGIN}/baby/juniper-hale`);
+  expect(canonicalUrl("/baby/alba-willis")).toBe(`${CANONICAL_ORIGIN}/baby/alba-willis`);
 });
 
 test("absolute asset URLs accept an explicit origin", () => {
   expect(absoluteUrl(homepageOgImagePath(), "http://localhost:3000")).toBe(
     "http://localhost:3000/og",
   );
-  expect(absoluteUrl("/og/baby/juniper-hale", "http://localhost:3000")).toBe(
-    "http://localhost:3000/og/baby/juniper-hale",
+  expect(absoluteUrl("/og/baby/alba-willis", "http://localhost:3000")).toBe(
+    "http://localhost:3000/og/baby/alba-willis",
   );
 });
 
@@ -50,18 +50,18 @@ test("baby SEO head includes countdown title, description, and dynamic OG image"
       dueDateDisplayMode: "exact",
       laborStarted: null,
       locale: "en-GB",
-      name: "Juniper",
-      publicId: "juniper-hale",
+      name: "Alba",
+      publicId: "alba-willis",
       theme: "sunny-days",
       wentToHospital: null,
     }),
   );
 
   expect(seo.title).toContain("21 days until due date");
-  expect(seo.title).toContain("Juniper");
-  expect(seo.description).toContain("Juniper");
-  expect(seo.canonical).toBe(`${CANONICAL_ORIGIN}/baby/juniper-hale`);
-  expect(new URL(seo.imageUrl).pathname).toBe("/og/baby/juniper-hale-testoghash-20260811");
+  expect(seo.title).toContain("Alba");
+  expect(seo.description).toContain("Alba");
+  expect(seo.canonical).toBe(`${CANONICAL_ORIGIN}/baby/alba-willis`);
+  expect(new URL(seo.imageUrl).pathname).toBe("/og/baby/alba-willis-testoghash-20260811");
   expect(seo.indexable).toBe(true);
 });
 
@@ -99,15 +99,15 @@ test("custom due date text replaces countdown metadata", async () => {
     dueDateDisplayMode: "message" as const,
     laborStarted: null,
     locale: "en-GB" as const,
-    name: "Juniper",
+    name: "Alba",
     publicDueDateText: "Any day now",
-    publicId: "juniper-hale",
+    publicId: "alba-willis",
     theme: "sunny-days",
     wentToHospital: null,
   });
 
   const seo = babySeoHead(baby);
-  expect(seo.title).toContain("Is Juniper out yet?");
+  expect(seo.title).toContain("Is Alba out yet?");
   expect(seo.title).not.toContain("until due date");
   expect(babyStatusDetail({ baby, status: { type: "not_yet" } })).toBe("Any day now");
 
@@ -437,10 +437,10 @@ const publicBabyBase = {
   laborStarted: null,
   locale: "en-GB" as const,
   milestoneVisibility: DEFAULT_MILESTONE_VISIBILITY,
-  name: "Juniper Hale",
+  name: "Alba Willis",
   ogImageHash: "abc123",
   photoUrl: null,
-  publicId: "juniper-hale-1",
+  publicId: "alba-willis-1",
   resolvedLocale: "en-GB" as const,
   theme: "baby-blue",
   thumbnailUrl: null,
@@ -456,11 +456,11 @@ test("getBabySeo maps exact mode onto the canonical route slug", async () => {
     dueDateDisplayMode: "exact" as const,
   } satisfies PublicBabyDoc;
 
-  const seo = getBabySeo(doc, "juniper-hale");
+  const seo = getBabySeo(doc, "alba-willis");
 
   expect(seo.title).toContain("21 days until due date");
-  expect(seo.canonical).toBe("https://isbabyoutyet.com/baby/juniper-hale");
-  expect(new URL(seo.imageUrl).pathname).toBe("/og/baby/juniper-hale-abc123-20260811");
+  expect(seo.canonical).toBe("https://isbabyoutyet.com/baby/alba-willis");
+  expect(new URL(seo.imageUrl).pathname).toBe("/og/baby/alba-willis-abc123-20260811");
 });
 
 test("getBabySeo coalesces omitted public due date text", () => {
@@ -470,11 +470,11 @@ test("getBabySeo coalesces omitted public due date text", () => {
     publicDueDateText: undefined,
   } satisfies PublicBabyDoc;
 
-  const seo = getBabySeo(doc, "juniper-hale");
+  const seo = getBabySeo(doc, "alba-willis");
 
-  expect(seo.title).toContain("Is Juniper Hale out yet?");
+  expect(seo.title).toContain("Is Alba Willis out yet?");
   expect(seo.title).not.toContain("until due date");
-  expect(seo.canonical).toBe("https://isbabyoutyet.com/baby/juniper-hale");
+  expect(seo.canonical).toBe("https://isbabyoutyet.com/baby/alba-willis");
 });
 
 test("getBabySeo keeps custom public due date text out of the title countdown", () => {
@@ -484,9 +484,9 @@ test("getBabySeo keeps custom public due date text out of the title countdown", 
     publicDueDateText: "Any day now",
   } satisfies PublicBabyDoc;
 
-  const seo = getBabySeo(doc, "juniper-hale");
+  const seo = getBabySeo(doc, "alba-willis");
 
-  expect(seo.title).toContain("Is Juniper Hale out yet?");
+  expect(seo.title).toContain("Is Alba Willis out yet?");
   expect(seo.title).not.toContain("until due date");
-  expect(seo.description).toContain("Juniper Hale");
+  expect(seo.description).toContain("Alba Willis");
 });
