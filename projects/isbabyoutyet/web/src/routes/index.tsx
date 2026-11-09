@@ -98,32 +98,38 @@ function heroHeadlineFromCatalog(t: (key: TranslationKey) => string) {
 }
 
 /**
- * The rotating name in the hero headline. Every word sits in the same grid
- * cell, so the pill is always as wide as the longest name and nothing around
- * it reflows when the name changes. Driven by the stage's journey counter so
- * it changes on the same beat as the theme, not on a clock of its own.
+ * The rotating name in the hero headline. Every name is laid out in the same
+ * grid cell (only the current one visible), so the slot is always as wide as
+ * the longest name and nothing around it reflows. The pill hugs the current
+ * name: left-aligned in the slot when the headline is left-aligned, centred
+ * when it is centred. Driven by the stage's beat, so it changes together
+ * with the stage instead of on a clock of its own.
  */
 function RotatingBabyName(props: { index: number; words: ReadonlyArray<string> }) {
   const current = props.words.length === 0 ? 0 : props.index % props.words.length;
   return (
     <span
       aria-hidden="true"
-      className="relative inline-grid justify-items-center whitespace-nowrap [clip-path:inset(0_-0.1em)] md:justify-items-start"
+      className="inline-grid justify-items-center whitespace-nowrap [clip-path:inset(-0.1em_-0.2em)] md:justify-items-start"
     >
       {props.words.map((word, wordIndex) => (
         <span
-          className={`[grid-area:1/1] ${
-            wordIndex === current
-              ? // Skip `hero-word-in` on the first paint: it starts at opacity 0,
-                // so a slow hydration would flash the name away and back.
-                props.index === 0
-                ? "visible"
-                : "hero-word-in visible"
-              : "invisible"
+          className={`relative px-[0.22em] text-primary [grid-area:1/1] ${
+            wordIndex === current ? "visible" : "invisible"
           }`}
           key={wordIndex === current ? `current-${props.index}` : word}
         >
-          {word}
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 -rotate-1 rounded-3xl bg-primary/15"
+          />
+          {/*
+            Skip `hero-word-in` on the first paint: it starts at opacity 0, so
+            a slow hydration would flash the name away and back.
+          */}
+          <span className={`relative inline-block ${props.index === 0 ? "" : "hero-word-in"}`}>
+            {word}
+          </span>
         </span>
       ))}
     </span>
@@ -242,6 +248,8 @@ export function HomePageView(props: { isSignedIn: boolean }) {
   const isSignedIn = props.isSignedIn;
   const demoFirstName = demoBaby.name.split(" ")[0] ?? demoBaby.name;
   const stage = useHomeStage();
+  // The headline and the live page show the same name, on the same beat.
+  const heroName = headline.words[stage.beat % Math.max(headline.words.length, 1)] ?? demoFirstName;
   const headlineLayout = heroHeadlineLayout(headline);
 
   return (
@@ -316,13 +324,7 @@ export function HomePageView(props: { isSignedIn: boolean }) {
                 {headline.before === "" || headlineLayout.stackBefore ? null : (
                   <span>{headline.before}</span>
                 )}
-                <span className="relative inline-flex items-baseline px-4 text-primary">
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-0 -rotate-1 rounded-3xl bg-primary/15"
-                  />
-                  <RotatingBabyName index={stage.journey} words={headline.words} />
-                </span>
+                <RotatingBabyName index={stage.beat} words={headline.words} />
               </span>
               <span aria-hidden="true" className="whitespace-nowrap">
                 {headline.after}
@@ -377,7 +379,7 @@ export function HomePageView(props: { isSignedIn: boolean }) {
               </Button>
             </div>
           </div>
-          <ThemeStage babyName={demoFirstName} control={stage} />
+          <ThemeStage babyName={heroName} control={stage} />
         </section>
 
         {/* The problem, and the fix */}

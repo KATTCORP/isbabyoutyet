@@ -12,8 +12,12 @@ import { useThemeStage } from "@/lib/use-theme-stage";
 
 /** Matches the homepage's SSR snapshot so stage dates hydrate identically. */
 const SERVER_DATE_SNAPSHOT = "2026-01-01T10:30:00.000Z";
-/** Slow enough to read each step; a full journey (and theme) takes ~18s. */
-const AUTOPLAY_INTERVAL_MS = 4500;
+/**
+ * The hero's beat: the headline name changes every beat, and the stage moves
+ * one step every two beats (4.8s), slow enough to read each step.
+ */
+const BEAT_MS = 2400;
+const STEP_EVERY_BEATS = 2;
 
 type ThemeValue = (typeof THEME_OPTIONS)[number]["value"];
 
@@ -154,8 +158,9 @@ function StageStep(props: {
 /** The hero's one clock: stage steps, themes, and the headline name share it. */
 export function useHomeStage() {
   return useThemeStage({
-    intervalMs: AUTOPLAY_INTERVAL_MS,
+    intervalMs: BEAT_MS,
     stageCount: STAGES.length,
+    stepEveryBeats: STEP_EVERY_BEATS,
     themeCount: THEME_OPTIONS.length,
   });
 }
@@ -213,7 +218,8 @@ export function ThemeStage(props: { babyName: string; control: ReturnType<typeof
               {t(theme.labelKey)}
             </span>
           </div>
-          <p className="px-2 pt-5 pb-4 text-center text-2xl font-black tracking-tight text-foreground text-balance">
+          {/* One line whatever the name, so the stage never changes height. */}
+          <p className="truncate px-2 pt-5 pb-4 text-center text-2xl font-black tracking-tight whitespace-nowrap text-foreground">
             {t("Is {{name}} out yet?", { name: props.babyName })}
           </p>
           {/*

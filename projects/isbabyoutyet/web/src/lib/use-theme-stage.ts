@@ -5,8 +5,12 @@ type ThemeStageState = {
   /** Re-keys the notification toast on every step change. */
   announced: number;
   autoplay: boolean;
-  /** Completed journeys, so other hero copy can change on the same beat. */
-  journey: number;
+  /**
+   * Ticks of the shared clock. Keeps counting after the visitor takes the
+   * controls, so other hero copy (the rotating headline name) keeps its
+   * rhythm and stays in step with the stage.
+   */
+  beat: number;
   stageIndex: number;
   themeIndex: number;
 };
@@ -14,7 +18,7 @@ type ThemeStageState = {
 const INITIAL_STATE: ThemeStageState = {
   announced: 0,
   autoplay: true,
-  journey: 0,
+  beat: 0,
   stageIndex: 0,
   themeIndex: 0,
 };
@@ -23,31 +27,38 @@ const INITIAL_STATE: ThemeStageState = {
  * State for the homepage's self-playing theme stage: which journey step and
  * which theme are showing, and whether it still plays itself. It advances
  * through the steps and moves to the next theme after each full journey,
- * until the visitor takes the controls. `journey` counts completed journeys
- * so the rotating headline name can change on the same beat instead of
- * running its own clock.
+ * until the visitor takes the controls. `beat` counts every tick of the
+ * same clock, so the rotating headline name changes together with the stage
+ * instead of running a clock of its own.
  *
  * Every update is a pure function of the previous state, so a tick never
  * acts on a stale step.
  */
 export function useThemeStage(opts: {
+  /** Length of one beat; the headline name changes every beat. */
   intervalMs: number;
   stageCount: number;
+  /** The stage moves one step every this many beats. */
+  stepEveryBeats: number;
   themeCount: number;
 }) {
   const [state, setState] = useState(INITIAL_STATE);
 
   useAutoplayTick({
-    enabled: state.autoplay,
+    enabled: true,
     intervalMs: opts.intervalMs,
     onTick: () => {
       setState((previous) => {
+        const beat = previous.beat + 1;
+        if (!previous.autoplay || beat % opts.stepEveryBeats !== 0) {
+          return { ...previous, beat };
+        }
         const stageIndex = (previous.stageIndex + 1) % opts.stageCount;
         const wrapped = stageIndex === 0;
         return {
           ...previous,
           announced: previous.announced + 1,
-          journey: wrapped ? previous.journey + 1 : previous.journey,
+          beat,
           stageIndex,
           themeIndex: wrapped ? (previous.themeIndex + 1) % opts.themeCount : previous.themeIndex,
         };
@@ -57,7 +68,7 @@ export function useThemeStage(opts: {
 
   return {
     announced: state.announced,
-    journey: state.journey,
+    beat: state.beat,
     pickStage: (index: number) => {
       setState((previous) => ({
         ...previous,
