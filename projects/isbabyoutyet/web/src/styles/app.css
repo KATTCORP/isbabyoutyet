@@ -301,3 +301,71 @@ body {
     animation: none;
   }
 }
+
+/*
+ * Homepage theme stage: scale the mini page with the viewport height so the
+ * stage and its controls always fit on one screen. Below lg the controls sit
+ * under the stage (about 100px); from lg they sit beside it. Each band uses
+ * the zoom that fits its smallest height.
+ */
+.stage-mockup {
+  zoom: 1;
+}
+
+@media (max-height: 860px) {
+  .stage-mockup {
+    zoom: 0.92;
+  }
+}
+
+@media (max-height: 780px) {
+  .stage-mockup {
+    zoom: 0.8;
+  }
+}
+
+@media (max-height: 700px) {
+  .stage-mockup {
+    zoom: 0.64;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 860px) {
+  .stage-mockup {
+    zoom: 1;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 800px) {
+  .stage-mockup {
+    zoom: 0.9;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 700px) {
+  .stage-mockup {
+    zoom: 0.78;
+  }
+}
+
+/* A theme change fades the new skin in instead of snapping to it. */
+@keyframes stage-theme-in {
+  from {
+    opacity: 0.35;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.stage-theme-in {
+  animation: stage-theme-in 0.45s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-theme-in {
+    animation: none;
+  }
+}

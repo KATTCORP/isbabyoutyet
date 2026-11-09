@@ -40,13 +40,30 @@ test("homepage hero is a live baby page visitors can step through", async () => 
   const stage = screen.getByTestId("theme-stage");
   const firstName = HOMEPAGE_DEMO_BABY.name.split(" ")[0] ?? "";
   expect(stage.textContent).toContain(`Is ${firstName} out yet?`);
-  expect(stage.textContent).toContain("Not yet");
+  const activeStep = () => screen.getByTestId("theme-stage").querySelector("[data-active]");
+  expect(activeStep()?.textContent).toContain("Not yet");
 
   fireEvent.click(screen.getByRole("button", { name: "Baby born!" }));
-  expect(screen.getByTestId("theme-stage").textContent).toContain("Yes! Baby is out");
+  expect(activeStep()?.textContent).toContain("Yes! Baby is out");
   expect(screen.getByRole("button", { name: "Baby born!" }).getAttribute("aria-pressed")).toBe(
     "true",
   );
+});
+
+test("homepage hero keeps every step laid out so the page never jumps", async () => {
+  await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
+
+  // All four steps share one grid cell; only the active one is visible or
+  // reachable, so the card is always as tall as the tallest step.
+  const steps = screen
+    .getByTestId("theme-stage")
+    .querySelectorAll("[data-theme-slot='card'] > [aria-hidden]");
+  expect(steps).toHaveLength(4);
+  const hidden = Array.from(steps).filter((step) => step.getAttribute("aria-hidden") === "true");
+  expect(hidden).toHaveLength(3);
+  for (const step of hidden) {
+    expect(step.hasAttribute("inert")).toBe(true);
+  }
 });
 
 test("homepage hero re-skins the live page in the picked theme", async () => {
