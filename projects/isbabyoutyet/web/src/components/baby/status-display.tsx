@@ -27,7 +27,7 @@ function PhotoAvatar(props: PhotoAvatarProps) {
   const photo = useBabyPhotoOverlayLinks(props.publicId ?? "");
 
   const baseClasses =
-    "inline-flex items-center justify-center w-28 h-28 md:w-32 md:h-32 rounded-full overflow-hidden border-4 mb-6";
+    "inline-flex items-center justify-center w-28 h-28 md:w-32 md:h-32 rounded-full overflow-hidden border-4";
   const variantClasses =
     props.variant === "born"
       ? "bg-primary/15 border-primary pop-shadow-strong"
@@ -38,7 +38,7 @@ function PhotoAvatar(props: PhotoAvatarProps) {
 
   if (!avatarImageUrl && !props.photoUrl) {
     return (
-      <div className={`${baseClasses} ${variantClasses}`}>
+      <div className={`${baseClasses} ${variantClasses}`} data-theme-slot="avatar">
         <span aria-hidden="true" className="text-6xl md:text-7xl">
           {props.fallbackEmoji}
         </span>
@@ -63,13 +63,18 @@ function PhotoAvatar(props: PhotoAvatarProps) {
         {...photo.openLink}
         aria-label={t("Photo of {{name}}", { name: props.babyName })}
         className={`${baseClasses} ${variantClasses} cursor-pointer transition-transform hover:scale-105 hover:-rotate-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
+        data-theme-slot="avatar"
       >
         {avatarImage}
       </Link>
     );
   }
 
-  return <div className={`${baseClasses} ${variantClasses}`}>{avatarImage}</div>;
+  return (
+    <div className={`${baseClasses} ${variantClasses}`} data-theme-slot="avatar">
+      {avatarImage}
+    </div>
+  );
 }
 
 /**
@@ -98,7 +103,10 @@ function LatestUpdateBox(props: { latestUpdate: LatestUpdateMessage | null }) {
     return null;
   }
   return (
-    <div className="mt-8 w-full max-w-md rounded-3xl rounded-bl-lg border-2 border-primary/25 bg-primary/10 px-6 py-5 text-left rotate-[-1deg] pop-shadow">
+    <div
+      className="mt-8 w-full max-w-md rounded-3xl rounded-bl-lg border-2 border-primary/25 bg-primary/10 px-6 py-5 text-left rotate-[-1deg] pop-shadow"
+      data-theme-slot="note"
+    >
       <p className="text-xs font-black uppercase tracking-widest text-primary/80">
         {t("Latest from the family")} 💬
       </p>
@@ -155,17 +163,23 @@ export function StatusDisplay(props: StatusDisplayProps) {
 
   return (
     <div className="flex flex-col items-center py-8">
-      <PhotoAvatar
-        babyName={props.baby.name}
-        blurDataUrl={props.blurDataUrl}
-        fallbackEmoji={meta.emoji}
-        photoUrl={props.photoUrl}
-        publicId={props.publicId}
-        thumbnailUrl={props.thumbnailUrl}
-        variant={isBorn ? "born" : "default"}
-      />
+      {/* Themes hang frames (rings, ears, rays) off this wrapper; the avatar clips its own overflow. */}
+      <div className="relative mb-6 inline-flex" data-theme-slot="avatar-frame">
+        <PhotoAvatar
+          babyName={props.baby.name}
+          blurDataUrl={props.blurDataUrl}
+          fallbackEmoji={meta.emoji}
+          photoUrl={props.photoUrl}
+          publicId={props.publicId}
+          thumbnailUrl={props.thumbnailUrl}
+          variant={isBorn ? "born" : "default"}
+        />
+      </div>
 
-      <h2 className="text-4xl md:text-5xl font-black tracking-tight text-primary text-balance">
+      <h2
+        className="text-4xl md:text-5xl font-black tracking-tight text-primary text-balance"
+        data-theme-slot="answer"
+      >
         {t(meta.answerKey)}
       </h2>
       <p className="mt-3 text-lg font-bold text-muted-foreground">{t(sublineKey)}</p>
@@ -192,6 +206,7 @@ export function StatusDisplay(props: StatusDisplayProps) {
               ? "border-primary/40 bg-primary/10"
               : "border-border bg-card"
           }`}
+          data-theme-slot="note"
         >
           <p
             className={`text-2xl font-black ${

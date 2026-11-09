@@ -317,7 +317,7 @@ function BabyPageLayout() {
   const currentStatus = getCurrentStatus(baby);
 
   return (
-    <div className="min-h-screen bg-background bg-dots">
+    <div className="min-h-screen bg-background bg-dots" data-baby-theme={babyDoc.theme ?? "mango"}>
       <div className="pointer-events-none fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 mx-auto flex w-auto max-w-sm flex-col gap-2 sm:inset-x-auto sm:right-4 sm:left-auto sm:mx-0">
         {canManage && birthJourney && managerBaby ? (
           <ScheduledNotificationToast
@@ -388,7 +388,10 @@ function BabyPageLayout() {
         {/* Split layout: sticky status card on the left, feed on the right.
             No internal scroll on the card — that steals wheel/trackpad from the page. */}
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-start">
-          <section className="overflow-x-clip rounded-[2rem] border-2 border-border bg-card px-5 pb-6 text-center pop-shadow-strong md:px-7 lg:sticky lg:top-4">
+          <section
+            className="overflow-x-clip rounded-[2rem] border-2 border-border bg-card px-5 pb-6 text-center pop-shadow-strong md:px-7 lg:sticky lg:top-4"
+            data-theme-slot="card"
+          >
             <StatusDisplay
               baby={baby}
               blurDataUrl={babyDoc.blurDataUrl ?? null}
@@ -425,7 +428,8 @@ function BabyPageLayout() {
               #feed — the messages list, not the compose box. */}
           <div className="space-y-8">
             <section
-              className="rounded-[2rem] border-2 border-secondary/60 bg-secondary/15 p-6 pop-shadow md:p-8"
+              className="rounded-[2rem] border-2 border-secondary/60 bg-[color-mix(in_oklab,var(--secondary)_15%,var(--background))] p-6 pop-shadow md:p-8"
+              data-theme-slot="card"
               data-tour-id="learn_encouragements"
             >
               <EncouragementForm
@@ -437,6 +441,7 @@ function BabyPageLayout() {
 
             <section
               className="rounded-[2rem] border-2 border-border bg-card px-4 py-6 pop-shadow sm:p-6 md:p-8"
+              data-theme-slot="card"
               id={BABY_FEED_HASH}
             >
               <TimelineFeed
