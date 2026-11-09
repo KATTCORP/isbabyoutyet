@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import {
@@ -38,8 +38,8 @@ test("homepage hero is a live baby page visitors can step through", async () => 
   await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
 
   const stage = screen.getByTestId("theme-stage");
-  const firstName = HOMEPAGE_DEMO_BABY.name.split(" ")[0] ?? "";
-  expect(stage.textContent).toContain(`Is ${firstName} out yet?`);
+  // The live page starts on the headline's first name.
+  expect(stage.textContent).toContain("Is baby out yet?");
   const activeStep = () => screen.getByTestId("theme-stage").querySelector("[data-active]");
   expect(activeStep()?.textContent).toContain("Not yet");
 
@@ -121,17 +121,40 @@ test("signed-in homepage shows dashboard CTAs", async () => {
   expect(screen.queryByRole("button", { name: /^sign in$/i })).toBeNull();
 });
 
-test("hero headline cycles through baby names", async () => {
+/** One beat of the hero's shared clock: the name changes every beat, the stage every two. */
+const BEAT_MS = 2400;
+
+test("hero name changes every beat, matches the live page, and keeps rolling after a visitor takes over", async () => {
   vi.useFakeTimers();
   await using _timers = makeResource({}, () => vi.useRealTimers());
   await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
 
-  expect(screen.getByRole("heading", { name: /is baby out yet/i })).toBeTruthy();
-  const initialName = screen.getByText("baby");
-  expect(initialName.classList.contains("hero-word-in")).toBe(false);
-  expect(screen.queryByText("Alba")).toBeNull();
-  act(() => vi.advanceTimersByTime(2400));
-  expect(screen.getByText("Alba").classList.contains("hero-word-in")).toBe(true);
+  const heading = screen.getByRole("heading", { name: /is baby out yet/i });
+  const nameSlot = (name: string) => within(heading).getByText(name).parentElement;
+  expect(nameSlot("baby")?.classList.contains("visible")).toBe(true);
+  expect(within(heading).getByText("baby").classList.contains("hero-word-in")).toBe(false);
+  // Every name is laid out (invisible) so the slot never changes width.
+  expect(nameSlot("Alba")?.classList.contains("invisible")).toBe(true);
+
+  const stage = () => screen.getByTestId("theme-stage");
+  const activeStep = () => stage().querySelector("[data-active]");
+  expect(stage().textContent).toContain("Is baby out yet?");
+
+  act(() => vi.advanceTimersByTime(BEAT_MS));
+  expect(nameSlot("Alba")?.classList.contains("visible")).toBe(true);
+  expect(within(heading).getByText("Alba").classList.contains("hero-word-in")).toBe(true);
+  // Same name on the live page; the stage itself steps every second beat.
+  expect(stage().textContent).toContain("Is Alba out yet?");
+  expect(activeStep()?.textContent).toContain("Not yet");
+
+  act(() => vi.advanceTimersByTime(BEAT_MS));
+  expect(activeStep()?.textContent).toContain("Labour started!");
+
+  fireEvent.click(screen.getByRole("button", { name: "Baby born!" }));
+  act(() => vi.advanceTimersByTime(BEAT_MS));
+  expect(nameSlot("Poppy")?.classList.contains("visible")).toBe(true);
+  expect(stage().textContent).toContain("Is Poppy out yet?");
+  expect(activeStep()?.textContent).toContain("Yes! Baby is out");
 });
 
 test("Swedish homepage hero uses Swedish name pool", async () => {
@@ -143,8 +166,9 @@ test("Swedish homepage hero uses Swedish name pool", async () => {
     </LocaleProvider>,
   );
 
-  act(() => vi.advanceTimersByTime(2400));
-  expect(screen.getByText("Ella").classList.contains("hero-word-in")).toBe(true);
+  act(() => vi.advanceTimersByTime(BEAT_MS));
+  const heading = screen.getByRole("heading", { level: 1 });
+  expect(within(heading).getByText("Ella").classList.contains("hero-word-in")).toBe(true);
 });
 
 test("Swedish homepage links visitors to Ella Holm", async () => {
