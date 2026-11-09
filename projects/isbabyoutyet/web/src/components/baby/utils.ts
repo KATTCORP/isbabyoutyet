@@ -15,13 +15,13 @@ import type { TranslationKey } from "@/lib/i18n";
 
 export const THEME_OPTIONS = [
   {
-    colors: ["#ea580c", "#fef3c7", "#fed7aa"],
+    colors: ["#f1840b", "#fcf6ee", "#fee8c6"],
     css: null,
     labelKey: "Mango",
     value: null,
   }, // orange primary
   {
-    colors: ["#7033ff", "#fdfdfd", "#e2ebff"],
+    colors: ["#6f39f0", "#f6f6fb", "#eaebff"],
     css: violetBloomCss,
     labelKey: "Violet Bloom",
     value: "violet-bloom",
@@ -33,7 +33,7 @@ export const THEME_OPTIONS = [
     value: BABY_BLUE_THEME,
   },
   {
-    colors: ["#d04f99", "#f6e6ee", "#fbe2a7"],
+    colors: ["#c5438b", "#feeaf2", "#fedeec"],
     css: bubblegumCss,
     labelKey: "Bubblegum",
     value: "bubblegum",
@@ -45,19 +45,19 @@ export const THEME_OPTIONS = [
     value: "catppuccin",
   },
   {
-    colors: ["#a37764", "#f1f0e5", "#e4c7b8"],
+    colors: ["#9d6952", "#f8eee4", "#efd5c7"],
     css: mochaMousseCss,
     labelKey: "Mocha Mousse",
     value: "mocha-mousse",
   },
   {
-    colors: ["#e6067a", "#fff0f8", "#ffc1e3"],
+    colors: ["#e50a7a", "#fff1f7", "#ffd3e6"],
     css: quantumRoseCss,
     labelKey: "Quantum Rose",
     value: "quantum-rose",
   },
   {
-    colors: ["#f2a614", "#fff9e8", "#8ed1c5"],
+    colors: ["#ed990e", "#fff8e8", "#91d4c6"],
     css: sunnyDaysCss,
     labelKey: "Sunny Days",
     value: "sunny-days",
