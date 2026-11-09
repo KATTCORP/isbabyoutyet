@@ -38,7 +38,8 @@ test("homepage hero is a live baby page visitors can step through", async () => 
   await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
 
   const stage = screen.getByTestId("theme-stage");
-  expect(stage.textContent).toContain("Is Juniper out yet?");
+  const firstName = HOMEPAGE_DEMO_BABY.name.split(" ")[0] ?? "";
+  expect(stage.textContent).toContain(`Is ${firstName} out yet?`);
   expect(stage.textContent).toContain("Not yet");
 
   fireEvent.click(screen.getByRole("button", { name: "Baby born!" }));
