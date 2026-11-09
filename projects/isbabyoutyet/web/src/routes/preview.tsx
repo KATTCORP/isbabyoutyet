@@ -4,7 +4,6 @@ import { ProgressIndicator } from "@/components/baby/progress-indicator";
 import { SettingsPanel } from "@/components/baby/settings-panel";
 import { useFormGuard } from "@/components/Form";
 import { StatusDisplay } from "@/components/baby/status-display";
-import { PreviewShareDialog } from "@/components/baby/preview-share-dialog";
 import type { PreviewBabyData } from "@isbabyoutyet/backend/src/types";
 import {
   getCurrentStatus,
@@ -12,14 +11,13 @@ import {
   MILESTONE_FIELDS,
 } from "@isbabyoutyet/backend/src/types";
 import { getThemeCss } from "@/components/baby/utils";
-import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { translate, useI18n, getDetectedLocale } from "@/lib/i18n";
 import { closeOverlayLink, overlayCloseLinkProps } from "@/lib/overlay-nav";
 import { robotsNoIndexMeta } from "@/lib/seo";
 import { DEFAULT_TIME_ZONE } from "@isbabyoutyet/backend/src/timeZone";
 import { previewCacheHeaders } from "@/lib/cachePolicy";
-import { canonicalUrl } from "@/lib/site-url";
 
 function getDefaultBabyData(): PreviewBabyData {
   const now = new Date();
@@ -66,7 +64,6 @@ const searchSchema = z.object({
   name: z.string().default("Baby"),
   publicDueDateText: z.string().nullable().optional(),
   settings: z.boolean().optional(),
-  share: z.boolean().optional(),
   theme: z.string().nullable().optional(),
   wentToHospital: z.string().nullable().optional(),
 });
@@ -104,7 +101,6 @@ function noop() {}
 function PreviewPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const router = useRouter();
   const { locale, t } = useI18n();
   const birthJourney = search.birthJourney ?? "labor";
 
@@ -131,21 +127,6 @@ function PreviewPage() {
     open: !!search.settings,
   });
 
-  // The shared link reopens this exact preview, without the open dialogs.
-  const shareLink = canonicalUrl(
-    router.buildLocation({
-      search: { ...search, settings: undefined, share: undefined },
-      to: "/preview",
-    }).href,
-  );
-  function setShareOpen(open: boolean) {
-    void navigate({
-      replace: true,
-      resetScroll: false,
-      search: { ...search, share: open || undefined },
-    });
-  }
-
   const stageMessage =
     currentStatus.type === "born"
       ? baby.babyBornMessage
@@ -162,7 +143,6 @@ function PreviewPage() {
   return (
     <div>
       {themeCss ? <style dangerouslySetInnerHTML={{ __html: themeCss }} /> : null}
-      <PreviewShareDialog link={shareLink} onOpenChange={setShareOpen} open={!!search.share} />
       <SettingsPanel
         baby={baby}
         birthJourney={birthJourney}
@@ -224,13 +204,7 @@ function PreviewPage() {
               dashboardButton={null}
               onDismissPostUpdate={null}
               onDismissSettings={null}
-              onDismissShare={
-                search.share
-                  ? () => {
-                      setShareOpen(false);
-                    }
-                  : null
-              }
+              onDismissShare={null}
               onDismissSignIn={null}
               onSettingsOpened={null}
               postUpdateButton={null}
@@ -245,13 +219,8 @@ function PreviewPage() {
                 to: "/preview",
               }}
               settingsOpen={!!search.settings}
-              shareButton={{
-                replace: true,
-                resetScroll: false,
-                search: { ...search, settings: undefined, share: true },
-                to: "/preview",
-              }}
-              shareOpen={!!search.share}
+              shareButton={null}
+              shareOpen={false}
               signInButton={null}
               signInOpen={false}
             />
