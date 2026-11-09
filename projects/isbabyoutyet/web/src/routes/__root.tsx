@@ -149,7 +149,7 @@ export const Route = createRootRouteWithContext<{
           name: "twitter:card",
         },
         {
-          content: "#ea580c",
+          content: "#f1840b",
           name: "theme-color",
         },
         {

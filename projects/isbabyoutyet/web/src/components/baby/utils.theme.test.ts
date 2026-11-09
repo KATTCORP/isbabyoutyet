@@ -30,7 +30,7 @@ test("named themes expose a css string for head.styles injection", () => {
 
 test("getThemePrimaryColor matches known theme accents", () => {
   expect(getThemePrimaryColor("catppuccin")).toBe("#8839ef");
-  expect(getThemePrimaryColor(null)).toBe("#ea580c");
+  expect(getThemePrimaryColor(null)).toBe("#f1840b");
 });
 
 test("Baby Blue uses the canonical name", () => {
