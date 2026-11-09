@@ -372,3 +372,12 @@
   border-radius: inherit;
   position: absolute;
 }
+
+/*
+ * Inside a stage, every avatar frame reserves the height of Mocha Mousse's
+ * arch, so switching themes never changes the layout.
+ */
+[data-theme-stage] [data-theme-slot="avatar-frame"] {
+  align-items: center;
+  min-height: 8.5rem;
+}
