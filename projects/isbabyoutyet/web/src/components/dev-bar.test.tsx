@@ -34,8 +34,8 @@ test("opens a menu of seeded baby shortcuts", async () => {
     expect(link.getAttribute("href")).toBe(`/baby/${baby.publicId}`);
   }
 
-  const juniper = screen.getByRole("menuitem", { name: new RegExp(HOMEPAGE_DEMO.name, "i") });
-  expect(juniper.getAttribute("href")).toBe(`/baby/${HOMEPAGE_DEMO.publicId}`);
+  const alba = screen.getByRole("menuitem", { name: new RegExp(HOMEPAGE_DEMO.name, "i") });
+  expect(alba.getAttribute("href")).toBe(`/baby/${HOMEPAGE_DEMO.publicId}`);
 });
 
 test("closes when the route changes", async () => {

@@ -17,7 +17,7 @@ import { runRouteLoader } from "@/test/routeTestContext";
 import { scopeThemeCss } from "@/components/home/theme-stage";
 import { HomePageView, Route } from "./index";
 
-test("homepage links visitors to the live Juniper Hale demo page", async () => {
+test("homepage links visitors to the live Alba Willis demo page", async () => {
   await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
 
   const demoLinks = screen
@@ -111,9 +111,9 @@ test("hero headline cycles through baby names", async () => {
   expect(screen.getByRole("heading", { name: /is baby out yet/i })).toBeTruthy();
   const initialName = screen.getByText("baby");
   expect(initialName.classList.contains("hero-word-in")).toBe(false);
-  expect(screen.queryByText("Juniper")).toBeNull();
+  expect(screen.queryByText("Alba")).toBeNull();
   act(() => vi.advanceTimersByTime(2400));
-  expect(screen.getByText("Juniper").classList.contains("hero-word-in")).toBe(true);
+  expect(screen.getByText("Alba").classList.contains("hero-word-in")).toBe(true);
 });
 
 test("Swedish homepage hero uses Swedish name pool", async () => {

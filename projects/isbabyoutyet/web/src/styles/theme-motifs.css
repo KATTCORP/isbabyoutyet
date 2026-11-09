@@ -285,9 +285,10 @@
   mask-size: 560px;
 }
 
+/* Full-width strips stretch with preserveAspectRatio='none'; strokes keep their width. */
 [data-baby-theme="quantum-rose"]::after {
   background-color: color-mix(in oklab, var(--primary) 16%, transparent);
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 220'%3E%3Cpath d='M600 0 L-720 220' stroke='black' stroke-width='2'/%3E%3Cpath d='M600 0 L-500 220' stroke='black' stroke-width='2'/%3E%3Cpath d='M600 0 L-280 220' stroke='black' stroke-width='2'/%3E%3Cpath d='M600 0 L-60 220' stroke='black' stroke-width='2'/%3E%3Cpath d='M600 0 L160 220' stroke='black' stroke-width='2'/%3E%3Cpath d='M600 0 L380 220' stroke='black' stroke-width='2'/%3E%3Cpath d='M600 0 L600 220' stroke='black' stroke-width='2'/%3E%3Cpath d='M600 0 L820 220' stroke='black' stroke-width='2'/%3E%3Cpath d='M600 0 L1040 220' stroke='black' stroke-width='2'/%3E%3Cpath d='M600 0 L1260 220' stroke='black' stroke-width='2'/%3E%3Cpath d='M600 0 L1480 220' stroke='black' stroke-width='2'/%3E%3Cpath d='M600 0 L1700 220' stroke='black' stroke-width='2'/%3E%3Cpath d='M600 0 L1920 220' stroke='black' stroke-width='2'/%3E%3Cpath d='M0 40 H1200' stroke='black' stroke-width='2'/%3E%3Cpath d='M0 90 H1200' stroke='black' stroke-width='2'/%3E%3Cpath d='M0 150 H1200' stroke='black' stroke-width='2'/%3E%3Cpath d='M0 218 H1200' stroke='black' stroke-width='2'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 220' preserveAspectRatio='none'%3E%3Cpath d='M600 0 L-720 220' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M600 0 L-500 220' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M600 0 L-280 220' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M600 0 L-60 220' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M600 0 L160 220' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M600 0 L380 220' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M600 0 L600 220' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M600 0 L820 220' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M600 0 L1040 220' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M600 0 L1260 220' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M600 0 L1480 220' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M600 0 L1700 220' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M600 0 L1920 220' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M0 40 H1200' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M0 90 H1200' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M0 150 H1200' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M0 218 H1200' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
   mask-position: bottom;
   mask-size: 100% 200px;
 }
@@ -346,9 +347,10 @@
   background-color: color-mix(in oklab, var(--primary) 22%, transparent);
 }
 
+/* preserveAspectRatio='none' so the hills span the full width and sit on the bottom edge. */
 [data-baby-theme="sunny-days"]::after {
   background-color: color-mix(in oklab, var(--secondary) 55%, transparent);
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 160'%3E%3Cpath d='M0 160 V90 Q240 0 520 70 T1000 50 Q1120 40 1200 70 V160Z' fill-opacity='0.6'/%3E%3Cpath d='M0 160 V130 Q300 60 640 120 T1200 100 V160Z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 160' preserveAspectRatio='none'%3E%3Cpath d='M0 160 V90 Q240 0 520 70 T1000 50 Q1120 40 1200 70 V160Z' fill-opacity='0.6'/%3E%3Cpath d='M0 160 V130 Q300 60 640 120 T1200 100 V160Z'/%3E%3C/svg%3E");
   mask-position: bottom;
   mask-size: 100% 150px;
 }

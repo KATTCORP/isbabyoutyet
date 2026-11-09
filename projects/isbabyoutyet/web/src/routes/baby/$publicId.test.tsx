@@ -54,23 +54,23 @@ test("parent route caches public overlays and keeps manager overlays private", (
   }) => Record<string, string> = routeModule.Route.options.headers;
   const publicHeaders = headers({
     matches: [{ routeId: "/baby/$publicId" }, { routeId: "/baby/$publicId/share" }],
-    params: { publicId: "juniper-hale" },
+    params: { publicId: "alba-willis" },
   });
   const privateHeaders = headers({
     matches: [{ routeId: "/baby/$publicId" }, { routeId: "/baby/$publicId/_auth/settings" }],
-    params: { publicId: "juniper-hale" },
+    params: { publicId: "alba-willis" },
   });
   const loginHeaders = headers({
     matches: [{ routeId: "/baby/$publicId" }, { routeId: "/baby/$publicId/login" }],
-    params: { publicId: "juniper-hale" },
+    params: { publicId: "alba-willis" },
   });
   const signupHeaders = headers({
     matches: [{ routeId: "/baby/$publicId" }, { routeId: "/baby/$publicId/signup" }],
-    params: { publicId: "juniper-hale" },
+    params: { publicId: "alba-willis" },
   });
 
   expect(publicHeaders["Cache-Control"]).toContain("public");
-  expect(publicHeaders["Vercel-Cache-Tag"]).toContain("baby-public-id:juniper-hale");
+  expect(publicHeaders["Vercel-Cache-Tag"]).toContain("baby-public-id:alba-willis");
   expect(privateHeaders["Cache-Control"]).toContain("private");
   expect(privateHeaders["Cache-Control"]).toContain("no-store");
   expect(loginHeaders["Cache-Control"]).toContain("private");
@@ -744,22 +744,22 @@ test("share preview uses the canonical route slug while reactive baby data chang
       laborStarted: null,
       locale: "en-GB",
       milestoneVisibility: DEFAULT_MILESTONE_VISIBILITY,
-      name: "Juniper Hale",
+      name: "Alba Willis",
       ogImageHash: "testhash",
       photoUrl: null,
       publicDueDateText: undefined,
-      publicId: "juniper-hale-1",
+      publicId: "alba-willis-1",
       resolvedLocale: "en-GB",
       theme: "baby-blue",
       thumbnailUrl: null,
       timeZone: "Europe/London",
       wentToHospital: null,
     },
-    "juniper-hale",
+    "alba-willis",
   );
 
-  expect(new URL(seo.imageUrl).pathname).toBe("/og/baby/juniper-hale-testhash-20260811");
-  expect(seo.canonical).toBe("https://isbabyoutyet.com/baby/juniper-hale");
+  expect(new URL(seo.imageUrl).pathname).toBe("/og/baby/alba-willis-testhash-20260811");
+  expect(seo.canonical).toBe("https://isbabyoutyet.com/baby/alba-willis");
 });
 
 test("unknown or malformed search params never throw (PERSONAL-ISBABYOUTYET-7)", () => {
