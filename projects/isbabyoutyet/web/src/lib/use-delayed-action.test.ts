@@ -1,11 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
-import {
-  useDelayedAction,
-  useDelayedBoolean,
-  useTimedTransition,
-} from "./use-delayed-action";
+import { useDelayedAction, useDelayedBoolean, useTimedTransition } from "./use-delayed-action";
 
 test("runs an enabled action after the delay and cancels when disabled", async () => {
   vi.useFakeTimers();

@@ -160,10 +160,7 @@ export function useHomeStage() {
   });
 }
 
-export function ThemeStage(props: {
-  babyName: string;
-  control: ReturnType<typeof useHomeStage>;
-}) {
+export function ThemeStage(props: { babyName: string; control: ReturnType<typeof useHomeStage> }) {
   const { t } = useI18n();
   const now = useClientDate({ serverSnapshot: SERVER_DATE_SNAPSHOT });
   const { announced, pickStage, pickTheme, stageIndex, themeIndex } = props.control;
@@ -274,11 +271,7 @@ export function ThemeStage(props: {
             </button>
           ))}
         </div>
-        <div
-          aria-label={t("Pick a theme")}
-          className="flex justify-center gap-2"
-          role="group"
-        >
+        <div aria-label={t("Pick a theme")} className="flex justify-center gap-2" role="group">
           {THEME_OPTIONS.map((option, index) => (
             <button
               aria-label={t(option.labelKey)}
