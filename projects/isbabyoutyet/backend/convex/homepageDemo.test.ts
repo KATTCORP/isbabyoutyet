@@ -6,7 +6,11 @@ import schema from "./schema";
 import { makeResource } from "./test.resource";
 import { createEncouragementArgs, modules, registerComponents } from "./test.setup";
 import { getCurrentStatus } from "../src/types";
-import { HOMEPAGE_DEMO_BABIES, HOMEPAGE_DEMO_BABY } from "../src/seedCredentials";
+import {
+  HOMEPAGE_DEMO_BABIES,
+  HOMEPAGE_DEMO_BABY,
+  HOMEPAGE_DEMO_LEGACY_PUBLIC_ID,
+} from "../src/seedCredentials";
 import {
   HOMEPAGE_DEMO_FEED_SLOTS,
   HOMEPAGE_DEMO_PHOTO_KEYS,
@@ -81,7 +85,7 @@ test("every locale has copy for every shared feed slot", () => {
   expect(firstSwedishItem?.kind === "update" && firstSwedishItem.message).toContain("Vecka 40");
 });
 
-test("refresh creates Juniper Hale as born after a two-day labour with fixture encouragements", async () => {
+test("refresh creates Alba Willis as born after a two-day labour with fixture encouragements", async () => {
   const t = await setup();
 
   const result = await t.mutation(internal.homepageDemo.refresh, { locale: null, photos: {} });
@@ -498,10 +502,10 @@ test("refreshAll gives each locale its own baby with the same feed shape and sha
     expect(feed.page).toHaveLength(HOMEPAGE_DEMO_FEED_SLOTS.length);
   }
 
-  const juniper = await t.query(api.baby.getByPublicId, { id: "juniper-hale" });
+  const alba = await t.query(api.baby.getByPublicId, { id: "alba-willis" });
   const ella = await t.query(api.baby.getByPublicId, { id: "ella-holm" });
-  expect(juniper?._id).not.toBe(ella?._id);
-  expect(juniper?.demo).toBe(true);
+  expect(alba?._id).not.toBe(ella?._id);
+  expect(alba?.demo).toBe(true);
   expect(ella?.demo).toBe(true);
 });
 
@@ -672,7 +676,7 @@ test("daily reset leaves non-homepage documents and shared storage untouched", a
   expect(after).toEqual(before);
 });
 
-test("refresh grandfathers the sentinel-owned juniper-hale row and stamps demo: true", async () => {
+test("refresh renames the unflagged legacy juniper-hale row and keeps the old slug resolving", async () => {
   const t = await setup();
 
   const legacyId = await t.run(async (ctx) => {
@@ -684,7 +688,7 @@ test("refresh grandfathers the sentinel-owned juniper-hale row and stamps demo: 
       name: "Juniper Hale",
       ownerTokenIdentifier: `https://convex.test|${HOMEPAGE_DEMO_BABY.ownerUserId}`,
       publicDueDateText: null,
-      publicId: HOMEPAGE_DEMO_BABY.publicId,
+      publicId: HOMEPAGE_DEMO_LEGACY_PUBLIC_ID,
       subscriptionCount: 0,
       theme: HOMEPAGE_DEMO_BABY.theme,
       userId: HOMEPAGE_DEMO_BABY.ownerUserId,
@@ -695,8 +699,51 @@ test("refresh grandfathers the sentinel-owned juniper-hale row and stamps demo: 
   expect(result.babyId).toBe(legacyId);
 
   const baby = await t.query(api.baby.getByPublicId, { id: HOMEPAGE_DEMO_BABY.publicId });
-  expect(baby?.demo).toBe(true);
+  expect(baby).toMatchObject({
+    _id: legacyId,
+    demo: true,
+    name: HOMEPAGE_DEMO_BABY.name,
+    publicId: HOMEPAGE_DEMO_BABY.publicId,
+  });
   expect(getCurrentStatus(baby!)).toMatchObject({ type: "born" });
+
+  const viaLegacySlug = await t.query(api.baby.getByPublicId, {
+    id: HOMEPAGE_DEMO_LEGACY_PUBLIC_ID,
+  });
+  expect(viaLegacySlug?._id).toBe(legacyId);
+
+  await t.mutation(internal.homepageDemo.refresh, { locale: null, photos: {} });
+  const historyRows = await t.run(async (ctx) => {
+    return await ctx.db
+      .query("babyPublicIdHistory")
+      .withIndex("by_publicId", (q) => q.eq("publicId", HOMEPAGE_DEMO_LEGACY_PUBLIC_ID))
+      .collect();
+  });
+  expect(historyRows).toHaveLength(1);
+});
+
+test("refresh leaves a non-demo baby at the legacy slug alone", async () => {
+  const t = await setup();
+  const realId = await t.run(async (ctx) => {
+    return await ctx.db.insert("baby", {
+      birthJourney: "labor",
+      dueDate: "2026-12-01",
+      dueDateDisplayMode: "exact",
+      lastActivityAt: 1,
+      name: "Juniper Hale",
+      ownerTokenIdentifier: "https://convex.test|alice",
+      publicDueDateText: null,
+      publicId: HOMEPAGE_DEMO_LEGACY_PUBLIC_ID,
+      subscriptionCount: 0,
+      userId: "alice",
+    });
+  });
+
+  const result = await t.mutation(internal.homepageDemo.refresh, { locale: null, photos: {} });
+  expect(result.babyId).not.toBe(realId);
+
+  const real = await t.run(async (ctx) => await ctx.db.get(realId));
+  expect(real).toMatchObject({ name: "Juniper Hale", publicId: HOMEPAGE_DEMO_LEGACY_PUBLIC_ID });
 });
 
 test("clearFeedBatch refuses a non-homepage baby even when demo is true", async () => {

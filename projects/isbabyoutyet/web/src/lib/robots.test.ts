@@ -9,7 +9,7 @@ import {
 } from "@/lib/robots";
 
 test("only homepage live-demo baby pages are indexable", () => {
-  expect(isIndexableBabyPublicId("juniper-hale")).toBe(true);
+  expect(isIndexableBabyPublicId("alba-willis")).toBe(true);
   expect(isIndexableBabyPublicId("willow-brooks")).toBe(true);
   expect(isIndexableBabyPublicId("ella-holm")).toBe(true);
   expect(isIndexableBabyPublicId("lucia-navarro")).toBe(true);
@@ -66,6 +66,6 @@ test("search robots meta keeps Google indexing off family pages", () => {
 
 test("noindex headers apply to private pages without blocking public demos", () => {
   expect(noIndexHeaders()).toEqual({ "X-Robots-Tag": "noindex, nofollow" });
-  expect(babyPageRobotsHeaders("juniper-hale")).toEqual({});
+  expect(babyPageRobotsHeaders("alba-willis")).toEqual({});
   expect(babyPageRobotsHeaders("a-real-family-page")).toEqual(noIndexHeaders());
 });

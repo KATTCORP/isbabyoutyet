@@ -54,7 +54,7 @@ test("isPublicIdTaken reserves demo slugs, current occupants, and other owners' 
       await isPublicIdTaken({
         db: ctx.db,
         excludeTokenIdentifier: "other",
-        publicId: "juniper-hale",
+        publicId: "alba-willis",
       }),
     ).toBe(true);
     expect(

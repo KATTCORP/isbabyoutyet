@@ -87,7 +87,7 @@ export const HOMEPAGE_DEMO_THEME = "sunny-days";
  * appear on a real dashboard. Re-seeded on every deploy.
  */
 export const HOMEPAGE_DEMO_BABIES = {
-  "en-GB": { locale: "en-GB", name: "Juniper Hale", publicId: "juniper-hale" },
+  "en-GB": { locale: "en-GB", name: "Alba Willis", publicId: "alba-willis" },
   "en-US": { locale: "en-US", name: "Willow Brooks", publicId: "willow-brooks" },
   es: { locale: "es", name: "Lucía Navarro", publicId: "lucia-navarro" },
   "pt-BR": { locale: "pt-BR", name: "Helena Costa", publicId: "helena-costa" },
@@ -96,6 +96,13 @@ export const HOMEPAGE_DEMO_BABIES = {
   SupportedLocale,
   { locale: SupportedLocale; name: string; publicId: string }
 >;
+
+/**
+ * Earlier slug of the en-GB demo (Juniper Hale). The refresh moves that row to
+ * the current slug and records this one in `babyPublicIdHistory`, so old
+ * links redirect.
+ */
+export const HOMEPAGE_DEMO_LEGACY_PUBLIC_ID = "juniper-hale";
 
 /** Default / English homepage demo (British English). */
 export const HOMEPAGE_DEMO_BABY = {

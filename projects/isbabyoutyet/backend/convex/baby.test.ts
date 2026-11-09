@@ -595,10 +595,10 @@ test("homepage demo publicIds are reserved and never assigned to real babies", a
     api.baby.create,
     createBabyArgs({
       dueDate: "2026-09-01",
-      name: "Juniper Hale",
+      name: "Alba Willis",
     }),
   );
-  expect(created.publicId).toBe("juniper-hale-1");
+  expect(created.publicId).toBe("alba-willis-1");
 });
 
 test("status is inferred from milestone updates, not stored baby fields", async () => {
@@ -868,22 +868,22 @@ test("deleting a baby keeps the row but releases its current and previous public
   );
   await asAlice.mutation(api.baby.update, {
     id: deleted.babyId,
-    patch: { name: "Juniper" },
+    patch: { name: "Alba" },
   });
   await asAlice.mutation(api.baby.remove, { babyId: deleted.babyId });
 
   const reusedCurrent = await asBob.mutation(
     api.baby.create,
-    createBabyArgs({ dueDate: "2026-10-01", name: "Juniper" }),
+    createBabyArgs({ dueDate: "2026-10-01", name: "Alba" }),
   );
   const reusedHistory = await asBob.mutation(
     api.baby.create,
     createBabyArgs({ dueDate: "2026-10-01", name: "Working Title" }),
   );
-  expect(reusedCurrent.publicId).toBe("juniper");
+  expect(reusedCurrent.publicId).toBe("alba");
   expect(reusedHistory.publicId).toBe("working-title");
 
-  expect(await t.query(api.baby.getByPublicId, { id: "juniper" })).toMatchObject({
+  expect(await t.query(api.baby.getByPublicId, { id: "alba" })).toMatchObject({
     _id: reusedCurrent.babyId,
   });
   expect(await t.query(api.baby.getByPublicId, { id: "working-title" })).toMatchObject({
@@ -893,8 +893,8 @@ test("deleting a baby keeps the row but releases its current and previous public
   const stored = await t.run(async (ctx) => ctx.db.get(deleted.babyId));
   expect(stored).toMatchObject({
     deletedAt: expect.any(Number),
-    name: "Juniper",
-    publicId: "juniper",
+    name: "Alba",
+    publicId: "alba",
   });
 
   // Bob renames away from the slug the deleted page still records, so the
@@ -903,7 +903,7 @@ test("deleting a baby keeps the row but releases its current and previous public
     id: reusedCurrent.babyId,
     patch: { name: "Juno" },
   });
-  expect(await t.query(api.baby.getByPublicId, { id: "juniper" })).toMatchObject({
+  expect(await t.query(api.baby.getByPublicId, { id: "alba" })).toMatchObject({
     _id: reusedCurrent.babyId,
     publicId: "juno",
   });

@@ -20,7 +20,7 @@ const base: OnboardingProgress = {
   hasUpdate: false,
   minimized: false,
   restartHintVisible: false,
-  tourBaby: { name: "Juniper", publicId: "juniper" },
+  tourBaby: { name: "Alba", publicId: "alba" },
   welcomeDismissed: false,
 };
 
