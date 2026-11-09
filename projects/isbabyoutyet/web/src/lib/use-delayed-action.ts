@@ -67,38 +67,6 @@ export function useTimedTransition<$Value>(opts: {
   return active;
 }
 
-/** Keeps a current/previous index pair for animated rotating copy. */
-export function useRotatingIndex(opts: { intervalMs: number; itemCount: number }) {
-  const [indices, setIndices] = useState<{ current: number; previous: number | null }>({
-    current: 0,
-    previous: null,
-  });
-  const [trackedItemCount, setTrackedItemCount] = useState(opts.itemCount);
-
-  if (trackedItemCount !== opts.itemCount) {
-    setTrackedItemCount(opts.itemCount);
-    setIndices({ current: 0, previous: null });
-  }
-
-  useEffect(() => {
-    const reducedMotion =
-      isFunction(window.matchMedia) &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion || opts.itemCount < 2) {
-      return;
-    }
-    const interval = window.setInterval(() => {
-      setIndices((previous) => ({
-        current: (previous.current + 1) % opts.itemCount,
-        previous: previous.current,
-      }));
-    }, opts.intervalMs);
-    return () => window.clearInterval(interval);
-  }, [opts.intervalMs, opts.itemCount]);
-
-  return indices;
-}
-
 /**
  * Calls `onTick` every `intervalMs` while `enabled`, unless the visitor
  * prefers reduced motion. For self-playing demos that stop once someone

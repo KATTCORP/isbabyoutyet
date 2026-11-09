@@ -4,7 +4,6 @@ import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import {
   useDelayedAction,
   useDelayedBoolean,
-  useRotatingIndex,
   useTimedTransition,
 } from "./use-delayed-action";
 
@@ -83,17 +82,4 @@ test("reports only a live transition for the configured duration", async () => {
   expect(hook.result.current).toBe(true);
   act(() => vi.advanceTimersByTime(1));
   expect(hook.result.current).toBe(false);
-});
-
-test("rotates current and previous indices on the configured interval", async () => {
-  vi.useFakeTimers();
-  await using _timers = makeResource({}, () => vi.useRealTimers());
-  const hook = renderHook(() => useRotatingIndex({ intervalMs: 2400, itemCount: 3 }));
-  await using _hook = makeResource({}, () => hook.unmount());
-
-  expect(hook.result.current).toEqual({ current: 0, previous: null });
-  act(() => vi.advanceTimersByTime(2400));
-  expect(hook.result.current).toEqual({ current: 1, previous: 0 });
-  act(() => vi.advanceTimersByTime(4800));
-  expect(hook.result.current).toEqual({ current: 0, previous: 2 });
 });

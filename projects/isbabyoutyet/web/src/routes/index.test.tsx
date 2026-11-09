@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import {
@@ -121,17 +121,27 @@ test("signed-in homepage shows dashboard CTAs", async () => {
   expect(screen.queryByRole("button", { name: /^sign in$/i })).toBeNull();
 });
 
-test("hero headline cycles through baby names", async () => {
+/** One full stage journey: four steps at the autoplay interval. */
+const JOURNEY_MS = 4 * 4500;
+
+test("hero headline changes name together with the stage's theme, not on its own clock", async () => {
   vi.useFakeTimers();
   await using _timers = makeResource({}, () => vi.useRealTimers());
   await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
 
-  expect(screen.getByRole("heading", { name: /is baby out yet/i })).toBeTruthy();
-  const initialName = screen.getByText("baby");
+  const heading = screen.getByRole("heading", { name: /is baby out yet/i });
+  const initialName = within(heading).getByText("baby");
+  expect(initialName.classList.contains("visible")).toBe(true);
   expect(initialName.classList.contains("hero-word-in")).toBe(false);
-  expect(screen.queryByText("Alba")).toBeNull();
-  act(() => vi.advanceTimersByTime(2400));
-  expect(screen.getByText("Alba").classList.contains("hero-word-in")).toBe(true);
+  // Every name is laid out (invisible) so the pill never changes width.
+  expect(within(heading).getByText("Alba").classList.contains("invisible")).toBe(true);
+
+  act(() => vi.advanceTimersByTime(JOURNEY_MS - 4500));
+  expect(within(heading).getByText("baby").classList.contains("visible")).toBe(true);
+
+  act(() => vi.advanceTimersByTime(4500));
+  expect(within(heading).getByText("Alba").classList.contains("hero-word-in")).toBe(true);
+  expect(screen.getByTestId("theme-stage").getAttribute("data-baby-theme")).toBe("violet-bloom");
 });
 
 test("Swedish homepage hero uses Swedish name pool", async () => {
@@ -143,8 +153,9 @@ test("Swedish homepage hero uses Swedish name pool", async () => {
     </LocaleProvider>,
   );
 
-  act(() => vi.advanceTimersByTime(2400));
-  expect(screen.getByText("Ella").classList.contains("hero-word-in")).toBe(true);
+  act(() => vi.advanceTimersByTime(JOURNEY_MS));
+  const heading = screen.getByRole("heading", { level: 1 });
+  expect(within(heading).getByText("Ella").classList.contains("hero-word-in")).toBe(true);
 });
 
 test("Swedish homepage links visitors to Ella Holm", async () => {
