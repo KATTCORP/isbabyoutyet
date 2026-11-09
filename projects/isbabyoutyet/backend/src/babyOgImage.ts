@@ -22,7 +22,7 @@ export type BabyOgImageHashInput = {
 export function babyOgImageHash(baby: BabyOgImageHashInput) {
   return stableHash(
     JSON.stringify([
-      "baby-og-v3",
+      "baby-og-v4",
       baby.name,
       baby.dueDateDisplayMode,
       baby.dueDate,
