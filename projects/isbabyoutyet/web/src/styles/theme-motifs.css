@@ -148,23 +148,45 @@
   background-size: auto;
 }
 
+/* Candy pops beyond the pink tokens: teal and butter, as on the OG card. */
+[data-baby-theme="bubblegum"] {
+  --gum-butter: #fbe2a7;
+  --gum-teal: #8acfd1;
+}
+
+.dark [data-baby-theme="bubblegum"] {
+  --gum-butter: #f4d688;
+  --gum-teal: #3fb3b7;
+}
+
 [data-baby-theme="bubblegum"]::before {
-  background-color: color-mix(in oklab, var(--primary) 30%, transparent);
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 360'%3E%3Ccircle cx='60' cy='70' r='26' fill='none' stroke='black' stroke-width='3.5'/%3E%3Ccircle cx='60' cy='70' r='26' fill-opacity='0.18'/%3E%3Cpath d='M45.7 67.4 a15.6 15.6 0 0 1 13.0 -11.7' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='250' cy='40' r='14' fill='none' stroke='black' stroke-width='3.5'/%3E%3Ccircle cx='250' cy='40' r='14' fill-opacity='0.18'/%3E%3Cpath d='M242.3 38.6 a8.4 8.4 0 0 1 7.0 -6.3' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='300' cy='200' r='34' fill='none' stroke='black' stroke-width='3.5'/%3E%3Ccircle cx='300' cy='200' r='34' fill-opacity='0.18'/%3E%3Cpath d='M281.3 196.6 a20.4 20.4 0 0 1 17.0 -15.3' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='120' cy='260' r='18' fill='none' stroke='black' stroke-width='3.5'/%3E%3Ccircle cx='120' cy='260' r='18' fill-opacity='0.18'/%3E%3Cpath d='M110.1 258.2 a10.8 10.8 0 0 1 9.0 -8.1' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='200' cy='330' r='10' fill='none' stroke='black' stroke-width='3.5'/%3E%3Ccircle cx='200' cy='330' r='10' fill-opacity='0.18'/%3E%3Cpath d='M194.5 329.0 a6.0 6.0 0 0 1 5.0 -4.5' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
-  mask-repeat: repeat;
-  mask-size: 360px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 360'%3E%3Ccircle cx='60' cy='70' r='26' fill='%238acfd1' stroke='%23c5438b' stroke-width='3'/%3E%3Cpath d='M45.7 67.4 a15.6 15.6 0 0 1 13.0 -11.7' fill='none' stroke='%23ffffff' stroke-width='3.6' stroke-linecap='round'/%3E%3Ccircle cx='250' cy='40' r='14' fill='%23fbe2a7' stroke='%23c5438b' stroke-width='3'/%3E%3Cpath d='M242.3 38.6 a8.4 8.4 0 0 1 7.0 -6.3' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='300' cy='200' r='34' fill='%23ffffff' stroke='%23c5438b' stroke-width='3'/%3E%3Cpath d='M281.3 196.6 a20.4 20.4 0 0 1 17.0 -15.3' fill='none' stroke='%23ffffff' stroke-width='4.8' stroke-linecap='round'/%3E%3Ccircle cx='120' cy='260' r='18' fill='%23f7a8cf' stroke='%23c5438b' stroke-width='3'/%3E%3Cpath d='M110.1 258.2 a10.8 10.8 0 0 1 9.0 -8.1' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='200' cy='330' r='10' fill='%238acfd1' stroke='%23c5438b' stroke-width='3'/%3E%3Cpath d='M194.5 329.0 a6.0 6.0 0 0 1 5.0 -4.5' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='330' cy='320' r='12' fill='%23fbe2a7' stroke='%23c5438b' stroke-width='3'/%3E%3Cpath d='M323.4 318.8 a7.2 7.2 0 0 1 6.0 -5.4' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='20' cy='190' r='9' fill='%23ffffff' stroke='%23c5438b' stroke-width='3'/%3E%3Cpath d='M15.1 189.1 a5.4 5.4 0 0 1 4.5 -4.0' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 360px;
+  opacity: 0.55;
+}
+
+.dark [data-baby-theme="bubblegum"]::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 360'%3E%3Ccircle cx='60' cy='70' r='26' fill='%236fd0d3' fill-opacity='0.45' stroke='%23f68dc1' stroke-width='3'/%3E%3Cpath d='M45.7 67.4 a15.6 15.6 0 0 1 13.0 -11.7' fill='none' stroke='%23ffffff' stroke-width='3.6' stroke-linecap='round'/%3E%3Ccircle cx='250' cy='40' r='14' fill='%23f4d688' fill-opacity='0.45' stroke='%23f68dc1' stroke-width='3'/%3E%3Cpath d='M242.3 38.6 a8.4 8.4 0 0 1 7.0 -6.3' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='300' cy='200' r='34' fill='%23f8eaf0' fill-opacity='0.45' stroke='%23f68dc1' stroke-width='3'/%3E%3Cpath d='M281.3 196.6 a20.4 20.4 0 0 1 17.0 -15.3' fill='none' stroke='%23ffffff' stroke-width='4.8' stroke-linecap='round'/%3E%3Ccircle cx='120' cy='260' r='18' fill='%23f68dc1' fill-opacity='0.45' stroke='%23f68dc1' stroke-width='3'/%3E%3Cpath d='M110.1 258.2 a10.8 10.8 0 0 1 9.0 -8.1' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='200' cy='330' r='10' fill='%236fd0d3' fill-opacity='0.45' stroke='%23f68dc1' stroke-width='3'/%3E%3Cpath d='M194.5 329.0 a6.0 6.0 0 0 1 5.0 -4.5' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='330' cy='320' r='12' fill='%23f4d688' fill-opacity='0.45' stroke='%23f68dc1' stroke-width='3'/%3E%3Cpath d='M323.4 318.8 a7.2 7.2 0 0 1 6.0 -5.4' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='20' cy='190' r='9' fill='%23f8eaf0' fill-opacity='0.45' stroke='%23f68dc1' stroke-width='3'/%3E%3Cpath d='M15.1 189.1 a5.4 5.4 0 0 1 4.5 -4.0' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  opacity: 0.8;
 }
 
 [data-baby-theme="bubblegum"] [data-theme-slot="avatar-frame"]::before {
-  background-color: var(--secondary);
+  background-color: var(--gum-butter);
   border: 3px solid var(--primary);
   border-radius: 9999px;
   box-shadow: 6px 6px 0 0 var(--primary);
   inset: -16px;
 }
 
+[data-baby-theme="bubblegum"] [data-theme-slot="avatar-frame"]::after {
+  border: 2px dashed color-mix(in oklab, var(--primary) 60%, transparent);
+  border-radius: 9999px;
+  inset: -9px;
+}
+
 [data-baby-theme="bubblegum"] [data-theme-slot="answer"] {
-  text-shadow: 3px 3px 0 var(--secondary);
+  text-shadow: 3px 3px 0 var(--gum-teal);
 }
 
 [data-baby-theme="bubblegum"] [data-theme-slot="card"],
@@ -193,23 +215,29 @@
   mask-size: 280px;
 }
 
+/* Ears tuck behind the head; the left one is mirrored for the right. */
 [data-baby-theme="catppuccin"] [data-theme-slot="avatar-frame"]::before,
 [data-baby-theme="catppuccin"] [data-theme-slot="avatar-frame"]::after {
-  background: linear-gradient(var(--primary), var(--primary));
-  clip-path: polygon(50% 0, 100% 100%, 0 100%);
-  height: 52px;
-  top: -24px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Cpath d='M11 46 C11 33 13 22 17 15 Q19 11 22 14 C29 22 33 33 35 46Z' fill='%23f5c2e7'/%3E%3C/svg%3E")
+      center / 100% 100% no-repeat,
+    var(--primary);
+  height: 46px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Cpath d='M2 50 C2 31 6 14 13 5 Q17 0 22 3 C33 12 43 28 48 50Z'/%3E%3C/svg%3E")
+    center / 100% 100% no-repeat;
+  top: -14px;
   width: 46px;
 }
 
 [data-baby-theme="catppuccin"] [data-theme-slot="avatar-frame"]::before {
   left: 0;
-  rotate: -20deg;
+  rotate: -14deg;
 }
 
 [data-baby-theme="catppuccin"] [data-theme-slot="avatar-frame"]::after {
   right: 0;
-  rotate: 20deg;
+  rotate: 14deg;
+  scale: -1 1;
 }
 
 [data-baby-theme="catppuccin"] [data-theme-slot="card"],
@@ -247,15 +275,18 @@
   mask-size: 200px;
 }
 
-[data-baby-theme="mocha-mousse"] [data-theme-slot="avatar"] {
-  border-radius: 9999px 9999px 1.25rem 1.25rem;
-  height: 8.5rem;
-}
-
+/* A boho rainbow: three earthy bands arching over the round photo. The box is
+   a 2:1 half-disc, so farthest-side is its radius whatever the avatar size. */
 [data-baby-theme="mocha-mousse"] [data-theme-slot="avatar-frame"]::before {
-  border: 2px solid color-mix(in oklab, var(--primary) 45%, transparent);
-  border-radius: 9999px 9999px 1.6rem 1.6rem;
-  inset: -10px;
+  background: radial-gradient(
+    circle farthest-side at 50% 100%,
+    transparent 0 66%,
+    color-mix(in oklab, var(--accent) 80%, var(--primary)) 66% 77%,
+    var(--secondary) 77% 88%,
+    var(--primary) 88% 100%
+  );
+  border-radius: 9999px 9999px 0 0;
+  inset: -36px -36px 50%;
 }
 
 [data-baby-theme="mocha-mousse"] [data-theme-slot="card"],
