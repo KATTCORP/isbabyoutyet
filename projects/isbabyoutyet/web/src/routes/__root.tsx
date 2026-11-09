@@ -348,7 +348,9 @@ export function RootDocument(props: { children: ReactNode; locale: SupportedLoca
   // preview sets VITE_HAS_DEMO_LOGIN; production leaves it unset.
   const showPreviewDevTools = import.meta.env.DEV || import.meta.env.VITE_HAS_DEMO_LOGIN === "true";
   return (
-    <html dir="ltr" lang={props.locale}>
+    // next-themes sets the theme class and color-scheme on <html> before React
+    // loads, so those attributes legitimately differ from the server HTML.
+    <html dir="ltr" lang={props.locale} suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
