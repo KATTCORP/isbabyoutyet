@@ -18,6 +18,7 @@ import type { ReactNode } from "react";
 import { ThemeProvider } from "next-themes";
 import appCss from "../../../../../packages/ui/src/styles/globals.css?url";
 import typeCss from "@/styles/app.css?url";
+import motifCss from "@/styles/theme-motifs.css?url";
 import nunitoCss from "@fontsource-variable/nunito/index.css?url";
 import { Analytics } from "@vercel/analytics/react";
 import { Progress } from "@workspace/ui/components/progress";
@@ -96,6 +97,10 @@ export const Route = createRootRouteWithContext<{
         },
         {
           href: typeCss,
+          rel: "stylesheet",
+        },
+        {
+          href: motifCss,
           rel: "stylesheet",
         },
         {

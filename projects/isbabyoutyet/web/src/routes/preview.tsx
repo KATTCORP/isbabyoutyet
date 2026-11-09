@@ -188,7 +188,7 @@ function PreviewPage() {
         profileLocale={locale}
       />
 
-      <div className="min-h-screen bg-background bg-dots">
+      <div className="min-h-screen bg-background bg-dots" data-baby-theme={baby.theme ?? "mango"}>
         <header className="sticky top-0 z-20 px-4 pt-3 pb-1">
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
             <Link
@@ -232,7 +232,10 @@ function PreviewPage() {
             {t("Is {{name}} out yet?", { name: baby.name })}
           </h1>
 
-          <section className="rounded-[2rem] border-2 border-border bg-card px-6 pb-8 text-center pop-shadow-strong md:px-10">
+          <section
+            className="rounded-[2rem] border-2 border-border bg-card px-6 pb-8 text-center pop-shadow-strong md:px-10"
+            data-theme-slot="card"
+          >
             <StatusDisplay
               baby={baby}
               blurDataUrl={null}
