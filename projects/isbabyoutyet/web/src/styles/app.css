@@ -12,79 +12,81 @@
 }
 
 /*
- * Mango, the default theme: tangerine on warm cream, with warm espresso
- * nights. Overrides the shared shadcn palette from globals.css for this app
- * only. Every neutral is tinted toward the orange hue, so text and borders
- * never read as cool slate against the warm paper.
+ * Mango, the default theme: tangerine on warm cream by day, juicy mango on
+ * cool charcoal by night. Overrides the shared shadcn palette from
+ * globals.css for this app only. Light neutrals lean warm but stay close to
+ * grey, so text never reads brown. Dark neutrals lean slightly cool: orange
+ * tints over a warm near-black turn muddy brown, while over cool charcoal
+ * they stay bright.
  */
 :root {
   --background: #fcf6ee;
-  --foreground: #2d1d14;
+  --foreground: #1f1915;
   --card: #fffcf9;
-  --card-foreground: #2d1d14;
+  --card-foreground: #1f1915;
   --popover: #fffcf9;
-  --popover-foreground: #2d1d14;
+  --popover-foreground: #1f1915;
   --primary: #f1840b;
   --primary-foreground: #260f00;
-  --secondary: #f7deb5;
-  --secondary-foreground: #2e1e01;
+  --secondary: #fddbae;
+  --secondary-foreground: #2f1e02;
   --muted: #f3ece2;
-  --muted-foreground: #735e50;
+  --muted-foreground: #6c6158;
   --accent: #fee8c6;
-  --accent-foreground: #2d1d14;
+  --accent-foreground: #1f1915;
   --destructive: #e23439;
   --destructive-foreground: #ffffff;
-  --border: #e7ded2;
-  --input: #e7ded2;
+  --border: #e6ded4;
+  --input: #e6ded4;
   --ring: #f1840b;
   --chart-1: #f1840b;
   --chart-2: #edb345;
   --chart-3: #bd6254;
   --chart-4: #f1840b;
-  --chart-5: #f7deb5;
+  --chart-5: #fddbae;
   --sidebar: #f7f1e9;
-  --sidebar-foreground: #2d1d14;
+  --sidebar-foreground: #1f1915;
   --sidebar-primary: #f1840b;
   --sidebar-primary-foreground: #260f00;
   --sidebar-accent: #fee8c6;
-  --sidebar-accent-foreground: #2d1d14;
-  --sidebar-border: #e7ded2;
+  --sidebar-accent-foreground: #1f1915;
+  --sidebar-border: #e6ded4;
   --sidebar-ring: #f1840b;
 }
 
 .dark {
-  --background: #140e09;
-  --foreground: #f2edea;
-  --card: #1f1812;
-  --card-foreground: #f2edea;
-  --popover: #1f1812;
-  --popover-foreground: #f2edea;
-  --primary: #ff9d36;
-  --primary-foreground: #241000;
-  --secondary: #533618;
-  --secondary-foreground: #fcefe4;
-  --muted: #2c251f;
-  --muted-foreground: #b5a89f;
-  --accent: #3d2919;
-  --accent-foreground: #f2edea;
+  --background: #0d0f15;
+  --foreground: #eceef3;
+  --card: #161920;
+  --card-foreground: #eceef3;
+  --popover: #161920;
+  --popover-foreground: #eceef3;
+  --primary: #fea84d;
+  --primary-foreground: #241100;
+  --secondary: #773b01;
+  --secondary-foreground: #fcecd9;
+  --muted: #23262d;
+  --muted-foreground: #a5abb5;
+  --accent: #4d2807;
+  --accent-foreground: #f7ede0;
   --destructive: #f75d59;
   --destructive-foreground: #290b0a;
-  --border: #372e28;
-  --input: #372e28;
-  --ring: #ff9d36;
-  --chart-1: #ff9d36;
-  --chart-2: #f5c761;
-  --chart-3: #e1755a;
-  --chart-4: #ff9d36;
-  --chart-5: #533618;
-  --sidebar: #100a06;
-  --sidebar-foreground: #f2edea;
-  --sidebar-primary: #ff9d36;
-  --sidebar-primary-foreground: #241000;
-  --sidebar-accent: #3d2919;
-  --sidebar-accent-foreground: #f2edea;
-  --sidebar-border: #372e28;
-  --sidebar-ring: #ff9d36;
+  --border: #2d3038;
+  --input: #2d3038;
+  --ring: #fea84d;
+  --chart-1: #fea84d;
+  --chart-2: #f8ca65;
+  --chart-3: #eb7a52;
+  --chart-4: #fea84d;
+  --chart-5: #773b01;
+  --sidebar: #090b10;
+  --sidebar-foreground: #eceef3;
+  --sidebar-primary: #fea84d;
+  --sidebar-primary-foreground: #241100;
+  --sidebar-accent: #4d2807;
+  --sidebar-accent-foreground: #f7ede0;
+  --sidebar-border: #2d3038;
+  --sidebar-ring: #fea84d;
 }
 
 body {

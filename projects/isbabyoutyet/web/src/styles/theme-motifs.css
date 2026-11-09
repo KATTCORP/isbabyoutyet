@@ -121,16 +121,16 @@
   mask-size: 520px;
 }
 
+/* The cloud sits behind the photo (the base rule's z-index: -1) so it never covers the baby. */
 [data-baby-theme="baby-blue"] [data-theme-slot="avatar-frame"]::after {
+  aspect-ratio: 216 / 110;
   background-color: color-mix(in oklab, var(--primary) 16%, var(--card));
   bottom: -26px;
   filter: drop-shadow(0 6px 8px color-mix(in oklab, var(--primary) 25%, transparent));
-  height: 64px;
   left: -34%;
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-100 -60 200 100'%3E%3Cpath d='M-90 30 a34 34 0 0 1 10 -66 a48 48 0 0 1 88 -18 a40 40 0 0 1 72 30 a32 32 0 0 1 10 54Z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-114 -78 216 110'%3E%3Cpath d='M-90 30 a34 34 0 0 1 10 -66 a48 48 0 0 1 88 -18 a40 40 0 0 1 72 30 a32 32 0 0 1 10 54Z'/%3E%3C/svg%3E");
   mask-size: 100% 100%;
   width: 168%;
-  z-index: 1;
 }
 
 [data-baby-theme="baby-blue"] [data-theme-slot="card"],
