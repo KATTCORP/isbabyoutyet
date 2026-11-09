@@ -73,6 +73,7 @@ export function getThemeOption(theme: string | null | undefined) {
   return THEME_OPTIONS.find((option) => option.value === (theme ?? null));
 }
 
+/** @internal */
 export function getThemeColors(theme: string | null | undefined) {
   return getThemeOption(theme)?.colors ?? THEME_OPTIONS[0].colors;
 }

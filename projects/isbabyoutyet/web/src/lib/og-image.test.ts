@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { expect, test, vi } from "vitest";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { isString } from "@workspace/runtime/guards";
+import { THEME_OPTIONS } from "@/components/baby/utils";
+import { getOgBabyArt, withAlpha } from "@/lib/og-baby-art";
 import { createHomepageOgImage, createBabyOgImage, textForOgImage } from "@/lib/og-image";
 
 const TEST_FONT_URL = "https://fonts.gstatic.com/s/test.ttf";
@@ -267,4 +269,75 @@ test("baby OG image still renders when the photo cannot be fetched", async () =>
   expect(Array.from(new Uint8Array(await thrown.arrayBuffer()).slice(0, 8))).toEqual([
     137, 80, 78, 71, 13, 10, 26, 10,
   ]);
+});
+
+test("withAlpha converts hex to rgba", () => {
+  expect(withAlpha("#f49d25", 0.3)).toBe("rgba(244, 157, 37, 0.3)");
+});
+
+test("every theme has its own OG art, and unknown themes fall back to the default", () => {
+  const arts = THEME_OPTIONS.map((option) => getOgBabyArt(option.value));
+  expect(new Set(arts).size).toBe(THEME_OPTIONS.length);
+  expect(getOgBabyArt("no-such-theme")).toBe(getOgBabyArt(null));
+});
+
+const OG_STATUS_FIXTURES = [
+  { babyBorn: null, laborStarted: null, wentToHospital: null },
+  { babyBorn: null, laborStarted: "2026-08-30T10:00:00Z", wentToHospital: null },
+  {
+    babyBorn: null,
+    laborStarted: "2026-08-30T10:00:00Z",
+    wentToHospital: "2026-08-30T12:00:00Z",
+  },
+  { babyBorn: "2026-08-30T18:00:00Z", laborStarted: null, wentToHospital: null },
+] as const;
+
+test.each(THEME_OPTIONS.map((option) => option.value))(
+  "baby OG image renders every status for theme %s",
+  async (theme) => {
+    await using _fonts = await stubOgImageFonts();
+    const responses = await Promise.all(
+      OG_STATUS_FIXTURES.map((fixture) =>
+        createBabyOgImage({
+          ...fixture,
+          dueDate: "2026-09-01",
+          dueDateDisplayMode: "exact",
+          locale: "en-GB",
+          name: "Juniper",
+          photoUrl: null,
+          theme,
+          timeZone: "Europe/Stockholm",
+        }),
+      ),
+    );
+    for (const response of responses) {
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      expect(Array.from(bytes.slice(0, 8))).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+    }
+  },
+);
+
+test("baby OG image loads glyphs for the status card copy and the clamp ellipsis", async () => {
+  await using fonts = await stubOgImageFonts();
+  await createBabyOgImage({
+    babyBorn: "2026-08-30T18:00:00Z",
+    dueDate: "2026-09-01",
+    dueDateDisplayMode: "exact",
+    laborStarted: null,
+    locale: "sv",
+    name: "Åsa",
+    photoUrl: null,
+    theme: "mocha-mousse",
+    timeZone: "Europe/Stockholm",
+    wentToHospital: null,
+  });
+  expect(fonts.googleFontUrls.length).toBeGreaterThan(0);
+  for (const url of fonts.googleFontUrls) {
+    const textParam = new URL(url).searchParams.get("text") ?? "";
+    expect(textParam).toContain("Är Åsa ute än?");
+    expect(textParam).toContain("Ja! Bäbisen är här!");
+    expect(textParam).toContain("Välkommen till världen, lilla vän");
+    expect(textParam).toContain("Född");
+    expect(textParam).toContain("…");
+  }
 });
