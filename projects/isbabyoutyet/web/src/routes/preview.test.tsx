@@ -133,3 +133,56 @@ test("preview still supplies localized no-index metadata after the schema cutove
   });
   expect(result.meta.length).toBeGreaterThan(2);
 });
+
+test("preview share opens a dialog that copies a link to this exact preview", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+  const writeText = vi.fn<(text: string) => Promise<void>>(async () => {});
+  vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+  await using _navigator = {
+    [Symbol.asyncDispose]: async () => {
+      vi.unstubAllGlobals();
+    },
+  };
+  const search: PreviewSearch = { ...baseSearch, settings: false, share: true, theme: "bubblegum" };
+
+  await using ctx = await renderMountedFileRoute({
+    harness,
+    initialEntry: previewEntry(search),
+    overlayHistory: null,
+    path: "/preview",
+    route: Route,
+    wrap: null,
+  });
+
+  await vi.waitFor(() => {
+    expect(ctx.view.getByRole("dialog", { name: "Share the Link" })).toBeTruthy();
+  });
+  fireEvent.click(ctx.view.getByRole("button", { name: "Copy link to share" }));
+
+  await vi.waitFor(() => {
+    expect(writeText).toHaveBeenCalledOnce();
+  });
+  const link = new URL(writeText.mock.calls[0]![0]);
+  expect(link.pathname).toBe("/preview");
+  expect(link.searchParams.get("theme")).toBe("bubblegum");
+  expect(link.searchParams.get("name")).toBe("Nova");
+  expect(link.searchParams.has("share")).toBe(false);
+  expect(link.searchParams.has("settings")).toBe(false);
+});
+
+test("preview share button opens the share dialog through the URL", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+
+  await using ctx = await renderMountedFileRoute({
+    harness,
+    initialEntry: previewEntry({ ...baseSearch, settings: false }),
+    overlayHistory: null,
+    path: "/preview",
+    route: Route,
+    wrap: null,
+  });
+
+  const share = ctx.view.getByRole("button", { name: "Share the link" });
+  expect(share.hasAttribute("disabled")).toBe(false);
+  expect(share.getAttribute("href")).toContain("share=true");
+});
