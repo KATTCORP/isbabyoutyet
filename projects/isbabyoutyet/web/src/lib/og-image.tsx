@@ -458,23 +458,23 @@ export async function createBabyOgImage(baby: BabyOgImageInput) {
   });
 }
 
-/** Default (unthemed) app palette from `globals.css`, resolved to sRGB for Satori. */
+/** Mango, the homepage's theme, from `styles/app.css`, resolved to sRGB for Satori. */
 const HOMEPAGE_OG_COLORS = {
-  background: "#fdfbf7",
-  border: "#ebe7e0",
-  card: "#ffffff",
-  foreground: "#020817",
-  muted: "#f5f3f0",
-  mutedForeground: "#64748b",
-  primary: "#f49d25",
+  background: "#fcf6ee",
+  border: "#e6ded4",
+  card: "#fffcf9",
+  foreground: "#1f1915",
+  muted: "#f3ece2",
+  mutedForeground: "#6c6158",
+  primary: "#f1840b",
 } as const;
 
 function primaryTint(alpha: number) {
-  return `rgba(244, 157, 37, ${alpha})`;
+  return withAlpha(HOMEPAGE_OG_COLORS.primary, alpha);
 }
 
 function inkTint(alpha: number) {
-  return `rgba(2, 8, 23, ${alpha})`;
+  return withAlpha(HOMEPAGE_OG_COLORS.foreground, alpha);
 }
 
 const OG_HEART_PATH =
