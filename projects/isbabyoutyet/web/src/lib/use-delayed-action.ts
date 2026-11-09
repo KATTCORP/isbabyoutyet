@@ -98,3 +98,28 @@ export function useRotatingIndex(opts: { intervalMs: number; itemCount: number }
 
   return indices;
 }
+
+/**
+ * Calls `onTick` every `intervalMs` while `enabled`, unless the visitor
+ * prefers reduced motion. For self-playing demos that stop once someone
+ * takes the controls.
+ */
+export function useAutoplayTick(opts: {
+  enabled: boolean;
+  intervalMs: number;
+  onTick: () => void;
+}) {
+  const onTick = useEffectEvent(opts.onTick);
+  useEffect(() => {
+    const reducedMotion =
+      isFunction(window.matchMedia) &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!opts.enabled || reducedMotion) {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      onTick();
+    }, opts.intervalMs);
+    return () => window.clearInterval(interval);
+  }, [opts.enabled, opts.intervalMs]);
+}

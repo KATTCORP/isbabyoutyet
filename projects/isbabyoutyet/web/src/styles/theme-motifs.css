@@ -361,3 +361,14 @@
   inset: -30px;
   mask-image: radial-gradient(circle closest-side, transparent 74%, #000 76% 97%, transparent 98%);
 }
+
+/*
+ * Theme stages: containers that show a theme inside another page (the
+ * homepage hero and theme gallery). Their backdrop stays inside the box
+ * instead of covering the viewport.
+ */
+[data-theme-stage]::before,
+[data-theme-stage]::after {
+  border-radius: inherit;
+  position: absolute;
+}

@@ -44,8 +44,8 @@ async function seedDemoDataHandler(ctx: MutationCtx) {
     for (const spec of SEED_BABIES) {
       const baby = babiesByPublicId.get(spec.publicId);
       if (baby) {
-        if (baby.demo !== true) {
-          await ctx.db.patch(baby._id, { demo: true });
+        if (baby.demo !== true || baby.theme !== spec.theme) {
+          await ctx.db.patch(baby._id, { demo: true, theme: spec.theme });
         }
         await seedEncouragements({ babyId: baby._id, ctx, now, spec });
       }
@@ -388,7 +388,7 @@ export async function seedBabiesForUser(ctx: MutationCtx, userId: string) {
       publicDueDateText: null,
       publicId: spec.publicId,
       subscriptionCount: 0,
-      theme: null,
+      theme: spec.theme,
       userId,
     });
 

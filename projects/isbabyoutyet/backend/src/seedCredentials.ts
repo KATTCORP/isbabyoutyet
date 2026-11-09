@@ -46,30 +46,38 @@ export const DEMO_ACCOUNTS = [
   },
 ] as const;
 
+/**
+ * Demo-login babies. Each wears a different theme, so the seeded dashboard
+ * and demo pages show the range instead of four identical Mango pages.
+ */
 export const DEMO_BABIES = [
   {
     label: "Not yet",
     name: "Avery",
     publicId: "baby-waiting",
     state: "not_yet",
+    theme: "violet-bloom",
   },
   {
     label: "Labour started",
     name: "Frankie",
     publicId: "baby-in-labor",
     state: "labor_started",
+    theme: "bubblegum",
   },
   {
     label: "Gone to hospital",
     name: "Rowan",
     publicId: "baby-at-hospital",
     state: "gone_to_hospital",
+    theme: "quantum-rose",
   },
   {
     label: "Born",
     name: "Milo",
     publicId: "baby-born",
     state: "born",
+    theme: "sunny-days",
   },
 ] as const;
 
