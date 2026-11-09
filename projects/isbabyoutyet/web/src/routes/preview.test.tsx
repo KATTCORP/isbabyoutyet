@@ -2,7 +2,8 @@ import { fireEvent, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
-import { Route, type PreviewSearch } from "@/routes/preview";
+import type { PreviewSearch } from "@/lib/preview-baby";
+import { Route } from "@/routes/preview";
 
 const baseSearch: PreviewSearch = {
   babyBorn: null,
@@ -134,15 +135,8 @@ test("preview still supplies localized no-index metadata after the schema cutove
   expect(result.meta.length).toBeGreaterThan(2);
 });
 
-test("preview share opens a dialog that copies a link to this exact preview", async () => {
+test("preview share shows this preview's card and asks them to create a page", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
-  const writeText = vi.fn<(text: string) => Promise<void>>(async () => {});
-  vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
-  await using _navigator = {
-    [Symbol.asyncDispose]: async () => {
-      vi.unstubAllGlobals();
-    },
-  };
   const search: PreviewSearch = { ...baseSearch, settings: false, share: true, theme: "bubblegum" };
 
   await using ctx = await renderMountedFileRoute({
@@ -157,17 +151,22 @@ test("preview share opens a dialog that copies a link to this exact preview", as
   await vi.waitFor(() => {
     expect(ctx.view.getByRole("dialog", { name: "Share the Link" })).toBeTruthy();
   });
-  fireEvent.click(ctx.view.getByRole("button", { name: "Copy link to share" }));
+  const dialog = ctx.view.getByRole("dialog", { name: "Share the Link" });
 
-  await vi.waitFor(() => {
-    expect(writeText).toHaveBeenCalledOnce();
-  });
-  const link = new URL(writeText.mock.calls[0]![0]);
-  expect(link.pathname).toBe("/preview");
-  expect(link.searchParams.get("theme")).toBe("bubblegum");
-  expect(link.searchParams.get("name")).toBe("Nova");
-  expect(link.searchParams.has("share")).toBe(false);
-  expect(link.searchParams.has("settings")).toBe(false);
+  const card = new URL(
+    within(dialog).getByRole("img", { name: "Is Nova out yet?" }).getAttribute("src") ?? "",
+    "https://isbabyoutyet.com",
+  );
+  expect(card.pathname).toBe("/og/preview");
+  expect(card.searchParams.get("theme")).toBe("bubblegum");
+  expect(card.searchParams.get("name")).toBe("Nova");
+  expect(card.searchParams.has("share")).toBe(false);
+  expect(card.searchParams.has("settings")).toBe(false);
+
+  expect(within(dialog).queryByRole("button", { name: "Copy link to share" })).toBeNull();
+  expect(
+    within(dialog).getByRole("button", { name: "Create your page 🎈" }).getAttribute("href"),
+  ).toBe("/auth/signup");
 });
 
 test("preview share button opens the share dialog through the URL", async () => {

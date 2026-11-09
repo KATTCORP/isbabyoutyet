@@ -5,77 +5,18 @@ import { SettingsPanel } from "@/components/baby/settings-panel";
 import { useFormGuard } from "@/components/Form";
 import { StatusDisplay } from "@/components/baby/status-display";
 import { PreviewShareDialog } from "@/components/baby/preview-share-dialog";
-import type { PreviewBabyData } from "@isbabyoutyet/backend/src/types";
-import {
-  getCurrentStatus,
-  milestoneVisibilityForPreset,
-  MILESTONE_FIELDS,
-} from "@isbabyoutyet/backend/src/types";
+import { getCurrentStatus, MILESTONE_FIELDS } from "@isbabyoutyet/backend/src/types";
 import { getThemeCss } from "@/components/baby/utils";
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { z } from "zod";
 import { translate, useI18n, getDetectedLocale } from "@/lib/i18n";
 import { closeOverlayLink, overlayCloseLinkProps } from "@/lib/overlay-nav";
 import { robotsNoIndexMeta } from "@/lib/seo";
-import { DEFAULT_TIME_ZONE } from "@isbabyoutyet/backend/src/timeZone";
 import { previewCacheHeaders } from "@/lib/cachePolicy";
-import { canonicalUrl } from "@/lib/site-url";
-
-function getDefaultBabyData(): PreviewBabyData {
-  const now = new Date();
-  const dueDate = new Date(now);
-  dueDate.setDate(dueDate.getDate() + 7);
-  const laborStarted = new Date(now);
-  laborStarted.setHours(laborStarted.getHours() - 2);
-  const locale = getDetectedLocale();
-
-  return {
-    babyBorn: null,
-    babyBornMessage: null,
-    dueDate: dueDate.toISOString(),
-    dueDateDisplayMode: "exact",
-    hospitalMessage: null,
-    laborStarted: null,
-    laborStartedMessage: null,
-    milestoneVisibility: milestoneVisibilityForPreset("labor"),
-    name: translate(locale, "Baby"),
-    photoId: null,
-    publicDueDateText: null,
-    theme: null,
-    timeZone: DEFAULT_TIME_ZONE,
-    wentToHospital: null,
-  };
-}
-
-const searchSchema = z.object({
-  babyBorn: z.string().nullable().optional(),
-  babyBornMessage: z.string().nullable().optional(),
-  birthJourney: z
-    .union([
-      z.literal("labor"),
-      z.literal("home_birth"),
-      z.literal("planned_c_section"),
-      z.literal("custom"),
-    ])
-    .optional(),
-  dueDate: z.string().nullable().optional(),
-  dueDateDisplayMode: z.union([z.literal("exact"), z.literal("message")]).optional(),
-  hospitalMessage: z.string().nullable().optional(),
-  laborStarted: z.string().nullable().optional(),
-  laborStartedMessage: z.string().nullable().optional(),
-  name: z.string().default("Baby"),
-  publicDueDateText: z.string().nullable().optional(),
-  settings: z.boolean().optional(),
-  share: z.boolean().optional(),
-  theme: z.string().nullable().optional(),
-  wentToHospital: z.string().nullable().optional(),
-});
-
-export type PreviewSearch = z.infer<typeof searchSchema>;
+import { previewBabyFromSearch, previewSearchSchema } from "@/lib/preview-baby";
 
 export const Route = createFileRoute("/preview")({
   component: PreviewPage,
-  validateSearch: searchSchema,
+  validateSearch: previewSearchSchema,
   headers: previewCacheHeaders,
   head: (opts) => {
     const locale = opts.match.context.locale ?? getDetectedLocale();
@@ -107,12 +48,7 @@ function PreviewPage() {
   const router = useRouter();
   const { locale, t } = useI18n();
   const birthJourney = search.birthJourney ?? "labor";
-
-  const baby: PreviewBabyData = {
-    ...getDefaultBabyData(),
-    ...search,
-    milestoneVisibility: milestoneVisibilityForPreset(birthJourney),
-  };
+  const baby = previewBabyFromSearch(search);
   const currentStatus = getCurrentStatus(baby);
   const themeCss = getThemeCss(baby.theme);
   // The preview settings dialog is URL-controlled (`?settings=1`), so the
@@ -131,13 +67,13 @@ function PreviewPage() {
     open: !!search.settings,
   });
 
-  // The shared link reopens this exact preview, without the open dialogs.
-  const shareLink = canonicalUrl(
+  // `/og` + the preview URL renders this preview's share card.
+  const ogImageUrl = `/og${
     router.buildLocation({
       search: { ...search, settings: undefined, share: undefined },
       to: "/preview",
-    }).href,
-  );
+    }).href
+  }`;
   function setShareOpen(open: boolean) {
     void navigate({
       replace: true,
@@ -162,7 +98,12 @@ function PreviewPage() {
   return (
     <div>
       {themeCss ? <style dangerouslySetInnerHTML={{ __html: themeCss }} /> : null}
-      <PreviewShareDialog link={shareLink} onOpenChange={setShareOpen} open={!!search.share} />
+      <PreviewShareDialog
+        imageUrl={ogImageUrl}
+        onOpenChange={setShareOpen}
+        open={!!search.share}
+        title={t("Is {{name}} out yet?", { name: baby.name })}
+      />
       <SettingsPanel
         baby={baby}
         birthJourney={birthJourney}

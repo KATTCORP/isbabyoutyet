@@ -1,4 +1,5 @@
 import { Button } from "@workspace/ui/components/button";
+import { Card, CardFooter, CardHeader, CardTitle } from "@workspace/ui/components/card";
 import {
   Dialog,
   DialogContent,
@@ -6,62 +7,53 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog";
-import { CheckCircleIcon } from "@phosphor-icons/react";
-import { toast } from "sonner";
-import { copyTextToClipboard } from "@/lib/copy-text";
+import { Link } from "@tanstack/react-router";
+import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH } from "@/lib/seo";
 import { useI18n } from "@/lib/i18n";
-import { useTransientFlag } from "@/lib/use-transient-flag";
 
 type PreviewShareDialogProps = {
-  /** Absolute URL that reopens this exact preview (name, dates, theme). */
-  link: string;
+  /** `/og` + the preview URL: this preview's share card. */
+  imageUrl: string;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  /** The page title the card would be shared with. */
+  title: string;
 };
 
 /**
- * Share dialog for `/preview`. A preview has no saved page (and so no OG
- * card), so it shares the preview URL itself.
+ * Share dialog for `/preview`. It shows the share card the page would get,
+ * but a preview has no link worth sending, so it asks them to create a page.
  */
 export function PreviewShareDialog(props: PreviewShareDialogProps) {
   const { t } = useI18n();
-  const [copied, showCopied] = useTransientFlag(2000);
-
-  async function copyLink() {
-    try {
-      await copyTextToClipboard(props.link);
-      showCopied();
-      toast.success(t("Copied to clipboard"));
-    } catch (error) {
-      toast.error(
-        t("Failed to copy to clipboard: {{detail}}", {
-          detail: error instanceof Error ? error.message : t("Unknown error"),
-        }),
-      );
-    }
-  }
 
   return (
     <Dialog onOpenChange={props.onOpenChange} open={props.open}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{t("Share the Link")}</DialogTitle>
-          <DialogDescription>
-            {t("Anyone with this link sees this exact preview.")}
-          </DialogDescription>
+          <DialogDescription>{t("This is how your page will look when shared.")}</DialogDescription>
         </DialogHeader>
-        <p className="truncate rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
-          {props.link}
-        </p>
-        <Button
-          className="w-full"
-          onClick={() => {
-            void copyLink();
-          }}
-        >
-          {copied ? <CheckCircleIcon data-icon="inline-start" /> : null}
-          {copied ? t("Copied!") : t("Copy link to share")}
-        </Button>
+        <Card>
+          <img
+            alt={props.title}
+            className="aspect-1200/630 w-full object-cover"
+            height={OG_IMAGE_HEIGHT}
+            src={props.imageUrl}
+            width={OG_IMAGE_WIDTH}
+          />
+          <CardHeader>
+            <CardTitle className="line-clamp-2">{props.title}</CardTitle>
+          </CardHeader>
+          <CardFooter className="flex-col items-stretch gap-3">
+            <p className="text-center text-sm text-muted-foreground">
+              {t("This is just a preview. Create your page to get a link you can share.")}
+            </p>
+            <Button className="w-full" nativeButton={false} render={<Link to="/auth/signup" />}>
+              {t("Create your page 🎈")}
+            </Button>
+          </CardFooter>
+        </Card>
       </DialogContent>
     </Dialog>
   );
