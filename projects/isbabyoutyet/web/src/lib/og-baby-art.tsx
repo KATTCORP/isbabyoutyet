@@ -390,17 +390,17 @@ const NO_TEXT_SHADOW = "0 0 0 transparent";
 // ---------------------------------------------------------------------------
 
 const MANGO: OgBabyPalette = {
-  background: "#fdfbf7",
+  background: "#fcf6ee",
   backgroundImage: DOT_GRID("rgba(2, 8, 23, 0.08)"),
   backgroundSize: DOT_GRID_SIZE,
-  border: "#ebe7e0",
-  card: "#ffffff",
+  border: "#e6ded4",
+  card: "#fffcf9",
   confetti: ["#f49d25", "#ea580c", "#fbbf24", "#fdba74", "#64748b"],
-  foreground: "#020817",
-  heading: "#020817",
-  mutedForeground: "#64748b",
-  primary: "#f49d25",
-  primaryForeground: "#ffffff",
+  foreground: "#1f1915",
+  heading: "#1f1915",
+  mutedForeground: "#6c6158",
+  primary: "#f1840b",
+  primaryForeground: "#260f00",
 };
 
 const mangoArt: OgBabyArt = {
@@ -452,16 +452,16 @@ const mangoArt: OgBabyArt = {
 // ---------------------------------------------------------------------------
 
 const VIOLET: OgBabyPalette = {
-  background: "#fdfdfd",
+  background: "#f6f6fb",
   backgroundImage: "linear-gradient(#fdfdfd, #fdfdfd)",
   backgroundSize: "auto",
-  border: "#e7e7ee",
-  card: "#ffffff",
-  confetti: ["#7033ff", "#1e69dc", "#a78bfa", "#c4b5fd", "#79c0ff"],
-  foreground: "#000000",
-  heading: "#000000",
-  mutedForeground: "#525252",
-  primary: "#7033ff",
+  border: "#dfdee7",
+  card: "#fdfcff",
+  confetti: ["#6f39f0", "#1e69dc", "#a78bfa", "#c4b5fd", "#79c0ff"],
+  foreground: "#1a1828",
+  heading: "#1a1828",
+  mutedForeground: "#636174",
+  primary: "#6f39f0",
   primaryForeground: "#ffffff",
 };
 
@@ -513,7 +513,7 @@ const violetArt: OgBabyArt = {
           size: 120,
         })}
       </g>
-      {avatarGlow({ color: "rgba(112, 51, 255, 0.35)", dy: 22, reach: 46 })}
+      {avatarGlow({ color: "rgba(111, 57, 240, 0.35)", dy: 22, reach: 46 })}
       {status === "labor_started" || status === "gone_to_hospital"
         ? pulseRings({ color: VIOLET.primary, offset: 26 })
         : null}
@@ -554,7 +554,7 @@ const BLUE: OgBabyPalette = {
   backgroundImage: "linear-gradient(180deg, #f3f8fd 0%, #ffffff 45%, #e3ecf6 100%)",
   backgroundSize: "auto",
   border: "#e1eaef",
-  card: "#ffffff",
+  card: "#f7f8f8",
   confetti: ["#1e9df1", "#7cc4f7", "#0f1419", "#ffd166", "#bfe1fb"],
   foreground: "#0f1419",
   heading: "#0f1419",
@@ -641,17 +641,17 @@ const blueArt: OgBabyArt = {
 // ---------------------------------------------------------------------------
 
 const BUBBLEGUM: OgBabyPalette = {
-  background: "#f6e6ee",
+  background: "#feeaf2",
   backgroundImage:
     "repeating-linear-gradient(135deg, rgba(208, 79, 153, 0.06) 0px, rgba(208, 79, 153, 0.06) 14px, rgba(246, 230, 238, 0) 14px, rgba(246, 230, 238, 0) 34px)",
   backgroundSize: "auto",
   border: "#d04f99",
-  card: "#fdedc9",
-  confetti: ["#d04f99", "#8acfd1", "#fbe2a7", "#e670ab", "#b2e1eb"],
-  foreground: "#333333",
-  heading: "#333333",
-  mutedForeground: "#6b6b6b",
-  primary: "#d04f99",
+  card: "#fffafc",
+  confetti: ["#d04f99", "#eacbf1", "#fbe2a7", "#e670ab", "#b2e1eb"],
+  foreground: "#462836",
+  heading: "#462836",
+  mutedForeground: "#85506a",
+  primary: "#c5438b",
   primaryForeground: "#ffffff",
 };
 
@@ -707,7 +707,7 @@ const bubblegumArt: OgBabyArt = {
       <path
         d="M700 600 q30 -24 60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0"
         fill="none"
-        stroke="#8acfd1"
+        stroke="#eacbf1"
         strokeLinecap="round"
         strokeWidth="8"
       />
@@ -724,7 +724,7 @@ const bubblegumArt: OgBabyArt = {
   front: (status) => (
     <g>
       {[
-        { fill: "#8acfd1", r: 34, x: 1130, y: 90 },
+        { fill: "#eacbf1", r: 34, x: 1130, y: 90 },
         { fill: "#b2e1eb", r: 18, x: 1080, y: 40 },
         { fill: "#ffffff", r: 22, x: 730, y: 110 },
         { fill: "#e670ab", r: 14, x: 760, y: 60 },
@@ -772,7 +772,7 @@ const CATPPUCCIN: OgBabyPalette = {
   ],
   foreground: "#4c4f69",
   heading: "#4c4f69",
-  mutedForeground: "#6c6f85",
+  mutedForeground: "#5c5f77",
   primary: LATTE.mauve,
   primaryForeground: "#ffffff",
 };
@@ -880,16 +880,16 @@ const catppuccinArt: OgBabyArt = {
 // ---------------------------------------------------------------------------
 
 const MOCHA: OgBabyPalette = {
-  background: "#f1f0e5",
+  background: "#f8eee4",
   backgroundImage: "linear-gradient(#f1f0e5, #f1f0e5)",
   backgroundSize: "auto",
-  border: "#baab92",
-  card: "#faf8f1",
+  border: "#d4c4b3",
+  card: "#fff9f3",
   confetti: ["#a37764", "#e4c7b8", "#baab92", "#8a655a", "#c39e88"],
-  foreground: "#56453f",
-  heading: "#56453f",
-  mutedForeground: "#8a655a",
-  primary: "#a37764",
+  foreground: "#4e3b34",
+  heading: "#4e3b34",
+  mutedForeground: "#7a5b50",
+  primary: "#9d6952",
   primaryForeground: "#ffffff",
 };
 
@@ -959,7 +959,7 @@ const mochaArt: OgBabyArt = {
       })}
       {sprig({ flip: false, x: 1150, y: 630 })}
       {sprig({ flip: true, x: 710, y: 630 })}
-      {avatarGlow({ color: "rgba(86, 69, 63, 0.28)", dy: 24, reach: 44 })}
+      {avatarGlow({ color: "rgba(78, 59, 52, 0.28)", dy: 24, reach: 44 })}
       {status === "labor_started" || status === "gone_to_hospital"
         ? sparkles({ colors: [MOCHA.primary, "#c39e88"], count: 6, seed: 41 })
         : null}
@@ -986,17 +986,17 @@ const mochaArt: OgBabyArt = {
 // ---------------------------------------------------------------------------
 
 const QUANTUM: OgBabyPalette = {
-  background: "#1a0922",
+  background: "#1c0614",
   backgroundImage: "linear-gradient(#1a0922, #1a0922)",
   backgroundSize: "auto",
-  border: "#4a1b5f",
-  card: "#2a1435",
+  border: "#51223f",
+  card: "#2c0f20",
   confetti: ["#ff6bef", "#ffb3ff", "#e6067a", "#79e2ff", "#ffffff"],
-  foreground: "#ffd6ff",
+  foreground: "#ffe2ee",
   heading: "#ffffff",
-  mutedForeground: "#d67ad6",
-  primary: "#ff6bef",
-  primaryForeground: "#180518",
+  mutedForeground: "#e69abb",
+  primary: "#fe65ab",
+  primaryForeground: "#270b17",
 };
 
 function orbit(opts: { rotate: number }) {
@@ -1011,22 +1011,22 @@ function orbit(opts: { rotate: number }) {
         fill="none"
         rx="262"
         ry="92"
-        stroke="rgba(255, 107, 239, 0.55)"
+        stroke="rgba(254, 101, 171, 0.55)"
         strokeWidth="3"
         transform={`rotate(${opts.rotate} ${OG_AVATAR.cx} ${OG_AVATAR.cy})`}
       />
-      <circle cx={electronX} cy={electronY} fill="rgba(255, 107, 239, 0.35)" r="16" />
+      <circle cx={electronX} cy={electronY} fill="rgba(254, 101, 171, 0.35)" r="16" />
       <circle cx={electronX} cy={electronY} fill="#ffffff" r="7" />
     </g>
   );
 }
 
 const quantumArt: OgBabyArt = {
-  answerTextShadow: "0 0 18px rgba(255, 107, 239, 0.75)",
+  answerTextShadow: "0 0 18px rgba(254, 101, 171, 0.75)",
   avatarFrame: "circle",
   avatarStyle: {
     border: `6px solid ${QUANTUM.primary}`,
-    boxShadow: "0 0 0 8px rgba(255, 107, 239, 0.25)",
+    boxShadow: "0 0 0 8px rgba(254, 101, 171, 0.25)",
   },
   back: (status) => {
     const stars = scatter({ clearance: 0, count: 26, seed: 31 });
@@ -1056,15 +1056,15 @@ const quantumArt: OgBabyArt = {
           <path
             d={`M${OG_AVATAR.cx} 420 L${OG_AVATAR.cx + (index - 2.5) * 260} 640`}
             key={index}
-            stroke="rgba(255, 107, 239, 0.16)"
+            stroke="rgba(254, 101, 171, 0.16)"
             strokeWidth="2"
           />
         ))}
         {[470, 520, 585].map((y) => (
-          <path d={`M640 ${y} H1200`} key={y} stroke="rgba(255, 107, 239, 0.12)" strokeWidth="2" />
+          <path d={`M640 ${y} H1200`} key={y} stroke="rgba(254, 101, 171, 0.12)" strokeWidth="2" />
         ))}
         {[-60, 0, 60].map((rotate) => orbit({ rotate }))}
-        {avatarGlow({ color: "rgba(255, 107, 239, 0.55)", dy: 0, reach: 60 })}
+        {avatarGlow({ color: "rgba(254, 101, 171, 0.55)", dy: 0, reach: 60 })}
         {status === "labor_started" || status === "gone_to_hospital"
           ? pulseRings({ color: QUANTUM.primary, offset: 22 })
           : null}
@@ -1072,9 +1072,9 @@ const quantumArt: OgBabyArt = {
     );
   },
   cardStyle: {
-    border: "2px solid rgba(255, 107, 239, 0.45)",
+    border: "2px solid rgba(254, 101, 171, 0.45)",
     borderRadius: 18,
-    boxShadow: "0 0 0 6px rgba(255, 107, 239, 0.12)",
+    boxShadow: "0 0 0 6px rgba(254, 101, 171, 0.12)",
   },
   front: (status) => (
     <g>
@@ -1095,15 +1095,15 @@ const quantumArt: OgBabyArt = {
 // ---------------------------------------------------------------------------
 
 const SUNNY: OgBabyPalette = {
-  background: "#fff9e8",
+  background: "#fff8e8",
   backgroundImage: "linear-gradient(180deg, #fff3cc 0%, #fff9e8 60%)",
   backgroundSize: "auto",
-  border: "#ecdfb8",
-  card: "#fffdf5",
+  border: "#ecddb9",
+  card: "#fffdf7",
   confetti: ["#f2a614", "#8ed1c5", "#ffe58a", "#52a695", "#f97362"],
-  foreground: "#443c2a",
-  heading: "#443c2a",
-  mutedForeground: "#857a5e",
+  foreground: "#443925",
+  heading: "#443925",
+  mutedForeground: "#716146",
   primary: "#e0950a",
   primaryForeground: "#3c2b05",
 };
