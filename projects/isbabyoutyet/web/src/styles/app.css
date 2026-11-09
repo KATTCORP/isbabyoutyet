@@ -253,3 +253,49 @@ body {
     animation: none;
   }
 }
+
+/* Homepage theme stage: confetti for "born" and the notification toast. */
+@keyframes stage-confetti {
+  0% {
+    opacity: 1;
+    transform: translateY(-12px) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(420px) rotate(540deg);
+  }
+}
+
+@keyframes stage-toast {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.96);
+  }
+  12%,
+  80% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+.stage-confetti {
+  animation: stage-confetti 1.8s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.stage-toast {
+  animation: stage-toast 3.1s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-confetti {
+    display: none;
+  }
+
+  .stage-toast {
+    animation: none;
+  }
+}

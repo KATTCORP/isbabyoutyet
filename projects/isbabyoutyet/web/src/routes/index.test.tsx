@@ -14,6 +14,7 @@ import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { runRouteLoader } from "@/test/routeTestContext";
+import { scopeThemeCss } from "@/components/home/theme-stage";
 import { HomePageView, Route } from "./index";
 
 test("homepage links visitors to the live Juniper Hale demo page", async () => {
@@ -33,13 +34,47 @@ test("homepage links visitors to the live Juniper Hale demo page", async () => {
   expect(livePage.parentElement).not.toBe(createPage.parentElement);
 });
 
-test("homepage hero illustration is decorative", async () => {
+test("homepage hero is a live baby page visitors can step through", async () => {
   await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
 
-  const illustration = screen.getByTestId("hero-illustration");
-  expect(illustration.getAttribute("aria-hidden")).toBe("true");
-  expect(illustration.querySelector("svg")).toBeTruthy();
-  expect(screen.queryByRole("img")).toBeNull();
+  const stage = screen.getByTestId("theme-stage");
+  expect(stage.textContent).toContain("Is Juniper out yet?");
+  expect(stage.textContent).toContain("Not yet");
+
+  fireEvent.click(screen.getByRole("button", { name: "Baby born!" }));
+  expect(screen.getByTestId("theme-stage").textContent).toContain("Yes! Baby is out");
+  expect(screen.getByRole("button", { name: "Baby born!" }).getAttribute("aria-pressed")).toBe(
+    "true",
+  );
+});
+
+test("homepage hero re-skins the live page in the picked theme", async () => {
+  await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
+
+  expect(screen.getByTestId("theme-stage").getAttribute("data-baby-theme")).toBe("mango");
+  fireEvent.click(screen.getByRole("button", { name: "Bubblegum" }));
+  const stage = screen.getByTestId("theme-stage");
+  expect(stage.getAttribute("data-baby-theme")).toBe("bubblegum");
+  expect(stage.getAttribute("data-theme-scope")).toBe("bubblegum");
+});
+
+test("theme CSS is re-scoped from the document root to one container", () => {
+  const css = ":root {\n  --primary: pink;\n}\n\n.dark {\n  --primary: plum;\n}\n";
+  expect(scopeThemeCss({ css, scope: "bubblegum" })).toBe(
+    '[data-theme-scope="bubblegum"] {\n  --primary: pink;\n}\n\n.dark [data-theme-scope="bubblegum"] {\n  --primary: plum;\n}\n',
+  );
+});
+
+test("homepage theme gallery previews every theme", async () => {
+  await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
+
+  const previews = screen
+    .getAllByRole("link")
+    .filter((link) => link.getAttribute("href")?.startsWith("/preview"));
+  expect(previews).toHaveLength(8);
+  expect(previews.some((link) => link.getAttribute("href")?.includes("theme=quantum-rose"))).toBe(
+    true,
+  );
 });
 
 test("homepage source link opens this product's folder in the monorepo", async () => {
