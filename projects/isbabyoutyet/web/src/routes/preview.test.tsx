@@ -2,7 +2,8 @@ import { fireEvent, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
-import { Route, type PreviewSearch } from "@/routes/preview";
+import type { PreviewSearch } from "@/lib/preview-baby";
+import { Route } from "@/routes/preview";
 
 const baseSearch: PreviewSearch = {
   babyBorn: null,
@@ -132,4 +133,55 @@ test("preview still supplies localized no-index metadata after the schema cutove
     match: { context: { locale: "en-GB" } },
   });
   expect(result.meta.length).toBeGreaterThan(2);
+});
+
+test("preview share shows this preview's card and asks them to create a page", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+  const search: PreviewSearch = { ...baseSearch, settings: false, share: true, theme: "bubblegum" };
+
+  await using ctx = await renderMountedFileRoute({
+    harness,
+    initialEntry: previewEntry(search),
+    overlayHistory: null,
+    path: "/preview",
+    route: Route,
+    wrap: null,
+  });
+
+  await vi.waitFor(() => {
+    expect(ctx.view.getByRole("dialog", { name: "Share the Link" })).toBeTruthy();
+  });
+  const dialog = ctx.view.getByRole("dialog", { name: "Share the Link" });
+
+  const card = new URL(
+    within(dialog).getByRole("img", { name: "Is Nova out yet?" }).getAttribute("src") ?? "",
+    "https://isbabyoutyet.com",
+  );
+  expect(card.pathname).toBe("/og/preview");
+  expect(card.searchParams.get("theme")).toBe("bubblegum");
+  expect(card.searchParams.get("name")).toBe("Nova");
+  expect(card.searchParams.has("share")).toBe(false);
+  expect(card.searchParams.has("settings")).toBe(false);
+
+  expect(within(dialog).queryByRole("button", { name: "Copy link to share" })).toBeNull();
+  expect(
+    within(dialog).getByRole("button", { name: "Create your page 🎈" }).getAttribute("href"),
+  ).toBe("/auth/signup");
+});
+
+test("preview share button opens the share dialog through the URL", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+
+  await using ctx = await renderMountedFileRoute({
+    harness,
+    initialEntry: previewEntry({ ...baseSearch, settings: false }),
+    overlayHistory: null,
+    path: "/preview",
+    route: Route,
+    wrap: null,
+  });
+
+  const share = ctx.view.getByRole("button", { name: "Share the link" });
+  expect(share.hasAttribute("disabled")).toBe(false);
+  expect(share.getAttribute("href")).toContain("share=true");
 });

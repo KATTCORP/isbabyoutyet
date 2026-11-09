@@ -21,6 +21,7 @@ import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as BabyPublicIdRouteRouteImport } from './routes/baby/$publicId/route'
+import { Route as OgPreviewRouteImport } from './routes/og.preview'
 import { Route as AuthDashboardIndexRouteImport } from './routes/_auth/dashboard/index'
 import { Route as AuthDashboardSettingsRouteImport } from './routes/_auth/dashboard/settings'
 import { Route as AuthDashboardAddRouteImport } from './routes/_auth/dashboard_.add'
@@ -101,6 +102,11 @@ const BabyPublicIdRouteRoute = BabyPublicIdRouteRouteImport.update({
   id: '/baby/$publicId',
   path: '/baby/$publicId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const OgPreviewRoute = OgPreviewRouteImport.update({
+  id: '/preview',
+  path: '/preview',
+  getParentRoute: () => OgRoute,
 } as any)
 const AuthDashboardIndexRoute = AuthDashboardIndexRouteImport.update({
   id: '/',
@@ -223,6 +229,7 @@ export interface FileRoutesByFullPath {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/og/preview': typeof OgPreviewRoute
   '/dashboard/admin': typeof AuthDashboardAdminRouteRouteWithChildren
   '/dashboard/settings': typeof AuthDashboardSettingsRoute
   '/dashboard/add': typeof AuthDashboardAddRoute
@@ -254,6 +261,7 @@ export interface FileRoutesByTo {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/og/preview': typeof OgPreviewRoute
   '/baby/$publicId': typeof BabyPublicIdIndexRoute
   '/dashboard/settings': typeof AuthDashboardSettingsRoute
   '/dashboard/add': typeof AuthDashboardAddRoute
@@ -288,6 +296,7 @@ export interface FileRoutesById {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/og/preview': typeof OgPreviewRoute
   '/_auth/dashboard_/admin': typeof AuthDashboardAdminRouteRouteWithChildren
   '/baby/$publicId/_auth': typeof BabyPublicIdAuthRouteRouteWithChildren
   '/_auth/dashboard/settings': typeof AuthDashboardSettingsRoute
@@ -324,6 +333,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset-password'
     | '/auth/signup'
+    | '/og/preview'
     | '/dashboard/admin'
     | '/dashboard/settings'
     | '/dashboard/add'
@@ -355,6 +365,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset-password'
     | '/auth/signup'
+    | '/og/preview'
     | '/baby/$publicId'
     | '/dashboard/settings'
     | '/dashboard/add'
@@ -388,6 +399,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset-password'
     | '/auth/signup'
+    | '/og/preview'
     | '/_auth/dashboard_/admin'
     | '/baby/$publicId/_auth'
     | '/_auth/dashboard/settings'
@@ -513,6 +525,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/baby/$publicId'
       preLoaderRoute: typeof BabyPublicIdRouteRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/og/preview': {
+      id: '/og/preview'
+      path: '/preview'
+      fullPath: '/og/preview'
+      preLoaderRoute: typeof OgPreviewRouteImport
+      parentRoute: typeof OgRoute
     }
     '/_auth/dashboard/': {
       id: '/_auth/dashboard/'
@@ -714,10 +733,12 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 )
 
 interface OgRouteChildren {
+  OgPreviewRoute: typeof OgPreviewRoute
   OgBabyPublicIdRoute: typeof OgBabyPublicIdRoute
 }
 
 const OgRouteChildren: OgRouteChildren = {
+  OgPreviewRoute: OgPreviewRoute,
   OgBabyPublicIdRoute: OgBabyPublicIdRoute,
 }
 
