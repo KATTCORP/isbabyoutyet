@@ -468,6 +468,13 @@ describe("convexLive", () => {
         data: { pageParams: [{ cursor: null, numItems: "7" }], pages: [page] },
         key: [CONVEX_PAGINATED_QUERY_KEY, "messages:list", args, 7],
       },
+      {
+        data: {
+          pageParams: [{ cursor: null, direction: "forward", from: 8, next: null, numItems: 2 }],
+          pages: [page],
+        },
+        key: [CONVEX_FEED_QUERY_KEY, "messages:feed", "messages:feedNewer", args, 2],
+      },
     ];
     for (const entry of entries) {
       const options = () =>
