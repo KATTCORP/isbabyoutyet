@@ -20,6 +20,7 @@ import type { ConvexTestHarness } from "@/test/convexTestHarness";
 import type { ParentRouteContext } from "@/test/routeTestContext";
 import { routeContextFromHarness } from "@/test/routeTestContext";
 import { stubJsdomWindow } from "@/test/stubJsdomWindow";
+import { routerPreloadOptions } from "@/router";
 
 /**
  * `Route.update()` is typed for non-structural option tweaks only, so widen it
@@ -65,7 +66,7 @@ type MountedFileRouteOpts = {
  * production wrapper, backed by `convex-test` through the shared harness.
  */
 export async function renderMountedFileRoute(opts: MountedFileRouteOpts) {
-  return await mountFileRoute(opts, { childRoutes: [], routerContext: {} });
+  return await mountFileRoute(opts, { childRoutes: [], preload: null, routerContext: {} });
 }
 
 /**
@@ -75,7 +76,11 @@ export async function renderMountedFileRoute(opts: MountedFileRouteOpts) {
 export async function renderMountedFileRouteWithRouterContext(
   opts: MountedFileRouteOpts & { routerContext: ParentRouteContext },
 ) {
-  return await mountFileRoute(opts, { childRoutes: [], routerContext: opts.routerContext });
+  return await mountFileRoute(opts, {
+    childRoutes: [],
+    preload: null,
+    routerContext: opts.routerContext,
+  });
 }
 
 type ChildFileRoute = {
@@ -94,12 +99,44 @@ export async function renderMountedFileRouteTree(
     routerContext: ParentRouteContext;
   },
 ) {
-  return await mountFileRoute(opts, opts);
+  return await mountFileRoute(opts, {
+    childRoutes: opts.childRoutes,
+    preload: null,
+    routerContext: opts.routerContext,
+  });
 }
+
+/**
+ * Same as {@link renderMountedFileRouteTree}, with the app's preload policy:
+ * links preload their routes as they come into view, so a test sees what a
+ * preload of each link on the page does.
+ */
+export async function renderMountedFileRouteWithPreloads(
+  opts: MountedFileRouteOpts & { childRoutes: Array<ChildFileRoute> },
+) {
+  return await mountFileRoute(opts, {
+    childRoutes: opts.childRoutes,
+    preload: {
+      defaultPreload: routerPreloadOptions.defaultPreload,
+      defaultPreloadStaleTime: routerPreloadOptions.defaultPreloadStaleTime,
+    },
+    routerContext: {},
+  });
+}
+
+type RouterPreload = {
+  defaultPreload: typeof routerPreloadOptions.defaultPreload;
+  defaultPreloadStaleTime: number;
+};
 
 async function mountFileRoute(
   opts: MountedFileRouteOpts,
-  extra: { childRoutes: Array<ChildFileRoute>; routerContext: ParentRouteContext },
+  extra: {
+    childRoutes: Array<ChildFileRoute>;
+    /** The router's preload policy; `null` for TanStack's default, which preloads nothing. */
+    preload: RouterPreload | null;
+    routerContext: ParentRouteContext;
+  },
 ) {
   const context = { ...routeContextFromHarness(opts.harness), ...extra.routerContext };
 
@@ -143,6 +180,7 @@ async function mountFileRoute(
   }
 
   const router = createRouter({
+    ...extra.preload,
     context,
     // Closing an overlay navigates to its parent, which this single-route tree
     // does not mount.

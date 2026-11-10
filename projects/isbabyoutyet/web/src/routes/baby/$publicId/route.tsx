@@ -60,11 +60,6 @@ export const Route = createFileRoute("/baby/$publicId")({
   component: BabyPageLayout,
   validateSearch: babySearchSchema,
   loaderDeps: (opts) => ({ item: opts.search.item ?? null }),
-  // The router preloads links in view, and some on this page lead back to
-  // it without `?item=` ("Jump to latest", overlays). Their loader would
-  // load the feed from the top, and start the feed on screen over under
-  // the reader. Loaders here run on navigation only.
-  preload: false,
 
   beforeLoad: async (opts) => {
     const [, data] = await load(opts.context.queryClient, {

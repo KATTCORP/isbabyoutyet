@@ -1748,6 +1748,9 @@ function NewerItemsDivider(props: {
           className="rounded-full px-2 py-0.5 text-xs sm:py-1 sm:text-[0.8rem] font-medium text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
           hash={BABY_FEED_HASH}
           params={{ publicId: props.publicId }}
+          // Starts the feed over at the top: only on a click, never on a
+          // preload while it's in view above a linked feed.
+          preload={false}
           search={{}}
           to="/baby/$publicId"
         >
@@ -1772,6 +1775,8 @@ function UnavailableLinkNotice(props: { publicId: string }) {
         aria-label={t("Dismiss notice")}
         className="-m-1 rounded-full p-1 text-muted-foreground hover:text-foreground"
         params={{ publicId: props.publicId }}
+        // Starts the feed over at the top: only on a click.
+        preload={false}
         resetScroll={false}
         search={{}}
         to="/baby/$publicId"

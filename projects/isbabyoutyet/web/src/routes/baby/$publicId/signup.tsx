@@ -8,7 +8,7 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 import { FormGuardProvider } from "@/components/Form";
 import { useI18n } from "@/lib/i18n";
-import { openOverlayLink, useBabySignupOverlay } from "@/lib/overlay-nav";
+import { keepFeedItem, openOverlayLink, useBabySignupOverlay } from "@/lib/overlay-nav";
 import { signUpThenGo } from "@/lib/auth-client";
 import { SignupCard } from "@/routes/auth/signup";
 
@@ -44,6 +44,7 @@ export function BabySignupOverlay() {
             signInLink={{
               ...openOverlayLink({
                 params: { publicId: params.publicId },
+                search: keepFeedItem,
                 to: "/baby/$publicId/login",
               }),
               replace: true,

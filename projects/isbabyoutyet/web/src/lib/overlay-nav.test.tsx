@@ -275,6 +275,23 @@ test("discarding a dirty overlay on a cold load replaces to the parent despite t
   expect(view.queryByRole("dialog")).toBeNull();
 });
 
+test("closing a cold-loaded overlay goes back to the linked feed it was over", async () => {
+  const history = createMemoryHistory({ initialEntries: ["/baby/baby-smith/post?item=k57linked"] });
+  const router = createPostOverlayRouter(history);
+  await router.load();
+  await using view = renderResource(<RouterProvider router={router} />);
+  await vi.waitFor(() => {
+    expect(view.getByRole("dialog")).toBeTruthy();
+  });
+
+  clickDialogBackdrop(view.baseElement);
+
+  await vi.waitFor(() => {
+    expect(router.state.location.pathname).toBe("/baby/baby-smith");
+  });
+  expect(router.state.location.search).toEqual({ item: "k57linked" });
+});
+
 /** jsdom `window.history`: `back()` fires `popstate`, where TanStack runs blockers. */
 function browserHistoryResource(initialPath: string) {
   window.history.replaceState(null, "", initialPath);

@@ -12,6 +12,7 @@ import { managerDocToBabyData } from "@/routes/baby/$publicId/route";
 import { Route } from "@/routes/baby/$publicId/_auth/settings";
 import { htmlButton } from "@/test/htmlElement";
 import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
+import { keepFeedItem } from "@/lib/overlay-nav";
 
 test("settings loader fetches only manager settings data", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
@@ -98,6 +99,7 @@ test("settings overlay closes to the baby page after the dialog exit animation",
       params: { publicId: baby.publicId },
       replace: true,
       resetScroll: false,
+      search: keepFeedItem,
       to: "/baby/$publicId",
     });
   });

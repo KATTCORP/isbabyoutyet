@@ -106,9 +106,9 @@ the cached pages while they start at `from` or show the item `from` names
 between items the page already shows (a highlighted link, back and forward)
 then reads nothing and keeps every page loaded, with no state beyond the URL.
 A router that preloads links runs loaders for links to other starts too, and
-that would start the pages on screen over: opt such a route out of preloading
-(TanStack Router's route `preload: false`), or load the entry with `prefetch`
-while preloading, which never drops pages.
+that would start the pages on screen over. Keep the start on links that lead
+back to the page, and don't preload the ones meant to start over; or load the
+entry with `prefetch` while preloading, which never drops pages.
 
 Read data in a loader from `load`'s second element (`const [, data] = await
 load(…)`). Effects that compose several reads (for example push-capability
