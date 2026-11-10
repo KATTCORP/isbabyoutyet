@@ -11,7 +11,7 @@ test("iOS notifications show group senders, 'ago' times and collapsed stacks", a
       <LockScreenNotificationsView platform="ios" />
     </LocaleProvider>,
   );
-  expect(screen.getAllByText("Grandma: Any news?? 👀")).toHaveLength(1);
+  expect(screen.getByText("Any news?? 👀")).toBeTruthy();
   expect(screen.getByText("18 more messages")).toBeTruthy();
   expect(screen.getByText("Your boss")).toBeTruthy();
   expect(screen.getByText("Baby shower crew")).toBeTruthy();
@@ -35,6 +35,42 @@ test("Android notifications use short times and count collapsed messages", async
   expect(screen.getByText("18 meddelanden till")).toBeTruthy();
   expect(screen.getByText("19")).toBeTruthy();
 });
+
+test("Android chats come from WhatsApp and Messenger, with Grandma on SMS", async () => {
+  await using view = renderResource(
+    <LocaleProvider locale="en-GB">
+      <LockScreenNotificationsView platform="android" />
+    </LocaleProvider>,
+  );
+  expect(appsShown(view.container)).toEqual([
+    "sms",
+    "messenger",
+    "whatsapp",
+    "whatsapp",
+    "messenger",
+  ]);
+});
+
+test("iPhone chats are mostly iMessage, with one WhatsApp group", async () => {
+  await using view = renderResource(
+    <LocaleProvider locale="en-GB">
+      <LockScreenNotificationsView platform="ios" />
+    </LocaleProvider>,
+  );
+  expect(appsShown(view.container)).toEqual([
+    "messages",
+    "messages",
+    "messages",
+    "whatsapp",
+    "messages",
+  ]);
+});
+
+function appsShown(container: HTMLElement) {
+  return [...container.querySelectorAll("[data-app]")].map((badge) =>
+    badge.getAttribute("data-app"),
+  );
+}
 
 test("the server renders iOS so the cached homepage is the same for every device", () => {
   const html = renderToString(
