@@ -273,8 +273,9 @@ export const create = mutationWithTriggers({
 
 /**
  * Soft-deletes a baby page. Only the owner (creator) can do this, and only
- * before the baby is born. Pending push notifications are cancelled; the baby
- * and feed rows stay recoverable, but the page's public IDs are released.
+ * before the baby is born. Pending push notifications are cancelled and the
+ * admins' new-baby alert is dismissed; the baby and feed rows stay
+ * recoverable, but the page's public IDs are released.
  */
 export const remove = mutationWithTriggers({
   args: { babyId: v.id("baby") },
@@ -303,6 +304,9 @@ export const remove = mutationWithTriggers({
     }
 
     await ctx.db.patch(args.babyId, softDeletePatch());
+    await ctx.scheduler.runAfter(0, internal.pushNotifications.dismissAdminNewBabyNotification, {
+      babyId: args.babyId,
+    });
   },
 });
 

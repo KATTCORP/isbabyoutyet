@@ -38,6 +38,16 @@ function ownerMessagePushTag(encouragementId: string) {
   return `encouragement-${encouragementId}`;
 }
 
+function adminNewBabyPushTag(babyId: string) {
+  return `admin-new-baby-${babyId}`;
+}
+
+function loadAdminRecipientsPage(ctx: ActionCtx, cursor: string | null) {
+  return ctx.runQuery(internal.adminPushSubscriptions.getRecipientsPage, {
+    paginationOpts: { cursor, numItems: 100 },
+  });
+}
+
 type PushSubscriptionKeys = {
   auth: string;
   endpoint: string;
@@ -260,6 +270,10 @@ export const dismissOwnerMessageNotification = internalAction({
 /**
  * Scheduled by `baby.create`: tell every admin device about the new baby page.
  * Expired endpoints (404/410) are pruned by `sendNotificationToSubscription`.
+ *
+ * The link uses the Convex id, not the slug: the baby route resolves an id and
+ * redirects to the current public ID, so the alert still opens the page after
+ * a rename or a staff transfer moves its slug.
  */
 export const notifyAdminsOfNewBaby = internalAction({
   args: {
@@ -273,10 +287,7 @@ export const notifyAdminsOfNewBaby = internalAction({
       return;
     }
     await sendPayloadToSubscriptionPages(ctx, {
-      loadPage: (cursor) =>
-        ctx.runQuery(internal.adminPushSubscriptions.getRecipientsPage, {
-          paginationOpts: { cursor, numItems: 100 },
-        }),
+      loadPage: (cursor) => loadAdminRecipientsPage(ctx, cursor),
       payload: (recipient) => {
         const copy = getAdminNewBabyPushMessage({ babyName: baby.name, locale: recipient.locale });
         return {
@@ -284,11 +295,27 @@ export const notifyAdminsOfNewBaby = internalAction({
           dismiss: false,
           icon: "/logo192.png",
           image: undefined,
-          tag: `admin-new-baby-${args.babyId}`,
+          tag: adminNewBabyPushTag(args.babyId),
           title: copy.title,
-          url: babyPageUrl(baby.publicId),
+          url: babyPageUrl(args.babyId),
         };
       },
+    });
+  },
+});
+
+/** Scheduled by `baby.remove`: close the new-baby alert on every admin device. */
+export const dismissAdminNewBabyNotification = internalAction({
+  args: {
+    babyId: v.id("baby"),
+  },
+  handler: async (ctx, args) => {
+    await sendPayloadToSubscriptionPages(ctx, {
+      loadPage: (cursor) => loadAdminRecipientsPage(ctx, cursor),
+      payload: () => ({
+        dismiss: true,
+        tag: adminNewBabyPushTag(args.babyId),
+      }),
     });
   },
 });

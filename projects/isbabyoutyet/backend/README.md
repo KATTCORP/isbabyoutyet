@@ -40,8 +40,11 @@ seed makes `test@example.com` an admin. `requireAdmin`
 the **New baby alerts** switch in dashboard settings. Each device an admin
 turns on gets a push for every baby page created through `baby.create`
 ([`adminPushSubscriptions.ts`](convex/adminPushSubscriptions.ts)). Seeded and
-homepage-demo babies don't trigger it. Admin status is checked again at send
-time, so a demoted admin's devices stop receiving alerts.
+homepage-demo babies don't trigger it. The alert links to `/baby/{babyId}`,
+which redirects to the current public ID, so it survives renames and slug
+transfers. Deleting the page (`baby.remove`) sends a dismiss push that closes
+the alert. Admin status is checked again at send time, so a demoted admin's
+devices stop receiving alerts.
 
 ## Demo seed
 

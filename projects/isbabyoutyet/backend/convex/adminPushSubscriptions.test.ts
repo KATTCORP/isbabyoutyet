@@ -1,6 +1,7 @@
 import { convexTest } from "convex-test";
 import { expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
+import { babyPageUrl } from "../src/babyFeedUrl";
 import schema from "./schema";
 import { makeResource } from "./test.resource";
 import { createBabyArgs, modules, registerComponents } from "./test.setup";
@@ -158,8 +159,54 @@ test("a baby page deleted before the push runs notifies no one", async () => {
   expect(
     await t.query(internal.adminPushSubscriptions.getNewBaby, { babyId: created.babyId }),
   ).toBeNull();
-  await t.finishAllScheduledFunctions(() => {});
+  // Run only the new-baby push: `remove` also schedules the dismiss, which does send.
+  await t.action(internal.pushNotifications.notifyAdminsOfNewBaby, { babyId: created.babyId });
   expect(logs.log).not.toHaveBeenCalledWith(expect.stringContaining("Sent notifications"));
+});
+
+test("deleting a baby page dismisses the new-baby alert on admin devices", async () => {
+  await using logs = captureSendSummaryLog();
+  const t = await setup();
+  const asAlex = await signIn(t, { isAdmin: true, subject: "alex" });
+  await asAlex.mutation(api.adminPushSubscriptions.subscribe, {
+    ...deviceKeys("https://push.example/alex"),
+    userAgent: USER_AGENT,
+  });
+  const asParent = await signIn(t, { isAdmin: false, subject: "parent" });
+  const created = await asParent.mutation(
+    api.baby.create,
+    createBabyArgs({ dueDate: "2026-12-01", name: "Baby Nova" }),
+  );
+  await t.finishAllScheduledFunctions(() => {});
+  logs.log.mockClear();
+
+  await asParent.mutation(api.baby.remove, { babyId: created.babyId });
+  const scheduled = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
+  expect(scheduled).toContainEqual(
+    expect.objectContaining({
+      args: [{ babyId: created.babyId }],
+      name: "pushNotifications:dismissAdminNewBabyNotification",
+    }),
+  );
+
+  await t.finishAllScheduledFunctions(() => {});
+  expect(logs.log).toHaveBeenCalledWith("Sent notifications: 0 succeeded, 1 failed");
+});
+
+test("the alert links by baby id, which still finds the page after a rename", async () => {
+  const t = await setup();
+  const asParent = await signIn(t, { isAdmin: false, subject: "parent" });
+  const created = await asParent.mutation(
+    api.baby.create,
+    createBabyArgs({ dueDate: "2026-12-01", name: "Baby Nova" }),
+  );
+  await asParent.mutation(api.baby.update, { id: created.babyId, patch: { name: "Luna" } });
+
+  expect(babyPageUrl(created.babyId)).toBe(`/baby/${created.babyId}`);
+  expect(await t.query(api.baby.getByPublicId, { id: created.babyId })).toMatchObject({
+    name: "Luna",
+    publicId: "luna",
+  });
 });
 
 test("an expired endpoint is pruned from admin subscriptions too", async () => {

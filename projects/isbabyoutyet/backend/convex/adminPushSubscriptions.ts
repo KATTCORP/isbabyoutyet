@@ -124,7 +124,7 @@ export const getRecipientsPage = internalQuery({
   ),
 });
 
-/** The new baby page an admin push links to, or `null` once it is deleted. */
+/** The new baby page an admin push names, or `null` once it is deleted. */
 export const getNewBaby = internalQuery({
   args: {
     babyId: v.id("baby"),
@@ -134,7 +134,7 @@ export const getNewBaby = internalQuery({
     if (!baby || !isActive(baby)) {
       return null;
     }
-    return { name: baby.name, publicId: baby.publicId };
+    return { name: baby.name };
   },
-  returns: v.union(v.object({ name: v.string(), publicId: v.string() }), v.null()),
+  returns: v.union(v.object({ name: v.string() }), v.null()),
 });
