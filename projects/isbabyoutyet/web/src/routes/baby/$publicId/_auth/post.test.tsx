@@ -8,7 +8,6 @@ import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 import { runRouteLoader } from "@/test/routeTestContext";
 import { convexQuery } from "@workspace/convex-query";
 import { Route } from "@/routes/baby/$publicId/_auth/post";
-import { keepFeedItem } from "@/lib/overlay-nav";
 
 test("post loader fetches manager access data", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
@@ -56,7 +55,6 @@ test("post overlay closes to the baby page after dismiss", async () => {
       params: { publicId: baby.publicId },
       replace: true,
       resetScroll: false,
-      search: keepFeedItem,
       to: "/baby/$publicId",
     });
   });
@@ -107,7 +105,6 @@ test("post overlay asks to discard a dirty composer before closing", async () =>
       params: { publicId: baby.publicId },
       replace: true,
       resetScroll: false,
-      search: keepFeedItem,
       to: "/baby/$publicId",
     });
   });
@@ -228,7 +225,6 @@ test("signed-in visitors without manager access see the forbidden dialog", async
       params: { publicId: baby.publicId },
       replace: true,
       resetScroll: false,
-      search: keepFeedItem,
       to: "/baby/$publicId",
     });
   });

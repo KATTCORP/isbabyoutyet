@@ -1751,7 +1751,7 @@ function NewerItemsDivider(props: {
           // Starts the feed over at the top: only on a click, never on a
           // preload while it's in view above a linked feed.
           preload={false}
-          search={{}}
+          search={{ item: undefined }}
           to="/baby/$publicId"
         >
           {t("Jump to latest")}
@@ -1778,7 +1778,7 @@ function UnavailableLinkNotice(props: { publicId: string }) {
         // Starts the feed over at the top: only on a click.
         preload={false}
         resetScroll={false}
-        search={{}}
+        search={{ item: undefined }}
         to="/baby/$publicId"
       >
         <XIcon aria-hidden="true" className="size-4" />

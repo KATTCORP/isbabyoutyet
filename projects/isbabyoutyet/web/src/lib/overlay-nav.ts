@@ -292,22 +292,10 @@ export function useDashboardSettingsOverlayLinks() {
   return useRouteOverlayLinks(dashboardSettingsOverlay());
 }
 
-/**
- * Search for a link over or back to the baby page: its `?item=`, kept. The
- * router preloads links in view, and a preload of one without `?item=` would
- * load the baby page's feed from the top and start a linked feed over under
- * the reader. Kept, opening or closing an overlay leaves the feed as it is.
- *
- * @public
- */
-export function keepFeedItem(prev: Partial<{ item: string }>) {
-  return { item: prev.item };
-}
-
 function babySettingsOverlay(publicId: string): OverlaySpec {
   return {
-    close: { params: { publicId }, search: keepFeedItem, to: "/baby/$publicId" },
-    open: { params: { publicId }, search: keepFeedItem, to: "/baby/$publicId/settings" },
+    close: { params: { publicId }, to: "/baby/$publicId" },
+    open: { params: { publicId }, to: "/baby/$publicId/settings" },
   };
 }
 
@@ -321,8 +309,8 @@ export function useBabySettingsOverlayLinks(publicId: string) {
 
 function babyPostOverlay(publicId: string): OverlaySpec {
   return {
-    close: { params: { publicId }, search: keepFeedItem, to: "/baby/$publicId" },
-    open: { params: { publicId }, search: keepFeedItem, to: "/baby/$publicId/post" },
+    close: { params: { publicId }, to: "/baby/$publicId" },
+    open: { params: { publicId }, to: "/baby/$publicId/post" },
   };
 }
 
@@ -336,8 +324,8 @@ export function useBabyPostOverlayLinks(publicId: string) {
 
 function babyShareOverlay(publicId: string): OverlaySpec {
   return {
-    close: { params: { publicId }, search: keepFeedItem, to: "/baby/$publicId" },
-    open: { params: { publicId }, search: keepFeedItem, to: "/baby/$publicId/share" },
+    close: { params: { publicId }, to: "/baby/$publicId" },
+    open: { params: { publicId }, to: "/baby/$publicId/share" },
   };
 }
 
@@ -351,8 +339,8 @@ export function useBabyShareOverlayLinks(publicId: string) {
 
 function babyLoginOverlay(publicId: string): OverlaySpec {
   return {
-    close: { params: { publicId }, search: keepFeedItem, to: "/baby/$publicId" },
-    open: { params: { publicId }, search: keepFeedItem, to: "/baby/$publicId/login" },
+    close: { params: { publicId }, to: "/baby/$publicId" },
+    open: { params: { publicId }, to: "/baby/$publicId/login" },
   };
 }
 
@@ -366,8 +354,8 @@ export function useBabyLoginOverlayLinks(publicId: string) {
 
 function babySignupOverlay(publicId: string): OverlaySpec {
   return {
-    close: { params: { publicId }, search: keepFeedItem, to: "/baby/$publicId" },
-    open: { params: { publicId }, search: keepFeedItem, to: "/baby/$publicId/signup" },
+    close: { params: { publicId }, to: "/baby/$publicId" },
+    open: { params: { publicId }, to: "/baby/$publicId/signup" },
   };
 }
 
@@ -381,8 +369,8 @@ export function useBabySignupOverlayLinks(publicId: string) {
 
 function babyPhotoOverlay(publicId: string): OverlaySpec {
   return {
-    close: { params: { publicId }, search: keepFeedItem, to: "/baby/$publicId" },
-    open: { params: { publicId }, search: keepFeedItem, to: "/baby/$publicId/photo" },
+    close: { params: { publicId }, to: "/baby/$publicId" },
+    open: { params: { publicId }, to: "/baby/$publicId/photo" },
   };
 }
 
@@ -396,10 +384,9 @@ export function useBabyPhotoOverlayLinks(publicId: string) {
 
 function babyUpdatePhotoOverlay(opts: { publicId: string; updateId: string }): OverlaySpec {
   return {
-    close: { params: { publicId: opts.publicId }, search: keepFeedItem, to: "/baby/$publicId" },
+    close: { params: { publicId: opts.publicId }, to: "/baby/$publicId" },
     open: {
       params: { publicId: opts.publicId, updateId: opts.updateId },
-      search: keepFeedItem,
       to: "/baby/$publicId/updates/$updateId/photo",
     },
   };

@@ -1114,6 +1114,69 @@ test("opening an overlay over a linked feed keeps the feed under it", async () =
   expect(ctx.view.queryByText("Message 13")).toBeNull();
 });
 
+test("closing an overlay the page was opened at goes back to the linked feed", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
+  const itemId = seeded.itemId("Message 10");
+  // No overlay history to go back to: closing navigates to the page.
+  await using ctx = await renderBabyPageWithPreloads(
+    harness,
+    `/baby/${seeded.publicId}/share?item=${itemId}`,
+  );
+  await vi.waitFor(() => {
+    expect(ctx.view.getByRole("dialog")).toBeTruthy();
+  });
+
+  fireEvent.keyDown(ctx.view.getByRole("dialog"), { key: "Escape" });
+
+  await vi.waitFor(() => {
+    expect(ctx.router.state.location.pathname).toBe(`/baby/${seeded.publicId}`);
+  });
+  expect(ctx.router.state.location.search).toEqual({ item: itemId });
+  await vi.waitFor(() => {
+    expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 10"));
+  });
+});
+
+test("Jump to latest leaves the linked feed for the latest one", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
+  const itemId = seeded.itemId("Message 10");
+  await using ctx = await renderBabyPageWithPreloads(
+    harness,
+    `/baby/${seeded.publicId}?item=${itemId}`,
+  );
+
+  fireEvent.click(await ctx.view.findByRole("link", { name: "Jump to latest" }));
+
+  await vi.waitFor(() => {
+    expect(ctx.router.state.location.search).toEqual({});
+  });
+  await ctx.view.findByText(`Message ${TIMELINE_PAGE_SIZE + 2}`);
+  expect(highlightedRow(ctx.view)).toBeNull();
+});
+
+test("dismissing a removed item's notice leaves for the latest feed", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
+  const itemId = seeded.itemId("Message 10");
+  await harness.t.run(async (ctx) => {
+    await ctx.db.patch(itemId, { deletedAt: Date.now() });
+  });
+  await using ctx = await renderBabyPageWithPreloads(
+    harness,
+    `/baby/${seeded.publicId}?item=${itemId}`,
+  );
+
+  fireEvent.click(await ctx.view.findByRole("link", { name: "Dismiss notice" }));
+
+  await vi.waitFor(() => {
+    expect(ctx.router.state.location.search).toEqual({});
+  });
+  await ctx.view.findByText(`Message ${TIMELINE_PAGE_SIZE + 2}`);
+  expect(ctx.view.queryByText("That update or message isn't here any more.")).toBeNull();
+});
+
 test("navigating to an item the feed hasn't loaded opens the feed at it", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });

@@ -10,7 +10,7 @@ import { z } from "zod";
 import { overlayLoginSuccessTarget } from "@/lib/baby-login-redirect";
 import { hasDemoLogin } from "@/lib/has-demo-login";
 import { useI18n } from "@/lib/i18n";
-import { keepFeedItem, openOverlayLink, useBabyLoginOverlay } from "@/lib/overlay-nav";
+import { openOverlayLink, useBabyLoginOverlay } from "@/lib/overlay-nav";
 import { signInThenGo } from "@/lib/auth-client";
 import { LoginCard } from "@/routes/auth/login";
 
@@ -51,7 +51,6 @@ export function BabyLoginOverlay() {
           signUpLink={{
             ...openOverlayLink({
               params: { publicId: params.publicId },
-              search: keepFeedItem,
               to: "/baby/$publicId/signup",
             }),
             replace: true,
