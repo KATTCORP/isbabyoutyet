@@ -6,7 +6,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { homepageDemoBabyFor } from "@isbabyoutyet/backend/src/seedCredentials";
 import { Button } from "@workspace/ui/components/button";
 import { GroupChatVersusLink } from "@/components/home/group-chat";
-import { ThemeGallery, ThemeStage } from "@/components/home/theme-stage";
+import { ThemeGallery, ThemeStage, useHomeStage } from "@/components/home/theme-stage";
 import { LanguagePicker } from "@/components/language-picker";
 import { homepageCacheHeaders } from "@/lib/cachePolicy";
 import { splitMessageList, translate, useI18n } from "@/lib/i18n";
@@ -15,8 +15,6 @@ import { setLocale } from "@/lib/paraglide-setup";
 import { searchRobotsMeta } from "@/lib/robots";
 import { homepageOgImagePath, openGraphImageMeta } from "@/lib/seo";
 import { absoluteUrl, canonicalUrl } from "@/lib/site-url";
-import { useRotatingIndex } from "@/lib/use-delayed-action";
-import { useMeasuredWidth } from "@/lib/use-measured-width";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -99,51 +97,67 @@ function heroHeadlineFromCatalog(t: (key: TranslationKey) => string) {
   };
 }
 
-const NAME_ROTATE_INTERVAL_MS = 2400;
-function RotatingBabyName(props: { words: ReadonlyArray<string> }) {
-  const indices = useRotatingIndex({
-    intervalMs: NAME_ROTATE_INTERVAL_MS,
-    itemCount: props.words.length,
-  });
-  const [measureCurrentWord, width] = useMeasuredWidth();
-  const currentWord = props.words[indices.current] ?? "";
-
+/**
+ * The rotating name in the hero headline. Every name is laid out in the same
+ * grid cell (only the current one visible), so the slot is always as wide as
+ * the longest name and nothing around it reflows. The pill hugs the current
+ * name: left-aligned in the slot when the headline is left-aligned, centred
+ * when it is centred. Driven by the stage's beat, so it changes together
+ * with the stage instead of on a clock of its own.
+ */
+function RotatingBabyName(props: { index: number; words: ReadonlyArray<string> }) {
+  const current = props.words.length === 0 ? 0 : props.index % props.words.length;
   return (
     <span
       aria-hidden="true"
-      className="relative inline-block whitespace-nowrap [clip-path:inset(0)] transition-[width] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none"
-      style={width === null ? undefined : { width }}
+      className="inline-grid justify-items-center whitespace-nowrap [clip-path:inset(-0.1em_-0.2em)] md:justify-items-start"
     >
-      {/*
-        Keep the current word in normal flow so it shares the alphabetic
-        baseline with "Är" / "ute än?". `overflow: hidden` on this inline-block
-        would pin the baseline to the bottom edge and lift the name. Clip only
-        the outgoing word on an absolute overlay.
-      */}
-      {indices.previous !== null ? (
-        <span className="pointer-events-none absolute inset-0 overflow-hidden">
+      {props.words.map((word, wordIndex) => (
+        <span
+          className={`relative px-[0.22em] text-primary [grid-area:1/1] ${
+            wordIndex === current ? "visible" : "invisible"
+          }`}
+          key={wordIndex === current ? `current-${props.index}` : word}
+        >
           <span
-            className="hero-word-out absolute left-0 top-0"
-            key={`out-${indices.previous}-${indices.current}`}
-          >
-            {props.words[indices.previous]}
+            aria-hidden="true"
+            className="absolute inset-0 -rotate-1 rounded-3xl bg-primary/15"
+          />
+          {/*
+            Skip `hero-word-in` on the first paint: it starts at opacity 0, so
+            a slow hydration would flash the name away and back.
+          */}
+          <span className={`relative inline-block ${props.index === 0 ? "" : "hero-word-in"}`}>
+            {word}
           </span>
         </span>
-      ) : null}
-      {/*
-        Skip `hero-word-in` on the first paint. That animation starts at
-        opacity 0, so a slow hydration would flash the name away and back.
-        Rotations still animate once `previous` is set.
-      */}
-      <span
-        className={indices.previous === null ? "inline-block" : "hero-word-in inline-block"}
-        key={`in-${indices.current}`}
-        ref={measureCurrentWord}
-      >
-        {currentWord}
-      </span>
+      ))}
     </span>
   );
+}
+
+/** Container-relative font size that fits `chars` characters on one line. */
+function fitLine(chars: number) {
+  // Nunito Black averages about 0.62em per character; the name pill's
+  // padding and the word gap add about one em.
+  return 100 / (chars * 0.62 + 1);
+}
+
+/**
+ * Lay the headline out so its longest line stays on one line in its column.
+ * Short lead-ins ("Is", "Är") share the name's line; a long one ("¿Ya nació")
+ * gets its own line when that lets the headline be noticeably bigger.
+ */
+function heroHeadlineLayout(headline: ReturnType<typeof heroHeadlineFromCatalog>) {
+  const longestWord = Math.max(...headline.words.map((word) => [...word].length), 0);
+  const before = [...headline.before].length;
+  const after = [...headline.after].length;
+  const inline = fitLine(Math.max(before + 1 + longestWord, after));
+  const stacked = fitLine(Math.max(before, longestWord, after));
+  // A one-word lead-in ("Är") alone on a line reads oddly, so only stack long ones.
+  const stackBefore = before >= 5 && inline < stacked * 0.8;
+  const fit = stackBefore ? stacked : inline;
+  return { fontSize: `min(4.5rem, ${fit.toFixed(2)}cqi)`, stackBefore };
 }
 
 const FEATURES = [
@@ -233,6 +247,10 @@ export function HomePageView(props: { isSignedIn: boolean }) {
     .join(" ");
   const isSignedIn = props.isSignedIn;
   const demoFirstName = demoBaby.name.split(" ")[0] ?? demoBaby.name;
+  const stage = useHomeStage();
+  // The headline and the live page show the same name, on the same beat.
+  const heroName = headline.words[stage.beat % Math.max(headline.words.length, 1)] ?? demoFirstName;
+  const headlineLayout = heroHeadlineLayout(headline);
 
   return (
     <div className="min-h-screen bg-background bg-dots">
@@ -285,26 +303,28 @@ export function HomePageView(props: { isSignedIn: boolean }) {
       <main className="mx-auto max-w-5xl px-6">
         {/* Hero: pitch on the left, a live baby page playing through every theme on the right */}
         <section className="grid items-center gap-14 py-12 md:grid-cols-[1.05fr_1fr] md:py-20">
-          <div className="text-center md:text-left">
+          <div className="@container text-center md:text-left">
             <span className="inline-block -rotate-2 rounded-full border-2 border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-extrabold text-primary pop-shadow">
               ✨ {t("Free forever, no ads")}
             </span>
             <h1
               aria-label={heroAccessibleName}
-              className="mt-8 flex flex-col items-center gap-y-1 text-5xl font-black tracking-tight text-foreground md:items-start md:text-6xl lg:text-7xl"
+              className="mt-8 flex flex-col items-center gap-y-1 font-black tracking-tight text-foreground md:items-start"
+              style={{ fontSize: headlineLayout.fontSize }}
             >
+              {headlineLayout.stackBefore ? (
+                <span aria-hidden="true" className="whitespace-nowrap">
+                  {headline.before}
+                </span>
+              ) : null}
               <span
                 aria-hidden="true"
                 className="inline-flex max-w-full flex-wrap items-baseline justify-center gap-x-[0.25em] whitespace-nowrap"
               >
-                {headline.before === "" ? null : <span>{headline.before}</span>}
-                <span className="relative inline-flex items-baseline px-4 text-primary">
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-0 -rotate-1 rounded-3xl bg-primary/15"
-                  />
-                  <RotatingBabyName words={headline.words} />
-                </span>
+                {headline.before === "" || headlineLayout.stackBefore ? null : (
+                  <span>{headline.before}</span>
+                )}
+                <RotatingBabyName index={stage.beat} words={headline.words} />
               </span>
               <span aria-hidden="true" className="whitespace-nowrap">
                 {headline.after}
@@ -359,7 +379,7 @@ export function HomePageView(props: { isSignedIn: boolean }) {
               </Button>
             </div>
           </div>
-          <ThemeStage babyName={demoFirstName} />
+          <ThemeStage babyName={heroName} control={stage} />
         </section>
 
         {/* The problem, and the fix */}

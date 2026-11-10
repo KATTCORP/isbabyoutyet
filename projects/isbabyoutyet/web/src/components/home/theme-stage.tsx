@@ -12,7 +12,12 @@ import { useThemeStage } from "@/lib/use-theme-stage";
 
 /** Matches the homepage's SSR snapshot so stage dates hydrate identically. */
 const SERVER_DATE_SNAPSHOT = "2026-01-01T10:30:00.000Z";
-const AUTOPLAY_INTERVAL_MS = 3200;
+/**
+ * The hero's beat: the headline name changes every beat, and the stage moves
+ * one step every two beats (4.8s), slow enough to read each step.
+ */
+const BEAT_MS = 2400;
+const STEP_EVERY_BEATS = 2;
 
 type ThemeValue = (typeof THEME_OPTIONS)[number]["value"];
 
@@ -150,21 +155,27 @@ function StageStep(props: {
  * The homepage hero: a real (mini) baby page that plays through the journey
  * and re-skins itself through every theme, until the visitor takes over.
  */
-export function ThemeStage(props: { babyName: string }) {
-  const { t } = useI18n();
-  const now = useClientDate({ serverSnapshot: SERVER_DATE_SNAPSHOT });
-  const { announced, pickStage, pickTheme, stageIndex, themeIndex } = useThemeStage({
-    intervalMs: AUTOPLAY_INTERVAL_MS,
+/** The hero's one clock: stage steps, themes, and the headline name share it. */
+export function useHomeStage() {
+  return useThemeStage({
+    intervalMs: BEAT_MS,
     stageCount: STAGES.length,
+    stepEveryBeats: STEP_EVERY_BEATS,
     themeCount: THEME_OPTIONS.length,
   });
+}
+
+export function ThemeStage(props: { babyName: string; control: ReturnType<typeof useHomeStage> }) {
+  const { t } = useI18n();
+  const now = useClientDate({ serverSnapshot: SERVER_DATE_SNAPSHOT });
+  const { announced, pickStage, pickTheme, stageIndex, themeIndex } = props.control;
 
   const stage = STAGES[stageIndex] ?? STAGES[0];
   const theme = THEME_OPTIONS[themeIndex] ?? THEME_OPTIONS[0];
 
   return (
-    <div className="mx-auto w-full max-w-[25rem] lg:flex lg:max-w-none lg:items-center lg:justify-center lg:gap-6">
-      <div className="relative mx-auto w-full max-w-[25rem] lg:mx-0">
+    <div className="mx-auto w-full max-w-[25rem]">
+      <div className="relative">
         {announced > 0 && stage.type !== "not_yet" ? (
           <div
             aria-live="polite"
@@ -207,7 +218,8 @@ export function ThemeStage(props: { babyName: string }) {
               {t(theme.labelKey)}
             </span>
           </div>
-          <p className="px-2 pt-5 pb-4 text-center text-2xl font-black tracking-tight text-foreground text-balance">
+          {/* One line whatever the name, so the stage never changes height. */}
+          <p className="truncate px-2 pt-5 pb-4 text-center text-2xl font-black tracking-tight whitespace-nowrap text-foreground">
             {t("Is {{name}} out yet?", { name: props.babyName })}
           </p>
           {/*
@@ -234,16 +246,25 @@ export function ThemeStage(props: { babyName: string }) {
         </div>
       </div>
 
-      {/* Below lg: two compact rows under the stage. From lg: a rail beside it. */}
-      <div className="mt-5 flex flex-col items-center gap-3 lg:mt-0 lg:w-40 lg:items-stretch">
-        <div className="flex justify-center gap-2 lg:flex-col">
+      {/*
+        Compact controls: a stepper of emoji dots (the stage already shows the
+        status in words, so labels live in tooltips and accessible names) and
+        the theme swatches, in two short rows under the stage.
+      */}
+      <div className="mt-5 flex flex-col items-center gap-4">
+        <div className="relative flex items-center gap-3">
+          <span
+            aria-hidden="true"
+            className="absolute top-1/2 right-4 left-4 h-0.5 -translate-y-1/2 bg-border"
+          />
           {STAGES.map((option, index) => (
             <button
+              aria-label={t(option.labelKey)}
               aria-pressed={index === stageIndex}
-              className={`flex items-center justify-center gap-2 rounded-full border-2 px-3 py-1.5 text-sm font-extrabold transition-transform hover:-rotate-2 lg:justify-start ${
+              className={`relative flex h-11 w-11 items-center justify-center rounded-full border-2 text-lg transition-[transform,background-color,border-color] duration-300 hover:scale-110 ${
                 index === stageIndex
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-foreground"
+                  ? "scale-110 border-primary bg-primary shadow-md"
+                  : "border-border bg-card"
               }`}
               key={option.type}
               onClick={() => {
@@ -253,21 +274,16 @@ export function ThemeStage(props: { babyName: string }) {
               type="button"
             >
               <span aria-hidden="true">{option.emoji}</span>
-              <span className="sr-only lg:not-sr-only">{t(option.labelKey)}</span>
             </button>
           ))}
         </div>
-        <div
-          aria-label={t("Pick a theme")}
-          className="flex justify-center gap-2 lg:grid lg:grid-cols-4 lg:justify-items-center"
-          role="group"
-        >
+        <div aria-label={t("Pick a theme")} className="flex justify-center gap-2" role="group">
           {THEME_OPTIONS.map((option, index) => (
             <button
               aria-label={t(option.labelKey)}
               aria-pressed={index === themeIndex}
-              className={`h-8 w-8 overflow-hidden rounded-full border-2 transition-transform hover:scale-110 ${
-                index === themeIndex ? "border-foreground scale-110" : "border-border"
+              className={`h-7 w-7 overflow-hidden rounded-full border-2 transition-transform duration-300 hover:scale-110 ${
+                index === themeIndex ? "scale-110 border-foreground" : "border-border"
               }`}
               key={themeKey(option.value)}
               onClick={() => {
