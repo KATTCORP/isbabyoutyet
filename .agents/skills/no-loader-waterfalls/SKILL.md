@@ -31,7 +31,7 @@ loader: async (opts) => {
 };
 ```
 
-Build factories inline with `convexQuery(api.x.y)` / `convexPaginatedQuery(api.x.y)` from `@workspace/convex-query`; every call for one function returns the same factory and entries are keyed by function name and args, so there is no registry. When the loader itself needs a value (404, redirect), read it from `load`'s data (`const [, data] = await load(…)`), or with `getData(queryClient, factory, input)` once an earlier `load` has it. A load that must run alongside another kind of work (`loadTimelineFeed`) goes in one `Promise.all` with it.
+Build factories inline with `convexQuery(api.x.y)` / `convexPaginatedQuery(api.x.y)` from `@workspace/convex-query`; every call for one function returns the same factory and entries are keyed by function name and args, so there is no registry. When the loader itself needs a value (404, redirect), read it from `load`'s data (`const [, data] = await load(…)`), or with `getData(queryClient, factory, input)` once an earlier `load` has it. When what an entry reads depends on the URL (`?item=`), put that in its input and let the backend query branch, rather than choosing between entries in the loader: `timeline: swr(timelineQuery, timelineInput({ itemId, publicId }))`, where `timeline:listFeed` reads the latest feed for `itemId: null` and for a link that doesn't resolve. A choice that would need another read's result belongs in the backend the same way.
 
 Reference: [`projects/isbabyoutyet/web/src/routes/baby/$publicId/route.tsx`](../../../projects/isbabyoutyet/web/src/routes/baby/$publicId/route.tsx).
 

@@ -32,7 +32,6 @@ import { cn } from "@workspace/ui/lib/utils";
 import { useMutation } from "convex/react";
 import type { QueryHandle } from "@raf-query/react";
 import { useInfiniteQuery, useQuery } from "@raf-query/react";
-import { convexPaginatedQuery, convexQuery } from "@workspace/convex-query";
 import {
   ArrowUpIcon,
   BellRingingIcon,
@@ -89,8 +88,8 @@ import { useObjectUrl } from "@/lib/use-object-url";
 import { useBabyUpdatePhotoOverlayLinks } from "@/lib/overlay-nav";
 import { BlurImage } from "@/components/blur-image";
 import { keepScrollAnchor } from "@/lib/keep-scroll-anchor";
-import type { TimelineFeedAnchor, TimelineFeedLoad } from "@/lib/timeline-feed";
-import { followedFromFeed, linkedTimelineQuery, TIMELINE_PAGE_SIZE } from "@/lib/timeline-feed";
+import type { TimelineFeedAnchor } from "@/lib/timeline-feed";
+import { followedFromFeed, TIMELINE_PAGE_SIZE, timelineQuery } from "@/lib/timeline-feed";
 import { BABY_FEED_HASH, feedItemDomId } from "@isbabyoutyet/backend/src/babyFeedUrl";
 import { MILESTONE_LABEL_KEYS } from "./translation-keys";
 
@@ -104,7 +103,7 @@ const TIMELINE_ITEM_TRANSITION = { damping: 32, stiffness: 420, type: "spring" }
 /** Start the next page about half a phone screen before the skeleton scrolls in. */
 const TIMELINE_PRELOAD_MARGIN = "0px 0px 400px 0px";
 
-type TimelineItemData = FunctionReturnType<typeof api.timeline.listByBaby>["page"][number];
+type TimelineItemData = FunctionReturnType<typeof api.timeline.listFeed>["page"][number];
 type UpdateItemData = Extract<TimelineItemData, { kind: "update" }>;
 type EncouragementItemData = Extract<TimelineItemData, { kind: "encouragement" }>;
 
@@ -1368,19 +1367,18 @@ function EncouragementTimelineItem(props: EncouragementTimelineItemProps) {
 
 // --- Feed ---
 
-type LatestTimelineFeedLoad = Extract<TimelineFeedLoad, { kind: "latest" }>;
-type LinkedTimelineFeedLoad = Extract<TimelineFeedLoad, { kind: "linked" }>;
-
 type TimelineFeedProps = {
   baby: BabyData;
   babyName: string;
-  /**
-   * Prefetched by the route loader (SSR first page): the latest items, or
-   * the window around the item a link names.
-   */
-  feed: TimelineFeedLoad;
+  /** The item the URL names (`?item=`), wherever the feed starts. */
+  highlightedItemId: string | null;
   isOwner: boolean;
   publicId: string;
+  /**
+   * Prefetched by the route loader (SSR first page): the latest items, or
+   * the feed from the item a link names.
+   */
+  timeline: QueryHandle<typeof timelineQuery>;
   /** This browser's {@link visitorTagQuery}, started by the route loader. */
   visitorTag: QueryHandle<typeof visitorTagQuery>;
 };
@@ -1400,18 +1398,19 @@ type UpdateEncouragementFn = (
 
 /** Hooks into Convex, then delegates to the pure `TimelineFeedView`. */
 export function TimelineFeed(props: TimelineFeedProps) {
-  const feed = props.feed;
   // Keyed so following another link starts a fresh feed, live-insert
   // baseline included.
-  return feed.kind === "linked" ? (
-    <LinkedTimelineFeed {...props} feed={feed} key={feed.itemId} />
-  ) : (
-    <LatestTimelineFeed {...props} feed={feed} key="latest" />
-  );
+  return <TimelineFeedFrom {...props} key={props.timeline.input.args.itemId ?? "latest"} />;
 }
 
-/** The view props both feeds share: who's looking, and what they can do. */
-function useTimelineFeedViewBase(props: TimelineFeedProps) {
+/**
+ * The feed from the newest item, or from a linked one with the few items
+ * right above it for context. Older items load as the skeleton scrolls in;
+ * the other newer ones only on "Show more", so nothing above the item moves
+ * it. Live items newer than everything loaded only raise the divider's
+ * count, until the reader has caught up.
+ */
+function TimelineFeedFrom(props: TimelineFeedProps) {
   const currentVisitorId = useStoredVisitorId();
   // Pending on the server and until the browser hashes its visitor id; read
   // the status instead of `use` so the feed never suspends on it.
@@ -1420,92 +1419,52 @@ function useTimelineFeedViewBase(props: TimelineFeedProps) {
   const setAsCurrentPhoto = useMutation(api.updates.setAsCurrentPhoto);
   const removeEncouragement = useMutation(api.encouragements.remove);
   const updateEncouragement = useMutation(api.encouragements.update);
-  return {
-    baby: props.baby,
-    babyName: props.babyName,
-    currentVisitorId,
-    currentVisitorTag: visitorTag.status === "fulfilled" ? visitorTag.value : null,
-    isOwner: props.isOwner,
-    publicId: props.publicId,
-    removeEncouragement,
-    removeUpdate,
-    setAsCurrentPhoto,
-    updateEncouragement,
-  };
-}
-
-const LATEST_TIMELINE_FEED = { kind: "latest" } satisfies TimelineFeedAnchor;
-
-function LatestTimelineFeed(props: TimelineFeedProps & { feed: LatestTimelineFeedLoad }) {
-  const base = useTimelineFeedViewBase(props);
-  const [timelineThenable, timelineQuery] = useInfiniteQuery(
-    convexPaginatedQuery(api.timeline.listByBaby),
-    props.feed.timeline,
-  );
+  const [timelineThenable, timelineState] = useInfiniteQuery(timelineQuery, props.timeline);
   const timeline = use(timelineThenable);
-  return (
-    <TimelineFeedView
-      {...base}
-      anchor={LATEST_TIMELINE_FEED}
-      fetchNextPage={timelineQuery.fetchNextPage}
-      hasNextPage={timelineQuery.hasNextPage}
-      highlightedItemId={props.feed.highlightedItemId}
-      isFetchingNextPage={timelineQuery.isFetchingNextPage}
-      items={timeline.pages.flatMap((page) => page.page)}
-      linkUnavailable={props.feed.linkUnavailable}
-      newer={null}
-    />
-  );
-}
-
-/**
- * The feed from a linked item down, with the few items right above it for
- * context. Older items load as the skeleton scrolls in, like the latest
- * feed; the other newer ones only on "Show more", so nothing above the item
- * moves it. Live items newer than everything loaded only raise the
- * divider's count, until the reader has caught up.
- */
-function LinkedTimelineFeed(props: TimelineFeedProps & { feed: LinkedTimelineFeedLoad }) {
-  const base = useTimelineFeedViewBase(props);
-  const [feedWindowThenable, windowQuery] = useInfiniteQuery(
-    linkedTimelineQuery,
-    props.feed.window,
-  );
-  const feedWindow = use(feedWindowThenable);
-  const [newerCountThenable] = useQuery(
-    convexQuery(api.timeline.countNewerThanItem),
-    props.feed.newerCount,
-  );
-  const newerCount = use(newerCountThenable);
-  const isNewerPage = (index: number) => feedWindow.pageParams[index]?.direction === "backward";
+  const isNewerPage = (index: number) => timeline.pageParams[index]?.direction === "backward";
+  // The first page read forward, after any newer pages, says whether the
+  // linked item is there and how many items are newer than the feed.
+  const firstPage = timeline.pages.find((_, index) => !isNewerPage(index));
+  const head = firstPage && "newerCount" in firstPage ? firstPage : null;
+  const linkUnavailable = head?.linkUnavailable ?? false;
   // Newer pages read up from the item; reversed, they read in feed order.
-  const items = feedWindow.pages.flatMap((page, index) =>
+  const items = timeline.pages.flatMap((page, index) =>
     isNewerPage(index) ? page.page.toReversed() : page.page,
   );
-  const newerShown = feedWindow.pages.flatMap((page, index) =>
+  const newerShown = timeline.pages.flatMap((page, index) =>
     isNewerPage(index) ? page.page : [],
   ).length;
+  const newerCount = head?.newerCount ?? { count: 0, more: false };
   const newerHidden = Math.max(0, newerCount.count - newerShown);
   return (
     <TimelineFeedView
-      {...base}
-      anchor={{ itemId: props.feed.itemId, kind: "linked" }}
-      fetchNextPage={windowQuery.fetchNextPage}
-      hasNextPage={windowQuery.hasNextPage}
-      highlightedItemId={props.feed.highlightedItemId}
-      isFetchingNextPage={windowQuery.isFetchingNextPage}
+      anchor={{ itemId: props.timeline.input.args.itemId }}
+      baby={props.baby}
+      babyName={props.babyName}
+      currentVisitorId={currentVisitorId}
+      currentVisitorTag={visitorTag.status === "fulfilled" ? visitorTag.value : null}
+      fetchNextPage={timelineState.fetchNextPage}
+      hasNextPage={timelineState.hasNextPage}
+      highlightedItemId={linkUnavailable ? null : props.highlightedItemId}
+      isFetchingNextPage={timelineState.isFetchingNextPage}
+      isOwner={props.isOwner}
       items={items}
-      linkUnavailable={false}
+      linkUnavailable={linkUnavailable}
       newer={
-        windowQuery.hasPreviousPage && newerHidden > 0
+        timelineState.hasPreviousPage && newerHidden > 0
           ? {
               count: newerHidden,
-              isFetching: windowQuery.isFetchingPreviousPage,
+              isFetching: timelineState.isFetchingPreviousPage,
               more: newerCount.more,
-              show: windowQuery.fetchPreviousPage,
+              show: timelineState.fetchPreviousPage,
             }
           : null
       }
+      publicId={props.publicId}
+      removeEncouragement={removeEncouragement}
+      removeUpdate={removeUpdate}
+      setAsCurrentPhoto={setAsCurrentPhoto}
+      updateEncouragement={updateEncouragement}
     />
   );
 }
@@ -1534,7 +1493,10 @@ type TimelineFeedViewProps = {
   isFetchingNextPage: boolean;
   isOwner: boolean;
   items: Array<TimelineItemData>;
-  /** A link named an item that isn't here, so this is the latest instead. */
+  /**
+   * A link named an item that isn't here: a removed one's place in the
+   * feed, or the latest items for one that never was.
+   */
   linkUnavailable: boolean;
   /** Above a linked item; null once everything newer is showing. */
   newer: NewerTimelineItems | null;
@@ -1670,7 +1632,7 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
                   key={item._id}
                   // Layout animations would slide every item down when newer
                   // ones load above the linked item, the jump this avoids.
-                  layout={props.anchor.kind === "linked" ? false : TIMELINE_ITEM_LAYOUT}
+                  layout={props.anchor.itemId === null ? TIMELINE_ITEM_LAYOUT : false}
                 >
                   <div
                     aria-current={isHighlighted ? "true" : undefined}
@@ -1818,7 +1780,7 @@ function UnavailableLinkNotice(props: { publicId: string }) {
     <div className="flex items-start gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/30 p-3 text-sm">
       <LinkBreakIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
       <p className="min-w-0 flex-1 font-medium text-foreground" role="status">
-        {t("That update or message isn't here any more, so here's the latest.")}
+        {t("That update or message isn't here any more.")}
       </p>
       <Link
         aria-label={t("Dismiss notice")}

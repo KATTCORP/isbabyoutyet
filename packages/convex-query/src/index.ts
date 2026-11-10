@@ -18,7 +18,6 @@ export {
   convexQuery,
   type ConvexQueryFactory,
   type ConvexQueryHandle,
-  loadBidirectionalPaginatedQuery,
   type PageDirection,
   type PaginatedQueryInput,
   type PaginatedQueryReference,

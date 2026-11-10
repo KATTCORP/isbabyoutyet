@@ -1,20 +1,11 @@
 import type {
   InfiniteData,
   InfiniteQueryOptions,
-  QueryClient,
   QueryHandle,
   QueryOptions,
   QueryOptionsBuilder,
 } from "@raf-query/react";
-import {
-  getData,
-  infiniteQueryOptions,
-  load,
-  queryOptions,
-  removeOne,
-  setData,
-  swr,
-} from "@raf-query/react";
+import { infiniteQueryOptions, queryOptions } from "@raf-query/react";
 import type {
   DefaultFunctionArgs,
   FunctionArgs,
@@ -248,8 +239,7 @@ type BidirectionalPage<
  * `fetchPreviousPage`, starting right before the first page and moving away
  * from it. raf-query prepends backward pages, so `pages` reads in feed order
  * as long as each backward page is reversed. Nothing loads backward until
- * `fetchPreviousPage` is called, unless the entry is loaded with
- * {@link loadBidirectionalPaginatedQuery}. Every page stays live through
+ * `fetchPreviousPage` is called. Every page stays live through
  * `convexLive`, pinned like {@link convexPaginatedQuery}'s.
  *
  * @example
@@ -378,78 +368,3 @@ export type ConvexBidirectionalPaginatedQueryHandle<
   TForward extends PaginatedQueryReference,
   TBackward extends PaginatedQueryReference,
 > = QueryHandle<ConvexBidirectionalPaginatedQueryFactory<TForward, TBackward>>;
-
-/**
- * `load(queryClient, { feed: swr(convexBidirectionalPaginatedQuery(queries), input) })`
- * for an entry that opens with a short first backward page already loaded:
- * the `previousNumItems` items right before its first page, read in the same
- * `load` as that page rather than after it, so a loader can show a little
- * context above the start without a waterfall. Later `fetchPreviousPage`s
- * load full `numItems` pages; refetches and `convexLive` treat the short page
- * like any other backward page. An entry that already has backward pages is
- * loaded as cached. Resolves with the entry's handle and data, like `load`.
- *
- * @example
- * // The linked item, with the two items above it.
- * const [feed, feedData] = await loadBidirectionalPaginatedQuery(queryClient, {
- *   input: { args: { babyId, itemId }, numItems: 20 },
- *   previousNumItems: 2,
- *   queries: { backward: api.timeline.listNewerThanItem, forward: api.timeline.listFromItem },
- * });
- */
-export async function loadBidirectionalPaginatedQuery<
-  TForward extends PaginatedQueryReference,
-  TBackward extends PaginatedQueryReference,
->(
-  queryClient: QueryClient,
-  opts: {
-    input: BidirectionalPaginatedQueryInput<TForward, TBackward>;
-    previousNumItems: number;
-    queries: BidirectionalPaginatedQueries<TForward, TBackward>;
-  },
-): Promise<
-  readonly [
-    ConvexBidirectionalPaginatedQueryHandle<TForward, TBackward>,
-    InfiniteData<BidirectionalPage<TForward, TBackward>, BidirectionalPageParam>,
-  ]
-> {
-  const factory = convexBidirectionalPaginatedQuery(opts.queries);
-  const loadAsCached = async () => {
-    const [handles, data] = await load(queryClient, { feed: swr(factory, opts.input) });
-    return [handles.feed, data.feed] as const;
-  };
-  if (getData(queryClient, factory, opts.input)?.pageParams[0]?.direction === "backward") {
-    return loadAsCached();
-  }
-  // The short page is its own `convexQuery` entry, so it reads through the
-  // client's reader alongside the feed's first page.
-  const previousPage = convexQuery(opts.queries.backward);
-  const previousArgs = pageArgs<TBackward>(opts.input.args, {
-    cursor: null,
-    numItems: opts.previousNumItems,
-  });
-  const [handles, loaded] = await load(queryClient, {
-    feed: swr(factory, opts.input),
-    previous: swr(previousPage, previousArgs),
-  });
-  // Read once, then folded into the feed, where the feed's own live page takes over.
-  removeOne(queryClient, previousPage, previousArgs);
-  const data = getData(queryClient, factory, opts.input);
-  const first = data?.pageParams[0];
-  // Another load may have seeded the entry while this one was reading.
-  if (!data || first?.direction !== "forward") {
-    return [handles.feed, data ?? loaded.feed] as const;
-  }
-  const previousParam: BidirectionalPageParam = {
-    cursor: null,
-    direction: "backward",
-    next: first,
-    numItems: opts.previousNumItems,
-  };
-  const seeded = {
-    pageParams: [previousParam, ...data.pageParams],
-    pages: [loaded.previous, ...data.pages],
-  };
-  setData(queryClient, factory, opts.input, seeded);
-  return [handles.feed, seeded] as const;
-}
