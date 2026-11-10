@@ -11,7 +11,7 @@ data that Convex keeps current.
 reader.ts   ConvexReader Effect service: browser subscribing reads, server snapshot reads
 link.ts     convexLink: the client's reader for queryFns
             runConvexEffect: run a queryFn's Effect with the client's reader
-queries.ts  convexQuery / convexPaginatedQuery / convexBidirectionalPaginatedQuery factories
+queries.ts  convexQuery / convexPaginatedQuery / convexFeedQuery factories, openFeed
 live.ts     convexLive: a feature that subscribes cached entries and writes results into the cache
             watchConvexQuery: one entry's values as an Effect Stream
 entries.ts  key constants, and decoding a cache entry's key and page params
@@ -84,17 +84,24 @@ loaded page except the last stays pinned to its end cursor while live, so
 inserts and deletes grow or shrink a page instead of shifting items between
 pages.
 
-`convexBidirectionalPaginatedQuery({ forward, backward })` grows one infinite
-query from a starting point in both directions, over two paginated queries
-that take the same args. `forward` loads the first page and every
-`fetchNextPage`; `backward` loads only on `fetchPreviousPage`, starting right
-before the first page. raf-query prepends backward pages, and each page's
-`pageParams` entry says which `direction` it came from. Both directions stay
-live and pinned the same way, so a backward page that is full never takes in
-items beyond it until the next `fetchPreviousPage`.
+`convexFeedQuery({ forward, backward })` is a feed: one infinite query per
+`args` that opens at an item or at the top and grows both ways, over two
+paginated queries with a fixed shape. Both take `from` (an item id, or `null`
+for the top) on top of their own args, and page items with an `_id`.
+`forward` loads the first page and every `fetchNextPage`. `backward` loads
+only on `fetchPreviousPage`, starting right above the first page. raf-query
+prepends backward pages, and each page's `pageParams` entry says which
+`direction` it came from. Both directions stay live and pinned the same way,
+so a backward page that is full never takes in items beyond it until the next
+`fetchPreviousPage`. To open with a little context above an item, let the
+`forward` query start a few items early.
 
-To open with a little context before the start, let the `forward` query
-start a few items early: the first page then needs no backward read.
+The input's `from` rides in the page params, not the key, so a feed is one
+entry however it was opened. Load it through `openFeed(queryClient,
+swr(feed, input))`, which keeps the cached feed while it starts at `from` or
+shows the item `from` names, and starts it over at `from` otherwise. Moving
+between items the page already shows (a highlighted link, back and forward)
+then reads nothing and keeps every page loaded, with no state beyond the URL.
 
 Read data in a loader from `load`'s second element (`const [, data] = await
 load(…)`). Effects that compose several reads (for example push-capability

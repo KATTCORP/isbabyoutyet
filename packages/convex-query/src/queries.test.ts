@@ -17,12 +17,12 @@ import { getFunctionName, makeFunctionReference } from "convex/server";
 import { expect, expectTypeOf, test } from "vitest";
 import { convexLink } from "./link.ts";
 import type {
-  BidirectionalPageParam,
-  ConvexBidirectionalPaginatedQueryHandle,
+  ConvexFeedQueryHandle,
   ConvexPaginatedQueryHandle,
   ConvexQueryHandle,
+  FeedPageParam,
 } from "./queries.ts";
-import { convexBidirectionalPaginatedQuery, convexPaginatedQuery, convexQuery } from "./queries.ts";
+import { convexFeedQuery, convexPaginatedQuery, convexQuery, openFeed } from "./queries.ts";
 import type { ConvexWatchClient } from "./reader.ts";
 import { ConvexReader } from "./reader.ts";
 import { makeTestConvexClient } from "./testing.ts";
@@ -42,11 +42,18 @@ const listMessages = makeFunctionReference<
   { paginationOpts: PaginationOptions; room: string },
   PaginationResult<string>
 >("messages:list");
-const listNewerMessages = makeFunctionReference<
+/** A room's messages as a feed, opened at `from` or at the top. */
+const listFeed = makeFunctionReference<
   "query",
-  { paginationOpts: PaginationOptions; room: string },
-  PaginationResult<string> & { newer: true }
->("messages:listNewer");
+  { from: string | null; paginationOpts: PaginationOptions; room: string },
+  PaginationResult<{ _id: string }>
+>("messages:feed");
+const listFeedNewer = makeFunctionReference<
+  "query",
+  { from: string | null; paginationOpts: PaginationOptions; room: string },
+  PaginationResult<{ _id: string }> & { newer: true }
+>("messages:feedNewer");
+const messageFeed = convexFeedQuery({ backward: listFeedNewer, forward: listFeed });
 
 function setup() {
   const reads: Array<string> = [];
@@ -56,13 +63,21 @@ function setup() {
     if (getFunctionName(query) === "messages:list") {
       return { continueCursor: "", isDone: true, page: [`${args.room}:hello`] };
     }
-    if (getFunctionName(query) === "messages:listNewer") {
+    if (getFunctionName(query) === "messages:feed") {
+      const start = args.from ?? "top";
+      return {
+        continueCursor: "",
+        isDone: true,
+        page: [{ _id: `${args.room}:${start}` }, { _id: `${args.room}:older` }],
+      };
+    }
+    if (getFunctionName(query) === "messages:feedNewer") {
       const first = args.paginationOpts.cursor === null;
       return {
         continueCursor: "newer-1",
         isDone: !first,
         newer: true,
-        page: [first ? `${args.room}:newer-1` : `${args.room}:newer-2`],
+        page: [{ _id: first ? `${args.room}:newer-1` : `${args.room}:newer-2` }],
       };
     }
     return args.id === "a" ? "hello" : null;
@@ -150,68 +165,121 @@ test("inline paginated factories infer pages and take the args without paginatio
   });
 });
 
-test("two-way factories load backward pages only on fetchPreviousPage, prepending them", async () => {
+/** A feed's pages, as their item ids. */
+function feedIds(
+  data: { pages: ReadonlyArray<{ page: ReadonlyArray<{ _id: string }> }> } | undefined,
+) {
+  return data?.pages.map((page) => page.page.map((item) => item._id));
+}
+
+test("feeds load newer pages only on fetchPreviousPage, prepending them", async () => {
   const ctx = setup();
   const queryClient = ctx.queryClient;
-  const around = convexBidirectionalPaginatedQuery({
-    backward: listNewerMessages,
-    forward: listMessages,
-  });
-  const input = { args: { room: "lobby" }, numItems: 10 };
+  const input = { args: { room: "lobby" }, from: null, numItems: 10 };
 
-  const [handles] = await load(queryClient, { around: swr(around, input) });
-  expectTypeOf(handles.around).toEqualTypeOf<
-    ConvexBidirectionalPaginatedQueryHandle<typeof listMessages, typeof listNewerMessages>
+  const [handles] = await load(queryClient, { feed: swr(messageFeed, input) });
+  expectTypeOf(handles.feed).toEqualTypeOf<
+    ConvexFeedQueryHandle<typeof listFeed, typeof listFeedNewer>
   >();
-  expectTypeOf(handles.around).toExtend<QueryHandle>();
-  expect(ctx.reads).toEqual(["messages:list"]);
-  expect(hasPreviousPage(queryClient, around, input)).toBe(true);
-  expect(hasNextPage(queryClient, around, input)).toBe(false);
+  expectTypeOf(handles.feed).toExtend<QueryHandle>();
+  // Where it starts isn't part of its key.
+  expect(handles.feed.queryKey).toEqual([
+    "convexFeedQuery",
+    "messages:feed",
+    "messages:feedNewer",
+    { room: "lobby" },
+    10,
+  ]);
+  expect(ctx.reads).toEqual(["messages:feed"]);
+  expect(hasPreviousPage(queryClient, messageFeed, input)).toBe(true);
+  expect(hasNextPage(queryClient, messageFeed, input)).toBe(false);
 
-  await fetchPreviousPage(queryClient, around, input);
-  await fetchPreviousPage(queryClient, around, input);
-  expect(ctx.reads).toEqual(["messages:list", "messages:listNewer", "messages:listNewer"]);
-  const data = getData(queryClient, around, input);
-  expectTypeOf(data?.pageParams).toEqualTypeOf<ReadonlyArray<BidirectionalPageParam> | undefined>();
-  expect(data?.pages.map((page) => page.page)).toEqual([
+  await fetchPreviousPage(queryClient, messageFeed, input);
+  await fetchPreviousPage(queryClient, messageFeed, input);
+  expect(ctx.reads).toEqual(["messages:feed", "messages:feedNewer", "messages:feedNewer"]);
+  const data = getData(queryClient, messageFeed, input);
+  expectTypeOf(data?.pageParams).toEqualTypeOf<ReadonlyArray<FeedPageParam> | undefined>();
+  expect(feedIds(data)).toEqual([
     ["lobby:newer-2"],
     ["lobby:newer-1"],
-    ["lobby:hello"],
+    ["lobby:top", "lobby:older"],
   ]);
-  const first = { cursor: null, direction: "forward", next: null, numItems: 10 } as const;
-  const newer = { cursor: null, direction: "backward", next: first, numItems: 10 } as const;
+  const first = {
+    cursor: null,
+    direction: "forward",
+    from: null,
+    next: null,
+    numItems: 10,
+  } as const;
+  const newer = {
+    cursor: null,
+    direction: "backward",
+    from: null,
+    next: first,
+    numItems: 10,
+  } as const;
   expect(data?.pageParams).toEqual([
-    { cursor: "newer-1", direction: "backward", next: newer, numItems: 10 },
+    { cursor: "newer-1", direction: "backward", from: null, next: newer, numItems: 10 },
     newer,
     first,
   ]);
-  expect(hasPreviousPage(queryClient, around, input)).toBe(false);
+  expect(hasPreviousPage(queryClient, messageFeed, input)).toBe(false);
 });
 
-test("a two-way refetch retraces backward pages with the backward query, then forward", async () => {
+test("a feed refetch retraces newer pages with the backward query, then forward, from its start", async () => {
   const ctx = setup();
   const queryClient = ctx.queryClient;
-  const around = convexBidirectionalPaginatedQuery({
-    backward: listNewerMessages,
-    forward: listMessages,
-  });
-  const input = { args: { room: "lobby" }, numItems: 10 };
-  await load(queryClient, { around: swr(around, input) });
-  await fetchPreviousPage(queryClient, around, input);
-  await fetchPreviousPage(queryClient, around, input);
+  const input = { args: { room: "lobby" }, from: "m7", numItems: 10 };
+  await load(queryClient, { feed: swr(messageFeed, input) });
+  await fetchPreviousPage(queryClient, messageFeed, input);
+  await fetchPreviousPage(queryClient, messageFeed, input);
   ctx.pageReads.length = 0;
 
-  await invalidateOne(queryClient, around, input);
-  await load(queryClient, { around: revalidate(around, input) });
+  // Read through another start: the entry keeps its own.
+  const other = { ...input, from: "m9" };
+  await invalidateOne(queryClient, messageFeed, other);
+  await load(queryClient, { feed: revalidate(messageFeed, other) });
 
   expect(ctx.pageReads).toEqual([
-    "messages:listNewer newer-1",
-    "messages:listNewer null",
-    "messages:list null",
+    "messages:feedNewer newer-1",
+    "messages:feedNewer null",
+    "messages:feed null",
   ]);
-  expect(getData(queryClient, around, input)?.pages.map((page) => page.page)).toEqual([
+  expect(feedIds(getData(queryClient, messageFeed, input))).toEqual([
     ["lobby:newer-2"],
     ["lobby:newer-1"],
-    ["lobby:hello"],
+    ["lobby:m7", "lobby:older"],
   ]);
+});
+
+test("openFeed keeps a feed that shows the item, and starts over at one it doesn't", async () => {
+  const ctx = setup();
+  const queryClient = ctx.queryClient;
+  const at = (from: string | null) => ({ args: { room: "lobby" }, from, numItems: 10 });
+  await load(queryClient, { feed: openFeed(queryClient, swr(messageFeed, at(null))) });
+  ctx.reads.length = 0;
+
+  // An item it shows, and back to where it started: nothing to read.
+  await load(queryClient, { feed: openFeed(queryClient, swr(messageFeed, at("lobby:older"))) });
+  await load(queryClient, { feed: openFeed(queryClient, swr(messageFeed, at(null))) });
+  expect(ctx.reads).toEqual([]);
+
+  // An item it doesn't show starts it over there.
+  const [, linked] = await load(queryClient, {
+    feed: openFeed(queryClient, swr(messageFeed, at("m3"))),
+  });
+  expect(ctx.reads).toEqual(["messages:feed"]);
+  expect(feedIds(linked.feed)).toEqual([["lobby:m3", "lobby:older"]]);
+  expect(linked.feed.pageParams[0]?.from).toBe("m3");
+
+  // The same link again, even one whose item isn't there, keeps it.
+  await load(queryClient, { feed: openFeed(queryClient, swr(messageFeed, at("m3"))) });
+  expect(ctx.reads).toEqual(["messages:feed"]);
+
+  // The top, from a feed that starts at an item, starts over at the top.
+  const [, top] = await load(queryClient, {
+    feed: openFeed(queryClient, swr(messageFeed, at(null))),
+  });
+  expect(top.feed.pageParams[0]?.from).toBeNull();
+  expect(feedIds(top.feed)).toEqual([["lobby:top", "lobby:older"]]);
 });

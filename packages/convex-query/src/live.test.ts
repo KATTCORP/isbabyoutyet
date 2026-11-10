@@ -20,12 +20,8 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { isInvalidatedEntry } from "./test-cache.ts";
 import { convexLink } from "./link.ts";
 import { convexLive, watchConvexQuery } from "./live.ts";
-import {
-  CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY,
-  CONVEX_PAGINATED_QUERY_KEY,
-  CONVEX_QUERY_KEY,
-} from "./entries.ts";
-import { convexBidirectionalPaginatedQuery, convexPaginatedQuery, convexQuery } from "./queries.ts";
+import { CONVEX_FEED_QUERY_KEY, CONVEX_PAGINATED_QUERY_KEY, CONVEX_QUERY_KEY } from "./entries.ts";
+import { convexFeedQuery, convexPaginatedQuery, convexQuery } from "./queries.ts";
 import { ConvexReader } from "./reader.ts";
 import { makeTestConvexClient } from "./testing.ts";
 
@@ -48,16 +44,33 @@ const listMessages = makeFunctionReference<
   PaginationResult<string>
 >("messages:list");
 
-const listNewerMessages = makeFunctionReference<
+/** The same messages as a feed: `messages:feed` reads `items`, `messages:feedNewer` reads `newer`. */
+const listFeed = makeFunctionReference<
   "query",
-  { paginationOpts: PaginationOptions; room: string },
-  PaginationResult<string>
->("messages:listNewer");
+  { from: string | null; paginationOpts: PaginationOptions; room: string },
+  PaginationResult<{ _id: string }>
+>("messages:feed");
+const listFeedNewer = makeFunctionReference<
+  "query",
+  { from: string | null; paginationOpts: PaginationOptions; room: string },
+  PaginationResult<{ _id: string }>
+>("messages:feedNewer");
 
 const message = convexQuery(getMessage);
 const messageList = convexPaginatedQuery(listMessages);
-const aroundQueries = { backward: listNewerMessages, forward: listMessages };
-const aroundMessage = convexBidirectionalPaginatedQuery(aroundQueries);
+const messageFeed = convexFeedQuery({ backward: listFeedNewer, forward: listFeed });
+
+/** A feed's page of `ids`, as items. */
+function feedPage(result: PaginationResult<string>) {
+  return { ...result, page: result.page.map((id) => ({ _id: id })) };
+}
+
+/** A feed's pages, as their item ids. */
+function feedIds(
+  data: { pages: ReadonlyArray<{ page: ReadonlyArray<{ _id: string }> }> } | undefined,
+) {
+  return data?.pages.map((page) => page.page.map((item) => item._id));
+}
 
 /** Cursors are item ids: a page starts after its cursor and, if pinned, ends at `endCursor`. */
 function paginate(items: ReadonlyArray<string>, opts: PaginationOptions): PaginationResult<string> {
@@ -75,7 +88,7 @@ function setup() {
   vi.useFakeTimers();
   const messages = new Map([["a", "hello"]]);
   const items = ["a", "b", "c", "d", "e"];
-  /** Newer than `items`, nearest first: the backward direction of `aroundMessage`. */
+  /** Newer than `items`, nearest first: the backward direction of `messageFeed`. */
   const newer = ["n1", "n2", "n3", "n4"];
   let failing = false;
   const held = new Map<string, { reached(): void; released: Promise<void> }>();
@@ -99,8 +112,11 @@ function setup() {
         await hold?.released;
         return page;
       }
-      case "messages:listNewer": {
-        return paginate(newer, args.paginationOpts);
+      case "messages:feed": {
+        return feedPage(paginate(items, args.paginationOpts));
+      }
+      case "messages:feedNewer": {
+        return feedPage(paginate(newer, args.paginationOpts));
       }
       default: {
         throw new Error("Unknown query");
@@ -309,12 +325,12 @@ describe("convexLive", () => {
     expect(live.backend.subscriptions()).toHaveLength(2);
   });
 
-  it("pins both directions of a two-way query, writing each page where it sits", async () => {
+  it("pins both directions of a feed, writing each page where it sits", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, numItems: 2 };
-    await live.load(aroundMessage, input, { pages: 2 });
-    await fetchPreviousPage(live.queryClient, aroundMessage, input);
-    await fetchPreviousPage(live.queryClient, aroundMessage, input);
+    const input = { args: { room: "lobby" }, from: null, numItems: 2 };
+    await live.load(messageFeed, input, { pages: 2 });
+    await fetchPreviousPage(live.queryClient, messageFeed, input);
+    await fetchPreviousPage(live.queryClient, messageFeed, input);
     vi.advanceTimersByTime(5000);
 
     const byName = (name: string) =>
@@ -322,16 +338,24 @@ describe("convexLive", () => {
         .subscriptions()
         .filter((subscription) => subscription.name === name)
         .map((subscription) => subscription.args);
-    expect(byName("messages:list")).toEqual(
+    expect(byName("messages:feed")).toEqual(
       expect.arrayContaining([
-        { paginationOpts: { cursor: null, endCursor: "b", numItems: 2 }, room: "lobby" },
-        { paginationOpts: { cursor: "b", numItems: 2 }, room: "lobby" },
+        {
+          from: null,
+          paginationOpts: { cursor: null, endCursor: "b", numItems: 2 },
+          room: "lobby",
+        },
+        { from: null, paginationOpts: { cursor: "b", numItems: 2 }, room: "lobby" },
       ]),
     );
-    expect(byName("messages:listNewer")).toEqual(
+    expect(byName("messages:feedNewer")).toEqual(
       expect.arrayContaining([
-        { paginationOpts: { cursor: null, endCursor: "n2", numItems: 2 }, room: "lobby" },
-        { paginationOpts: { cursor: "n2", numItems: 2 }, room: "lobby" },
+        {
+          from: null,
+          paginationOpts: { cursor: null, endCursor: "n2", numItems: 2 },
+          room: "lobby",
+        },
+        { from: null, paginationOpts: { cursor: "n2", numItems: 2 }, room: "lobby" },
       ]),
     );
     expect(live.backend.subscriptions()).toHaveLength(4);
@@ -341,8 +365,8 @@ describe("convexLive", () => {
     live.newer.unshift("n0");
     live.newer.push("n5");
     await live.backend.refresh();
-    const data = getData(live.queryClient, aroundMessage, input);
-    expect(data?.pages.map((page) => page.page)).toEqual([
+    const data = getData(live.queryClient, messageFeed, input);
+    expect(feedIds(data)).toEqual([
       ["n3", "n4"],
       ["n0", "n1", "n2"],
       ["a", "b"],
@@ -353,6 +377,19 @@ describe("convexLive", () => {
       "backward",
       "forward",
       "forward",
+    ]);
+  });
+
+  it("subscribes a feed's pages from where it started, whatever start reads it", async () => {
+    const live = setup();
+    const input = { args: { room: "lobby" }, from: "b", numItems: 2 };
+    await live.load(messageFeed, input);
+    // Another start reads the same entry: the key leaves `from` out.
+    await live.load(messageFeed, { ...input, from: "c" });
+    vi.advanceTimersByTime(5000);
+
+    expect(live.backend.subscriptions().map((subscription) => subscription.args)).toEqual([
+      { from: "b", paginationOpts: { cursor: null, numItems: 2 }, room: "lobby" },
     ]);
   });
 
@@ -377,20 +414,18 @@ describe("convexLive", () => {
     expect(getData(live.queryClient, messageList, input)?.pages[0]?.page).toEqual(["a", "b"]);
   });
 
-  it("invalidates a two-way entry when a page subscription fails", async () => {
+  it("invalidates a feed entry when a page subscription fails", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, numItems: 2 };
-    await live.load(aroundMessage, input);
-    await fetchPreviousPage(live.queryClient, aroundMessage, input);
+    const input = { args: { room: "lobby" }, from: null, numItems: 2 };
+    await live.load(messageFeed, input);
+    await fetchPreviousPage(live.queryClient, messageFeed, input);
     live.fail();
     await live.backend.refresh();
-    expect(isInvalidatedEntry(live.queryClient, { factory: aroundMessage, input })).toBe(true);
-    expect(getData(live.queryClient, aroundMessage, input)?.pages.map((page) => page.page)).toEqual(
-      [
-        ["n1", "n2"],
-        ["a", "b"],
-      ],
-    );
+    expect(isInvalidatedEntry(live.queryClient, { factory: messageFeed, input })).toBe(true);
+    expect(feedIds(getData(live.queryClient, messageFeed, input))).toEqual([
+      ["n1", "n2"],
+      ["a", "b"],
+    ]);
   });
 
   it("leaves entries that aren't Convex queries alone", async () => {
@@ -410,7 +445,7 @@ describe("convexLive", () => {
       { data: "x", key: ["other", "messages:get", args] },
       {
         data: { pageParams: [{ cursor: null }], pages: [page] },
-        key: [CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY, "messages:list", 1, args, 2],
+        key: [CONVEX_FEED_QUERY_KEY, "messages:feed", 1, args, 2],
       },
       { data: { pages: [page] }, key: [CONVEX_PAGINATED_QUERY_KEY, "messages:list", args, 2] },
       {

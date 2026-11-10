@@ -12,7 +12,7 @@ import { Effect, Queue, Stream } from "effect";
 import type { CacheEntry, LiveKey, LoadedPage, PageStart } from "./entries.ts";
 import { liveKey, loadedPages, pageIndex } from "./entries.ts";
 import type { PageDirection, QueryReference } from "./queries.ts";
-import { convexBidirectionalPaginatedQuery, convexPaginatedQuery, convexQuery } from "./queries.ts";
+import { convexFeedQuery, convexPaginatedQuery, convexQuery } from "./queries.ts";
 import type { ConvexWatchClient } from "./reader.ts";
 
 /** One Convex subscription feeding part of an entry. */
@@ -74,8 +74,10 @@ function chainSubscriptions(
       endCursor === undefined
         ? { cursor, numItems: loaded.numItems }
         : { cursor, endCursor, numItems: loaded.numItems };
+    // A feed's pages read from where it starts.
+    const from = loaded.from === undefined ? {} : { from: loaded.from };
     return {
-      args: { ...opts.args, paginationOpts },
+      args: { ...opts.args, ...from, paginationOpts },
       id: JSON.stringify([chain.direction, cursor, endCursor ?? null]),
       name: chain.name,
       onError: opts.entry.invalidate,
@@ -110,18 +112,20 @@ function pagedSubscriptions(
       const chain = { direction: null, name: key.name, pages: opts.pages };
       return chainSubscriptions(chain, { args: key.args, entry });
     }
-    case "bidirectional": {
-      const factory = convexBidirectionalPaginatedQuery({
+    case "feed": {
+      const factory = convexFeedQuery({
         backward: makeFunctionReference<"query">(key.backwardName),
         forward: makeFunctionReference<"query">(key.forwardName),
       });
+      // Not part of the key: any start addresses the entry.
+      const feedInput = { ...input, from: opts.pages[0]?.from ?? null };
       const entry: PagedEntry = {
-        invalidate: () => void invalidateOne(opts.queryClient, factory, input),
+        invalidate: () => void invalidateOne(opts.queryClient, factory, feedInput),
         writePage: (start, page) => {
-          const data = getData(opts.queryClient, factory, input);
+          const data = getData(opts.queryClient, factory, feedInput);
           const index = pageIndex(loadedPages(data), start);
           if (data && index !== -1) {
-            setData(opts.queryClient, factory, input, {
+            setData(opts.queryClient, factory, feedInput, {
               pageParams: data.pageParams,
               pages: data.pages.with(index, page),
             });

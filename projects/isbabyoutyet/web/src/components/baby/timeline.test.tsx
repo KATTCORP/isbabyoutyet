@@ -152,7 +152,7 @@ async function renderTimelineFeedFrom(
   const visitorTag = await prefetchQuery(harness.queryClient, visitorTagQuery, opts.babyId);
   // As the baby route's loader reads the feed.
   const [{ timeline }] = await load(harness.queryClient, {
-    timeline: swr(timelineQuery, timelineInput({ itemId: opts.item, publicId: opts.publicId })),
+    timeline: swr(timelineQuery, timelineInput({ from: opts.item, publicId: opts.publicId })),
   });
   return await renderWithTestRouter(
     <QueryClientProvider client={harness.queryClient}>
@@ -1076,7 +1076,6 @@ function timelineFeedViewTree(opts: {
   return (
     <LocaleProvider locale="en-GB">
       <TimelineFeedView
-        anchor={{ itemId: null }}
         baby={notYetBaby}
         babyName={notYetBaby.name}
         currentVisitorId="visitor-test"
@@ -1093,6 +1092,7 @@ function timelineFeedViewTree(opts: {
         removeEncouragement={vi.fn()}
         removeUpdate={vi.fn()}
         setAsCurrentPhoto={vi.fn()}
+        startsAtItem={false}
         updateEncouragement={vi.fn()}
       />
     </LocaleProvider>
@@ -1592,7 +1592,7 @@ test("the server render has the context above the linked item and the divider ab
   const [{ timeline }] = await load(server.queryClient, {
     timeline: swr(
       timelineQuery,
-      timelineInput({ itemId: seeded.itemId, publicId: seeded.baby.publicId }),
+      timelineInput({ from: seeded.itemId, publicId: seeded.baby.publicId }),
     ),
   });
   const router = createRouter({

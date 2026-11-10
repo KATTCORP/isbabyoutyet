@@ -9,8 +9,8 @@ export const CONVEX_QUERY_KEY = "convexQuery";
 /** First element of every `convexPaginatedQuery` key. */
 export const CONVEX_PAGINATED_QUERY_KEY = "convexPaginatedQuery";
 
-/** First element of every `convexBidirectionalPaginatedQuery` key. */
-export const CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY = "convexBidirectionalPaginatedQuery";
+/** First element of every `convexFeedQuery` key. */
+export const CONVEX_FEED_QUERY_KEY = "convexFeedQuery";
 
 /** A cache entry, as the client's events and entry map hold it. */
 export type CacheEntry = NonNullable<ReturnType<QueryClient["~entries"]["get"]>>;
@@ -31,7 +31,7 @@ export type LiveKey =
       readonly args: DefaultFunctionArgs;
       readonly backwardName: string;
       readonly forwardName: string;
-      readonly kind: "bidirectional";
+      readonly kind: "feed";
       readonly numItems: number;
     };
 
@@ -42,7 +42,7 @@ export function liveKey(key: CacheEntry["key"]): LiveKey | null {
   if (!Predicate.isString(name)) {
     return null;
   }
-  if (tag === CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY && key.length === 5) {
+  if (tag === CONVEX_FEED_QUERY_KEY && key.length === 5) {
     const backwardName = key[2];
     const args = key[3];
     const numItems = key[4];
@@ -51,7 +51,7 @@ export function liveKey(key: CacheEntry["key"]): LiveKey | null {
       Predicate.isObject(args) &&
       Predicate.isNumber(numItems)
     ) {
-      return { args, backwardName, forwardName: name, kind: "bidirectional", numItems };
+      return { args, backwardName, forwardName: name, kind: "feed", numItems };
     }
     return null;
   }
@@ -75,8 +75,10 @@ export interface PageStart {
   readonly direction: PageDirection | null;
 }
 
-/** A loaded page: where it starts, and how many items it was loaded with. */
+/** A loaded page: where it starts, how many items it was loaded with, and a feed's start. */
 export interface LoadedPage extends PageStart {
+  /** Where a feed starts (`convexFeedQuery`); absent on one-way pages. */
+  readonly from?: string | null;
   readonly numItems: number;
 }
 
@@ -101,7 +103,15 @@ export function loadedPages(data: EntryData): ReadonlyArray<LoadedPage> | null {
     if (!Predicate.hasProperty(param, "numItems") || !Predicate.isNumber(param.numItems)) {
       return null;
     }
-    pages.push({ cursor, direction, numItems: param.numItems });
+    if (!Predicate.hasProperty(param, "from")) {
+      pages.push({ cursor, direction, numItems: param.numItems });
+      continue;
+    }
+    const from = param.from;
+    if (from !== null && !Predicate.isString(from)) {
+      return null;
+    }
+    pages.push({ cursor, direction, from, numItems: param.numItems });
   }
   return pages;
 }

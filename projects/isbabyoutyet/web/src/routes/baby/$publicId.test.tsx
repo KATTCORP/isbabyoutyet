@@ -29,13 +29,7 @@ import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
 import { convexQuery } from "@workspace/convex-query";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { getBabySeo } from "@/lib/seo";
-import type { TimelineFeedAnchor } from "@/lib/timeline-feed";
-import {
-  followedFromFeed,
-  TIMELINE_PAGE_SIZE,
-  timelineInput,
-  timelineQuery,
-} from "@/lib/timeline-feed";
+import { TIMELINE_PAGE_SIZE, timelineInput, timelineQuery } from "@/lib/timeline-feed";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import type { ConvexTestHarness } from "@/test/convexTestHarness";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
@@ -358,13 +352,10 @@ function loaderQueryClientResource(handlers: QueryHandlers, read: Array<string> 
   return stubQueryClientResource(answerByName(handlers, read));
 }
 
-type LoaderLocationStub = { state: { timelineFeed: TimelineFeedAnchor | undefined } };
-
 // @ts-expect-error — stub opts are the fields the loader reads
 const loader: (
   opts: RouteContextStub & {
     deps: { item: string | null };
-    location: LoaderLocationStub;
     params: { publicId: string };
   },
 ) => Promise<BabyLoaderResult> = routeModule.Route.options.loader;
@@ -376,17 +367,13 @@ const beforeLoad: (
 
 async function runBabyLoader(
   queryClient: QueryClient,
-  opts: { item: string | null; timelineFeed: TimelineFeedAnchor | undefined } = {
-    item: null,
-    timelineFeed: undefined,
-  },
+  opts: { item: string | null } = { item: null },
 ) {
   // As `beforeLoad` does before every loader run.
   await loadQuery(queryClient, convexQuery(api.baby.getByPublicId), { id: "baby-smith" });
   return await loader({
     context: { queryClient },
     deps: { item: opts.item },
-    location: { state: { timelineFeed: opts.timelineFeed } },
     params: { publicId: "baby-smith" },
   });
 }
@@ -407,7 +394,7 @@ test("loader loads the same set for visitors; gated queries come back forbidden"
 
   expect(result.baby).toMatchObject({ input: { id: "baby-smith" } });
   expect(result.timeline).toMatchObject({
-    input: timelineInput({ itemId: null, publicId: "baby-smith" }),
+    input: timelineInput({ from: null, publicId: "baby-smith" }),
   });
   expect(getData(queryClient, convexQuery(api.baby.getByPublicId), { id: "baby-smith" })).toEqual(
     BABY_DOC,
@@ -545,7 +532,7 @@ test("a linked item loads its feed in the same load as the rest of the page", as
     }
     return value;
   });
-  const loaded = runBabyLoader(stub.queryClient, { item: "k57linked", timelineFeed: undefined });
+  const loaded = runBabyLoader(stub.queryClient, { item: "k57linked" });
 
   await vi.waitFor(() => {
     expect(read).toContain("timeline:listFeed");
@@ -554,13 +541,13 @@ test("a linked item loads its feed in the same load as the rest of the page", as
   const result = await loaded;
 
   expect(result.timeline).toMatchObject({
-    input: timelineInput({ itemId: "k57linked", publicId: "baby-smith" }),
+    input: timelineInput({ from: "k57linked", publicId: "baby-smith" }),
   });
   // The items above the link come with its first page; newer ones wait for "Show more".
   expect(pageSizes).toEqual([`timeline:listFeed ${TIMELINE_PAGE_SIZE}`]);
 });
 
-test("an item followed from the feed that loaded it keeps that feed", async () => {
+test("an item the feed on screen shows keeps that feed, reading nothing", async () => {
   const read: Array<string> = [];
   await using stub = loaderQueryClientResource(
     {
@@ -572,55 +559,40 @@ test("an item followed from the feed that loaded it keeps that feed", async () =
   await runBabyLoader(stub.queryClient);
   read.length = 0;
 
-  const result = await runBabyLoader(stub.queryClient, {
-    item: "k57shown",
-    timelineFeed: { itemId: null },
-  });
+  await runBabyLoader(stub.queryClient, { item: "k57shown" });
+  // And back again.
+  await runBabyLoader(stub.queryClient);
 
-  expect(result.timeline).toMatchObject({
-    input: timelineInput({ itemId: null, publicId: "baby-smith" }),
-  });
   expect(read).toEqual([]);
+  const feed = getData(
+    stub.queryClient,
+    timelineQuery,
+    timelineInput({ from: null, publicId: "baby-smith" }),
+  );
+  expect(feed?.pageParams[0]?.from).toBeNull();
 });
 
-test("the server opens the feed at the item, whatever feed it was followed from", async () => {
-  await using stub = stubQueryClientResource(
-    answerByName(
-      {
-        "baby:getByPublicId": BABY_DOC,
-        "timeline:listFeed": { ...EMPTY_PAGE, page: [{ _id: "k57shown" }] },
-      },
-      [],
-    ),
-    { isServer: true },
+test("an item the feed on screen hasn't loaded starts the feed over at it", async () => {
+  const read: Array<string> = [];
+  await using stub = loaderQueryClientResource(
+    {
+      "baby:getByPublicId": BABY_DOC,
+      "timeline:listFeed": { ...EMPTY_PAGE, page: [{ _id: "k57shown" }] },
+    },
+    read,
   );
   await runBabyLoader(stub.queryClient);
+  read.length = 0;
 
-  const result = await runBabyLoader(stub.queryClient, {
-    item: "k57shown",
-    timelineFeed: { itemId: null },
-  });
+  await runBabyLoader(stub.queryClient, { item: "k57older" });
 
-  expect(result.timeline).toMatchObject({
-    input: timelineInput({ itemId: "k57shown", publicId: "baby-smith" }),
-  });
-});
-
-test("an item the feed it was followed from hasn't loaded opens the feed from it", async () => {
-  await using stub = loaderQueryClientResource({
-    "baby:getByPublicId": BABY_DOC,
-    "timeline:listFeed": { ...EMPTY_PAGE, page: [{ _id: "k57shown" }] },
-  });
-  await runBabyLoader(stub.queryClient);
-
-  const result = await runBabyLoader(stub.queryClient, {
-    item: "k57older",
-    timelineFeed: { itemId: null },
-  });
-
-  expect(result.timeline).toMatchObject({
-    input: timelineInput({ itemId: "k57older", publicId: "baby-smith" }),
-  });
+  expect(read).toContain("timeline:listFeed");
+  const feed = getData(
+    stub.queryClient,
+    timelineQuery,
+    timelineInput({ from: "k57older", publicId: "baby-smith" }),
+  );
+  expect(feed?.pageParams[0]?.from).toBe("k57older");
 });
 
 test("docToBabyData coalesces missing public due date text to null", () => {
@@ -854,7 +826,7 @@ async function renderLatestFeedTwoPages(harness: ConvexTestHarness) {
   await loadQuery(
     harness.queryClient,
     timelineQuery,
-    timelineInput({ itemId: null, publicId: seeded.publicId }),
+    timelineInput({ from: null, publicId: seeded.publicId }),
     { pages: 2 },
   );
   const ctx = await renderBabyPage(harness, `/baby/${seeded.publicId}`);
@@ -1012,7 +984,6 @@ test("navigating to an item the feed hasn't loaded opens the feed at it", async 
     hash: `item-${itemId}`,
     params: { publicId: seeded.publicId },
     search: { item: itemId },
-    state: followedFromFeed({ itemId: null }),
     to: "/baby/$publicId",
   });
 

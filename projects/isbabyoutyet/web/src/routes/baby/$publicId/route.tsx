@@ -24,7 +24,7 @@ import { getData, load, prefetch, swr, useQuery } from "@raf-query/react";
 import { use } from "react";
 import { z } from "zod";
 import type { FunctionReturnType } from "convex/server";
-import { convexQuery } from "@workspace/convex-query";
+import { convexQuery, openFeed } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { openGraphImageMeta } from "@/lib/seo";
 import { getBabySeo } from "@/lib/seo";
@@ -34,7 +34,7 @@ import { babyPageRobotsHeaders, searchRobotsMeta } from "@/lib/robots";
 import { useI18n } from "@/lib/i18n";
 import { BABY_FEED_HASH } from "@isbabyoutyet/backend/src/babyFeedUrl";
 import { useHashScroll } from "@/lib/use-hash-scroll";
-import { timelineFeedStart, timelineInput, timelineQuery } from "@/lib/timeline-feed";
+import { timelineInput, timelineQuery } from "@/lib/timeline-feed";
 import { useDemoToast } from "@/lib/use-demo-toast";
 import { isHomepageDemoPublicId } from "@isbabyoutyet/backend/src/seedCredentials";
 import {
@@ -104,16 +104,11 @@ export const Route = createFileRoute("/baby/$publicId")({
       subscriptionCount: swr(convexQuery(api.pushSubscriptions.getSubscriptionCount), {
         babyId: publicId,
       }),
-      timeline: swr(
-        timelineQuery,
-        timelineInput({
-          itemId: timelineFeedStart(queryClient, {
-            followedFrom: opts.location.state.timelineFeed,
-            item: opts.deps.item,
-            publicId,
-          }),
-          publicId,
-        }),
+      // Keeps the feed on screen while it has `?item=`, so following a
+      // timestamp only moves the highlight.
+      timeline: openFeed(
+        queryClient,
+        swr(timelineQuery, timelineInput({ from: opts.deps.item, publicId })),
       ),
       vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
       visitorTag: prefetch(visitorTagQuery, babyDoc._id),

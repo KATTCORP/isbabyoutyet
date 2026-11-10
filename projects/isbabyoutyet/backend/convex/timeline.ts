@@ -244,7 +244,7 @@ const feedArgs = {
   /** How many items right above the linked one the first page starts with. */
   context: v.number(),
   /** The linked item (`?item=`) the feed starts at, or `null` for the latest. */
-  itemId: v.union(v.string(), v.null()),
+  from: v.union(v.string(), v.null()),
   paginationOpts: paginationOptsValidator,
 };
 
@@ -269,13 +269,13 @@ export const listFeed = query({
     const window = await findLinkedWindow(ctx, {
       babyRef: args.babyId,
       context: args.context,
-      itemId: args.itemId,
+      itemId: args.from,
     });
     if (!window) {
       const latest = await readLatestPage(ctx, args);
       return {
         ...latest,
-        linkUnavailable: args.itemId !== null,
+        linkUnavailable: args.from !== null,
         newerCount: firstPage ? NO_NEWER_ITEMS : null,
       };
     }
@@ -321,7 +321,7 @@ export const listNewer = query({
     const window = await findLinkedWindow(ctx, {
       babyRef: args.babyId,
       context: args.context,
-      itemId: args.itemId,
+      itemId: args.from,
     });
     if (!window) {
       return { continueCursor: "", isDone: true, page: [] };

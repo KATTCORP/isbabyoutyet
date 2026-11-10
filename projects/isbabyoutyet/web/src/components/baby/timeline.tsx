@@ -88,8 +88,7 @@ import { useObjectUrl } from "@/lib/use-object-url";
 import { useBabyUpdatePhotoOverlayLinks } from "@/lib/overlay-nav";
 import { BlurImage } from "@/components/blur-image";
 import { keepScrollAnchor } from "@/lib/keep-scroll-anchor";
-import type { TimelineFeedAnchor } from "@/lib/timeline-feed";
-import { followedFromFeed, TIMELINE_PAGE_SIZE, timelineQuery } from "@/lib/timeline-feed";
+import { TIMELINE_PAGE_SIZE, timelineQuery } from "@/lib/timeline-feed";
 import { BABY_FEED_HASH, feedItemDomId } from "@isbabyoutyet/backend/src/babyFeedUrl";
 import { MILESTONE_LABEL_KEYS } from "./translation-keys";
 
@@ -773,7 +772,6 @@ function MilestoneWhenField(props: { composer: ComposerState; milestone: Milesto
 type UpdateTimelineItemProps = {
   baby: BabyData;
   babyName: string;
-  feedAnchor: TimelineFeedAnchor;
   isOwner: boolean;
   item: UpdateItemData;
   onDelete: (updateId: Id<"updates">) => Promise<void>;
@@ -803,12 +801,11 @@ const emptyActionSchema = z.object({});
  * and the browser's own "Copy link" works, that opens the feed at the item.
  * Never preloaded: the router preloads links in view, and every row has one.
  *
- * Clicked in the app, the item is already on screen: the history state names
- * this feed so the loader keeps it, and the item scrolls to where a cold load
- * of the same URL puts it, without resetting the page to the top first.
+ * Clicked in the app, the item is already on screen, so the loader keeps
+ * the feed (`openFeed`), and the item scrolls to where a cold load of the
+ * same URL puts it, without resetting the page to the top first.
  */
 function TimelineItemPermalink(props: {
-  feedAnchor: TimelineFeedAnchor;
   itemId: Id<"timelineItems">;
   kind: TimelineItemData["kind"];
   postedAt: number;
@@ -832,7 +829,6 @@ function TimelineItemPermalink(props: {
       preload={false}
       resetScroll={false}
       search={{ item: props.itemId }}
-      state={followedFromFeed(props.feedAnchor)}
       title={props.title}
       to="/baby/$publicId"
     >
@@ -1073,7 +1069,6 @@ function UpdateTimelineItem(props: UpdateTimelineItemProps) {
               </Badge>
             )}
             <TimelineItemPermalink
-              feedAnchor={props.feedAnchor}
               itemId={props.item._id}
               kind="update"
               postedAt={props.item.postedAt}
@@ -1197,7 +1192,6 @@ function TimelinePhoto(props: TimelinePhotoProps) {
 type EncouragementTimelineItemProps = {
   currentVisitorId: string;
   currentVisitorTag: string | null;
-  feedAnchor: TimelineFeedAnchor;
   isOwner: boolean;
   item: EncouragementItemData;
   onDelete: (id: Id<"encouragements">, visitorId: string | undefined) => Promise<void>;
@@ -1304,7 +1298,6 @@ function EncouragementTimelineItem(props: EncouragementTimelineItemProps) {
             </span>
             <span className="font-medium text-foreground truncate">{encouragement.authorName}</span>
             <TimelineItemPermalink
-              feedAnchor={props.feedAnchor}
               itemId={props.item._id}
               kind="encouragement"
               postedAt={encouragement.createdAt}
@@ -1396,21 +1389,15 @@ type UpdateEncouragementFn = (
   args: FunctionArgs<typeof api.encouragements.update>,
 ) => Promise<FunctionReturnType<typeof api.encouragements.update>>;
 
-/** Hooks into Convex, then delegates to the pure `TimelineFeedView`. */
-export function TimelineFeed(props: TimelineFeedProps) {
-  // Keyed so following another link starts a fresh feed, live-insert
-  // baseline included.
-  return <TimelineFeedFrom {...props} key={props.timeline.input.args.itemId ?? "latest"} />;
-}
-
 /**
  * The feed from the newest item, or from a linked one with the few items
  * right above it for context. Older items load as the skeleton scrolls in;
  * the other newer ones only on "Show more", so nothing above the item moves
  * it. Live items newer than everything loaded only raise the divider's
- * count, until the reader has caught up.
+ * count, until the reader has caught up. Hooks into Convex, then delegates
+ * to the pure `TimelineFeedView`.
  */
-function TimelineFeedFrom(props: TimelineFeedProps) {
+export function TimelineFeed(props: TimelineFeedProps) {
   const currentVisitorId = useStoredVisitorId();
   // Pending on the server and until the browser hashes its visitor id; read
   // the status instead of `use` so the feed never suspends on it.
@@ -1422,6 +1409,8 @@ function TimelineFeedFrom(props: TimelineFeedProps) {
   const [timelineThenable, timelineState] = useInfiniteQuery(timelineQuery, props.timeline);
   const timeline = use(timelineThenable);
   const isNewerPage = (index: number) => timeline.pageParams[index]?.direction === "backward";
+  // Where the feed the page shows starts, whichever item the URL highlights.
+  const from = timeline.pageParams[0]?.from ?? null;
   // The first page read forward, after any newer pages, says whether the
   // linked item is there and how many items are newer than the feed.
   const firstPage = timeline.pages.find((_, index) => !isNewerPage(index));
@@ -1438,7 +1427,6 @@ function TimelineFeedFrom(props: TimelineFeedProps) {
   const newerHidden = Math.max(0, newerCount.count - newerShown);
   return (
     <TimelineFeedView
-      anchor={{ itemId: props.timeline.input.args.itemId }}
       baby={props.baby}
       babyName={props.babyName}
       currentVisitorId={currentVisitorId}
@@ -1449,6 +1437,9 @@ function TimelineFeedFrom(props: TimelineFeedProps) {
       isFetchingNextPage={timelineState.isFetchingNextPage}
       isOwner={props.isOwner}
       items={items}
+      // A feed started over at another item is a fresh feed, live-insert
+      // baseline included.
+      key={from ?? "latest"}
       linkUnavailable={linkUnavailable}
       newer={
         timelineState.hasPreviousPage && newerHidden > 0
@@ -1464,6 +1455,7 @@ function TimelineFeedFrom(props: TimelineFeedProps) {
       removeEncouragement={removeEncouragement}
       removeUpdate={removeUpdate}
       setAsCurrentPhoto={setAsCurrentPhoto}
+      startsAtItem={from !== null}
       updateEncouragement={updateEncouragement}
     />
   );
@@ -1480,8 +1472,6 @@ type NewerTimelineItems = {
 };
 
 type TimelineFeedViewProps = {
-  /** Where this feed starts; timestamps followed from it keep it if they can. */
-  anchor: TimelineFeedAnchor;
   baby: BabyData;
   babyName: string;
   currentVisitorId: string;
@@ -1504,6 +1494,8 @@ type TimelineFeedViewProps = {
   removeEncouragement: RemoveEncouragementFn;
   removeUpdate: RemoveUpdateFn;
   setAsCurrentPhoto: SetAsCurrentPhotoFn;
+  /** Opened at a linked item rather than the newest one. */
+  startsAtItem: boolean;
   updateEncouragement: UpdateEncouragementFn;
 };
 
@@ -1632,7 +1624,7 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
                   key={item._id}
                   // Layout animations would slide every item down when newer
                   // ones load above the linked item, the jump this avoids.
-                  layout={props.anchor.itemId === null ? TIMELINE_ITEM_LAYOUT : false}
+                  layout={props.startsAtItem ? false : TIMELINE_ITEM_LAYOUT}
                 >
                   <div
                     aria-current={isHighlighted ? "true" : undefined}
@@ -1652,7 +1644,6 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
                         <UpdateTimelineItem
                           baby={props.baby}
                           babyName={props.babyName}
-                          feedAnchor={props.anchor}
                           isOwner={props.isOwner}
                           item={item}
                           onDelete={handleDeleteUpdate}
@@ -1663,7 +1654,6 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
                         <EncouragementTimelineItem
                           currentVisitorId={props.currentVisitorId}
                           currentVisitorTag={props.currentVisitorTag}
-                          feedAnchor={props.anchor}
                           isOwner={props.isOwner}
                           item={item}
                           onDelete={handleDeleteEncouragement}
