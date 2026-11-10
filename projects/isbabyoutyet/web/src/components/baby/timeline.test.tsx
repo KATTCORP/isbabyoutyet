@@ -1,5 +1,5 @@
 import { fireEvent, render, within } from "@testing-library/react";
-import { QueryClientProvider } from "@raf-query/react";
+import { load, QueryClientProvider, swr } from "@raf-query/react";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -18,7 +18,7 @@ import type { BabyData } from "@isbabyoutyet/backend/src/types";
 import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
 import { isPlainObject } from "@workspace/runtime/guards";
 import { LocaleProvider } from "@/lib/i18n";
-import { loadTimelineFeed } from "@/lib/timeline-feed";
+import { timelineInput, timelineQuery } from "@/lib/timeline-feed";
 import { TimelineFeed, TimelineFeedView, UpdateComposer } from "@/components/baby/timeline";
 import { EncouragementForm } from "@/components/baby/encouragements";
 import { createConvexTestHarness, type ConvexTestHarness } from "@/test/convexTestHarness";
@@ -67,7 +67,10 @@ async function seedOwnerBaby(harness: ConvexTestHarness) {
     password: "password123",
   });
   await harness.withIdentity({ subject: ownerId });
-  return await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
+  return await seedOwnedBaby(harness, {
+    dueDate: "2026-09-01",
+    name: "Baby Smith",
+  });
 }
 
 function renderComposerTree(
@@ -147,10 +150,9 @@ async function renderTimelineFeedFrom(
   // As the baby route's loader does on a client navigation.
   await harness.refresh();
   const visitorTag = await prefetchQuery(harness.queryClient, visitorTagQuery, opts.babyId);
-  const feed = await loadTimelineFeed(harness.queryClient, {
-    followedFrom: undefined,
-    item: opts.item,
-    publicId: opts.publicId,
+  // As the baby route's loader reads the feed.
+  const [{ timeline }] = await load(harness.queryClient, {
+    timeline: swr(timelineQuery, timelineInput({ itemId: opts.item, publicId: opts.publicId })),
   });
   return await renderWithTestRouter(
     <QueryClientProvider client={harness.queryClient}>
@@ -162,9 +164,10 @@ async function renderTimelineFeedFrom(
           <TimelineFeed
             baby={opts.baby}
             babyName={opts.baby.name}
-            feed={feed}
+            highlightedItemId={opts.item}
             isOwner={opts.isOwner}
             publicId={opts.publicId}
+            timeline={timeline}
             visitorTag={visitorTag}
           />
         </LocaleProvider>
@@ -193,7 +196,9 @@ test("the status radio group is labelled and offers only future stages", async (
   });
   const view = composer.view;
 
-  const group = view.getByRole("radiogroup", { name: "Status change (optional)" });
+  const group = view.getByRole("radiogroup", {
+    name: "Status change (optional)",
+  });
   expect(group).toBeTruthy();
 
   expect(view.getByRole("radio", { name: "No change" }).getAttribute("aria-checked")).toBe("true");
@@ -553,7 +558,10 @@ test("timeline avatars stay decorative beside the visible author name", async ()
     babyId: baby.babyId,
     message: "Can't wait to meet you!",
   });
-  await postTestUpdate(harness, { babyId: baby.babyId, message: "A family update" });
+  await postTestUpdate(harness, {
+    babyId: baby.babyId,
+    message: "A family update",
+  });
 
   await using feed = await renderTimelineFeed(harness, {
     baby: notYetBaby,
@@ -940,8 +948,12 @@ test("a first-time visitor's new encouragement is marked as theirs", async () =>
     wrap: null,
   });
 
-  fireEvent.change(form.getByLabelText("Your name"), { target: { value: "New Visitor" } });
-  fireEvent.change(form.getByLabelText("Message"), { target: { value: "First post!" } });
+  fireEvent.change(form.getByLabelText("Your name"), {
+    target: { value: "New Visitor" },
+  });
+  fireEvent.change(form.getByLabelText("Message"), {
+    target: { value: "First post!" },
+  });
   fireEvent.click(form.getByRole("button", { name: "Send some love" }));
 
   await vi.waitFor(() => {
@@ -960,8 +972,12 @@ test("EncouragementForm submit reaches the Convex mutation", async () => {
     wrap: null,
   });
 
-  fireEvent.change(view.getByLabelText("Your name"), { target: { value: "Auntie Jo" } });
-  fireEvent.change(view.getByLabelText("Message"), { target: { value: "Thinking of you!" } });
+  fireEvent.change(view.getByLabelText("Your name"), {
+    target: { value: "Auntie Jo" },
+  });
+  fireEvent.change(view.getByLabelText("Message"), {
+    target: { value: "Thinking of you!" },
+  });
   fireEvent.click(view.getByRole("button", { name: "Send some love" }));
 
   await vi.waitFor(() => {
@@ -1060,7 +1076,7 @@ function timelineFeedViewTree(opts: {
   return (
     <LocaleProvider locale="en-GB">
       <TimelineFeedView
-        anchor={{ kind: "latest" }}
+        anchor={{ itemId: null }}
         baby={notYetBaby}
         babyName={notYetBaby.name}
         currentVisitorId="visitor-test"
@@ -1131,7 +1147,12 @@ test("reaching the skeleton fetches the next page once and not again while it lo
   await using harness = await createConvexTestHarness({ identity: null });
   const items = await seedFirstTimelinePage(harness);
   const fetchNextPage = vi.fn<() => void>();
-  const state = { fetchNextPage, hasNextPage: true, isFetchingNextPage: false, items };
+  const state = {
+    fetchNextPage,
+    hasNextPage: true,
+    isFetchingNextPage: false,
+    items,
+  };
 
   await using feed = await renderWithTestRouter(timelineFeedViewTree(state));
 
@@ -1158,7 +1179,12 @@ test("the last page removes the skeleton and disconnects its observer", async ()
   await using harness = await createConvexTestHarness({ identity: null });
   const items = await seedFirstTimelinePage(harness);
   const fetchNextPage = vi.fn<() => void>();
-  const state = { fetchNextPage, hasNextPage: true, isFetchingNextPage: false, items };
+  const state = {
+    fetchNextPage,
+    hasNextPage: true,
+    isFetchingNextPage: false,
+    items,
+  };
 
   await using feed = await renderWithTestRouter(timelineFeedViewTree(state));
   expect(io.watching()).toHaveLength(1);
@@ -1386,9 +1412,10 @@ test("a linked item opens the feed at it, two newer items above it, the rest beh
   expect(within(linked).getByText(LINKED_MESSAGE)).toBeTruthy();
 
   const messages = feedMessages(feed);
-  expect(messages).toHaveLength(22);
+  // One page, the context included.
+  expect(messages).toHaveLength(20);
   expect(messages.slice(0, 3)).toEqual(["Message 32", "Message 31", LINKED_MESSAGE]);
-  expect(messages.at(-1)).toBe("Message 11");
+  expect(messages.at(-1)).toBe("Message 13");
   expect(feed.container.querySelectorAll('[aria-current="true"]')).toHaveLength(1);
   expect(feed.queryByText("Message 33")).toBeNull();
 
@@ -1412,7 +1439,10 @@ test.each([
 ])("a linked item with $newerCount newer shows them all, with no divider", async (row) => {
   await using _io = stubIntersectionObserver();
   await using harness = await createConvexTestHarness({ identity: null });
-  await using feed = await renderLinkedFeed(harness, { newerCount: row.newerCount, olderCount: 1 });
+  await using feed = await renderLinkedFeed(harness, {
+    newerCount: row.newerCount,
+    olderCount: 1,
+  });
 
   expect(feedMessages(feed)).toEqual([...row.context, LINKED_MESSAGE, "Message 29"]);
   expect(linkedRow(feed).id).toBe(`item-${feed.itemId}`);
@@ -1424,7 +1454,10 @@ test.each([
 test("a linked item with one more newer than its context offers just that one", async () => {
   await using _io = stubIntersectionObserver();
   await using harness = await createConvexTestHarness({ identity: null });
-  await using feed = await renderLinkedFeed(harness, { newerCount: 3, olderCount: 1 });
+  await using feed = await renderLinkedFeed(harness, {
+    newerCount: 3,
+    olderCount: 1,
+  });
 
   expect(feedMessages(feed).slice(0, 3)).toEqual(["Message 32", "Message 31", LINKED_MESSAGE]);
   fireEvent.click(feed.getByRole("button", { name: "1 newer, Show 1 more" }));
@@ -1536,25 +1569,36 @@ test("live items above a linked one raise the count until the reader catches up"
 test("a link deep in a busy feed says more than the cap are newer", async () => {
   await using _io = stubIntersectionObserver();
   await using harness = await createConvexTestHarness({ identity: null });
-  await using feed = await renderLinkedFeed(harness, { newerCount: 101, olderCount: 0 });
+  // Past the cap above the two items of context.
+  await using feed = await renderLinkedFeed(harness, {
+    newerCount: 103,
+    olderCount: 0,
+  });
 
-  expect(feed.getByRole("button", { name: "More than 98 newer, Show 20 more" })).toBeTruthy();
+  expect(feed.getByRole("button", { name: "More than 100 newer, Show 20 more" })).toBeTruthy();
 });
 
 test("the server render has the context above the linked item and the divider above both", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
-  const seeded = await seedLinkedFeed(harness, { newerCount: NEWER_COUNT, olderCount: 2 });
+  const seeded = await seedLinkedFeed(harness, {
+    newerCount: NEWER_COUNT,
+    olderCount: 2,
+  });
   await using server = stubQueryClientResource((query, args) => harness.client.query(query, args), {
     isServer: true,
   });
   const visitorTag = await prefetchQuery(server.queryClient, visitorTagQuery, seeded.baby.babyId);
-  const feed = await loadTimelineFeed(server.queryClient, {
-    followedFrom: undefined,
-    item: seeded.itemId,
-    publicId: seeded.baby.publicId,
+  // As the baby route's loader reads the feed.
+  const [{ timeline }] = await load(server.queryClient, {
+    timeline: swr(
+      timelineQuery,
+      timelineInput({ itemId: seeded.itemId, publicId: seeded.baby.publicId }),
+    ),
   });
   const router = createRouter({
-    history: createMemoryHistory({ initialEntries: [`/baby/${seeded.baby.publicId}`] }),
+    history: createMemoryHistory({
+      initialEntries: [`/baby/${seeded.baby.publicId}`],
+    }),
     routeTree: createRootRoute({
       component: () => (
         <QueryClientProvider client={server.queryClient}>
@@ -1566,9 +1610,10 @@ test("the server render has the context above the linked item and the divider ab
               <TimelineFeed
                 baby={notYetBaby}
                 babyName={notYetBaby.name}
-                feed={feed}
+                highlightedItemId={seeded.itemId}
                 isOwner={false}
                 publicId={seeded.baby.publicId}
+                timeline={timeline}
                 visitorTag={visitorTag}
               />
             </LocaleProvider>
@@ -1614,9 +1659,7 @@ test("a link to an item that isn't here shows the latest items with a notice", a
     visitorId: undefined,
   });
 
-  expect(
-    feed.getByText("That update or message isn't here any more, so here's the latest."),
-  ).toBeTruthy();
+  expect(feed.getByText("That update or message isn't here any more.")).toBeTruthy();
   expect(feed.getByRole("link", { name: "Dismiss notice" }).getAttribute("href")).toBe(
     `/baby/${baby.publicId}`,
   );
@@ -1625,9 +1668,37 @@ test("a link to an item that isn't here shows the latest items with a notice", a
   expect(feed.queryByRole("button", { name: SHOW_MORE })).toBeNull();
 });
 
+test("a link to a removed item keeps its place in the feed, with a notice", async () => {
+  await using _io = stubIntersectionObserver();
+  await using harness = await createConvexTestHarness({ identity: null });
+  const seeded = await seedLinkedFeed(harness, {
+    newerCount: 1,
+    olderCount: 1,
+  });
+  await harness.t.run(async (ctx) => {
+    await ctx.db.patch(seeded.itemId, { deletedAt: Date.now() });
+  });
+
+  await using feed = await renderTimelineFeedFrom(harness, {
+    baby: notYetBaby,
+    babyId: seeded.baby.babyId,
+    isOwner: false,
+    item: seeded.itemId,
+    publicId: seeded.baby.publicId,
+    visitorId: undefined,
+  });
+
+  expect(feed.getByText("That update or message isn't here any more.")).toBeTruthy();
+  expect(feedMessages(feed)).toEqual(["Message 31", "Message 29"]);
+  expect(feed.container.querySelector('[aria-current="true"]')).toBeNull();
+});
+
 async function seedUpdateAndEncouragement(harness: ConvexTestHarness) {
   const baby = await seedOwnerBaby(harness);
-  await postTestUpdate(harness, { babyId: baby.babyId, message: "Family news" });
+  await postTestUpdate(harness, {
+    babyId: baby.babyId,
+    message: "Family news",
+  });
   await seedTimelineEncouragement(harness, {
     authorName: "Grandma",
     babyId: baby.babyId,
@@ -1660,10 +1731,15 @@ test("every item's timestamp is its permalink, for updates and encouragements", 
   });
 
   const updateLink = htmlElement(
-    (await updateRow(feed, "Family news")).getByRole("link", { name: /link to this update$/ }),
+    (await updateRow(feed, "Family news")).getByRole("link", {
+      name: /link to this update$/,
+    }),
   );
   expect(updateLink.getAttribute("href")).toBe(
-    babyFeedItemUrl({ itemId: seeded.update._id, publicId: seeded.baby.publicId }),
+    babyFeedItemUrl({
+      itemId: seeded.update._id,
+      publicId: seeded.baby.publicId,
+    }),
   );
   expect(updateLink.querySelector("time")?.getAttribute("datetime")).toBe(
     new Date(seeded.update.postedAt).toISOString(),
@@ -1677,7 +1753,10 @@ test("every item's timestamp is its permalink, for updates and encouragements", 
     encouragementRow.getByRole("link", { name: /link to this message$/ }),
   );
   expect(encouragementLink.getAttribute("href")).toBe(
-    babyFeedItemUrl({ itemId: seeded.encouragement._id, publicId: seeded.baby.publicId }),
+    babyFeedItemUrl({
+      itemId: seeded.encouragement._id,
+      publicId: seeded.baby.publicId,
+    }),
   );
   expect(encouragementLink.querySelector("time")?.getAttribute("datetime")).toBe(
     new Date(seeded.encouragement.encouragement.createdAt).toISOString(),

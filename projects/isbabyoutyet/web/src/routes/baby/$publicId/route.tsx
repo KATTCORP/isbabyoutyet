@@ -34,7 +34,7 @@ import { babyPageRobotsHeaders, searchRobotsMeta } from "@/lib/robots";
 import { useI18n } from "@/lib/i18n";
 import { BABY_FEED_HASH } from "@isbabyoutyet/backend/src/babyFeedUrl";
 import { useHashScroll } from "@/lib/use-hash-scroll";
-import { loadTimelineFeed } from "@/lib/timeline-feed";
+import { timelineFeedStart, timelineInput, timelineQuery } from "@/lib/timeline-feed";
 import { useDemoToast } from "@/lib/use-demo-toast";
 import { isHomepageDemoPublicId } from "@isbabyoutyet/backend/src/seedCredentials";
 import {
@@ -88,34 +88,38 @@ export const Route = createFileRoute("/baby/$publicId")({
     if (!babyDoc) {
       throw notFound();
     }
-    const [[handles], timeline] = await Promise.all([
-      load(queryClient, {
-        baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
-        // This device's state, which only the browser knows (`ssr: false`):
-        // the server returns its handle unstarted, and the browser runs it.
-        browserPush: prefetch(browserPushCapabilityQuery, publicId),
-        latestUpdate: swr(convexQuery(api.timeline.latestUpdate), { babyId: publicId }),
-        managerBaby: swr(convexQuery(api.baby.getManagerBaby), { babyId: publicId }),
-        me: swr(convexQuery(api.profile.get), {}),
-        myAccess: swr(convexQuery(api.coParents.myAccess), { babyId: publicId }),
-        onboarding: swr(convexQuery(api.onboarding.getMine), {}),
-        scheduledNotifications: swr(convexQuery(api.baby.getScheduledNotifications), {
-          babyId: publicId,
-        }),
-        subscriptionCount: swr(convexQuery(api.pushSubscriptions.getSubscriptionCount), {
-          babyId: publicId,
-        }),
-        vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
-        visitorTag: prefetch(visitorTagQuery, babyDoc._id),
+    const [handles] = await load(queryClient, {
+      baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
+      // This device's state, which only the browser knows (`ssr: false`):
+      // the server returns its handle unstarted, and the browser runs it.
+      browserPush: prefetch(browserPushCapabilityQuery, publicId),
+      latestUpdate: swr(convexQuery(api.timeline.latestUpdate), { babyId: publicId }),
+      managerBaby: swr(convexQuery(api.baby.getManagerBaby), { babyId: publicId }),
+      me: swr(convexQuery(api.profile.get), {}),
+      myAccess: swr(convexQuery(api.coParents.myAccess), { babyId: publicId }),
+      onboarding: swr(convexQuery(api.onboarding.getMine), {}),
+      scheduledNotifications: swr(convexQuery(api.baby.getScheduledNotifications), {
+        babyId: publicId,
       }),
-      loadTimelineFeed(queryClient, {
-        followedFrom: opts.location.state.timelineFeed,
-        item: opts.deps.item,
-        publicId,
+      subscriptionCount: swr(convexQuery(api.pushSubscriptions.getSubscriptionCount), {
+        babyId: publicId,
       }),
-    ]);
+      timeline: swr(
+        timelineQuery,
+        timelineInput({
+          itemId: timelineFeedStart(queryClient, {
+            followedFrom: opts.location.state.timelineFeed,
+            item: opts.deps.item,
+            publicId,
+          }),
+          publicId,
+        }),
+      ),
+      vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
+      visitorTag: prefetch(visitorTagQuery, babyDoc._id),
+    });
 
-    return { babyDoc, ...handles, timeline };
+    return { babyDoc, ...handles };
   },
   head: (opts) => {
     const babyDoc = opts.loaderData?.babyDoc;
@@ -274,6 +278,7 @@ function BabyPageLayout() {
     !!matchRoute({ to: "/baby/$publicId/photo" }) ||
     !!matchRoute({ to: "/baby/$publicId/updates/$updateId/photo" });
   const loaderData = Route.useLoaderData();
+  const loaderDeps = Route.useLoaderDeps();
   if (!loaderData) {
     throw notFound();
   }
@@ -448,9 +453,10 @@ function BabyPageLayout() {
               <TimelineFeed
                 baby={baby}
                 babyName={baby.name}
-                feed={loaderData.timeline}
+                highlightedItemId={loaderDeps.item}
                 isOwner={canManage}
                 publicId={babyDoc.publicId}
+                timeline={loaderData.timeline}
                 visitorTag={loaderData.visitorTag}
               />
             </section>

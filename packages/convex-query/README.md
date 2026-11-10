@@ -93,13 +93,8 @@ before the first page. raf-query prepends backward pages, and each page's
 live and pinned the same way, so a backward page that is full never takes in
 items beyond it until the next `fetchPreviousPage`.
 
-To open with a little context before the start, load the entry with
-`loadBidirectionalPaginatedQuery(queryClient, { input, previousNumItems,
-queries })`, which resolves to `[handle, data]` like `load`. It reads a short
-first backward page of `previousNumItems` in the same `load` as the first
-page, not after it, so a loader adds no waterfall. Later `fetchPreviousPage`s
-load full `numItems` pages. While the short page is the top page, it stays
-live at its own size, so newer items stay out of it.
+To open with a little context before the start, let the `forward` query
+start a few items early: the first page then needs no backward read.
 
 Read data in a loader from `load`'s second element (`const [, data] = await
 load(…)`). Effects that compose several reads (for example push-capability
