@@ -16,7 +16,6 @@ export {
   type FeedPageParam,
   type FeedQueries,
   type FeedQueryReference,
-  openFeed,
   type PageDirection,
   type PaginatedQueryInput,
   type PaginatedQueryReference,

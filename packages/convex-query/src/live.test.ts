@@ -384,8 +384,8 @@ describe("convexLive", () => {
     const live = setup();
     const input = { args: { room: "lobby" }, from: "b", numItems: 2 };
     await live.load(messageFeed, input);
-    // Another start reads the same entry: the key leaves `from` out.
-    await live.load(messageFeed, { ...input, from: "c" });
+    // Another start it shows reads the same entry: the key leaves `from` out.
+    await live.load(messageFeed, { ...input, from: "a" });
     vi.advanceTimersByTime(5000);
 
     expect(live.backend.subscriptions().map((subscription) => subscription.args)).toEqual([

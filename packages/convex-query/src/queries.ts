@@ -1,13 +1,11 @@
 import type {
   InfiniteData,
   InfiniteQueryOptions,
-  LoadEntry,
-  QueryClient,
   QueryHandle,
   QueryOptions,
   QueryOptionsBuilder,
 } from "@raf-query/react";
-import { getData, infiniteQueryOptions, queryOptions, removeOne } from "@raf-query/react";
+import { infiniteQueryOptions, queryOptions } from "@raf-query/react";
 import type {
   DefaultFunctionArgs,
   FunctionArgs,
@@ -220,9 +218,8 @@ export interface FeedInput<
   /** Args both queries take: which feed. Its key. */
   readonly args: FeedArgs<TForward> & FeedArgs<TBackward>;
   /**
-   * Where a new entry starts. Not part of its key: an entry keeps the
-   * start it was loaded with, and {@link openFeed} decides when a new
-   * start replaces it.
+   * Where the feed starts. Not part of its key: an entry keeps the start it
+   * was loaded with while its pages show `from`.
    */
   readonly from: string | null;
   /** Page size, in both directions. */
@@ -266,6 +263,17 @@ function feedPageArgs(args: DefaultFunctionArgs, param: FeedPageParam) {
   };
 }
 
+/** Whether `data`, a feed entry's, starts at `from` or shows the item `from` names. */
+function feedShows(
+  data: InfiniteData<PaginationResult<{ readonly _id: string }>, FeedPageParam>,
+  from: string | null,
+) {
+  if (data.pageParams[0]?.from === from) {
+    return true;
+  }
+  return from !== null && data.pages.some((page) => page.page.some((item) => item._id === from));
+}
+
 /**
  * A feed: one infinite query per `args` that opens at an item (`from`) or
  * at the top, and grows both ways over two cursor-paginated Convex
@@ -276,16 +284,15 @@ function feedPageArgs(args: DefaultFunctionArgs, param: FeedPageParam) {
  * reversed. Every page stays live through `convexLive`, pinned like
  * {@link convexPaginatedQuery}'s.
  *
- * Where the feed starts rides in its page params, not its key, so a page
- * that moves between items of the feed it shows keeps that feed: open it
- * with {@link openFeed}.
+ * Where the feed starts rides in its page params, not its key, so every
+ * start shares one entry. `load` keeps its pages while they start at `from`
+ * or show the item `from` names (raf-query's `keepPages`): moving between
+ * items the page shows, or back and forward, reads nothing. Any other
+ * `from` starts the feed over there.
  *
  * @example
  * // loader: the feed, opened at `?item=`
- * timeline: openFeed(
- *   queryClient,
- *   swr(feedQuery, { args: { babyId }, from: deps.item, numItems: 20 }),
- * ),
+ * timeline: swr(feedQuery, { args: { babyId }, from: deps.item, numItems: 20 }),
  */
 export function convexFeedQuery<
   TForward extends FeedQueryReference,
@@ -357,6 +364,9 @@ export function convexFeedQuery<
             };
       },
       initialPageParam,
+      // Every start shares the entry: `load` keeps its pages while they
+      // start at `from` or show it, and starts over at `from` otherwise.
+      keepPages: (data) => feedShows(data, input.from),
       queryFn: (context): Promise<FeedPage<TForward, TBackward>> =>
         context.pageParam.direction === "forward"
           ? runConvexEffect(
@@ -376,40 +386,6 @@ export function convexFeedQuery<
       queryKey: [CONVEX_FEED_QUERY_KEY, forwardName, backwardName, input.args, input.numItems],
     });
   });
-}
-
-/** Whether `data`, a feed entry's, starts at `from` or shows the item `from` names. */
-function feedShows(
-  data: InfiniteData<PaginationResult<{ readonly _id: string }>, FeedPageParam>,
-  from: string | null,
-) {
-  if (data.pageParams[0]?.from === from) {
-    return true;
-  }
-  return from !== null && data.pages.some((page) => page.page.some((item) => item._id === from));
-}
-
-/**
- * Loads a {@link convexFeedQuery} the way a page shows it: the cached feed
- * stays while it starts at `from` or shows the item `from` names, so
- * moving between items it shows (a highlighted timestamp, back and
- * forward) reads nothing and keeps every page loaded. Otherwise the feed
- * starts over at `from`: a link to an item it hasn't loaded, or `null`
- * (the top) while it starts at an item. Takes and returns a `load` entry.
- *
- * @example
- * timeline: openFeed(queryClient, swr(feedQuery, { args, from: deps.item, numItems: 20 })),
- */
-export function openFeed<
-  TForward extends FeedQueryReference,
-  TBackward extends FeedQueryReference,
-  TEntry extends LoadEntry<ConvexFeedQueryFactory<TForward, TBackward>>,
->(queryClient: QueryClient, entry: TEntry): TEntry {
-  const data = getData(queryClient, entry.factory, entry.input);
-  if (data && !feedShows(data, entry.input.from)) {
-    removeOne(queryClient, entry.factory, entry.input);
-  }
-  return entry;
 }
 
 /** Handle of a {@link convexQuery} entry, from `load` or `waterfallHandle`. */

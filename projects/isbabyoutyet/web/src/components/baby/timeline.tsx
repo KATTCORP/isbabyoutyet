@@ -802,7 +802,7 @@ const emptyActionSchema = z.object({});
  * Never preloaded: the router preloads links in view, and every row has one.
  *
  * Clicked in the app, the item is already on screen, so the loader keeps
- * the feed (`openFeed`), and the item scrolls to where a cold load of the
+ * the feed (`convexFeedQuery`), and the item scrolls to where a cold load of the
  * same URL puts it, without resetting the page to the top first.
  */
 function TimelineItemPermalink(props: {

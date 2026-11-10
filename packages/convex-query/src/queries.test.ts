@@ -22,7 +22,7 @@ import type {
   ConvexQueryHandle,
   FeedPageParam,
 } from "./queries.ts";
-import { convexFeedQuery, convexPaginatedQuery, convexQuery, openFeed } from "./queries.ts";
+import { convexFeedQuery, convexPaginatedQuery, convexQuery } from "./queries.ts";
 import type { ConvexWatchClient } from "./reader.ts";
 import { ConvexReader } from "./reader.ts";
 import { makeTestConvexClient } from "./testing.ts";
@@ -235,8 +235,8 @@ test("a feed refetch retraces newer pages with the backward query, then forward,
   await fetchPreviousPage(queryClient, messageFeed, input);
   ctx.pageReads.length = 0;
 
-  // Read through another start: the entry keeps its own.
-  const other = { ...input, from: "m9" };
+  // Read through another start it shows: the entry keeps its own.
+  const other = { ...input, from: "lobby:older" };
   await invalidateOne(queryClient, messageFeed, other);
   await load(queryClient, { feed: revalidate(messageFeed, other) });
 
@@ -252,33 +252,33 @@ test("a feed refetch retraces newer pages with the backward query, then forward,
   ]);
 });
 
-test("openFeed keeps a feed that shows the item, and starts over at one it doesn't", async () => {
+test("a load keeps a feed that shows the item, and starts it over at one it doesn't", async () => {
   const ctx = setup();
   const queryClient = ctx.queryClient;
   const at = (from: string | null) => ({ args: { room: "lobby" }, from, numItems: 10 });
-  await load(queryClient, { feed: openFeed(queryClient, swr(messageFeed, at(null))) });
+  await load(queryClient, { feed: swr(messageFeed, at(null)) });
   ctx.reads.length = 0;
 
   // An item it shows, and back to where it started: nothing to read.
-  await load(queryClient, { feed: openFeed(queryClient, swr(messageFeed, at("lobby:older"))) });
-  await load(queryClient, { feed: openFeed(queryClient, swr(messageFeed, at(null))) });
+  await load(queryClient, { feed: swr(messageFeed, at("lobby:older")) });
+  await load(queryClient, { feed: swr(messageFeed, at(null)) });
   expect(ctx.reads).toEqual([]);
 
   // An item it doesn't show starts it over there.
   const [, linked] = await load(queryClient, {
-    feed: openFeed(queryClient, swr(messageFeed, at("m3"))),
+    feed: swr(messageFeed, at("m3")),
   });
   expect(ctx.reads).toEqual(["messages:feed"]);
   expect(feedIds(linked.feed)).toEqual([["lobby:m3", "lobby:older"]]);
   expect(linked.feed.pageParams[0]?.from).toBe("m3");
 
   // The same link again, even one whose item isn't there, keeps it.
-  await load(queryClient, { feed: openFeed(queryClient, swr(messageFeed, at("m3"))) });
+  await load(queryClient, { feed: swr(messageFeed, at("m3")) });
   expect(ctx.reads).toEqual(["messages:feed"]);
 
   // The top, from a feed that starts at an item, starts over at the top.
   const [, top] = await load(queryClient, {
-    feed: openFeed(queryClient, swr(messageFeed, at(null))),
+    feed: swr(messageFeed, at(null)),
   });
   expect(top.feed.pageParams[0]?.from).toBeNull();
   expect(feedIds(top.feed)).toEqual([["lobby:top", "lobby:older"]]);

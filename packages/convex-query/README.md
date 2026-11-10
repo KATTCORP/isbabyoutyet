@@ -11,7 +11,7 @@ data that Convex keeps current.
 reader.ts   ConvexReader Effect service: browser subscribing reads, server snapshot reads
 link.ts     convexLink: the client's reader for queryFns
             runConvexEffect: run a queryFn's Effect with the client's reader
-queries.ts  convexQuery / convexPaginatedQuery / convexFeedQuery factories, openFeed
+queries.ts  convexQuery / convexPaginatedQuery / convexFeedQuery factories
 live.ts     convexLive: a feature that subscribes cached entries and writes results into the cache
             watchConvexQuery: one entry's values as an Effect Stream
 entries.ts  key constants, and decoding a cache entry's key and page params
@@ -97,11 +97,12 @@ so a backward page that is full never takes in items beyond it until the next
 `forward` query start a few items early.
 
 The input's `from` rides in the page params, not the key, so a feed is one
-entry however it was opened. Load it through `openFeed(queryClient,
-swr(feed, input))`, which keeps the cached feed while it starts at `from` or
-shows the item `from` names, and starts it over at `from` otherwise. Moving
-between items the page already shows (a highlighted link, back and forward)
-then reads nothing and keeps every page loaded, with no state beyond the URL.
+entry however it was opened. The factory sets raf-query's `keepPages`: `load`
+keeps the cached feed while it starts at `from` or shows the item `from`
+names, and starts it over at `from` otherwise. Moving between items the page
+already shows (a highlighted link, back and forward) then reads nothing and
+keeps every page loaded, with no state beyond the URL and nothing to call but
+`swr`.
 
 Read data in a loader from `load`'s second element (`const [, data] = await
 load(…)`). Effects that compose several reads (for example push-capability
