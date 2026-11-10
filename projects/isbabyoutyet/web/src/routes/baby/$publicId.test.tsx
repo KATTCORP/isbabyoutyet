@@ -357,7 +357,6 @@ const loader: (
   opts: RouteContextStub & {
     deps: { item: string | null };
     params: { publicId: string };
-    preload: boolean;
   },
 ) => Promise<BabyLoaderResult> = routeModule.Route.options.loader;
 
@@ -366,9 +365,9 @@ const beforeLoad: (
   opts: RouteContextStub & { location: { href: string }; params: { publicId: string } },
 ) => Promise<object | void | null> = routeModule.Route.options.beforeLoad;
 
-async function runLoader(
+async function runBabyLoader(
   queryClient: QueryClient,
-  opts: { item: string | null; preload: boolean },
+  opts: { item: string | null } = { item: null },
 ) {
   // As `beforeLoad` does before every loader run.
   await loadQuery(queryClient, convexQuery(api.baby.getByPublicId), { id: "baby-smith" });
@@ -376,21 +375,7 @@ async function runLoader(
     context: { queryClient },
     deps: { item: opts.item },
     params: { publicId: "baby-smith" },
-    preload: opts.preload,
   });
-}
-
-/** The loader on a navigation. */
-async function runBabyLoader(
-  queryClient: QueryClient,
-  opts: { item: string | null } = { item: null },
-) {
-  return await runLoader(queryClient, { item: opts.item, preload: false });
-}
-
-/** The loader as the router runs it to preload a link in view. */
-async function preloadBabyLoader(queryClient: QueryClient, item: string | null) {
-  return await runLoader(queryClient, { item, preload: true });
 }
 
 test("loader loads the same set for visitors; gated queries come back forbidden", async () => {
@@ -608,31 +593,6 @@ test("an item the feed on screen hasn't loaded starts the feed over at it", asyn
     timelineInput({ from: "k57older", publicId: "baby-smith" }),
   );
   expect(feed?.pageParams[0]?.from).toBe("k57older");
-});
-
-test("preloading a link to another item leaves the feed on screen alone", async () => {
-  const read: Array<string> = [];
-  await using stub = loaderQueryClientResource(
-    {
-      "baby:getByPublicId": BABY_DOC,
-      "timeline:listFeed": { ...EMPTY_PAGE, page: [{ _id: "k57linked" }] },
-    },
-    read,
-  );
-  await runBabyLoader(stub.queryClient, { item: "k57linked" });
-  read.length = 0;
-
-  // "Jump to latest" scrolled into view, and an item the feed hasn't loaded.
-  await preloadBabyLoader(stub.queryClient, null);
-  await preloadBabyLoader(stub.queryClient, "k57elsewhere");
-
-  expect(read).not.toContain("timeline:listFeed");
-  const feed = getData(
-    stub.queryClient,
-    timelineQuery,
-    timelineInput({ from: "k57linked", publicId: "baby-smith" }),
-  );
-  expect(feed?.pageParams[0]?.from).toBe("k57linked");
 });
 
 test("docToBabyData coalesces missing public due date text to null", () => {

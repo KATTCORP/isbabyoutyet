@@ -60,6 +60,11 @@ export const Route = createFileRoute("/baby/$publicId")({
   component: BabyPageLayout,
   validateSearch: babySearchSchema,
   loaderDeps: (opts) => ({ item: opts.search.item ?? null }),
+  // The router preloads links in view, and some on this page lead back to
+  // it without `?item=` ("Jump to latest", overlays). Their loader would
+  // load the feed from the top, and start the feed on screen over under
+  // the reader. Loaders here run on navigation only.
+  preload: false,
 
   beforeLoad: async (opts) => {
     const [, data] = await load(opts.context.queryClient, {
@@ -105,12 +110,8 @@ export const Route = createFileRoute("/baby/$publicId")({
         babyId: publicId,
       }),
       // The feed on screen stays while it has `?item=`, so following a
-      // timestamp only moves the highlight. A preload (a link in view) is
-      // only a hint: it never starts the feed on screen over.
-      timeline: (opts.preload ? prefetch : swr)(
-        timelineQuery,
-        timelineInput({ from: opts.deps.item, publicId }),
-      ),
+      // timestamp only moves the highlight.
+      timeline: swr(timelineQuery, timelineInput({ from: opts.deps.item, publicId })),
       vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
       visitorTag: prefetch(visitorTagQuery, babyDoc._id),
     });
