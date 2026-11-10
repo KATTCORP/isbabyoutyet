@@ -1,37 +1,12 @@
-import {
-  CaretDownIcon,
-  ChatCircleIcon,
-  ChatCircleTextIcon,
-  MessengerLogoIcon,
-  WhatsappLogoIcon,
-} from "@phosphor-icons/react";
+import { CaretDownIcon } from "@phosphor-icons/react";
 import { cn } from "@workspace/ui/lib/utils";
 import type { TranslationFunction, TranslationKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n";
 import { canonicalUrl } from "@/lib/site-url";
+import type { ChatApp } from "./chat-app-logo";
+import { CHAT_APP_NAMES, ChatAppLogo } from "./chat-app-logo";
 import type { DevicePlatform } from "@/lib/use-device-platform";
 import { useDevicePlatform } from "@/lib/use-device-platform";
-
-/**
- * `messages` is Apple's Messages app (iMessage and SMS share it); `sms` is
- * Android's default Messages app, which mostly grandparents still text from.
- */
-type ChatApp = "messages" | "messenger" | "sms" | "whatsapp";
-
-const CHAT_APPS = {
-  messages: {
-    badge: "bg-linear-to-b from-[#62f57c] to-[#0cbd2a]",
-    icon: ChatCircleIcon,
-    name: "Messages",
-  },
-  messenger: {
-    badge: "bg-linear-to-br from-[#0099ff] via-[#a033ff] to-[#ff5c87]",
-    icon: MessengerLogoIcon,
-    name: "Messenger",
-  },
-  sms: { badge: "bg-[#1a73e8]", icon: ChatCircleTextIcon, name: "Messages" },
-  whatsapp: { badge: "bg-[#25d366]", icon: WhatsappLogoIcon, name: "WhatsApp" },
-} as const satisfies Record<ChatApp, { badge: string; icon: typeof ChatCircleIcon; name: string }>;
 
 type LockScreenEntry = {
   /** Which app the chat lives in on each platform. */
@@ -132,26 +107,6 @@ function notificationBody(t: TranslationFunction, notification: ChatNotification
       });
 }
 
-/** The app's icon on the avatar: a rounded square on iOS, a circle on Android. */
-function AppBadge(props: { app: ChatApp; platform: DevicePlatform }) {
-  const app = CHAT_APPS[props.app];
-  const Icon = app.icon;
-  return (
-    <span
-      className={cn(
-        "absolute -right-1 -bottom-1 flex size-5 items-center justify-center ring-2",
-        app.badge,
-        props.platform === "ios"
-          ? "rounded-[6px] ring-white/80 dark:ring-zinc-800"
-          : "rounded-full ring-zinc-100 dark:ring-zinc-800",
-      )}
-      data-app={props.app}
-    >
-      <Icon className="size-3.5 text-white" weight="fill" />
-    </span>
-  );
-}
-
 function ChatAvatar(props: { notification: ChatNotification; platform: DevicePlatform }) {
   return (
     <span aria-hidden="true" className="relative mt-0.5 shrink-0 self-start">
@@ -163,7 +118,7 @@ function ChatAvatar(props: { notification: ChatNotification; platform: DevicePla
       >
         {props.notification.avatar}
       </span>
-      <AppBadge app={props.notification.app[props.platform]} platform={props.platform} />
+      <ChatAppLogo app={props.notification.app[props.platform]} platform={props.platform} />
     </span>
   );
 }
@@ -196,7 +151,7 @@ function IosNotification(props: { notification: ChatNotification }) {
           <p className="flex items-baseline gap-2">
             <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-zinc-950 dark:text-white">
               {t(props.notification.chat)}
-              <span className="sr-only">{` (${CHAT_APPS[props.notification.app.ios].name})`}</span>
+              <span className="sr-only">{` (${CHAT_APP_NAMES[props.notification.app.ios]})`}</span>
             </span>
             <span className="shrink-0 text-[13px] text-zinc-500 dark:text-zinc-400">
               {notificationTime(t, { minutesAgo: props.notification.minutesAgo, platform: "ios" })}
@@ -240,7 +195,7 @@ function AndroidNotification(props: {
         <p className="flex items-baseline gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
           <span className="min-w-0 truncate text-[15px] font-medium text-zinc-900 dark:text-zinc-50">
             {t(props.notification.chat)}
-            <span className="sr-only">{` (${CHAT_APPS[props.notification.app.android].name})`}</span>
+            <span className="sr-only">{` (${CHAT_APP_NAMES[props.notification.app.android]})`}</span>
           </span>
           <span aria-hidden="true">•</span>
           <span className="shrink-0">
