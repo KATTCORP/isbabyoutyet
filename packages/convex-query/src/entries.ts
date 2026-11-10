@@ -9,9 +9,6 @@ export const CONVEX_QUERY_KEY = "convexQuery";
 /** First element of every `convexPaginatedQuery` key. */
 export const CONVEX_PAGINATED_QUERY_KEY = "convexPaginatedQuery";
 
-/** First element of every `convexFeedQuery` key. */
-export const CONVEX_FEED_QUERY_KEY = "convexFeedQuery";
-
 /** A cache entry, as the client's events and entry map hold it. */
 export type CacheEntry = NonNullable<ReturnType<QueryClient["~entries"]["get"]>>;
 
@@ -26,13 +23,6 @@ export type LiveKey =
       readonly kind: "paginated";
       readonly name: string;
       readonly numItems: number;
-    }
-  | {
-      readonly args: DefaultFunctionArgs;
-      readonly backwardName: string;
-      readonly forwardName: string;
-      readonly kind: "feed";
-      readonly numItems: number;
     };
 
 /** The entry `key` addresses, or `null` unless one of this package's factories made it. */
@@ -40,19 +30,6 @@ export function liveKey(key: CacheEntry["key"]): LiveKey | null {
   const tag = key[0];
   const name = key[1];
   if (!Predicate.isString(name)) {
-    return null;
-  }
-  if (tag === CONVEX_FEED_QUERY_KEY && key.length === 5) {
-    const backwardName = key[2];
-    const args = key[3];
-    const numItems = key[4];
-    if (
-      Predicate.isString(backwardName) &&
-      Predicate.isObject(args) &&
-      Predicate.isNumber(numItems)
-    ) {
-      return { args, backwardName, forwardName: name, kind: "feed", numItems };
-    }
     return null;
   }
   const args = key[2];
@@ -69,15 +46,15 @@ export function liveKey(key: CacheEntry["key"]): LiveKey | null {
   return null;
 }
 
-/** A loaded page's cursor, and the direction it was loaded in (`null` for one-way queries). */
+/** A loaded page's cursor, and the direction it was loaded in (`null` on one-way pages). */
 export interface PageStart {
   readonly cursor: string | null;
   readonly direction: PageDirection | null;
 }
 
-/** A loaded page: where it starts, how many items it was loaded with, and a feed's start. */
+/** A loaded page: where it starts, how many items it was loaded with, and a two-way query's start. */
 export interface LoadedPage extends PageStart {
-  /** Where a feed starts (`convexFeedQuery`); absent on one-way pages. */
+  /** Where a two-way query's pages start; absent on one-way pages. */
   readonly from?: string | null;
   readonly numItems: number;
 }

@@ -12,7 +12,7 @@ import { Effect, Queue, Stream } from "effect";
 import type { CacheEntry, LiveKey, LoadedPage, PageStart } from "./entries.ts";
 import { liveKey, loadedPages, pageIndex } from "./entries.ts";
 import type { PageDirection, QueryReference } from "./queries.ts";
-import { convexFeedQuery, convexPaginatedQuery, convexQuery } from "./queries.ts";
+import { convexPaginatedQuery, convexQuery } from "./queries.ts";
 import type { ConvexWatchClient } from "./reader.ts";
 
 /** One Convex subscription feeding part of an entry. */
@@ -74,10 +74,11 @@ function chainSubscriptions(
       endCursor === undefined
         ? { cursor, numItems: loaded.numItems }
         : { cursor, endCursor, numItems: loaded.numItems };
-    // A feed's pages read from where it starts.
-    const from = loaded.from === undefined ? {} : { from: loaded.from };
+    // A two-way query's pages read their direction, from where it starts.
+    const twoWay =
+      loaded.from === undefined ? {} : { direction: chain.direction, from: loaded.from };
     return {
-      args: { ...opts.args, ...from, paginationOpts },
+      args: { ...opts.args, ...twoWay, paginationOpts },
       id: JSON.stringify([chain.direction, cursor, endCursor ?? null]),
       name: chain.name,
       onError: opts.entry.invalidate,
@@ -89,68 +90,64 @@ function chainSubscriptions(
 }
 
 function pagedSubscriptions(
-  key: Exclude<LiveKey, { kind: "query" }>,
+  key: Extract<LiveKey, { kind: "paginated" }>,
   opts: { pages: ReadonlyArray<LoadedPage>; queryClient: QueryClient },
 ): ReadonlyArray<Subscription> {
-  const input = { args: key.args, numItems: key.numItems };
-  switch (key.kind) {
-    case "paginated": {
-      const factory = convexPaginatedQuery(makeFunctionReference<"query">(key.name));
-      const entry: PagedEntry = {
-        invalidate: () => void invalidateOne(opts.queryClient, factory, input),
-        writePage: (start, page) => {
-          const data = getData(opts.queryClient, factory, input);
-          const index = pageIndex(loadedPages(data), start);
-          if (data && index !== -1) {
-            setData(opts.queryClient, factory, input, {
-              pageParams: data.pageParams,
-              pages: data.pages.with(index, page),
-            });
-          }
-        },
-      };
-      const chain = { direction: null, name: key.name, pages: opts.pages };
-      return chainSubscriptions(chain, { args: key.args, entry });
-    }
-    case "feed": {
-      const factory = convexFeedQuery({
-        backward: makeFunctionReference<"query">(key.backwardName),
-        forward: makeFunctionReference<"query">(key.forwardName),
-      });
-      // Not part of the key: any start addresses the entry.
-      const feedInput = { ...input, from: opts.pages[0]?.from ?? null };
-      const entry: PagedEntry = {
-        invalidate: () => void invalidateOne(opts.queryClient, factory, feedInput),
-        writePage: (start, page) => {
-          const data = getData(opts.queryClient, factory, feedInput);
-          const index = pageIndex(loadedPages(data), start);
-          if (data && index !== -1) {
-            setData(opts.queryClient, factory, feedInput, {
-              pageParams: data.pageParams,
-              pages: data.pages.with(index, page),
-            });
-          }
-        },
-      };
-      const pagesOf = (direction: PageDirection) =>
-        opts.pages.filter((loaded) => loaded.direction === direction);
-      // Backward pages are prepended, so their chain runs from the end of
-      // the list towards its start.
-      const chains: ReadonlyArray<PageChain> = [
-        { direction: "forward", name: key.forwardName, pages: pagesOf("forward") },
-        {
-          direction: "backward",
-          name: key.backwardName,
-          pages: pagesOf("backward").toReversed(),
-        },
-      ];
-      return chains.flatMap((chain) => chainSubscriptions(chain, { args: key.args, entry }));
-    }
-    default: {
-      const _exhaustive: never = key;
-      return _exhaustive;
-    }
+  const queryClient = opts.queryClient;
+  const from = opts.pages[0]?.from;
+  if (from === undefined) {
+    const factory = convexPaginatedQuery(
+      makeFunctionReference<"query", { paginationOpts: PaginationOptions }>(key.name),
+    );
+    const input = { args: key.args, numItems: key.numItems };
+    const entry: PagedEntry = {
+      invalidate: () => void invalidateOne(queryClient, factory, input),
+      writePage: (start, page) => {
+        const data = getData(queryClient, factory, input);
+        const index = pageIndex(loadedPages(data), start);
+        if (data && index !== -1) {
+          setData(queryClient, factory, input, {
+            pageParams: data.pageParams,
+            pages: data.pages.with(index, page),
+          });
+        }
+      },
+    };
+    const chain = { direction: null, name: key.name, pages: opts.pages };
+    return chainSubscriptions(chain, { args: key.args, entry });
   }
+  // A two-way entry, read with the start its pages carry: writes go through
+  // `setData`, which gives the entry this input's options, and the start
+  // isn't part of the key.
+  const factory = convexPaginatedQuery(
+    makeFunctionReference<
+      "query",
+      { direction: PageDirection; from: string | null; paginationOpts: PaginationOptions }
+    >(key.name),
+  );
+  const input = { args: key.args, from, numItems: key.numItems };
+  const entry: PagedEntry = {
+    invalidate: () => void invalidateOne(queryClient, factory, input),
+    writePage: (start, page) => {
+      const data = getData(queryClient, factory, input);
+      const index = pageIndex(loadedPages(data), start);
+      if (data && index !== -1) {
+        setData(queryClient, factory, input, {
+          pageParams: data.pageParams,
+          pages: data.pages.with(index, page),
+        });
+      }
+    },
+  };
+  const pagesOf = (direction: PageDirection) =>
+    opts.pages.filter((loaded) => loaded.direction === direction);
+  // Backward pages are prepended, so their chain runs from the end of the
+  // list towards its start.
+  const chains: ReadonlyArray<PageChain> = [
+    { direction: "forward", name: key.name, pages: pagesOf("forward") },
+    { direction: "backward", name: key.name, pages: pagesOf("backward").toReversed() },
+  ];
+  return chains.flatMap((chain) => chainSubscriptions(chain, { args: key.args, entry }));
 }
 
 function subscriptionsFor(

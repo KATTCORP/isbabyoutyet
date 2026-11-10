@@ -802,7 +802,7 @@ const emptyActionSchema = z.object({});
  * Never preloaded: the router preloads links in view, and every row has one.
  *
  * Clicked in the app, the item is already on screen, so the loader keeps
- * the feed (`convexFeedQuery`), and the item scrolls to where a cold load of the
+ * the feed (its `keepPages`), and the item scrolls to where a cold load of the
  * same URL puts it, without resetting the page to the top first.
  */
 function TimelineItemPermalink(props: {
@@ -1412,19 +1412,15 @@ export function TimelineFeed(props: TimelineFeedProps) {
   // Where the feed the page shows starts, whichever item the URL highlights.
   const from = timeline.pageParams[0]?.from ?? null;
   // The first page read forward, after any newer pages, says whether the
-  // linked item is there and how many items are newer than the feed.
-  const firstPage = timeline.pages.find((_, index) => !isNewerPage(index));
-  const head = firstPage && "newerCount" in firstPage ? firstPage : null;
-  const linkUnavailable = head?.linkUnavailable ?? false;
+  // linked item is there.
+  const linkUnavailable =
+    timeline.pages.find((_, index) => !isNewerPage(index))?.linkUnavailable ?? false;
   // Newer pages read up from the item; reversed, they read in feed order.
   const items = timeline.pages.flatMap((page, index) =>
     isNewerPage(index) ? page.page.toReversed() : page.page,
   );
-  const newerShown = timeline.pages.flatMap((page, index) =>
-    isNewerPage(index) ? page.page : [],
-  ).length;
-  const newerCount = head?.newerCount ?? { count: 0, more: false };
-  const newerHidden = Math.max(0, newerCount.count - newerShown);
+  // The top page says how many newer items are still above it.
+  const newer = timeline.pages[0]?.before ?? null;
   return (
     <TimelineFeedView
       baby={props.baby}
@@ -1442,11 +1438,11 @@ export function TimelineFeed(props: TimelineFeedProps) {
       key={from ?? "latest"}
       linkUnavailable={linkUnavailable}
       newer={
-        timelineState.hasPreviousPage && newerHidden > 0
+        timelineState.hasPreviousPage && newer
           ? {
-              count: newerHidden,
+              count: newer.count,
               isFetching: timelineState.isFetchingPreviousPage,
-              more: newerCount.more,
+              more: newer.more,
               show: timelineState.fetchPreviousPage,
             }
           : null

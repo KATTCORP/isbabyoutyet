@@ -4,6 +4,7 @@ import {
   createQueryClient,
   fetchNextPage,
   fetchPreviousPage,
+  hasPreviousPage,
   getData,
   invalidateOne,
   load,
@@ -20,8 +21,9 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { isInvalidatedEntry } from "./test-cache.ts";
 import { convexLink } from "./link.ts";
 import { convexLive, watchConvexQuery } from "./live.ts";
-import { CONVEX_FEED_QUERY_KEY, CONVEX_PAGINATED_QUERY_KEY, CONVEX_QUERY_KEY } from "./entries.ts";
-import { convexFeedQuery, convexPaginatedQuery, convexQuery } from "./queries.ts";
+import { CONVEX_PAGINATED_QUERY_KEY, CONVEX_QUERY_KEY } from "./entries.ts";
+import type { PageBefore, PageDirection } from "./queries.ts";
+import { convexPaginatedQuery, convexQuery } from "./queries.ts";
 import { ConvexReader } from "./reader.ts";
 import { makeTestConvexClient } from "./testing.ts";
 
@@ -44,21 +46,24 @@ const listMessages = makeFunctionReference<
   PaginationResult<string>
 >("messages:list");
 
-/** The same messages as a feed: `messages:feed` reads `items`, `messages:feedNewer` reads `newer`. */
+/**
+ * The same messages read both ways: forward pages read `items`, backward
+ * pages read `newer`, and each page says how many newer ones are before it.
+ */
 const listFeed = makeFunctionReference<
   "query",
-  { from: string | null; paginationOpts: PaginationOptions; room: string },
-  PaginationResult<{ _id: string }>
+  {
+    direction: PageDirection;
+    from: string | null;
+    paginationOpts: PaginationOptions;
+    room: string;
+  },
+  PaginationResult<{ _id: string }> & { before: PageBefore | null }
 >("messages:feed");
-const listFeedNewer = makeFunctionReference<
-  "query",
-  { from: string | null; paginationOpts: PaginationOptions; room: string },
-  PaginationResult<{ _id: string }>
->("messages:feedNewer");
 
 const message = convexQuery(getMessage);
 const messageList = convexPaginatedQuery(listMessages);
-const messageFeed = convexFeedQuery({ backward: listFeedNewer, forward: listFeed });
+const messageFeed = convexPaginatedQuery(listFeed);
 
 /** A feed's page of `ids`, as items. */
 function feedPage(result: PaginationResult<string>) {
@@ -113,10 +118,15 @@ function setup() {
         return page;
       }
       case "messages:feed": {
-        return feedPage(paginate(items, args.paginationOpts));
-      }
-      case "messages:feedNewer": {
-        return feedPage(paginate(newer, args.paginationOpts));
+        if (args.direction === "forward") {
+          const before =
+            args.paginationOpts.cursor === null ? { count: newer.length, more: false } : null;
+          return { ...feedPage(paginate(items, args.paginationOpts)), before };
+        }
+        const result = paginate(newer, args.paginationOpts);
+        const last = result.page.at(-1);
+        const left = last === undefined ? 0 : newer.length - newer.indexOf(last) - 1;
+        return { ...feedPage(result), before: { count: left, more: false } };
       }
       default: {
         throw new Error("Unknown query");
@@ -325,7 +335,7 @@ describe("convexLive", () => {
     expect(live.backend.subscriptions()).toHaveLength(2);
   });
 
-  it("pins both directions of a feed, writing each page where it sits", async () => {
+  it("pins both directions of a two-way query, writing each page where it sits", async () => {
     const live = setup();
     const input = { args: { room: "lobby" }, from: null, numItems: 2 };
     await live.load(messageFeed, input, { pages: 2 });
@@ -333,29 +343,41 @@ describe("convexLive", () => {
     await fetchPreviousPage(live.queryClient, messageFeed, input);
     vi.advanceTimersByTime(5000);
 
-    const byName = (name: string) =>
+    const byDirection = (direction: PageDirection) =>
       live.backend
         .subscriptions()
-        .filter((subscription) => subscription.name === name)
+        .filter((subscription) => subscription.args.direction === direction)
         .map((subscription) => subscription.args);
-    expect(byName("messages:feed")).toEqual(
+    expect(byDirection("forward")).toEqual(
       expect.arrayContaining([
         {
+          direction: "forward",
           from: null,
           paginationOpts: { cursor: null, endCursor: "b", numItems: 2 },
           room: "lobby",
         },
-        { from: null, paginationOpts: { cursor: "b", numItems: 2 }, room: "lobby" },
+        {
+          direction: "forward",
+          from: null,
+          paginationOpts: { cursor: "b", numItems: 2 },
+          room: "lobby",
+        },
       ]),
     );
-    expect(byName("messages:feedNewer")).toEqual(
+    expect(byDirection("backward")).toEqual(
       expect.arrayContaining([
         {
+          direction: "backward",
           from: null,
           paginationOpts: { cursor: null, endCursor: "n2", numItems: 2 },
           room: "lobby",
         },
-        { from: null, paginationOpts: { cursor: "n2", numItems: 2 }, room: "lobby" },
+        {
+          direction: "backward",
+          from: null,
+          paginationOpts: { cursor: "n2", numItems: 2 },
+          room: "lobby",
+        },
       ]),
     );
     expect(live.backend.subscriptions()).toHaveLength(4);
@@ -380,7 +402,26 @@ describe("convexLive", () => {
     ]);
   });
 
-  it("subscribes a feed's pages from where it started, whatever start reads it", async () => {
+  it("follows what's before a two-way query's top page as it changes", async () => {
+    const live = setup();
+    live.newer.length = 0;
+    const input = { args: { room: "lobby" }, from: null, numItems: 2 };
+    await live.load(messageFeed, input);
+    vi.advanceTimersByTime(5000);
+    expect(hasPreviousPage(live.queryClient, messageFeed, input)).toBe(false);
+
+    // Posted above the feed while it's on screen.
+    live.newer.push("n1");
+    await live.backend.refresh();
+
+    expect(getData(live.queryClient, messageFeed, input)?.pages[0]?.before).toEqual({
+      count: 1,
+      more: false,
+    });
+    expect(hasPreviousPage(live.queryClient, messageFeed, input)).toBe(true);
+  });
+
+  it("subscribes a two-way query's pages from where they start, whatever start reads it", async () => {
     const live = setup();
     const input = { args: { room: "lobby" }, from: "b", numItems: 2 };
     await live.load(messageFeed, input);
@@ -389,7 +430,12 @@ describe("convexLive", () => {
     vi.advanceTimersByTime(5000);
 
     expect(live.backend.subscriptions().map((subscription) => subscription.args)).toEqual([
-      { from: "b", paginationOpts: { cursor: null, numItems: 2 }, room: "lobby" },
+      {
+        direction: "forward",
+        from: "b",
+        paginationOpts: { cursor: null, numItems: 2 },
+        room: "lobby",
+      },
     ]);
   });
 
@@ -414,7 +460,7 @@ describe("convexLive", () => {
     expect(getData(live.queryClient, messageList, input)?.pages[0]?.page).toEqual(["a", "b"]);
   });
 
-  it("invalidates a feed entry when a page subscription fails", async () => {
+  it("invalidates a two-way entry when a page subscription fails", async () => {
     const live = setup();
     const input = { args: { room: "lobby" }, from: null, numItems: 2 };
     await live.load(messageFeed, input);
@@ -443,10 +489,6 @@ describe("convexLive", () => {
     const entries: ReadonlyArray<{ data: unknown; key: ReadonlyArray<unknown> }> = [
       { data: "x", key: [CONVEX_QUERY_KEY, 1, args] },
       { data: "x", key: ["other", "messages:get", args] },
-      {
-        data: { pageParams: [{ cursor: null }], pages: [page] },
-        key: [CONVEX_FEED_QUERY_KEY, "messages:feed", 1, args, 2],
-      },
       { data: { pages: [page] }, key: [CONVEX_PAGINATED_QUERY_KEY, "messages:list", args, 2] },
       {
         data: { pageParams: [{}], pages: [page] },
@@ -473,7 +515,7 @@ describe("convexLive", () => {
           pageParams: [{ cursor: null, direction: "forward", from: 8, next: null, numItems: 2 }],
           pages: [page],
         },
-        key: [CONVEX_FEED_QUERY_KEY, "messages:feed", "messages:feedNewer", args, 2],
+        key: [CONVEX_PAGINATED_QUERY_KEY, "messages:feed", args, 8],
       },
     ];
     for (const entry of entries) {

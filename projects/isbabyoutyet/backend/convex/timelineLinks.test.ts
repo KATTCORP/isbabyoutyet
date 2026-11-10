@@ -92,9 +92,12 @@ function alternatingRows(count: number) {
   }));
 }
 
-async function readAllFromItem(
+type ReadAllOpts = { context?: number; itemId: string; numItems: number };
+
+/** Every page a linked feed reads in `direction`, as labels in reading order. */
+async function readAllPages(
   harness: Harness,
-  opts: { context?: number; itemId: string; numItems: number },
+  opts: ReadAllOpts & { direction: "backward" | "forward" },
 ) {
   const labels: Array<string | null | undefined> = [];
   let cursor: string | null = null;
@@ -104,6 +107,7 @@ async function readAllFromItem(
       {
         babyId: harness.babyId,
         context: opts.context ?? 0,
+        direction: opts.direction,
         from: opts.itemId,
         paginationOpts: { cursor, numItems: opts.numItems },
       },
@@ -116,39 +120,24 @@ async function readAllFromItem(
   }
 }
 
-async function readAllNewer(
-  harness: Harness,
-  opts: { context?: number; itemId: string; numItems: number },
-) {
-  const labels: Array<string | null | undefined> = [];
-  let cursor: string | null = null;
-  for (;;) {
-    const result: FunctionReturnType<typeof api.timeline.listNewer> = await harness.t.query(
-      api.timeline.listNewer,
-      {
-        babyId: harness.babyId,
-        context: opts.context ?? 0,
-        from: opts.itemId,
-        paginationOpts: { cursor, numItems: opts.numItems },
-      },
-    );
-    labels.push(...result.page.map(labelOf));
-    if (result.isDone) {
-      return labels;
-    }
-    cursor = result.continueCursor;
-  }
+function readAllFromItem(harness: Harness, opts: ReadAllOpts) {
+  return readAllPages(harness, { ...opts, direction: "forward" });
 }
 
-/** The `newerCount` a linked feed's first page carries. */
+function readAllNewer(harness: Harness, opts: ReadAllOpts) {
+  return readAllPages(harness, { ...opts, direction: "backward" });
+}
+
+/** The `before` a linked feed's first page carries. */
 async function newerCountOf(harness: Harness, opts: { context?: number; itemId: string }) {
   const first = await harness.t.query(api.timeline.listFeed, {
     babyId: harness.babyId,
     context: opts.context ?? 0,
+    direction: "forward",
     from: opts.itemId,
     paginationOpts: { cursor: null, numItems: 1 },
   });
-  return first.newerCount;
+  return first.before;
 }
 
 test("a linked item starts the feed and pages older across updates and encouragements", async () => {
@@ -158,6 +147,7 @@ test("a linked item starts the feed and pages older across updates and encourage
   const first = await harness.t.query(api.timeline.listFeed, {
     babyId: harness.babyId,
     context: 0,
+    direction: "forward",
     from: idOf(ids, "m6"),
     paginationOpts: { cursor: null, numItems: 3 },
   });
@@ -186,18 +176,20 @@ test("context starts the feed a few items above the link, and the rest stay newe
   const first = await harness.t.query(api.timeline.listFeed, {
     babyId: harness.babyId,
     context: 2,
+    direction: "forward",
     from: itemId,
     paginationOpts: { cursor: null, numItems: 4 },
   });
-  expect(first).toMatchObject({ linkUnavailable: false, newerCount: { count: 1, more: false } });
+  expect(first).toMatchObject({ before: { count: 1, more: false }, linkUnavailable: false });
   expect(first.page.map(labelOf)).toEqual(["m8", "m7", "m6", "m5"]);
   const next = await harness.t.query(api.timeline.listFeed, {
     babyId: harness.babyId,
     context: 2,
+    direction: "forward",
     from: itemId,
     paginationOpts: { cursor: first.continueCursor, numItems: 4 },
   });
-  expect(next).toMatchObject({ isDone: false, linkUnavailable: false, newerCount: null });
+  expect(next).toMatchObject({ before: null, isDone: false, linkUnavailable: false });
   expect(next.page.map(labelOf)).toEqual(["m4", "m3", "m2", "m1"]);
   expect(await readAllNewer(harness, { context: 2, itemId, numItems: 10 })).toEqual(["m9"]);
 
@@ -237,9 +229,10 @@ test("newer items page upwards from the link, and both directions tile the feed"
   const ids = await seedFeed(harness, alternatingRows(10));
   const itemId = idOf(ids, "m3");
 
-  const firstNewer = await harness.t.query(api.timeline.listNewer, {
+  const firstNewer = await harness.t.query(api.timeline.listFeed, {
     babyId: harness.babyId,
     context: 0,
+    direction: "backward",
     from: itemId,
     paginationOpts: { cursor: null, numItems: 2 },
   });
@@ -256,6 +249,42 @@ test("newer items page upwards from the link, and both directions tile the feed"
   expect([...newer.toReversed(), ...older]).toEqual(feed.page.map(labelOf));
 
   expect(await newerCountOf(harness, { itemId })).toEqual({ count: 6, more: false });
+});
+
+test("each newer page says how many shown items are still above it", async () => {
+  await using harness = await setup();
+  const ids = await seedFeed(harness, alternatingRows(10));
+  await harness.t.run(async (ctx) => {
+    await ctx.db.patch(idOf(ids, "m9"), { deletedAt: 5000 });
+  });
+  const args = { babyId: harness.babyId, context: 0, from: idOf(ids, "m3") };
+
+  const first = await harness.t.query(api.timeline.listFeed, {
+    ...args,
+    direction: "forward",
+    paginationOpts: { cursor: null, numItems: 2 },
+  });
+  // m4–m8: m9 is removed.
+  expect(first.before).toEqual({ count: 5, more: false });
+  const newer = { ...args, direction: "backward" as const };
+  const befores: Array<unknown> = [];
+  let cursor: string | null = null;
+  for (;;) {
+    const page: FunctionReturnType<typeof api.timeline.listFeed> = await harness.t.query(
+      api.timeline.listFeed,
+      { ...newer, paginationOpts: { cursor, numItems: 2 } },
+    );
+    befores.push({ before: page.before, labels: page.page.map(labelOf) });
+    if (page.isDone) {
+      break;
+    }
+    cursor = page.continueCursor;
+  }
+  expect(befores).toEqual([
+    { before: { count: 3, more: false }, labels: ["m4", "m5"] },
+    { before: { count: 1, more: false }, labels: ["m6", "m7"] },
+    { before: { count: 0, more: false }, labels: ["m8"] },
+  ]);
 });
 
 test("items posted in the same millisecond keep one order on both sides of the link", async () => {
@@ -324,6 +353,7 @@ test("a removed linked item is reported hidden but still holds the window in pla
   const result = await harness.t.query(api.timeline.listFeed, {
     babyId: harness.babyId,
     context: 0,
+    direction: "forward",
     from: itemId,
     paginationOpts: { cursor: null, numItems: 10 },
   });
@@ -339,16 +369,18 @@ test("no link reads the latest feed, with nothing newer", async () => {
 
   const first = await harness.t.query(api.timeline.listFeed, {
     ...args,
+    direction: "forward",
     paginationOpts: { cursor: null, numItems: 3 },
   });
-  expect(first).toMatchObject({ linkUnavailable: false, newerCount: { count: 0, more: false } });
+  expect(first).toMatchObject({ before: { count: 0, more: false }, linkUnavailable: false });
   expect(first.page.map(labelOf)).toEqual(["m4", "m3", "m2"]);
   expect(
-    await harness.t.query(api.timeline.listNewer, {
+    await harness.t.query(api.timeline.listFeed, {
       ...args,
+      direction: "backward",
       paginationOpts: { cursor: null, numItems: 3 },
     }),
-  ).toEqual({ continueCursor: "", isDone: true, page: [] });
+  ).toMatchObject({ before: { count: 0, more: false }, isDone: true, page: [] });
 });
 
 test("unknown, malformed, and other pages' ids read the latest feed", async () => {
@@ -375,26 +407,29 @@ test("unknown, malformed, and other pages' ids read the latest feed", async () =
     const args = { babyId: harness.babyId, context: 2, from: itemId };
     const first = await harness.t.query(api.timeline.listFeed, {
       ...args,
+      direction: "forward",
       paginationOpts: { cursor: null, numItems: 1 },
     });
     expect(first).toMatchObject({
+      before: { count: 0, more: false },
       isDone: false,
       linkUnavailable: true,
-      newerCount: { count: 0, more: false },
     });
     expect(first.page.map(labelOf)).toEqual(["m2"]);
     const next = await harness.t.query(api.timeline.listFeed, {
       ...args,
+      direction: "forward",
       paginationOpts: { cursor: first.continueCursor, numItems: 10 },
     });
-    expect(next).toMatchObject({ isDone: true, linkUnavailable: true, newerCount: null });
+    expect(next).toMatchObject({ before: null, isDone: true, linkUnavailable: true });
     expect(next.page.map(labelOf)).toEqual(["m1"]);
     expect(
-      await harness.t.query(api.timeline.listNewer, {
+      await harness.t.query(api.timeline.listFeed, {
         ...args,
+        direction: "backward",
         paginationOpts: { cursor: null, numItems: 10 },
       }),
-    ).toEqual({ continueCursor: "", isDone: true, page: [] });
+    ).toMatchObject({ before: { count: 0, more: false }, isDone: true, page: [] });
   }
 
   // The same link works on its own page, addressed by public slug.
@@ -402,6 +437,7 @@ test("unknown, malformed, and other pages' ids read the latest feed", async () =
   const onOwnPage = await harness.t.query(api.timeline.listFeed, {
     babyId: otherBaby?.publicId ?? "",
     context: 0,
+    direction: "forward",
     from: otherItem,
     paginationOpts: { cursor: null, numItems: 10 },
   });
@@ -418,6 +454,7 @@ test("a deleted baby page reads nothing through a link", async () => {
   const result = await harness.t.query(api.timeline.listFeed, {
     babyId: harness.babyId,
     context: 0,
+    direction: "forward",
     from: idOf(ids, "m1"),
     paginationOpts: { cursor: null, numItems: 10 },
   });
@@ -431,6 +468,7 @@ test("linked pages use the feed's public encouragement shape", async () => {
   const result = await harness.t.query(api.timeline.listFeed, {
     babyId: harness.babyId,
     context: 0,
+    direction: "forward",
     from: idOf(ids, "m1"),
     paginationOpts: { cursor: null, numItems: 10 },
   });

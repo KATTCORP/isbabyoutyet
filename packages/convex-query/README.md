@@ -11,7 +11,7 @@ data that Convex keeps current.
 reader.ts   ConvexReader Effect service: browser subscribing reads, server snapshot reads
 link.ts     convexLink: the client's reader for queryFns
             runConvexEffect: run a queryFn's Effect with the client's reader
-queries.ts  convexQuery / convexPaginatedQuery / convexFeedQuery factories
+queries.ts  convexQuery / convexPaginatedQuery factories
 live.ts     convexLive: a feature that subscribes cached entries and writes results into the cache
             watchConvexQuery: one entry's values as an Effect Stream
 entries.ts  key constants, and decoding a cache entry's key and page params
@@ -84,25 +84,29 @@ loaded page except the last stays pinned to its end cursor while live, so
 inserts and deletes grow or shrink a page instead of shifting items between
 pages.
 
-`convexFeedQuery({ forward, backward })` is a feed: one infinite query per
-`args` that opens at an item or at the top and grows both ways, over two
-paginated queries with a fixed shape. Both take `from` (an item id, or `null`
-for the top) on top of their own args, and page items with an `_id`.
-`forward` loads the first page and every `fetchNextPage`. `backward` loads
-only on `fetchPreviousPage`, starting right above the first page. raf-query
-prepends backward pages, and each page's `pageParams` entry says which
-`direction` it came from. Both directions stay live and pinned the same way,
-so a backward page that is full never takes in items beyond it until the next
-`fetchPreviousPage`. To open with a little context above an item, let the
-`forward` query start a few items early.
+A paginated query that also takes `direction` and `from` reads both ways
+(`TwoWayPaginatedQueryReference`). Its input says where the pages start,
+`{ args, from, numItems }`, with `from` an item's id or `null` for the top.
+Forward pages read on from the start (`fetchNextPage`); backward pages read
+the other way from right before it (`fetchPreviousPage`), and raf-query
+prepends them, so each page's `pageParams` entry says which `direction` it
+came from. Each page says what's `before` it that isn't loaded (`{ count, more
+}`): the first forward page what's before the start, each backward page what's
+still before it, other forward pages `null`. `hasPreviousPage` follows the top
+page's `before`, and the count is there for a "Show N more" control, live like
+the rest of the page. Both directions stay live and pinned the same way, so a
+backward page that is full never takes in items beyond it until the next
+`fetchPreviousPage`. To open with a little context before an item, let the
+query start a few items early.
 
-The input's `from` rides in the page params, not the key, so a feed is one
-entry however it was opened. The factory sets raf-query's `keepPages`: `load`
-keeps the cached feed while it starts at `from` or shows the item `from`
-names, and starts it over at `from` otherwise. Moving between items the page
-already shows (a highlighted link, back and forward) then reads nothing and
-keeps every page loaded, with no state beyond the URL and nothing to call but
-`swr`.
+`from` rides in the page params, not the key, so a two-way query is one entry
+however it was opened. The factory sets raf-query's `keepPages`: `load` keeps
+the cached pages while they start at `from` or show the item `from` names
+(its items have an `_id`), and starts them over at `from` otherwise. Moving
+between items the page already shows (a highlighted link, back and forward)
+then reads nothing and keeps every page loaded, with no state beyond the URL.
+Load such an entry with `prefetch` while a router preloads, which never drops
+pages, and with `swr` when navigating.
 
 Read data in a loader from `load`'s second element (`const [, data] = await
 load(…)`). Effects that compose several reads (for example push-capability

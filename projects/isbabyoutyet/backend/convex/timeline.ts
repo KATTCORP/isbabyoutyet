@@ -205,7 +205,7 @@ const NO_NEWER_ITEMS = { count: 0, more: false };
 
 /**
  * How many shown feed items are newer than `start`, for the divider above
- * a linked feed. Capped so a link deep in a busy feed stays a bounded read:
+ * a feed's top page. Capped so a link deep in a busy feed stays a bounded read:
  * past the cap, `count` is the cap and `more` is true.
  */
 async function countNewerThan(ctx: QueryCtx, start: Doc<"timelineItems">) {
@@ -243,40 +243,71 @@ const feedArgs = {
   babyId: babyIdOrPublicIdValidator,
   /** How many items right above the linked one the first page starts with. */
   context: v.number(),
+  /**
+   * Which way the page reads from where the feed starts: `"forward"` down
+   * through older items, `"backward"` up through newer ones.
+   */
+  direction: v.union(v.literal("forward"), v.literal("backward")),
   /** The linked item (`?item=`) the feed starts at, or `null` for the latest. */
   from: v.union(v.string(), v.null()),
   paginationOpts: paginationOptsValidator,
 };
 
+/** A page that reads nothing: past the end, or for a link that doesn't resolve. */
+const EMPTY_FEED_PAGE = {
+  before: NO_NEWER_ITEMS,
+  continueCursor: "",
+  isDone: true,
+  linkUnavailable: false,
+  page: [],
+};
+
 /**
- * The baby page's feed, newest first like {@link listByBaby}: from the top,
- * or from a linked item, with `context` items right above it. Positions by
- * the feed's index key (`postedAt`, then Convex's built-in `_creationTime`),
- * so rows posted in the same millisecond keep one stable order across this
- * query and {@link listNewer}.
+ * The baby page's feed, newest first like {@link listByBaby}, from the top
+ * or from a linked item with `context` items right above it. One query
+ * reads both ways (`direction`), so the page pages it like any infinite
+ * query: older items forward, newer ones backward. Positions by the feed's
+ * index key (`postedAt`, then Convex's built-in `_creationTime`), so rows
+ * posted in the same millisecond keep one stable order in both directions.
  *
- * - `linkUnavailable` is true when the link names a removed item; the
- *   feed still holds its place.
- * - A link that doesn't resolve on this page (unknown, malformed, another
- *   baby's) reads the latest feed instead, also with `linkUnavailable`.
- * - The first page carries `newerCount`, the items above it, for the
- *   divider; later pages carry `null`.
+ * - Forward pages read from the start down. A link that doesn't resolve on
+ *   this page (unknown, malformed, another baby's) reads the latest feed
+ *   instead; `linkUnavailable` is true for that and for a removed linked
+ *   item, whose feed still holds its place.
+ * - Backward pages read from right above the start up, oldest first; the
+ *   page prepends each in reverse. Empty for the latest feed.
+ * - `before` counts the shown items above the page that aren't loaded, on
+ *   the first forward page and on every backward page; other forward pages
+ *   have pages above them, and carry `null`.
  */
 export const listFeed = query({
   args: feedArgs,
   handler: async (ctx, args) => {
-    const firstPage = args.paginationOpts.cursor === null;
     const window = await findLinkedWindow(ctx, {
       babyRef: args.babyId,
       context: args.context,
       itemId: args.from,
     });
+    if (args.direction === "backward") {
+      if (!window) {
+        return EMPTY_FEED_PAGE;
+      }
+      const result = await newerThan(ctx, window.start).paginate(args.paginationOpts);
+      const top = result.page.at(-1);
+      return {
+        ...result,
+        before: result.isDone || !top ? NO_NEWER_ITEMS : await countNewerThan(ctx, top),
+        linkUnavailable: false,
+        page: await hydratePage(ctx, { baby: window.baby, items: result.page }),
+      };
+    }
+    const firstPage = args.paginationOpts.cursor === null;
     if (!window) {
       const latest = await readLatestPage(ctx, args);
       return {
         ...latest,
+        before: firstPage ? NO_NEWER_ITEMS : null,
         linkUnavailable: args.from !== null,
-        newerCount: firstPage ? NO_NEWER_ITEMS : null,
       };
     }
     const start = window.start;
@@ -301,33 +332,10 @@ export const listFeed = query({
       (await hydratePage(ctx, { baby: window.baby, items: [window.item] })).length > 0;
     return {
       ...result,
+      before: firstPage ? await countNewerThan(ctx, start) : null,
       linkUnavailable: !linkedItemVisible,
-      newerCount: firstPage ? await countNewerThan(ctx, start) : null,
       page,
     };
-  },
-});
-
-/**
- * Feed items newer than where {@link listFeed} starts, oldest first: page
- * one is the items right above it, and each next page climbs towards the
- * newest. The page reveals these only when asked, prepending each page in
- * reverse. Empty for the latest feed, and for a link that doesn't resolve,
- * whose feed is the latest one.
- */
-export const listNewer = query({
-  args: feedArgs,
-  handler: async (ctx, args) => {
-    const window = await findLinkedWindow(ctx, {
-      babyRef: args.babyId,
-      context: args.context,
-      itemId: args.from,
-    });
-    if (!window) {
-      return { continueCursor: "", isDone: true, page: [] };
-    }
-    const result = await newerThan(ctx, window.start).paginate(args.paginationOpts);
-    return { ...result, page: await hydratePage(ctx, { baby: window.baby, items: result.page }) };
   },
 });
 
