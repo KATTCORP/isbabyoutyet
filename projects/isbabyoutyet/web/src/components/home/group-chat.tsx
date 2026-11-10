@@ -12,11 +12,16 @@ type LockScreenEntry = {
   chat: TranslationKey;
   message: TranslationKey;
   minutesAgo: number;
+  /** Older messages from the same chat, collapsed behind this one. */
+  moreCount: number;
   /** Who wrote it, for group chats; direct chats are titled by the sender. */
   sender: TranslationKey | null;
 };
 
-/** Newest first, like a lock screen. */
+/**
+ * Newest first, one notification per chat with the rest collapsed behind it.
+ * The five shown plus every `moreCount` add up to the "47 unread" sticker.
+ */
 const NOTIFICATIONS = [
   {
     avatar: "👨‍👩‍👧",
@@ -24,6 +29,7 @@ const NOTIFICATIONS = [
     chat: "Family",
     message: "Any news?? 👀",
     minutesAgo: 0,
+    moreCount: 18,
     sender: "Grandma",
   },
   {
@@ -32,6 +38,7 @@ const NOTIFICATIONS = [
     chat: "Best friend",
     message: "Baby still holding out? Takes after you. Always late 🙄",
     minutesAgo: 1,
+    moreCount: 6,
     sender: null,
   },
   {
@@ -40,6 +47,7 @@ const NOTIFICATIONS = [
     chat: "Your boss",
     message: "No rush! Just wondering if baby's here yet?",
     minutesAgo: 3,
+    moreCount: 0,
     sender: null,
   },
   {
@@ -48,6 +56,7 @@ const NOTIFICATIONS = [
     chat: "Baby shower crew",
     message: "Sweepstake closes Friday. I've got Thursday, so no pressure 💸",
     minutesAgo: 6,
+    moreCount: 14,
     sender: "Gym buddy",
   },
   {
@@ -56,15 +65,8 @@ const NOTIFICATIONS = [
     chat: "Auntie",
     message: "Thinking of you! Anything happening? 💕",
     minutesAgo: 9,
+    moreCount: 4,
     sender: null,
-  },
-  {
-    avatar: "👨‍👩‍👧",
-    avatarTint: "from-sky-300 to-indigo-500",
-    chat: "Family",
-    message: "Any news?? 👀",
-    minutesAgo: 14,
-    sender: "Grandma",
   },
 ] as const satisfies ReadonlyArray<LockScreenEntry>;
 
@@ -122,22 +124,24 @@ function ChatAvatar(props: { notification: ChatNotification; platform: DevicePla
 }
 
 /**
- * iOS lock screen: frosted cards, title and time on one line, and the oldest
- * notification collapsed into a stack.
+ * iOS: frosted cards with title and time on one line. A chat with more
+ * messages is a collapsed stack: layered cards underneath and an
+ * "N more messages" line.
  */
-function IosNotification(props: { isLast: boolean; notification: ChatNotification }) {
+function IosNotification(props: { notification: ChatNotification }) {
   const { t } = useI18n();
+  const isStack = props.notification.moreCount > 0;
   return (
-    <li className={cn("relative", props.isLast && "mb-4")}>
-      {props.isLast && (
+    <li className={cn("relative", isStack && "mb-3")}>
+      {isStack && (
         <>
           <span
             aria-hidden="true"
-            className="absolute inset-x-6 top-4 -bottom-4 rounded-[20px] bg-white/35 backdrop-blur-xl dark:bg-zinc-800/40"
+            className="absolute inset-x-6 top-4 -bottom-3 rounded-[20px] bg-white/35 backdrop-blur-xl dark:bg-zinc-600/40"
           />
           <span
             aria-hidden="true"
-            className="absolute inset-x-3 top-2 -bottom-2 rounded-[21px] bg-white/50 backdrop-blur-xl dark:bg-zinc-800/55"
+            className="absolute inset-x-3 top-2 -bottom-1.5 rounded-[21px] bg-white/50 backdrop-blur-xl dark:bg-zinc-600/60"
           />
         </>
       )}
@@ -155,6 +159,11 @@ function IosNotification(props: { isLast: boolean; notification: ChatNotificatio
           <p className="line-clamp-4 text-[15px] leading-snug text-zinc-900 dark:text-zinc-100">
             {notificationBody(t, props.notification)}
           </p>
+          {isStack && (
+            <p className="mt-0.5 text-[13px] text-zinc-500 dark:text-zinc-400">
+              {t("{{count}} more messages", { count: props.notification.moreCount })}
+            </p>
+          )}
         </div>
       </div>
     </li>
@@ -163,7 +172,8 @@ function IosNotification(props: { isLast: boolean; notification: ChatNotificatio
 
 /**
  * Android shade: grouped Material cards with big outer corners, small inner
- * ones, a `title • time` line, and an expand chevron.
+ * ones, and a `title • time` line. A chat with more messages is a collapsed
+ * group whose expand pill shows how many it holds.
  */
 function AndroidNotification(props: {
   isFirst: boolean;
@@ -197,19 +207,24 @@ function AndroidNotification(props: {
           {notificationBody(t, props.notification)}
         </p>
       </div>
-      <span
-        aria-hidden="true"
-        className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200"
-      >
-        <CaretDownIcon className="size-3.5" weight="bold" />
+      <span className="mt-0.5 flex h-6 min-w-6 shrink-0 items-center justify-center gap-0.5 rounded-full bg-zinc-200 px-1.5 text-xs font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
+        {props.notification.moreCount > 0 && (
+          <span className="sr-only">
+            {t("{{count}} more messages", { count: props.notification.moreCount })}
+          </span>
+        )}
+        {props.notification.moreCount > 0 && (
+          <span aria-hidden="true">{props.notification.moreCount + 1}</span>
+        )}
+        <CaretDownIcon aria-hidden="true" className="size-3.5" weight="bold" />
       </span>
     </li>
   );
 }
 
 /**
- * A wallpaper with the week's "any news?" texts piled up as lock-screen
- * notifications from direct and group chats, styled like the visitor's phone.
+ * A wallpaper with the week's "any news?" texts piled up as notifications
+ * from direct and group chats, styled like the visitor's phone.
  * @internal
  */
 export function LockScreenNotificationsView(props: { platform: DevicePlatform }) {
@@ -223,16 +238,12 @@ export function LockScreenNotificationsView(props: { platform: DevicePlatform })
       <ul className={props.platform === "ios" ? "space-y-2" : "space-y-0.5"}>
         {NOTIFICATIONS.map((notification, index) =>
           props.platform === "ios" ? (
-            <IosNotification
-              isLast={index === lastIndex}
-              key={`${notification.chat}-${notification.minutesAgo}`}
-              notification={notification}
-            />
+            <IosNotification key={notification.chat} notification={notification} />
           ) : (
             <AndroidNotification
               isFirst={index === 0}
               isLast={index === lastIndex}
-              key={`${notification.chat}-${notification.minutesAgo}`}
+              key={notification.chat}
               notification={notification}
             />
           ),
@@ -243,7 +254,7 @@ export function LockScreenNotificationsView(props: { platform: DevicePlatform })
 }
 
 /**
- * The problem and the fix side by side: a lock screen drowning in "any news?"
+ * The problem and the fix side by side: a phone drowning in "any news?"
  * versus one calm link.
  */
 export function GroupChatVersusLink(props: { babyName: string; publicId: string }) {
@@ -257,7 +268,7 @@ export function GroupChatVersusLink(props: { babyName: string; publicId: string 
           {t("{{count}} unread", { count: 47 })}
         </span>
         <p className="text-xs font-black tracking-widest text-muted-foreground uppercase">
-          {t("Before: your lock screen")}
+          {t("Before: your phone")}
         </p>
         <LockScreenNotificationsView platform={platform} />
       </div>
