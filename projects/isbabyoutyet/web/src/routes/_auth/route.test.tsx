@@ -9,8 +9,6 @@ import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { expect, test, vi } from "vitest";
 import { resolveAuthGuard, Route } from "@/routes/_auth/route";
 
-const profileGetQuery = convexQuery(api.profile.get);
-
 test("auth layout is wired as the route component", () => {
   expect(Route.options.component).toBeTypeOf("function");
 });
@@ -89,7 +87,7 @@ test("client navigations reuse a cached profile without an auth round-trip", asy
   await using guard = makeGuardCtx();
   setData(
     guard.queryClient,
-    profileGetQuery,
+    convexQuery(api.profile.get),
     {},
     signedInProfile({
       isAdmin: false,
@@ -134,7 +132,7 @@ test("client navigations keep the cached profile", async () => {
     timeZone: "Europe/London",
   });
   await using guard = makeGuardCtx();
-  setData(guard.queryClient, profileGetQuery, {}, cachedProfile);
+  setData(guard.queryClient, convexQuery(api.profile.get), {}, cachedProfile);
 
   const result = await runGuard({
     context: guard.context,

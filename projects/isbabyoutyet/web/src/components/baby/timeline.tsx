@@ -30,6 +30,7 @@ import {
 } from "@workspace/ui/components/popover";
 import { cn } from "@workspace/ui/lib/utils";
 import { useMutation } from "convex/react";
+import type { QueryHandle } from "@raf-query/react";
 import { useInfiniteQuery, useQuery } from "@raf-query/react";
 import { convexPaginatedQuery, convexQuery } from "@workspace/convex-query";
 import {
@@ -77,7 +78,6 @@ import {
 import { FormControl, FormField, FormItem, FormMessage } from "@workspace/ui/components/form";
 import { useFormState, useWatch } from "react-hook-form";
 import { htmlDateTimeNow, optionalHtmlDateTime } from "@/lib/html-date";
-import { browserOnlyHandle } from "@/lib/browser-only";
 import { visitorTagQuery } from "@/lib/visitor-tag";
 import { useStoredVisitorId } from "@/lib/use-visitor-id";
 import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
@@ -1373,8 +1373,6 @@ type LinkedTimelineFeedLoad = Extract<TimelineFeedLoad, { kind: "linked" }>;
 
 type TimelineFeedProps = {
   baby: BabyData;
-  /** The baby's document id, which this browser's {@link visitorTagQuery} is for. */
-  babyId: string;
   babyName: string;
   /**
    * Prefetched by the route loader (SSR first page): the latest items, or
@@ -1383,6 +1381,8 @@ type TimelineFeedProps = {
   feed: TimelineFeedLoad;
   isOwner: boolean;
   publicId: string;
+  /** This browser's {@link visitorTagQuery}, started by the route loader. */
+  visitorTag: QueryHandle<typeof visitorTagQuery>;
 };
 
 type RemoveUpdateFn = (
@@ -1415,7 +1415,7 @@ function useTimelineFeedViewBase(props: TimelineFeedProps) {
   const currentVisitorId = useStoredVisitorId();
   // Pending on the server and until the browser hashes its visitor id; read
   // the status instead of `use` so the feed never suspends on it.
-  const [visitorTag] = useQuery(visitorTagQuery, browserOnlyHandle(visitorTagQuery, props.babyId));
+  const [visitorTag] = useQuery(visitorTagQuery, props.visitorTag);
   const removeUpdate = useMutation(api.updates.remove);
   const setAsCurrentPhoto = useMutation(api.updates.setAsCurrentPhoto);
   const removeEncouragement = useMutation(api.encouragements.remove);

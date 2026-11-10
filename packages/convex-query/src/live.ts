@@ -250,11 +250,9 @@ export function convexLive(client: ConvexWatchClient) {
         }
         sync(event.entry);
       },
-      { signal },
+      // Replay: entries hydration or loaders cached before the feature started.
+      { replay: true, signal },
     );
-    for (const entry of queryClient["~entries"].values()) {
-      sync(entry);
-    }
     signal.addEventListener("abort", () => {
       for (const hash of live.keys()) {
         stop(hash);

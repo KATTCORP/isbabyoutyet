@@ -45,8 +45,8 @@ test("settings loader fetches only manager settings data", async () => {
   });
   expect(getData(queryClient, convexQuery(api.profile.get), {})?.locale).toBeTruthy();
   expect(getData(queryClient, convexQuery(api.pushSubscriptions.getPublicKey), {})).toBeTruthy();
-  // This device's push state, which its readers build their own handles for.
-  expect(result).not.toHaveProperty("browserPush");
+  // This device's push state (`ssr: false`): the loader returns its handle.
+  expect(result).toHaveProperty("browserPush");
   await vi.waitFor(() => {
     expect(getData(queryClient, browserPushCapabilityQuery, baby.publicId)).toBeDefined();
   });

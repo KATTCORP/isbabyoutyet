@@ -10,7 +10,6 @@ import { routeTree } from "./routeTree.gen";
 import { RootErrorComponent } from "./routes/__root";
 import { getDetectedLocale } from "./lib/i18n";
 import { SessionConvexReactClient, setClientToken } from "./lib/auth-client";
-import { dehydrateBrowserOnly } from "./lib/browser-only";
 import { makeQueryClient } from "./lib/query-client";
 
 /** Router preload policy — tested without constructing the full client graph. */
@@ -102,7 +101,7 @@ export function getRouter() {
     ),
   });
 
-  setupRouterIntegration({ dehydrateOptions: dehydrateBrowserOnly, queryClient, router });
+  setupRouterIntegration({ queryClient, router });
   addRouterTracing(router);
 
   return router;

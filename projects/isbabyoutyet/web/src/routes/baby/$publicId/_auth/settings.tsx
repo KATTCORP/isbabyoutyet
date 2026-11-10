@@ -3,7 +3,6 @@ import { load, prefetch, swr, useQuery } from "@raf-query/react";
 import { use } from "react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { FORBIDDEN } from "@isbabyoutyet/backend/src/types";
-import { inBrowser } from "@/lib/browser-only";
 import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
 import { convexQuery } from "@workspace/convex-query";
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
@@ -18,13 +17,14 @@ export const Route = createFileRoute("/baby/$publicId/_auth/settings")({
     const babyRef = opts.params.publicId;
     const queryClient = opts.context.queryClient;
     const [handles] = await load(queryClient, {
-      browserPush: inBrowser(queryClient, prefetch(browserPushCapabilityQuery, babyRef)),
+      browserPush: prefetch(browserPushCapabilityQuery, babyRef),
       coParentsList: swr(convexQuery(api.coParents.listForBaby), { babyId: babyRef }),
       managerBaby: swr(convexQuery(api.baby.getManagerBaby), { babyId: babyRef }),
       myAccess: swr(convexQuery(api.coParents.myAccess), { babyId: babyRef }),
       vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
     });
     return {
+      browserPush: handles.browserPush,
       coParentsList: handles.coParentsList,
       managerBaby: handles.managerBaby,
       myAccess: handles.myAccess,
@@ -72,7 +72,7 @@ export function BabySettingsOverlay() {
       }}
       messagePush={{
         babyId: managerBabyDoc._id,
-        publicId: params.publicId,
+        browserPush: loaderData.browserPush,
         vapidPublicKey: loaderData.vapidPublicKey,
       }}
       onDelete={

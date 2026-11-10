@@ -28,8 +28,6 @@ import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import { runRouteLoaderWithRouterContext, signedInRouteContext } from "@/test/routeTestContext";
 import { loadQuery } from "@/test/loadQuery";
 
-const vapidPublicKeyQuery = convexQuery(api.pushSubscriptions.getPublicKey);
-
 const ADMIN_ENDPOINT = "https://push.example/alex-phone";
 
 /** Press the modal sheet's backdrop the way a real pointer would. */
@@ -349,7 +347,9 @@ test("the settings loader only prepares admin push for admins", async () => {
   await using admin = await signedInHarness({ isAdmin: true });
   const loaded = await loadSettings(admin);
   expect(loaded.adminPush?.vapidPublicKey).toMatchObject({ input: {} });
-  expect(getData(admin.queryClient, vapidPublicKeyQuery, {})).toEqual(expect.any(String));
+  expect(getData(admin.queryClient, convexQuery(api.pushSubscriptions.getPublicKey), {})).toEqual(
+    expect.any(String),
+  );
 });
 
 async function renderAdminSheet(harness: ConvexTestHarness) {
@@ -360,13 +360,15 @@ async function renderAdminSheet(harness: ConvexTestHarness) {
     {},
   );
 
-  seedAdminBrowserPushCapability(harness.queryClient, { kind: "unsubscribed" });
+  const browserPush = await seedAdminBrowserPushCapability(harness.queryClient, {
+    kind: "unsubscribed",
+  });
   return await renderWithConvexTest({
     harness,
     ui: (
       <>
         <DashboardSettingsSheet
-          adminPush={{ vapidPublicKey }}
+          adminPush={{ browserPush, vapidPublicKey }}
           // @ts-expect-error — integration client is not ConvexReactClient
           convexClient={harness.convexClient}
           profile={profile}

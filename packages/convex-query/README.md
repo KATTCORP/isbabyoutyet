@@ -9,7 +9,7 @@ data that Convex keeps current.
 
 ```
 reader.ts   ConvexReader Effect service: browser subscribing reads, server snapshot reads
-link.ts     convexLink: the client's reader for queryFns, and live writes kept across requests
+link.ts     convexLink: the client's reader for queryFns
             runConvexEffect: run a queryFn's Effect with the client's reader
 queries.ts  convexQuery / convexPaginatedQuery / convexBidirectionalPaginatedQuery factories
 live.ts     convexLive: a feature that subscribes cached entries and writes results into the cache
@@ -20,9 +20,9 @@ testing.ts  makeTestConvexClient: a watch client over any async runner (convex-t
 
 Query functions are Effects that `yield* ConvexReader`. raf-query runs plain
 promises, so `runConvexEffect` runs them with the reader of the client making
-the request, which `convexLink` hands every request. Each `QueryClient` takes
-its own link, which keeps a server request's authenticated
-`ConvexHttpClient` scoped to the request.
+the request (`context.client`), which `convexLink` gives its reader. Each
+`QueryClient` takes its own link, which keeps a server request's
+authenticated `ConvexHttpClient` scoped to the request.
 
 ## Wiring
 
@@ -39,10 +39,6 @@ const queryClient = createQueryClient({
   ],
 });
 ```
-
-`convexLink` also keeps what `convexLive` writes while a request is in
-flight: raf-query writes a request's result over the entry, which would put
-back data read before a newer live result arrived.
 
 ## Usage
 

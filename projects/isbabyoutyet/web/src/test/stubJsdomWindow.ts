@@ -323,8 +323,7 @@ function acquireJsdomWindowStubs() {
 
 /**
  * Hides `window` for the lifetime of the returned resource, as on the server,
- * so browser-only queries (`enabled: globalThis.window !== undefined`) stay
- * disabled. Render with `react-dom/server` meanwhile: the DOM renderer needs
+ * so code that checks for a browser takes the server path. Render with `react-dom/server` meanwhile: the DOM renderer needs
  * `window`.
  */
 export function stubNoWindowResource() {

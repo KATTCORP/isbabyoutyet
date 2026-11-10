@@ -12,8 +12,6 @@ import { renderMountedFileRoute, stubBrowserImageResource } from "@/test/renderM
 import { runRouteLoader } from "@/test/routeTestContext";
 import { Route } from "@/routes/baby/$publicId/share";
 
-const babyGetByPublicIdQuery = convexQuery(api.baby.getByPublicId);
-
 test("loader prefetches the canonical OG image in the browser", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
@@ -68,7 +66,12 @@ test("loader reuses a cached baby snapshot instead of refetching", async () => {
   if (!cachedBaby) {
     throw new Error("expected baby");
   }
-  setData(harness.queryClient, babyGetByPublicIdQuery, { id: baby.publicId }, cachedBaby);
+  setData(
+    harness.queryClient,
+    convexQuery(api.baby.getByPublicId),
+    { id: baby.publicId },
+    cachedBaby,
+  );
 
   await patchOwnedBaby(harness, {
     id: baby.babyId,

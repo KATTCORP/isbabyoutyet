@@ -88,20 +88,20 @@ Resolver lookups inside Convex should also parallelize (`Promise.all`), not chai
 
 ## Client-only prefetch
 
-Browser-only inputs (push permission, the service worker, `localStorage`) must not block SSR or serialize the loader. Their factories set `meta: { browserOnly: true }`; the app's `browserOnly` link never starts them on a server client, and `dehydrateBrowserOnly` keeps them out of the SSR stream.
+Browser-only inputs (push permission, the service worker, `localStorage`) must not block SSR or serialize the loader. Their factories set raf-query's `ssr: false`: a server client never starts or sends them, and `load` still returns their handle.
 
 ```typescript
-// Started in the browser alongside the route's data; skipped on the server.
-void load(queryClient, {
-  browserPush: inBrowser(queryClient, prefetch(browserPushCapabilityQuery, publicId)),
+const [handles] = await load(queryClient, {
+  // `prefetch`, never `swr` / `revalidate`: a server can't wait for it.
+  browserPush: prefetch(browserPushCapabilityQuery, publicId),
+  /* convex */
 });
-const [handles] = await load(queryClient, { /* convex */ });
 return handles;
 ```
 
-After SSR no loader started them, so their readers build their own handles with `browserOnlyHandle(factory, input)` and read the thenable's `status` instead of `use()`, so the server renders the "unknown yet" state without suspending or detecting. On a client navigation the read joins the request the loader already started.
+Pass the handle down like any other. Readers check the thenable's `status` instead of `use()`, so the server renders the "unknown yet" state without suspending; the browser runs the query on its first read (or joins the loader's request on a client navigation).
 
-Reference: [`browser-only.ts`](../../../projects/isbabyoutyet/web/src/lib/browser-only.ts), [`browser-push-capability.ts`](../../../projects/isbabyoutyet/web/src/lib/browser-push-capability.ts) and [`use-browser-push-capability.ts`](../../../projects/isbabyoutyet/web/src/lib/use-browser-push-capability.ts).
+Reference: [`browser-push-capability.ts`](../../../projects/isbabyoutyet/web/src/lib/browser-push-capability.ts) and [`use-browser-push-capability.ts`](../../../projects/isbabyoutyet/web/src/lib/use-browser-push-capability.ts).
 
 ## Do not re-fetch auth in page loaders
 
@@ -121,7 +121,7 @@ Before merging loader work, verify:
 - [ ] No server-function calls on the client branch of any `beforeLoad`
 - [ ] Loader tests assert parallel prefetch inputs (e.g. slug passed to every baby query, not only after a prior fetch)
 - [ ] No auth/profile side effects duplicated from root SSR
-- [ ] Browser-only queries use `inBrowser(queryClient, prefetch(…))`, not blocking loader awaits, and their readers `browserOnlyHandle`
+- [ ] Browser-only queries set `ssr: false` and load with `prefetch(…)`, never a blocking `swr` / `revalidate`
 
 ## When a waterfall is acceptable
 

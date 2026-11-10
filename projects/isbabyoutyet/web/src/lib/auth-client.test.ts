@@ -22,8 +22,6 @@ import type { ConvexTestHarness } from "@/test/convexTestHarness";
 import { signUpTestUser } from "@/test/convexTestSeed";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 
-const babyListByUserQuery = convexQuery(api.baby.listByUser);
-
 const signedInProfile = {
   email: "ada@example.com",
   emailVerified: true,
@@ -70,7 +68,7 @@ function profileBackendResource(initial: typeof signedInProfile | null) {
     }
     throw new Error(`unexpected query ${getFunctionName(query)}`);
   });
-  setData(stub.queryClient, babyListByUserQuery, {}, []);
+  setData(stub.queryClient, convexQuery(api.baby.listByUser), {}, []);
   return Object.assign(stub, { serverProfile });
 }
 

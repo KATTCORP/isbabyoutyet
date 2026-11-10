@@ -1,3 +1,4 @@
+import type { BrowserPushHandle } from "@/lib/use-browser-push-capability";
 import {
   Item,
   ItemActions,
@@ -94,8 +95,8 @@ type SettingsPanelProps = {
   /** Null on the preview page (no push subscription). */
   messagePush: {
     babyId: Id<"baby">;
-    /** The baby page whose push state this device reads. */
-    publicId: string;
+    /** This device's push state for the baby page, started by the route loader. */
+    browserPush: BrowserPushHandle;
     vapidPublicKey: ConvexQueryHandle<typeof api.pushSubscriptions.getPublicKey>;
   } | null;
   /** Owner-only soft delete. Null on the preview page / for co-parents. */
@@ -461,7 +462,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
               <SettingsSection title={t("Notifications")}>
                 <OwnerMessageNotifyLiveSwitch
                   babyId={messagePush.babyId}
-                  publicId={messagePush.publicId}
+                  browserPush={messagePush.browserPush}
                   vapidPublicKey={messagePush.vapidPublicKey}
                 />
               </SettingsSection>

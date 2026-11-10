@@ -159,7 +159,7 @@ async function renderSubscribe(capability: BrowserPushCapability, audience: "vis
         <NotificationSubscribe
           audience={audience}
           babyId={babyId}
-          publicId={seedBrowserPushCapability(harnessCtx.queryClient, {
+          browserPush={await seedBrowserPushCapability(harnessCtx.queryClient, {
             babyRef,
             capability,
           })}
@@ -368,7 +368,7 @@ test("shows a disabled Get Notifications while push detection is pending", async
       <NotificationSubscribe
         audience="visitor"
         babyId={babyId}
-        publicId={babyRef}
+        browserPush={await prefetchQuery(harness.queryClient, browserPushCapabilityQuery, babyRef)}
         vapidPublicKey={vapid}
       />
     ),
@@ -692,7 +692,7 @@ test("a manager saving the chooser subscribes this device to both alerts", async
         <NotificationSubscribe
           audience="manager"
           babyId={baby.babyId}
-          publicId={seedBrowserPushCapability(harness.queryClient, {
+          browserPush={await seedBrowserPushCapability(harness.queryClient, {
             babyRef: baby.publicId,
             capability: { kind: "unsubscribed" },
           })}
@@ -753,7 +753,7 @@ test("visitor Get Notifications does not drop owner message alerts", async () =>
         <NotificationSubscribe
           audience="visitor"
           babyId={baby.babyId}
-          publicId={seedBrowserPushCapability(harness.queryClient, {
+          browserPush={await seedBrowserPushCapability(harness.queryClient, {
             babyRef: baby.publicId,
             capability: {
               family: false,

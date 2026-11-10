@@ -5,7 +5,6 @@ import { TimelineFeed } from "@/components/baby/timeline";
 import { NotificationSubscribe } from "@/components/baby/notification-subscribe";
 import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
 import { visitorTagQuery } from "@/lib/visitor-tag";
-import { inBrowser } from "@/lib/browser-only";
 import { ProgressIndicator } from "@/components/baby/progress-indicator";
 import { ScheduledNotificationToast } from "@/components/baby/scheduled-notification-toast";
 import { StatusDisplay } from "@/components/baby/status-display";
@@ -89,16 +88,12 @@ export const Route = createFileRoute("/baby/$publicId")({
     if (!babyDoc) {
       throw notFound();
     }
-    // This device's state, which only the browser knows: its readers build
-    // their own handles, as nothing starts them before SSR.
-    void load(queryClient, {
-      browserPush: inBrowser(queryClient, prefetch(browserPushCapabilityQuery, publicId)),
-      visitorTag: inBrowser(queryClient, prefetch(visitorTagQuery, babyDoc._id)),
-    });
-
     const [[handles], timeline] = await Promise.all([
       load(queryClient, {
         baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
+        // This device's state, which only the browser knows (`ssr: false`):
+        // the server returns its handle unstarted, and the browser runs it.
+        browserPush: prefetch(browserPushCapabilityQuery, publicId),
         latestUpdate: swr(convexQuery(api.timeline.latestUpdate), { babyId: publicId }),
         managerBaby: swr(convexQuery(api.baby.getManagerBaby), { babyId: publicId }),
         me: swr(convexQuery(api.profile.get), {}),
@@ -111,6 +106,7 @@ export const Route = createFileRoute("/baby/$publicId")({
           babyId: publicId,
         }),
         vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
+        visitorTag: prefetch(visitorTagQuery, babyDoc._id),
       }),
       loadTimelineFeed(queryClient, {
         followedFrom: opts.location.state.timelineFeed,
@@ -417,7 +413,7 @@ function BabyPageLayout() {
               <NotificationSubscribe
                 audience={canManage ? "manager" : "visitor"}
                 babyId={babyDoc._id}
-                publicId={babyDoc.publicId}
+                browserPush={loaderData.browserPush}
                 vapidPublicKey={loaderData.vapidPublicKey}
               />
             </div>
@@ -451,11 +447,11 @@ function BabyPageLayout() {
             >
               <TimelineFeed
                 baby={baby}
-                babyId={babyDoc._id}
                 babyName={baby.name}
                 feed={loaderData.timeline}
                 isOwner={canManage}
                 publicId={babyDoc.publicId}
+                visitorTag={loaderData.visitorTag}
               />
             </section>
           </div>

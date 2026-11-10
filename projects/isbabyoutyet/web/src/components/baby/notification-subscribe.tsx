@@ -9,6 +9,7 @@ import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { convexQuery } from "@workspace/convex-query";
 import type { ConvexQueryHandle } from "@workspace/convex-query";
+import type { BrowserPushHandle } from "@/lib/use-browser-push-capability";
 import { useBrowserPushCapability } from "@/lib/use-browser-push-capability";
 import { usePendingAction } from "@/lib/use-pending-action";
 import type { ReactElement } from "react";
@@ -42,8 +43,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/component
 type NotificationSubscribeProps = {
   audience: "visitor" | "manager";
   babyId: Id<"baby">;
-  /** The baby page whose push state this device reads. */
-  publicId: string;
+  /** This device's push state for the baby page, started by the route loader. */
+  browserPush: BrowserPushHandle;
   vapidPublicKey: ConvexQueryHandle<typeof api.pushSubscriptions.getPublicKey>;
 };
 
@@ -54,7 +55,7 @@ type NotificationSelection = {
 
 export function NotificationSubscribe(props: NotificationSubscribeProps) {
   const { t } = useI18n();
-  const [capability, refetchCapability] = useBrowserPushCapability(props.publicId);
+  const [capability, refetchCapability] = useBrowserPushCapability(props.browserPush);
   const [vapidPublicKeyThenable] = useQuery(
     convexQuery(api.pushSubscriptions.getPublicKey),
     props.vapidPublicKey,

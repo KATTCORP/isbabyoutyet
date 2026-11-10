@@ -97,12 +97,12 @@ Name both in one `load` instead, keyed by the slug.
 
 ```typescript
 loader: async (opts) => {
-  void load(queryClient, {
-    browserPush: inBrowser(queryClient, prefetch(browserPushCapabilityQuery, opts.params.publicId)),
+  const [handles] = await load(queryClient, {
+    browserPush: prefetch(browserPushCapabilityQuery, opts.params.publicId),
+    /* convex */
   });
-  const [handles] = await load(queryClient, { /* convex only */ });
   return handles;
 };
 ```
 
-`inBrowser` skips the entry on the server (`skipToken`), and `load` never waits for a `prefetch`. The component reads it with `useBrowserPushCapability(publicId)`, which builds its handle with `browserOnlyHandle` and is `null` until detection finishes in the browser.
+The factory sets `ssr: false`, so a server client returns the handle without starting it, and `load` never waits for a `prefetch`. The component reads it with `useBrowserPushCapability(handles.browserPush)`, which is `null` until detection finishes in the browser.

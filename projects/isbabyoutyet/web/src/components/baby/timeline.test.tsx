@@ -32,7 +32,9 @@ import {
   postTestUpdate,
 } from "@/test/convexTestSeed";
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
+import { prefetchQuery } from "@/test/loadQuery";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
+import { visitorTagQuery } from "@/lib/visitor-tag";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { htmlButton, htmlInput, htmlTextArea, htmlImage, htmlElement } from "@/test/htmlElement";
 
@@ -144,6 +146,7 @@ async function renderTimelineFeedFrom(
 
   // As the baby route's loader does on a client navigation.
   await harness.refresh();
+  const visitorTag = await prefetchQuery(harness.queryClient, visitorTagQuery, opts.babyId);
   const feed = await loadTimelineFeed(harness.queryClient, {
     followedFrom: undefined,
     item: opts.item,
@@ -158,11 +161,11 @@ async function renderTimelineFeedFrom(
         <LocaleProvider locale="en-GB">
           <TimelineFeed
             baby={opts.baby}
-            babyId={opts.babyId}
             babyName={opts.baby.name}
             feed={feed}
             isOwner={opts.isOwner}
             publicId={opts.publicId}
+            visitorTag={visitorTag}
           />
         </LocaleProvider>
       </ConvexProvider>
@@ -1544,6 +1547,7 @@ test("the server render has the context above the linked item and the divider ab
   await using server = stubQueryClientResource((query, args) => harness.client.query(query, args), {
     isServer: true,
   });
+  const visitorTag = await prefetchQuery(server.queryClient, visitorTagQuery, seeded.baby.babyId);
   const feed = await loadTimelineFeed(server.queryClient, {
     followedFrom: undefined,
     item: seeded.itemId,
@@ -1561,11 +1565,11 @@ test("the server render has the context above the linked item and the divider ab
             <LocaleProvider locale="en-GB">
               <TimelineFeed
                 baby={notYetBaby}
-                babyId={seeded.baby.babyId}
                 babyName={notYetBaby.name}
                 feed={feed}
                 isOwner={false}
                 publicId={seeded.baby.publicId}
+                visitorTag={visitorTag}
               />
             </LocaleProvider>
           </ConvexProvider>

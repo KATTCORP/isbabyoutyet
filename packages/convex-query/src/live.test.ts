@@ -1,11 +1,15 @@
 import { mount } from "@raf-query/core/internal";
-import type { LoadEntryOptions, QueryFactory } from "@raf-query/react";
+import type { InputOf, LoadEntryOptions, QueryClient, QueryFactory } from "@raf-query/react";
 import {
   createQueryClient,
+  fetchNextPage,
+  fetchPreviousPage,
   getData,
+  invalidateOne,
   load,
   queryOptions,
   removeOne,
+  revalidate,
   setData,
   swr,
 } from "@raf-query/react";
@@ -13,7 +17,7 @@ import type { PaginationOptions, PaginationResult } from "convex/server";
 import { getFunctionName, makeFunctionReference } from "convex/server";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import { isInvalidatedEntry, pagesOf } from "./test-cache.ts";
+import { isInvalidatedEntry } from "./test-cache.ts";
 import { convexLink } from "./link.ts";
 import { convexLive, watchConvexQuery } from "./live.ts";
 import {
@@ -29,6 +33,18 @@ import {
 } from "./queries.ts";
 import { ConvexReader } from "./reader.ts";
 import { makeTestConvexClient } from "./testing.ts";
+
+/**
+ * Refetch every page now, as `useInfiniteQuery`'s `refetch()` does. Convex
+ * queries never go stale, so `revalidate` alone would keep the cached pages.
+ */
+async function refetchAll(
+  queryClient: QueryClient,
+  query: { factory: typeof messageList; input: InputOf<typeof messageList> },
+) {
+  await invalidateOne(queryClient, query.factory, query.input);
+  await load(queryClient, { pages: revalidate(query.factory, query.input) });
+}
 
 const getMessage = makeFunctionReference<"query", { id: string }, string>("messages:get");
 const listMessages = makeFunctionReference<
@@ -208,7 +224,7 @@ describe("convexLive", () => {
       { paginationOpts: { cursor: null, numItems: 2 }, room: "lobby" },
     ]);
 
-    await pagesOf(live.queryClient, { factory, input }).fetchNextPage();
+    await fetchNextPage(live.queryClient, factory, input);
     vi.advanceTimersByTime(5000);
     expect(live.backend.subscriptions().map((subscription) => subscription.args)).toEqual(
       expect.arrayContaining([
@@ -225,7 +241,7 @@ describe("convexLive", () => {
     await live.load(messageList, input, { pages: 2 });
 
     const { release } = live.hold("d");
-    const nextPage = pagesOf(live.queryClient, { factory: messageList, input }).fetchNextPage();
+    const nextPage = fetchNextPage(live.queryClient, messageList, input);
     live.items.unshift("new");
     // The held page's subscription re-runs too, so this settles on release.
     const refreshed = live.backend.refresh();
@@ -255,7 +271,7 @@ describe("convexLive", () => {
 
     // The refetch reads the first page before this insert, and lands after it.
     const firstPage = live.hold("null");
-    const refetch = pagesOf(live.queryClient, { factory: messageList, input }).refetch();
+    const refetch = refetchAll(live.queryClient, { factory: messageList, input });
     await firstPage.reached;
     live.items.unshift("new");
     const refreshed = live.backend.refresh();
@@ -283,7 +299,7 @@ describe("convexLive", () => {
     vi.advanceTimersByTime(5000);
 
     live.items.shift();
-    await pagesOf(live.queryClient, { factory: messageList, input }).refetch();
+    await refetchAll(live.queryClient, { factory: messageList, input });
     vi.advanceTimersByTime(5000);
     expect(getData(live.queryClient, messageList, input)?.pages.map((page) => page.page)).toEqual([
       ["b", "c"],
@@ -301,10 +317,9 @@ describe("convexLive", () => {
   it("pins both directions of a two-way query, writing each page where it sits", async () => {
     const live = setup();
     const input = { args: { room: "lobby" }, numItems: 2 };
-    const pages = pagesOf(live.queryClient, { factory: aroundMessage, input });
     await live.load(aroundMessage, input, { pages: 2 });
-    await pages.fetchPreviousPage();
-    await pages.fetchPreviousPage();
+    await fetchPreviousPage(live.queryClient, aroundMessage, input);
+    await fetchPreviousPage(live.queryClient, aroundMessage, input);
     vi.advanceTimersByTime(5000);
 
     const byName = (name: string) =>
@@ -371,7 +386,7 @@ describe("convexLive", () => {
       [["n1"], ["a", "b"]],
     );
 
-    await pagesOf(live.queryClient, { factory: aroundMessage, input }).fetchPreviousPage();
+    await fetchPreviousPage(live.queryClient, aroundMessage, input);
     vi.advanceTimersByTime(5000);
     expect(newerSubscriptions()).toEqual(
       expect.arrayContaining([
@@ -410,7 +425,7 @@ describe("convexLive", () => {
     const live = setup();
     const input = { args: { room: "lobby" }, numItems: 2 };
     await live.load(aroundMessage, input);
-    await pagesOf(live.queryClient, { factory: aroundMessage, input }).fetchPreviousPage();
+    await fetchPreviousPage(live.queryClient, aroundMessage, input);
     live.fail();
     await live.backend.refresh();
     expect(isInvalidatedEntry(live.queryClient, { factory: aroundMessage, input })).toBe(true);

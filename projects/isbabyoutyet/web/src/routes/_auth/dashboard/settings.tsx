@@ -39,7 +39,7 @@ import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { useI18n } from "@/lib/i18n";
 import { useDashboardSettingsOverlay } from "@/lib/overlay-nav";
 import type { OverlayControl } from "@/lib/overlay-nav";
-import { inBrowser } from "@/lib/browser-only";
+import type { AdminBrowserPushHandle } from "@/lib/use-browser-push-capability";
 import { useAdminBrowserPushCapability } from "@/lib/use-browser-push-capability";
 import { usePendingAction } from "@/lib/use-pending-action";
 import { ensureWebPushSubscription, readWebPushSubscription } from "@/lib/web-push-subscription";
@@ -51,10 +51,12 @@ export const Route = createFileRoute("/_auth/dashboard/settings")({
     }
     const queryClient = opts.context.queryClient;
     const [handles] = await load(queryClient, {
-      browserPush: inBrowser(queryClient, prefetch(adminBrowserPushCapabilityQuery)),
+      browserPush: prefetch(adminBrowserPushCapabilityQuery),
       vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
     });
-    return { adminPush: { vapidPublicKey: handles.vapidPublicKey } };
+    return {
+      adminPush: { browserPush: handles.browserPush, vapidPublicKey: handles.vapidPublicKey },
+    };
   },
   component: DashboardSettingsRoute,
 });
@@ -74,6 +76,8 @@ export function DashboardSettingsRoute() {
 }
 
 type AdminPushLoaderData = {
+  /** This device's admin push state, started by the loader (`ssr: false`). */
+  browserPush: AdminBrowserPushHandle;
   vapidPublicKey: ConvexQueryHandle<typeof api.pushSubscriptions.getPublicKey>;
 };
 
@@ -288,7 +292,7 @@ export function AdminNewBabyPushSwitchView(props: {
 
 function AdminNewBabyPushSwitch(props: AdminPushLoaderData) {
   const { t } = useI18n();
-  const [capability, refetchCapability] = useAdminBrowserPushCapability();
+  const [capability, refetchCapability] = useAdminBrowserPushCapability(props.browserPush);
   const [vapidPublicKeyThenable] = useQuery(
     convexQuery(api.pushSubscriptions.getPublicKey),
     props.vapidPublicKey,

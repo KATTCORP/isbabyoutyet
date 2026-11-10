@@ -1,7 +1,10 @@
 import type { InfiniteData, QueryHandle } from "@raf-query/react";
 import {
   createQueryClient,
+  fetchPreviousPage,
   getData,
+  hasNextPage,
+  hasPreviousPage,
   invalidateMany,
   invalidateOne,
   isFetching,
@@ -13,7 +16,6 @@ import type { PaginationOptions, PaginationResult } from "convex/server";
 import { getFunctionName, makeFunctionReference } from "convex/server";
 import { expect, expectTypeOf, test } from "vitest";
 import { convexLink } from "./link.ts";
-import { pagesOf } from "./test-cache.ts";
 import type {
   BidirectionalPageParam,
   ConvexBidirectionalPaginatedQueryHandle,
@@ -168,12 +170,11 @@ test("two-way factories load backward pages only on fetchPreviousPage, prependin
   >();
   expectTypeOf(handles.around).toExtend<QueryHandle>();
   expect(ctx.reads).toEqual(["messages:list"]);
-  const pages = pagesOf(queryClient, { factory: around, input });
-  expect(pages.hasPreviousPage()).toBe(true);
-  expect(pages.hasNextPage()).toBe(false);
+  expect(hasPreviousPage(queryClient, around, input)).toBe(true);
+  expect(hasNextPage(queryClient, around, input)).toBe(false);
 
-  await pages.fetchPreviousPage();
-  await pages.fetchPreviousPage();
+  await fetchPreviousPage(queryClient, around, input);
+  await fetchPreviousPage(queryClient, around, input);
   expect(ctx.reads).toEqual(["messages:list", "messages:listNewer", "messages:listNewer"]);
   const data = getData(queryClient, around, input);
   expectTypeOf(data?.pageParams).toEqualTypeOf<ReadonlyArray<BidirectionalPageParam> | undefined>();
@@ -189,7 +190,7 @@ test("two-way factories load backward pages only on fetchPreviousPage, prependin
     newer,
     first,
   ]);
-  expect(pages.hasPreviousPage()).toBe(false);
+  expect(hasPreviousPage(queryClient, around, input)).toBe(false);
 });
 
 /** A two-way backend over real cursors: `older` from the start, `newer` nearest first. */
@@ -274,8 +275,7 @@ test("a two-way load reads a short first backward page alongside the first page"
   ).toBeUndefined();
 
   // Past the short page, backward pages are full again.
-  const pages = pagesOf(ctx.queryClient, { factory: ctx.around, input: ctx.input });
-  await pages.fetchPreviousPage();
+  await fetchPreviousPage(ctx.queryClient, ctx.around, ctx.input);
   expect(ctx.events.at(-1)).toBe("end messages:listNewer n2/3");
   expect(getData(ctx.queryClient, ctx.around, ctx.input)?.pageParams[0]).toEqual({
     cursor: "n2",
@@ -283,14 +283,14 @@ test("a two-way load reads a short first backward page alongside the first page"
     next: context,
     numItems: 3,
   });
-  expect(pages.hasPreviousPage()).toBe(false);
+  expect(hasPreviousPage(ctx.queryClient, ctx.around, ctx.input)).toBe(false);
 });
 
 test("a two-way load keeps the backward pages an entry already has", async () => {
   const ctx = setupAround();
   const opts = { input: ctx.input, previousNumItems: 2, queries: ctx.queries };
   await loadBidirectionalPaginatedQuery(ctx.queryClient, opts);
-  await pagesOf(ctx.queryClient, { factory: ctx.around, input: ctx.input }).fetchPreviousPage();
+  await fetchPreviousPage(ctx.queryClient, ctx.around, ctx.input);
   ctx.events.length = 0;
 
   const [, data] = await loadBidirectionalPaginatedQuery(ctx.queryClient, opts);
@@ -332,9 +332,7 @@ test("a two-way load with nothing before the start has no previous page", async 
   });
 
   expect(data.pages.map((page) => page.page)).toEqual([[], ["a", "b", "c"]]);
-  expect(
-    pagesOf(ctx.queryClient, { factory: ctx.around, input: ctx.input }).hasPreviousPage(),
-  ).toBe(false);
+  expect(hasPreviousPage(ctx.queryClient, ctx.around, ctx.input)).toBe(false);
 });
 
 test("a two-way refetch retraces a short first backward page at its own size", async () => {
@@ -344,7 +342,7 @@ test("a two-way refetch retraces a short first backward page at its own size", a
     previousNumItems: 2,
     queries: ctx.queries,
   });
-  await pagesOf(ctx.queryClient, { factory: ctx.around, input: ctx.input }).fetchPreviousPage();
+  await fetchPreviousPage(ctx.queryClient, ctx.around, ctx.input);
   ctx.watches.length = 0;
 
   await invalidateOne(ctx.queryClient, ctx.around, ctx.input);
@@ -371,9 +369,8 @@ test("a two-way refetch retraces backward pages with the backward query, then fo
   });
   const input = { args: { room: "lobby" }, numItems: 10 };
   await load(queryClient, { around: swr(around, input) });
-  const pages = pagesOf(queryClient, { factory: around, input });
-  await pages.fetchPreviousPage();
-  await pages.fetchPreviousPage();
+  await fetchPreviousPage(queryClient, around, input);
+  await fetchPreviousPage(queryClient, around, input);
   ctx.pageReads.length = 0;
 
   await invalidateOne(queryClient, around, input);

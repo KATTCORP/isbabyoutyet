@@ -9,8 +9,6 @@ import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { expect, test, vi } from "vitest";
 import { resolveBabyManagerGuard, Route } from "@/routes/baby/$publicId/_auth/route";
 
-const profileGetQuery = convexQuery(api.profile.get);
-
 test("baby manager auth layout is wired as the route component", () => {
   expect(Route.options.component).toBeTypeOf("function");
 });
@@ -95,7 +93,7 @@ test("client overlay navigations reuse a cached profile without an auth round-tr
   await using guard = makeGuardCtx();
   setData(
     guard.queryClient,
-    profileGetQuery,
+    convexQuery(api.profile.get),
     {},
     signedInProfile({
       isAdmin: false,
@@ -122,7 +120,7 @@ test("manager overlays keep the baby page locale instead of the signed-in profil
   await using guard = makeGuardCtx();
   setData(
     guard.queryClient,
-    profileGetQuery,
+    convexQuery(api.profile.get),
     {},
     signedInProfile({
       isAdmin: false,

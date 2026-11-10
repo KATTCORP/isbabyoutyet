@@ -47,7 +47,7 @@ async function renderLiveSwitch(opts: {
     ui: (
       <OwnerMessageNotifyLiveSwitch
         babyId={baby.babyId}
-        publicId={seedBrowserPushCapability(harness.queryClient, {
+        browserPush={await seedBrowserPushCapability(harness.queryClient, {
           babyRef: baby.publicId,
           capability: opts.capability,
         })}

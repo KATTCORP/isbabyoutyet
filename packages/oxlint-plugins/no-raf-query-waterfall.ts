@@ -6,7 +6,8 @@ import { defineRule } from "@oxlint/plugins";
  * Its handle starts nothing: the component that reads it fetches while
  * rendering, so every call is a request waterfall. Start queries in the
  * route loader (`load` with `swr` / `revalidate` / `prefetch`) instead. A
- * query only a browser can run goes through the app's `browserOnlyHandle`.
+ * query only a browser can run takes `ssr: false`, and the loader's
+ * `prefetch` still returns its handle.
  *
  * Covers:
  * - `import { waterfallHandle } from "@raf-query/react"` (and aliased)
