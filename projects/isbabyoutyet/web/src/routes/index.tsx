@@ -15,6 +15,7 @@ import { setLocale } from "@/lib/paraglide-setup";
 import { searchRobotsMeta } from "@/lib/robots";
 import { homepageOgImagePath, openGraphImageMeta } from "@/lib/seo";
 import { absoluteUrl, canonicalUrl } from "@/lib/site-url";
+import { useMeasuredWidth } from "@/lib/use-measured-width";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -98,40 +99,49 @@ function heroHeadlineFromCatalog(t: (key: TranslationKey) => string) {
 }
 
 /**
- * The rotating name in the hero headline. Every name is laid out in the same
- * grid cell (only the current one visible), so the slot is always as wide as
- * the longest name and nothing around it reflows. The pill hugs the current
- * name: left-aligned in the slot when the headline is left-aligned, centred
- * when it is centred. Driven by the stage's beat, so it changes together
- * with the stage instead of on a clock of its own.
+ * The rotating name in the hero headline. The pill hugs the current name and
+ * animates its width; the headline's font size is fitted to the longest name
+ * (see {@link heroHeadlineLayout}), so a long name never wraps the line.
+ * Driven by the hero's shared beat, so it changes together with the live page.
  */
-function RotatingBabyName(props: { index: number; words: ReadonlyArray<string> }) {
-  const current = props.words.length === 0 ? 0 : props.index % props.words.length;
+function RotatingBabyName(props: { beat: number; words: ReadonlyArray<string> }) {
+  const count = Math.max(props.words.length, 1);
+  const current = props.beat % count;
+  const previous = props.beat === 0 ? null : (props.beat - 1) % count;
+  const [measureCurrentWord, width] = useMeasuredWidth();
+  const currentWord = props.words[current] ?? "";
+
   return (
     <span
       aria-hidden="true"
-      className="inline-grid justify-items-center whitespace-nowrap [clip-path:inset(-0.1em_-0.2em)] md:justify-items-start"
+      className="relative inline-block whitespace-nowrap [clip-path:inset(0)] transition-[width] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none"
+      style={width === null ? undefined : { width }}
     >
-      {props.words.map((word, wordIndex) => (
-        <span
-          className={`relative px-[0.22em] text-primary [grid-area:1/1] ${
-            wordIndex === current ? "visible" : "invisible"
-          }`}
-          key={wordIndex === current ? `current-${props.index}` : word}
-        >
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 -rotate-1 rounded-3xl bg-primary/15"
-          />
-          {/*
-            Skip `hero-word-in` on the first paint: it starts at opacity 0, so
-            a slow hydration would flash the name away and back.
-          */}
-          <span className={`relative inline-block ${props.index === 0 ? "" : "hero-word-in"}`}>
-            {word}
+      {/*
+        Keep the current word in normal flow so it shares the alphabetic
+        baseline with "Är" / "ute än?". `overflow: hidden` on this inline-block
+        would pin the baseline to the bottom edge and lift the name. Clip only
+        the outgoing word on an absolute overlay.
+      */}
+      {previous === null ? null : (
+        <span className="pointer-events-none absolute inset-0 overflow-hidden">
+          <span className="hero-word-out absolute top-0 left-0" key={`out-${props.beat}`}>
+            {props.words[previous]}
           </span>
         </span>
-      ))}
+      )}
+      {/*
+        Skip `hero-word-in` on the first paint. That animation starts at
+        opacity 0, so a slow hydration would flash the name away and back.
+        Rotations still animate once there is a previous word.
+      */}
+      <span
+        className={previous === null ? "inline-block" : "hero-word-in inline-block"}
+        key={`in-${props.beat}`}
+        ref={measureCurrentWord}
+      >
+        {currentWord}
+      </span>
     </span>
   );
 }
@@ -324,7 +334,13 @@ export function HomePageView(props: { isSignedIn: boolean }) {
                 {headline.before === "" || headlineLayout.stackBefore ? null : (
                   <span>{headline.before}</span>
                 )}
-                <RotatingBabyName index={stage.beat} words={headline.words} />
+                <span className="relative inline-flex items-baseline px-4 text-primary">
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-0 -rotate-1 rounded-3xl bg-primary/15"
+                  />
+                  <RotatingBabyName beat={stage.beat} words={headline.words} />
+                </span>
               </span>
               <span aria-hidden="true" className="whitespace-nowrap">
                 {headline.after}

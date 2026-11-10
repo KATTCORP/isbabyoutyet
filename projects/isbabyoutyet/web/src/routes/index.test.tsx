@@ -130,18 +130,14 @@ test("hero name changes every beat, matches the live page, and keeps rolling aft
   await using _view = await renderWithTestRouter(<HomePageView isSignedIn={false} />);
 
   const heading = screen.getByRole("heading", { name: /is baby out yet/i });
-  const nameSlot = (name: string) => within(heading).getByText(name).parentElement;
-  expect(nameSlot("baby")?.classList.contains("visible")).toBe(true);
   expect(within(heading).getByText("baby").classList.contains("hero-word-in")).toBe(false);
-  // Every name is laid out (invisible) so the slot never changes width.
-  expect(nameSlot("Alba")?.classList.contains("invisible")).toBe(true);
+  expect(within(heading).queryByText("Alba")).toBeNull();
 
   const stage = () => screen.getByTestId("theme-stage");
   const activeStep = () => stage().querySelector("[data-active]");
   expect(stage().textContent).toContain("Is baby out yet?");
 
   act(() => vi.advanceTimersByTime(BEAT_MS));
-  expect(nameSlot("Alba")?.classList.contains("visible")).toBe(true);
   expect(within(heading).getByText("Alba").classList.contains("hero-word-in")).toBe(true);
   // Same name on the live page; the stage itself steps every second beat.
   expect(stage().textContent).toContain("Is Alba out yet?");
@@ -152,7 +148,7 @@ test("hero name changes every beat, matches the live page, and keeps rolling aft
 
   fireEvent.click(screen.getByRole("button", { name: "Baby born!" }));
   act(() => vi.advanceTimersByTime(BEAT_MS));
-  expect(nameSlot("Poppy")?.classList.contains("visible")).toBe(true);
+  expect(within(heading).getByText("Poppy").classList.contains("hero-word-in")).toBe(true);
   expect(stage().textContent).toContain("Is Poppy out yet?");
   expect(activeStep()?.textContent).toContain("Yes! Baby is out");
 });
