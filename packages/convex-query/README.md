@@ -1,66 +1,86 @@
 # Convex for raf-query
 
-Convex queries as [raf-query](https://github.com/KATT/raf-query) query
-factories: loaders `ensure` them for SSR and instant client navigation, and a
-live bridge keeps every cached entry subscribed, so components read plain
-`useQuery` data that Convex keeps current.
+Convex queries as [raf-query](https://raf-query.katt.dev) query factories:
+loaders `load` them for SSR and instant client navigation, and a live feature
+keeps every cached entry subscribed, so components read plain `useQuery`
+data that Convex keeps current.
 
 ## Layers
 
 ```
-reader.ts   ConvexReader Effect service: browser watch reads, server snapshot reads
-queries.ts  convexQuery / convexPaginatedQuery factories (stable keys, Effect queryFns)
-live.ts     connectConvexLive: subscribe cached entries, write results into the cache
+reader.ts   ConvexReader Effect service: browser subscribing reads, server snapshot reads
+link.ts     convexLink: the client's reader for queryFns, and live writes kept across requests
+            runConvexEffect: run a queryFn's Effect with the client's reader
+queries.ts  convexQuery / convexPaginatedQuery / convexBidirectionalPaginatedQuery factories
+live.ts     convexLive: a feature that subscribes cached entries and writes results into the cache
             watchConvexQuery: one entry's values as an Effect Stream
+entries.ts  key constants, and decoding a cache entry's key and page params
 testing.ts  makeTestConvexClient: a watch client over any async runner (convex-test)
 ```
 
-Query functions are Effects that `yield* ConvexReader`; each `QueryClient`
-provides its own reader through `layer`. That keeps a server request's
-authenticated `ConvexHttpClient` scoped to the request.
+Query functions are Effects that `yield* ConvexReader`. raf-query runs plain
+promises, so `runConvexEffect` runs them with the reader of the client making
+the request, which `convexLink` hands every request. Each `QueryClient` takes
+its own link, which keeps a server request's authenticated
+`ConvexHttpClient` scoped to the request.
 
 ## Wiring
 
 ```tsx
-const queryClient = new QueryClient({
-  layer: isServer
-    ? ConvexReader.layerSnapshot(convexHttpClient) // one consistent snapshot per request
-    : ConvexReader.layerWatch(convexReactClient),
+const queryClient = createQueryClient({
+  // Browser only; features run while a `QueryClientProvider` has the client mounted.
+  features: isServer ? [] : [convexLive(convexReactClient)],
+  links: [
+    convexLink(
+      isServer
+        ? ConvexReader.snapshot(convexHttpClient) // one consistent snapshot per request
+        : ConvexReader.subscribing(convexReactClient),
+    ),
+  ],
 });
-if (!isServer) {
-  connectConvexLive({ client: convexReactClient, queryClient });
-}
 ```
+
+`convexLink` also keeps what `convexLive` writes while a request is in
+flight: raf-query writes a request's result over the entry, which would put
+back data read before a newer live result arrived.
 
 ## Usage
 
 Call the factories inline with a function reference; there is no registry to
-maintain. Cache entries are keyed by function name and args, so two
-`convexQuery(api.profile.get)` calls address the same entry.
+maintain. Every call for one function returns the same factory (raf-query
+matches factory targets by identity), and entries are keyed by function name
+and args.
 
-Loaders `ensure` (data is cached before render and dehydrated for SSR) and
-return the handles; components read the handle:
+Loaders name their queries in one `load` and return the handles; `swr` waits
+until the cache has data (Convex data is live, so cached data is current).
+Components read the handle with `useQuery` and `use()`:
 
 ```tsx
-loader: async (opts) =>
-  await allKeyed({
-    profile: opts.context.queryClient.ensure(convexQuery(api.profile.get), {}),
-    timeline: opts.context.queryClient.ensure(
-      convexPaginatedQuery(api.timeline.listByBaby),
-      { args: { babyId }, numItems: 20 },
-    ),
-  }),
+loader: async (opts) => {
+  const [handles] = await load(opts.context.queryClient, {
+    profile: swr(convexQuery(api.profile.get), {}),
+    timeline: swr(convexPaginatedQuery(api.timeline.listByBaby), {
+      args: { babyId },
+      numItems: 20,
+    }),
+  });
+  return handles;
+},
 
-const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile);
+const [profileThenable] = useQuery(convexQuery(api.profile.get), loaderData.profile);
+const profile = use(profileThenable);
+const [timelineThenable, timeline] = useInfiniteQuery(
+  convexPaginatedQuery(api.timeline.listByBaby),
+  loaderData.timeline,
+);
 ```
 
-The query functions are Effects with a typed `ConvexQueryError`. Both
-factories set `throwOnError: true`, so reads get the data and failures reach
-the route's error boundary. Pass `throwOnError: false` on a read to get a
-`Result` instead.
+The query functions fail with a typed `ConvexQueryError` whose message is the
+Convex error's, so error boundaries show what the function threw. Factories
+never go stale (`staleTime: Infinity`) and don't retry (`meta: { retry: false }`).
 
-Type props that receive a loader handle with `EnsuredConvexQuery<typeof
-api.profile.get>` or `EnsuredConvexPaginatedQuery<typeof
+Type props that receive a loader handle with `ConvexQueryHandle<typeof
+api.profile.get>` or `ConvexPaginatedQueryHandle<typeof
 api.timeline.listByBaby>`.
 
 `convexPaginatedQuery` is an infinite query over Convex `paginate`. Every
@@ -78,22 +98,23 @@ live and pinned the same way, so a backward page that is full never takes in
 items beyond it until the next `fetchPreviousPage`.
 
 To open with a little context before the start, load the entry with
-`ensureBidirectionalPaginatedQuery(queryClient, { input, previousNumItems,
-queries })`. It reads a short first backward page of `previousNumItems`
-alongside the first page, not after it, so a loader adds no waterfall.
-Later `fetchPreviousPage`s load full `numItems` pages. While the short page
-is the top page, it stays live at its own size, so newer items stay out of it.
+`loadBidirectionalPaginatedQuery(queryClient, { input, previousNumItems,
+queries })`, which resolves to `[handle, data]` like `load`. It reads a short
+first backward page of `previousNumItems` in the same `load` as the first
+page, not after it, so a loader adds no waterfall. Later `fetchPreviousPage`s
+load full `numItems` pages. While the short page is the top page, it stays
+live at its own size, so newer items stay out of it.
 
-Read data in a loader from the handle `ensure` resolves with:
-`(await queryClient.ensure(...)).data`. Effects that compose several reads
-(for example push-capability detection) call `readConvexQuery(query, args)`
-directly.
+Read data in a loader from `load`'s second element (`const [, data] = await
+load(…)`). Effects that compose several reads (for example push-capability
+detection) call `readConvexQuery(query, args)` directly, in a `queryFn` run
+with `runConvexEffect`.
 
 ## Waiting for a value
 
 `watchConvexQuery({ client, queryClient }, { args, query })` is an Effect
 `Stream` of one entry's values: the cached value, then every change. It reads
-through the cache (so it shares the request with loaders' `ensure`) and holds
+through the cache (so it shares the request with loaders' `load`) and holds
 its own Convex subscription while it runs, writing each result into the entry.
 Compose it to wait for a value, for example the profile after sign-in:
 
@@ -108,6 +129,7 @@ watchConvexQuery({ client, queryClient }, { args: {}, query: api.profile.get }).
 ## Testing
 
 `makeTestConvexClient(run)` returns `{ client, refresh, subscriptions }`. Pass
-`client` to `ConvexReader.layerWatch` and `connectConvexLive`, and call
-`refresh()` after a write so live entries re-run, as the server would after a
-mutation.
+`client` to `ConvexReader.subscribing` and `convexLive`, and call `refresh()`
+after a write so live entries re-run, as the server would after a mutation.
+Outside React, `mount(queryClient)` from `@raf-query/core/internal` starts the
+features, as `QueryClientProvider` does.

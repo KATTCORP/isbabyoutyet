@@ -1,5 +1,6 @@
 import { PhotoLightbox } from "@/components/baby/photo-lightbox";
-import { useQuery } from "@raf-query/react";
+import { load, swr, useQuery } from "@raf-query/react";
+import { use } from "react";
 import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { prefetchBrowserImage } from "@/lib/image-prefetch";
@@ -12,12 +13,14 @@ export const Route = createFileRoute("/baby/$publicId/photo")({
   loader: async (opts) => {
     const queryClient = opts.context.queryClient;
     const input = { id: opts.params.publicId };
-    const baby = await queryClient.ensure(convexQuery(api.baby.getByPublicId), input);
-    if (!baby.data?.photoUrl) {
+    const [handles, data] = await load(queryClient, {
+      baby: swr(convexQuery(api.baby.getByPublicId), input),
+    });
+    if (!data.baby?.photoUrl) {
       throw notFound();
     }
-    prefetchBrowserImage(queryClient, baby.data.photoUrl);
-    return { baby };
+    prefetchBrowserImage(queryClient, data.baby.photoUrl);
+    return handles;
   },
   component: BabyPhotoOverlay,
 });
@@ -28,7 +31,8 @@ export function BabyPhotoOverlay() {
   const loaderData = Route.useLoaderData();
   const photo = useBabyPhotoOverlay(params.publicId);
 
-  const [babyData] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
+  const [babyDataThenable] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
+  const babyData = use(babyDataThenable);
   const babyDoc = useLastMatch(babyData, (v) => {
     if (!v?.photoUrl) {
       return false;

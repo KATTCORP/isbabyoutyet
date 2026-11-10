@@ -1,3 +1,4 @@
+import { getData } from "@raf-query/react";
 import { fireEvent } from "@testing-library/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { FORBIDDEN } from "@isbabyoutyet/backend/src/types";
@@ -10,13 +11,13 @@ import { convexQuery } from "@workspace/convex-query";
 import { managerDocToBabyData } from "@/routes/baby/$publicId/route";
 import { Route } from "@/routes/baby/$publicId/_auth/settings";
 import { htmlButton } from "@/test/htmlElement";
+import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
 
 test("settings loader fetches only manager settings data", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
 
   const result = await runRouteLoaderWithRouterContext<{
-    browserPush: { input: string };
     coParentsList: { input: { babyId: string } };
     managerBaby: { input: { babyId: string } };
     profile: { input: Record<string, never> };
@@ -30,21 +31,25 @@ test("settings loader fetches only manager settings data", async () => {
   });
 
   const babyArgs = { babyId: baby.publicId };
-  expect(result.managerBaby).toMatchObject({ data: expect.anything(), input: babyArgs });
-  expect(result.coParentsList).toMatchObject({ data: expect.anything(), input: babyArgs });
-  expect(result.profile).toMatchObject({ data: expect.anything(), input: {} });
-  expect(result.vapidPublicKey).toMatchObject({ data: expect.anything(), input: {} });
+  expect(result.managerBaby).toMatchObject({ input: babyArgs });
+  expect(result.coParentsList).toMatchObject({ input: babyArgs });
+  expect(result.profile).toMatchObject({ input: {} });
+  expect(result.vapidPublicKey).toMatchObject({ input: {} });
   const queryClient = harness.queryClient;
-  expect(queryClient.getData(convexQuery(api.baby.getManagerBaby), babyArgs)).toMatchObject({
+  expect(getData(queryClient, convexQuery(api.baby.getManagerBaby), babyArgs)).toMatchObject({
     name: "Baby Smith",
   });
-  expect(queryClient.getData(convexQuery(api.coParents.listForBaby), babyArgs)).toEqual({
+  expect(getData(queryClient, convexQuery(api.coParents.listForBaby), babyArgs)).toEqual({
     coParents: [],
     invites: [],
   });
-  expect(queryClient.getData(convexQuery(api.profile.get), {})?.locale).toBeTruthy();
-  expect(queryClient.getData(convexQuery(api.pushSubscriptions.getPublicKey), {})).toBeTruthy();
-  expect(result.browserPush).toMatchObject({ input: baby.publicId });
+  expect(getData(queryClient, convexQuery(api.profile.get), {})?.locale).toBeTruthy();
+  expect(getData(queryClient, convexQuery(api.pushSubscriptions.getPublicKey), {})).toBeTruthy();
+  // This device's push state, which its readers build their own handles for.
+  expect(result).not.toHaveProperty("browserPush");
+  await vi.waitFor(() => {
+    expect(getData(queryClient, browserPushCapabilityQuery, baby.publicId)).toBeDefined();
+  });
 });
 
 test("managerDocToBabyData maps manager fields for the settings panel", async () => {

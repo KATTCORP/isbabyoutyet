@@ -5,6 +5,7 @@ import { TimelineFeed } from "@/components/baby/timeline";
 import { NotificationSubscribe } from "@/components/baby/notification-subscribe";
 import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
 import { visitorTagQuery } from "@/lib/visitor-tag";
+import { inBrowser } from "@/lib/browser-only";
 import { ProgressIndicator } from "@/components/baby/progress-indicator";
 import { ScheduledNotificationToast } from "@/components/baby/scheduled-notification-toast";
 import { StatusDisplay } from "@/components/baby/status-display";
@@ -20,7 +21,8 @@ import {
   redirect,
   useMatchRoute,
 } from "@tanstack/react-router";
-import { allKeyed, useQuery } from "@raf-query/react";
+import { getData, load, prefetch, swr, useQuery } from "@raf-query/react";
+import { use } from "react";
 import { z } from "zod";
 import type { FunctionReturnType } from "convex/server";
 import { convexQuery } from "@workspace/convex-query";
@@ -61,11 +63,10 @@ export const Route = createFileRoute("/baby/$publicId")({
   loaderDeps: (opts) => ({ item: opts.search.item ?? null }),
 
   beforeLoad: async (opts) => {
-    const queryClient = opts.context.queryClient;
-    const babyHandle = await queryClient.ensure(convexQuery(api.baby.getByPublicId), {
-      id: opts.params.publicId,
+    const [, data] = await load(opts.context.queryClient, {
+      baby: swr(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId }),
     });
-    const babyDoc = babyHandle.data;
+    const babyDoc = data.baby;
     if (!babyDoc) {
       throw notFound();
     }
@@ -83,46 +84,42 @@ export const Route = createFileRoute("/baby/$publicId")({
   loader: async (opts) => {
     const queryClient = opts.context.queryClient;
     const publicId = opts.params.publicId;
-    const browserPush = queryClient.prefetch(browserPushCapabilityQuery, publicId);
     // `beforeLoad` already loaded the baby, so this starts with no wait.
-    const babyDoc = queryClient.getData(convexQuery(api.baby.getByPublicId), { id: publicId });
+    const babyDoc = getData(queryClient, convexQuery(api.baby.getByPublicId), { id: publicId });
     if (!babyDoc) {
       throw notFound();
     }
-    const visitorTag = queryClient.prefetch(visitorTagQuery, babyDoc._id);
+    // This device's state, which only the browser knows: its readers build
+    // their own handles, as nothing starts them before SSR.
+    void load(queryClient, {
+      browserPush: inBrowser(queryClient, prefetch(browserPushCapabilityQuery, publicId)),
+      visitorTag: inBrowser(queryClient, prefetch(visitorTagQuery, babyDoc._id)),
+    });
 
-    const loaderData = await allKeyed({
-      baby: queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: publicId }),
-      latestUpdate: queryClient.ensure(convexQuery(api.timeline.latestUpdate), {
-        babyId: publicId,
-      }),
-      me: queryClient.ensure(convexQuery(api.profile.get), {}),
-      managerBaby: queryClient.ensure(convexQuery(api.baby.getManagerBaby), { babyId: publicId }),
-      myAccess: queryClient.ensure(convexQuery(api.coParents.myAccess), { babyId: publicId }),
-      onboarding: queryClient.ensure(convexQuery(api.onboarding.getMine), {}),
-      scheduledNotifications: queryClient.ensure(convexQuery(api.baby.getScheduledNotifications), {
-        babyId: publicId,
-      }),
-      subscriptionCount: queryClient.ensure(
-        convexQuery(api.pushSubscriptions.getSubscriptionCount),
-        {
+    const [[handles], timeline] = await Promise.all([
+      load(queryClient, {
+        baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
+        latestUpdate: swr(convexQuery(api.timeline.latestUpdate), { babyId: publicId }),
+        managerBaby: swr(convexQuery(api.baby.getManagerBaby), { babyId: publicId }),
+        me: swr(convexQuery(api.profile.get), {}),
+        myAccess: swr(convexQuery(api.coParents.myAccess), { babyId: publicId }),
+        onboarding: swr(convexQuery(api.onboarding.getMine), {}),
+        scheduledNotifications: swr(convexQuery(api.baby.getScheduledNotifications), {
           babyId: publicId,
-        },
-      ),
-      timeline: loadTimelineFeed(queryClient, {
+        }),
+        subscriptionCount: swr(convexQuery(api.pushSubscriptions.getSubscriptionCount), {
+          babyId: publicId,
+        }),
+        vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
+      }),
+      loadTimelineFeed(queryClient, {
         followedFrom: opts.location.state.timelineFeed,
         item: opts.deps.item,
         publicId,
       }),
-      vapidPublicKey: queryClient.ensure(convexQuery(api.pushSubscriptions.getPublicKey), {}),
-    });
+    ]);
 
-    return {
-      babyDoc,
-      browserPush,
-      visitorTag,
-      ...loaderData,
-    };
+    return { babyDoc, ...handles, timeline };
   },
   head: (opts) => {
     const babyDoc = opts.loaderData?.babyDoc;
@@ -285,19 +282,27 @@ function BabyPageLayout() {
     throw notFound();
   }
 
-  const [babyDoc] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
+  const [babyDocThenable] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
+  const babyDoc = use(babyDocThenable);
   if (!babyDoc) {
     throw notFound();
   }
   const baby = docToBabyData(babyDoc);
 
-  const [latestUpdate] = useQuery(convexQuery(api.timeline.latestUpdate), loaderData.latestUpdate);
-  const [me] = useQuery(convexQuery(api.profile.get), loaderData.me);
-  const [managerBabyResult] = useQuery(
+  const [latestUpdateThenable] = useQuery(
+    convexQuery(api.timeline.latestUpdate),
+    loaderData.latestUpdate,
+  );
+  const latestUpdate = use(latestUpdateThenable);
+  const [meThenable] = useQuery(convexQuery(api.profile.get), loaderData.me);
+  const me = use(meThenable);
+  const [managerBabyResultThenable] = useQuery(
     convexQuery(api.baby.getManagerBaby),
     loaderData.managerBaby,
   );
-  const [myAccess] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
+  const managerBabyResult = use(managerBabyResultThenable);
+  const [myAccessThenable] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
+  const myAccess = use(myAccessThenable);
 
   const completeOnboardingStep = useCompleteOnboardingStep();
   const share = useBabyShareOverlayLinks(params.publicId);
@@ -412,7 +417,7 @@ function BabyPageLayout() {
               <NotificationSubscribe
                 audience={canManage ? "manager" : "visitor"}
                 babyId={babyDoc._id}
-                browserPush={loaderData.browserPush}
+                publicId={babyDoc.publicId}
                 vapidPublicKey={loaderData.vapidPublicKey}
               />
             </div>
@@ -446,11 +451,11 @@ function BabyPageLayout() {
             >
               <TimelineFeed
                 baby={baby}
+                babyId={babyDoc._id}
                 babyName={baby.name}
                 feed={loaderData.timeline}
                 isOwner={canManage}
                 publicId={babyDoc.publicId}
-                visitorTag={loaderData.visitorTag}
               />
             </section>
           </div>

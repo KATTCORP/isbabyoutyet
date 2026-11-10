@@ -1,24 +1,43 @@
-import type { InfiniteData } from "@raf-query/react";
-import { Query, QueryClient } from "@raf-query/react";
+import type { InfiniteData, QueryHandle } from "@raf-query/react";
+import {
+  createQueryClient,
+  getData,
+  invalidateMany,
+  invalidateOne,
+  isFetching,
+  load,
+  revalidate,
+  swr,
+} from "@raf-query/react";
 import type { PaginationOptions, PaginationResult } from "convex/server";
 import { getFunctionName, makeFunctionReference } from "convex/server";
-import { Effect } from "effect";
-import { expect, expectTypeOf, onTestFinished, test } from "vitest";
+import { expect, expectTypeOf, test } from "vitest";
+import { convexLink } from "./link.ts";
+import { pagesOf } from "./test-cache.ts";
 import type {
   BidirectionalPageParam,
-  EnsuredConvexBidirectionalPaginatedQuery,
-  EnsuredConvexPaginatedQuery,
-  EnsuredConvexQuery,
+  ConvexBidirectionalPaginatedQueryHandle,
+  ConvexPaginatedQueryHandle,
+  ConvexQueryHandle,
 } from "./queries.ts";
 import {
   convexBidirectionalPaginatedQuery,
   convexPaginatedQuery,
   convexQuery,
-  ensureBidirectionalPaginatedQuery,
+  loadBidirectionalPaginatedQuery,
 } from "./queries.ts";
 import type { ConvexWatchClient } from "./reader.ts";
 import { ConvexReader } from "./reader.ts";
 import { makeTestConvexClient } from "./testing.ts";
+
+/** A browser client reading through `client`, without gc timers. */
+function makeQueryClient(client: ConvexWatchClient) {
+  return createQueryClient({
+    gcTime: Infinity,
+    isServer: false,
+    links: [convexLink(ConvexReader.subscribing(client))],
+  });
+}
 
 const getMessage = makeFunctionReference<"query", { id: string }, string | null>("messages:get");
 const listMessages = makeFunctionReference<
@@ -61,57 +80,77 @@ function setup() {
       return backend.client.watchQuery(query, args);
     },
   };
-  const queryClient = new QueryClient({
-    isServer: false,
-    layer: ConvexReader.layerWatch(client),
-  });
-  onTestFinished(() => queryClient.dispose());
-  return { pageReads, queryClient, reads };
+  return { pageReads, queryClient: makeQueryClient(client), reads };
 }
 
 test("inline factories infer from the query and share one entry per query and args", async () => {
   const ctx = setup();
   const queryClient = ctx.queryClient;
 
-  const handle = await queryClient.ensure(convexQuery(getMessage), { id: "a" });
+  const [handles, data] = await load(queryClient, {
+    message: swr(convexQuery(getMessage), { id: "a" }),
+  });
 
-  expectTypeOf(handle).toEqualTypeOf<EnsuredConvexQuery<typeof getMessage>>();
-  expect(handle).toMatchObject({ data: "hello", input: { id: "a" } });
-  expectTypeOf(queryClient.getData(convexQuery(getMessage), { id: "a" })).toEqualTypeOf<
+  expectTypeOf(handles.message).toEqualTypeOf<ConvexQueryHandle<typeof getMessage>>();
+  expect(handles.message).toEqual({
+    input: { id: "a" },
+    queryKey: ["convexQuery", "messages:get", { id: "a" }],
+  });
+  expectTypeOf(data.message).toEqualTypeOf<string | null>();
+  expect(data.message).toBe("hello");
+  expectTypeOf(getData(queryClient, convexQuery(getMessage), { id: "a" })).toEqualTypeOf<
     string | null | undefined
   >();
-  expect(queryClient.getData(convexQuery(getMessage), { id: "a" })).toBe("hello");
-  await queryClient.ensure(convexQuery(getMessage), { id: "a" });
+  expect(convexQuery(getMessage)).toBe(convexQuery(getMessage));
+  await load(queryClient, { message: swr(convexQuery(getMessage), { id: "a" }) });
   expect(ctx.reads).toEqual(["messages:get"]);
 
   // @ts-expect-error — the input is the query's args
-  await queryClient.ensure(convexQuery(getMessage), { nope: "a" }).catch(() => null);
+  swr(convexQuery(getMessage), { nope: "a" });
+});
+
+test("a factory target reaches entries other calls of the factory created", async () => {
+  const ctx = setup();
+  await load(ctx.queryClient, { message: swr(convexQuery(getMessage), { id: "a" }) });
+
+  await invalidateMany(ctx.queryClient, convexQuery(getMessage));
+  const reloading = load(ctx.queryClient, {
+    message: revalidate(convexQuery(getMessage), { id: "a" }),
+  });
+
+  expect(isFetching(ctx.queryClient, convexQuery(getMessage))).toBe(1);
+  await reloading;
+});
+
+test("a client without the reader link fails its Convex queries with a hint", async () => {
+  const queryClient = createQueryClient({ gcTime: Infinity, isServer: false });
+
+  await expect(
+    load(queryClient, { message: swr(convexQuery(getMessage), { id: "a" }) }),
+  ).rejects.toThrow("create its QueryClient with the convexLink link");
 });
 
 test("inline paginated factories infer pages and take the args without paginationOpts", async () => {
   const ctx = setup();
   const queryClient = ctx.queryClient;
 
-  const handle = await queryClient.ensure(convexPaginatedQuery(listMessages), {
-    args: { room: "lobby" },
-    numItems: 10,
+  const [handles, loaded] = await load(queryClient, {
+    list: swr(convexPaginatedQuery(listMessages), { args: { room: "lobby" }, numItems: 10 }),
   });
 
-  expectTypeOf(handle).toEqualTypeOf<EnsuredConvexPaginatedQuery<typeof listMessages>>();
-  const data = queryClient.getData(convexPaginatedQuery(listMessages), {
-    args: { room: "lobby" },
-    numItems: 10,
-  });
-  expectTypeOf(data).toEqualTypeOf<
-    InfiniteData<{ page: PaginationResult<string>; pageParam: PaginationOptions }> | undefined
+  expectTypeOf(handles.list).toEqualTypeOf<ConvexPaginatedQueryHandle<typeof listMessages>>();
+  expectTypeOf(loaded.list).toEqualTypeOf<
+    InfiniteData<PaginationResult<string>, PaginationOptions>
   >();
-  expect(data?.pages.flatMap((page) => page.page)).toEqual(["lobby:hello"]);
+  expect(loaded.list.pages.flatMap((page) => page.page)).toEqual(["lobby:hello"]);
 
-  await queryClient.ensure(
-    convexPaginatedQuery(listMessages),
-    { args: { room: "lobby" }, numItems: 10 },
-    { pages: 2 },
-  );
+  await load(queryClient, {
+    list: swr(
+      convexPaginatedQuery(listMessages),
+      { args: { room: "lobby" }, numItems: 10 },
+      { pages: 2 },
+    ),
+  });
 });
 
 test("two-way factories load backward pages only on fetchPreviousPage, prepending them", async () => {
@@ -123,19 +162,20 @@ test("two-way factories load backward pages only on fetchPreviousPage, prependin
   });
   const input = { args: { room: "lobby" }, numItems: 10 };
 
-  const handle = await queryClient.ensure(around, input);
-  expectTypeOf(handle).toEqualTypeOf<
-    EnsuredConvexBidirectionalPaginatedQuery<typeof listMessages, typeof listNewerMessages>
+  const [handles] = await load(queryClient, { around: swr(around, input) });
+  expectTypeOf(handles.around).toEqualTypeOf<
+    ConvexBidirectionalPaginatedQueryHandle<typeof listMessages, typeof listNewerMessages>
   >();
+  expectTypeOf(handles.around).toExtend<QueryHandle>();
   expect(ctx.reads).toEqual(["messages:list"]);
-  const query = queryClient.getQuery(around, input);
-  expect(Query.hasPreviousPageUnsafe(query)).toBe(true);
-  expect(Query.hasNextPageUnsafe(query)).toBe(false);
+  const pages = pagesOf(queryClient, { factory: around, input });
+  expect(pages.hasPreviousPage()).toBe(true);
+  expect(pages.hasNextPage()).toBe(false);
 
-  await Effect.runPromise(Query.fetchPreviousPage(query));
-  await Effect.runPromise(Query.fetchPreviousPage(query));
+  await pages.fetchPreviousPage();
+  await pages.fetchPreviousPage();
   expect(ctx.reads).toEqual(["messages:list", "messages:listNewer", "messages:listNewer"]);
-  const data = queryClient.getData(around, input);
+  const data = getData(queryClient, around, input);
   expectTypeOf(data?.pageParams).toEqualTypeOf<ReadonlyArray<BidirectionalPageParam> | undefined>();
   expect(data?.pages.map((page) => page.page)).toEqual([
     ["lobby:newer-2"],
@@ -149,7 +189,7 @@ test("two-way factories load backward pages only on fetchPreviousPage, prependin
     newer,
     first,
   ]);
-  expect(Query.hasPreviousPageUnsafe(query)).toBe(false);
+  expect(pages.hasPreviousPage()).toBe(false);
 });
 
 /** A two-way backend over real cursors: `older` from the start, `newer` nearest first. */
@@ -187,8 +227,7 @@ function setupAround() {
       return backend.client.watchQuery(query, args);
     },
   };
-  const queryClient = new QueryClient({ isServer: false, layer: ConvexReader.layerWatch(client) });
-  onTestFinished(() => queryClient.dispose());
+  const queryClient = makeQueryClient(client);
   const queries = { backward: listNewerMessages, forward: listMessages };
   return {
     around: convexBidirectionalPaginatedQuery(queries),
@@ -201,111 +240,122 @@ function setupAround() {
   };
 }
 
-test("a two-way ensure reads a short first backward page alongside the first page", async () => {
+test("a two-way load reads a short first backward page alongside the first page", async () => {
   const ctx = setupAround();
 
-  const handle = await ensureBidirectionalPaginatedQuery(ctx.queryClient, {
+  const [handle, data] = await loadBidirectionalPaginatedQuery(ctx.queryClient, {
     input: ctx.input,
     previousNumItems: 2,
     queries: ctx.queries,
   });
 
   expectTypeOf(handle).toEqualTypeOf<
-    EnsuredConvexBidirectionalPaginatedQuery<typeof listMessages, typeof listNewerMessages>
+    ConvexBidirectionalPaginatedQueryHandle<typeof listMessages, typeof listNewerMessages>
   >();
+  expect(handle.input).toEqual(ctx.input);
   expect(ctx.events.slice(0, 2).toSorted()).toEqual([
     "start messages:list null/3",
     "start messages:listNewer null/2",
   ]);
-  expect(handle.data.pages.map((page) => page.page)).toEqual([
+  expect(data.pages.map((page) => page.page)).toEqual([
     ["n1", "n2"],
     ["a", "b", "c"],
   ]);
   const first = { cursor: null, direction: "forward", next: null, numItems: 3 } as const;
   const context = { cursor: null, direction: "backward", next: first, numItems: 2 } as const;
-  expect(handle.data.pageParams).toEqual([context, first]);
+  expect(data.pageParams).toEqual([context, first]);
+  expect(getData(ctx.queryClient, ctx.around, ctx.input)).toEqual(data);
+  // The short page's own read leaves the cache once it's folded into the feed.
+  expect(
+    getData(ctx.queryClient, convexQuery(listNewerMessages), {
+      paginationOpts: { cursor: null, numItems: 2 },
+      room: "lobby",
+    }),
+  ).toBeUndefined();
 
   // Past the short page, backward pages are full again.
-  const query = ctx.queryClient.getQuery(ctx.around, ctx.input);
-  await Effect.runPromise(Query.fetchPreviousPage(query));
+  const pages = pagesOf(ctx.queryClient, { factory: ctx.around, input: ctx.input });
+  await pages.fetchPreviousPage();
   expect(ctx.events.at(-1)).toBe("end messages:listNewer n2/3");
-  expect(ctx.queryClient.getData(ctx.around, ctx.input)?.pageParams[0]).toEqual({
+  expect(getData(ctx.queryClient, ctx.around, ctx.input)?.pageParams[0]).toEqual({
     cursor: "n2",
     direction: "backward",
     next: context,
     numItems: 3,
   });
-  expect(Query.hasPreviousPageUnsafe(query)).toBe(false);
+  expect(pages.hasPreviousPage()).toBe(false);
 });
 
-test("a two-way ensure keeps the backward pages an entry already has", async () => {
+test("a two-way load keeps the backward pages an entry already has", async () => {
   const ctx = setupAround();
   const opts = { input: ctx.input, previousNumItems: 2, queries: ctx.queries };
-  await ensureBidirectionalPaginatedQuery(ctx.queryClient, opts);
-  await Effect.runPromise(Query.fetchPreviousPage(ctx.queryClient.getQuery(ctx.around, ctx.input)));
+  await loadBidirectionalPaginatedQuery(ctx.queryClient, opts);
+  await pagesOf(ctx.queryClient, { factory: ctx.around, input: ctx.input }).fetchPreviousPage();
   ctx.events.length = 0;
 
-  const handle = await ensureBidirectionalPaginatedQuery(ctx.queryClient, opts);
+  const [, data] = await loadBidirectionalPaginatedQuery(ctx.queryClient, opts);
 
   expect(ctx.events).toEqual([]);
-  expect(handle.data.pages.map((page) => page.page)).toEqual([
+  expect(data.pages.map((page) => page.page)).toEqual([
     ["n3", "n4", "n5"],
     ["n1", "n2"],
     ["a", "b", "c"],
   ]);
 });
 
-test("two concurrent two-way ensures seed the short backward page once", async () => {
+test("two concurrent two-way loads seed the short backward page once", async () => {
   const ctx = setupAround();
   const opts = { input: ctx.input, previousNumItems: 2, queries: ctx.queries };
 
-  const handles = await Promise.all([
-    ensureBidirectionalPaginatedQuery(ctx.queryClient, opts),
-    ensureBidirectionalPaginatedQuery(ctx.queryClient, opts),
+  const loaded = await Promise.all([
+    loadBidirectionalPaginatedQuery(ctx.queryClient, opts),
+    loadBidirectionalPaginatedQuery(ctx.queryClient, opts),
   ]);
 
-  for (const handle of handles) {
-    expect(handle.data.pages.map((page) => page.page)).toEqual([
+  for (const [, data] of loaded) {
+    expect(data.pages.map((page) => page.page)).toEqual([
       ["n1", "n2"],
       ["a", "b", "c"],
     ]);
   }
-  expect(ctx.queryClient.getData(ctx.around, ctx.input)?.pageParams).toHaveLength(2);
+  expect(getData(ctx.queryClient, ctx.around, ctx.input)?.pageParams).toHaveLength(2);
 });
 
-test("a two-way ensure with nothing before the start has no previous page", async () => {
+test("a two-way load with nothing before the start has no previous page", async () => {
   const ctx = setupAround();
   ctx.newer.length = 0;
 
-  const handle = await ensureBidirectionalPaginatedQuery(ctx.queryClient, {
+  const [, data] = await loadBidirectionalPaginatedQuery(ctx.queryClient, {
     input: ctx.input,
     previousNumItems: 2,
     queries: ctx.queries,
   });
 
-  expect(handle.data.pages.map((page) => page.page)).toEqual([[], ["a", "b", "c"]]);
-  expect(Query.hasPreviousPageUnsafe(ctx.queryClient.getQuery(ctx.around, ctx.input))).toBe(false);
+  expect(data.pages.map((page) => page.page)).toEqual([[], ["a", "b", "c"]]);
+  expect(
+    pagesOf(ctx.queryClient, { factory: ctx.around, input: ctx.input }).hasPreviousPage(),
+  ).toBe(false);
 });
 
 test("a two-way refetch retraces a short first backward page at its own size", async () => {
   const ctx = setupAround();
-  await ensureBidirectionalPaginatedQuery(ctx.queryClient, {
+  await loadBidirectionalPaginatedQuery(ctx.queryClient, {
     input: ctx.input,
     previousNumItems: 2,
     queries: ctx.queries,
   });
-  await Effect.runPromise(Query.fetchPreviousPage(ctx.queryClient.getQuery(ctx.around, ctx.input)));
+  await pagesOf(ctx.queryClient, { factory: ctx.around, input: ctx.input }).fetchPreviousPage();
   ctx.watches.length = 0;
 
-  await ctx.queryClient.invalidate(ctx.around, ctx.input);
-  await ctx.queryClient.fetch(ctx.around, ctx.input);
+  await invalidateOne(ctx.queryClient, ctx.around, ctx.input);
+  await load(ctx.queryClient, { around: revalidate(ctx.around, ctx.input) });
 
   expect(ctx.watches).toEqual([
     "messages:listNewer n2/3",
     "messages:listNewer null/2",
     "messages:list null/3",
   ]);
-  expect(ctx.queryClient.getData(ctx.around, ctx.input)?.pages.map((page) => page.page)).toEqual([
+  expect(getData(ctx.queryClient, ctx.around, ctx.input)?.pages.map((page) => page.page)).toEqual([
     ["n3", "n4", "n5"],
     ["n1", "n2"],
     ["a", "b", "c"],
@@ -320,21 +370,21 @@ test("a two-way refetch retraces backward pages with the backward query, then fo
     forward: listMessages,
   });
   const input = { args: { room: "lobby" }, numItems: 10 };
-  await queryClient.ensure(around, input);
-  const query = queryClient.getQuery(around, input);
-  await Effect.runPromise(Query.fetchPreviousPage(query));
-  await Effect.runPromise(Query.fetchPreviousPage(query));
+  await load(queryClient, { around: swr(around, input) });
+  const pages = pagesOf(queryClient, { factory: around, input });
+  await pages.fetchPreviousPage();
+  await pages.fetchPreviousPage();
   ctx.pageReads.length = 0;
 
-  await queryClient.invalidate(around, input);
-  await queryClient.fetch(around, input);
+  await invalidateOne(queryClient, around, input);
+  await load(queryClient, { around: revalidate(around, input) });
 
   expect(ctx.pageReads).toEqual([
     "messages:listNewer newer-1",
     "messages:listNewer null",
     "messages:list null",
   ]);
-  expect(queryClient.getData(around, input)?.pages.map((page) => page.page)).toEqual([
+  expect(getData(queryClient, around, input)?.pages.map((page) => page.page)).toEqual([
     ["lobby:newer-2"],
     ["lobby:newer-1"],
     ["lobby:hello"],

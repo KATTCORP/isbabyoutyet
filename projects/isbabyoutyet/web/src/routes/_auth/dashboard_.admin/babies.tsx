@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import { useQuery } from "@raf-query/react";
+import { load, swr, useInfiniteQuery } from "@raf-query/react";
+import { use } from "react";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -43,14 +44,17 @@ export const Route = createFileRoute("/_auth/dashboard_/admin/babies")({
   loader: async (opts) => {
     // Paged queries stay blocking on the client too: the query cache makes
     // revisits free, and suspense churn on paginated tables isn't worth it.
-    return await opts.context.queryClient.ensure(convexPaginatedQuery(api.admin.listBabies), {
-      args: {
-        hideDemo: opts.deps.hideDemo,
-        sortBy: opts.deps.sort,
-        sortOrder: opts.deps.order,
-      },
-      numItems: ADMIN_PAGE_SIZE,
+    const [handles] = await load(opts.context.queryClient, {
+      babies: swr(convexPaginatedQuery(api.admin.listBabies), {
+        args: {
+          hideDemo: opts.deps.hideDemo,
+          sortBy: opts.deps.sort,
+          sortOrder: opts.deps.order,
+        },
+        numItems: ADMIN_PAGE_SIZE,
+      }),
     });
+    return handles.babies;
   },
 });
 
@@ -214,10 +218,11 @@ export function BabiesSection(props: {
 
 function AdminBabiesPage() {
   const search = Route.useSearch();
-  const [babiesData, babiesQuery] = useQuery(
+  const [babiesThenable, babiesQuery] = useInfiniteQuery(
     convexPaginatedQuery(api.admin.listBabies),
     Route.useLoaderData(),
   );
+  const babiesData = use(babiesThenable);
 
   return (
     <BabiesSection

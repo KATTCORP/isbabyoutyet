@@ -1,6 +1,6 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import { getFunctionName } from "convex/server";
-import { Context, Effect, Layer, Predicate, Schema } from "effect";
+import { Context, Effect, Predicate, Schema } from "effect";
 
 /** A Convex query function reference, public or internal. */
 export type AnyQueryReference = FunctionReference<"query">;
@@ -57,8 +57,8 @@ function queryError(opts: { cause: unknown; query: AnyQueryReference }) {
 
 /**
  * Reads Convex queries for raf-query `queryFn`s. Each `QueryClient` gets its
- * own through `layer`, so a server request's authenticated HTTP client can't
- * serve another request.
+ * own through the {@link provideConvexReader} link, so a server request's
+ * authenticated HTTP client can't serve another request.
  */
 export class ConvexReader extends Context.Service<
   ConvexReader,
@@ -74,8 +74,8 @@ export class ConvexReader extends Context.Service<
    * (at once if the client already has it), and keeps the subscription a
    * moment longer for the live sync to pick up.
    */
-  static readonly layerWatch = (client: ConvexWatchClient) =>
-    Layer.succeed(ConvexReader, {
+  static readonly subscribing = (client: ConvexWatchClient) =>
+    ConvexReader.of({
       query: (query, args) =>
         Effect.callback((resume) => {
           const watch = client.watchQuery(query, args);
@@ -111,8 +111,8 @@ export class ConvexReader extends Context.Service<
     });
 
   /** Server reads: one consistent snapshot per HTTP client (one per request). */
-  static readonly layerSnapshot = (client: ConvexSnapshotClient) =>
-    Layer.succeed(ConvexReader, {
+  static readonly snapshot = (client: ConvexSnapshotClient) =>
+    ConvexReader.of({
       query: (query, args) =>
         Effect.tryPromise({
           catch: (cause) => queryError({ cause, query }),

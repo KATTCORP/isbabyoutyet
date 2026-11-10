@@ -19,6 +19,7 @@ import {
   type AccountSettingsHandlers,
   type AccountUser,
 } from "./account-settings";
+import { loadQuery } from "@/test/loadQuery";
 
 const sessionUser = {
   email: "ada@example.com",
@@ -353,7 +354,7 @@ async function renderSignedInAccountSettings(
     password: "password123",
   });
   await harness.withIdentity({ subject: userId });
-  const profile = await harness.queryClient.ensure(convexQuery(api.profile.get), {});
+  const profile = await loadQuery(harness.queryClient, convexQuery(api.profile.get), {});
   return renderWithConvexTest({
     harness,
     ui: <AccountSettings profile={profile} />,
@@ -494,7 +495,7 @@ test("AccountSettings change-email path surfaces the adapter message", async () 
 
 test("AccountSettings shows loading when the profile query is logged out", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
-  const profile = await harness.queryClient.ensure(convexQuery(api.profile.get), {});
+  const profile = await loadQuery(harness.queryClient, convexQuery(api.profile.get), {});
   await using view = await renderWithConvexTest({
     harness,
     ui: <AccountSettings profile={profile} />,

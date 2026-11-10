@@ -1,7 +1,8 @@
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { useQuery } from "@raf-query/react";
+import { use } from "react";
 import { convexQuery } from "@workspace/convex-query";
-import type { EnsuredConvexQuery } from "@workspace/convex-query";
+import type { ConvexQueryHandle } from "@workspace/convex-query";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { FormControl, FormField, FormItem, FormMessage } from "@workspace/ui/components/form";
 import { Input } from "@workspace/ui/components/input";
@@ -146,7 +147,7 @@ type CoParentsSettingsProps = {
   babyId: Id<"baby">;
   /** Only the owner can invite/remove; co-parents see a read-only list. */
   isOwner: boolean;
-  listing: EnsuredConvexQuery<typeof api.coParents.listForBaby>;
+  listing: ConvexQueryHandle<typeof api.coParents.listForBaby>;
 };
 
 /**
@@ -155,7 +156,8 @@ type CoParentsSettingsProps = {
  */
 export function CoParentsSettings(props: CoParentsSettingsProps) {
   const { t } = useI18n();
-  const [listingData] = useQuery(convexQuery(api.coParents.listForBaby), props.listing);
+  const [listingDataThenable] = useQuery(convexQuery(api.coParents.listForBaby), props.listing);
+  const listingData = use(listingDataThenable);
   // FORBIDDEN only happens for non-managers, who never render this component —
   // treat it like an empty listing so the types stay honest.
   const listing: CoParentsListing =

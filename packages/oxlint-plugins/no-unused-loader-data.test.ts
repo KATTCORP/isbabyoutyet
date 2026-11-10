@@ -15,31 +15,31 @@ function unusedQuery(key: string) {
 
 tester.run("no-unused-loader-data", noUnusedLoaderData, {
   valid: [
-    // Keyed `allKeyed` handles read with `useQuery` and handed to a child.
+    // `load` handles read with `useQuery` and handed to a child.
     `export const Route = createFileRoute("/dashboard")({
        loader: async (opts) => {
-         const queryClient = opts.context.queryClient;
-         return await allKeyed({
-           babies: queryClient.ensure(convexQuery(api.baby.listByUser), {}),
-           onboarding: queryClient.ensure(convexQuery(api.onboarding.getMine), {}),
+         const [handles] = await load(opts.context.queryClient, {
+           babies: swr(convexQuery(api.baby.listByUser), {}),
+           onboarding: swr(convexQuery(api.onboarding.getMine), {}),
          });
+         return handles;
        },
      });
      function DashboardPage() {
        const loaderData = Route.useLoaderData();
-       const [babies] = useQuery(convexQuery(api.baby.listByUser), loaderData.babies);
+       const [babiesThenable] = useQuery(convexQuery(api.baby.listByUser), loaderData.babies);
        return <OnboardingHost onboarding={loaderData.onboarding} />;
      }`,
-    // Spread of an awaited `allKeyed` plus extra keys; one read in `head`.
+    // Spread of `load` handles plus extra keys; one read in `head`.
     `export const Route = createFileRoute("/baby/$publicId")({
        loader: async (opts) => {
          const queryClient = opts.context.queryClient;
-         const babyDoc = queryClient.getData(convexQuery(api.baby.getByPublicId), {});
-         const browserPush = queryClient.prefetch(browserPushCapabilityQuery, opts.params.publicId);
-         const data = await allKeyed({
-           baby: queryClient.ensure(convexQuery(api.baby.getByPublicId), {}),
+         const babyDoc = getData(queryClient, convexQuery(api.baby.getByPublicId), {});
+         const [handles] = await load(queryClient, {
+           baby: swr(convexQuery(api.baby.getByPublicId), {}),
+           browserPush: prefetch(browserPushCapabilityQuery, opts.params.publicId),
          });
-         return { babyDoc, browserPush, ...data };
+         return { babyDoc, ...handles };
        },
        head: (opts) => ({ meta: [{ title: opts.loaderData?.babyDoc.name }] }),
        component: BabyPage,
@@ -49,27 +49,30 @@ tester.run("no-unused-loader-data", noUnusedLoaderData, {
        if (!loaderData) {
          return null;
        }
-       const [baby] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
+       const [babyThenable] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
        return <Push browserPush={loaderData.browserPush} />;
      }`,
     // The loader data is a single handle, passed straight to `useQuery`.
     `export const Route = createFileRoute("/admin/users")({
        loader: async (opts) => {
-         return await opts.context.queryClient.ensure(convexPaginatedQuery(api.admin.listUsers), {
-           args: {},
-           numItems: 20,
+         const [handles] = await load(opts.context.queryClient, {
+           users: swr(convexPaginatedQuery(api.admin.listUsers), { args: {}, numItems: 20 }),
          });
+         return handles.users;
        },
      });
      function Page() {
-       const [users] = useQuery(convexPaginatedQuery(api.admin.listUsers), Route.useLoaderData());
+       const [usersThenable] = useInfiniteQuery(convexPaginatedQuery(api.admin.listUsers), Route.useLoaderData());
        return null;
      }`,
     // A key read through an object-literal hand-off.
     `export const Route = createFileRoute("/settings")({
-       loader: async (opts) => ({
-         coParentsList: await opts.context.queryClient.ensure(convexQuery(api.coParents.listForBaby), {}),
-       }),
+       loader: async (opts) => {
+         const [handles] = await load(opts.context.queryClient, {
+           coParentsList: swr(convexQuery(api.coParents.listForBaby), {}),
+         });
+         return { coParentsList: handles.coParentsList };
+       },
      });
      function Page() {
        const loaderData = Route.useLoaderData();
@@ -120,7 +123,7 @@ tester.run("no-unused-loader-data", noUnusedLoaderData, {
     // Loaders that return nothing, and non-route `loader` keys.
     `export const Route = createFileRoute("/x")({
        loader: async (opts) => {
-         await opts.context.queryClient.ensure(convexQuery(api.profile.get), {});
+         await load(opts.context.queryClient, { profile: swr(convexQuery(api.profile.get), {}) });
        },
      });`,
     `const config = { loader: async () => ({ unused: 1 }) };`,
@@ -135,16 +138,16 @@ tester.run("no-unused-loader-data", noUnusedLoaderData, {
     {
       code: `export const Route = createFileRoute("/dashboard")({
          loader: async (opts) => {
-           const queryClient = opts.context.queryClient;
-           return await allKeyed({
-             babies: queryClient.ensure(convexQuery(api.baby.listByUser), {}),
-             onboarding: queryClient.ensure(convexQuery(api.onboarding.getMine), {}),
+           const [handles] = await load(opts.context.queryClient, {
+             babies: swr(convexQuery(api.baby.listByUser), {}),
+             onboarding: revalidate(convexQuery(api.onboarding.getMine), {}),
            });
+           return handles;
          },
        });
        function Page() {
          const loaderData = Route.useLoaderData();
-         const [babies] = useQuery(convexQuery(api.baby.listByUser), loaderData.babies);
+         const [babiesThenable] = useQuery(convexQuery(api.baby.listByUser), loaderData.babies);
          return null;
        }`,
       errors: [unusedQuery("onboarding")],
@@ -152,11 +155,11 @@ tester.run("no-unused-loader-data", noUnusedLoaderData, {
     {
       code: `export const Route = createFileRoute("/share")({
          loader: async (opts) => {
-           const data = await allKeyed({
-             baby: opts.context.queryClient.ensure(convexQuery(api.baby.getByPublicId), {}),
-             myAccess: opts.context.queryClient.ensure(convexQuery(api.coParents.myAccess), {}),
+           const [handles] = await load(opts.context.queryClient, {
+             baby: swr(convexQuery(api.baby.getByPublicId), {}),
+             myAccess: swr(convexQuery(api.coParents.myAccess), {}),
            });
-           return { ...data, shareLink: "https://example.com" };
+           return { ...handles, shareLink: "https://example.com" };
          },
        });
        function Page() {
@@ -166,11 +169,15 @@ tester.run("no-unused-loader-data", noUnusedLoaderData, {
       errors: [unusedQuery("myAccess"), { messageId: "unusedKey", data: { key: "shareLink" } }],
     },
     {
-      // Handles bound to a local and returned by shorthand.
+      // Handles picked off `load`'s result, bound to locals and returned by shorthand.
       code: `export const Route = createFileRoute("/photo")({
          loader: async (opts) => {
-           const baby = await opts.context.queryClient.ensure(convexQuery(api.baby.getByPublicId), {});
-           const visitorTag = opts.context.queryClient.prefetch(visitorTagQuery, baby.data._id);
+           const [handles] = await load(opts.context.queryClient, {
+             baby: swr(convexQuery(api.baby.getByPublicId), {}),
+             visitorTag: prefetch(visitorTagQuery, "baby-1"),
+           });
+           const baby = handles.baby;
+           const visitorTag = handles.visitorTag;
            return { baby, visitorTag };
          },
        });
@@ -184,9 +191,10 @@ tester.run("no-unused-loader-data", noUnusedLoaderData, {
       // No component reads loader data at all.
       code: `export const Route = createFileRoute("/x")({
          loader: async (opts) => {
-           const queryClient = opts.context.queryClient;
-           const profile = await queryClient.ensure(convexQuery(api.profile.get), {});
-           return { profile };
+           const [handles] = await load(opts.context.queryClient, {
+             profile: swr(convexQuery(api.profile.get), {}),
+           });
+           return { profile: handles.profile };
          },
          component: function Page() {
            return null;
@@ -198,10 +206,10 @@ tester.run("no-unused-loader-data", noUnusedLoaderData, {
       // A whole-handle loader whose data is never read.
       code: `export const Route = createFileRoute("/admin/users")({
          loader: async (opts) => {
-           return await opts.context.queryClient.ensure(convexPaginatedQuery(api.admin.listUsers), {
-             args: {},
-             numItems: 20,
+           const [handles] = await load(opts.context.queryClient, {
+             users: swr(convexPaginatedQuery(api.admin.listUsers), { args: {}, numItems: 20 }),
            });
+           return handles.users;
          },
          component: function Page() {
            return null;

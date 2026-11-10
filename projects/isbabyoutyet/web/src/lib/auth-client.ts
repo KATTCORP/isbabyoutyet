@@ -1,6 +1,6 @@
 import type { QueryClient } from "@raf-query/react";
-import { hashKey } from "@raf-query/react";
-import type { ConvexReader, ConvexWatchClient } from "@workspace/convex-query";
+import { removeMany } from "@raf-query/react";
+import type { ConvexWatchClient } from "@workspace/convex-query";
 import { createAuthClient } from "better-auth/react";
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import type {
@@ -246,7 +246,7 @@ export const SETTLED_ME_WAIT_MS = 10_000;
 export async function waitForMe(opts: {
   convexClient: ConvexWatchClient;
   presence: MePresence;
-  queryClient: QueryClient<ConvexReader>;
+  queryClient: QueryClient;
 }) {
   // Convex can answer with the old identity until the auth change re-runs the
   // query, so wait for a matching value instead of reading once.
@@ -262,15 +262,17 @@ export async function waitForMe(opts: {
     ),
   );
   if (Option.isSome(me)) {
-    const meHash = hashKey(convexQuery(api.profile.get)({}).queryKey);
-    opts.queryClient.remove({ predicate: (query) => query.hash !== meHash });
+    const meKey = convexQuery(api.profile.get)({}).queryKey;
+    removeMany(opts.queryClient, {
+      where: (query) => query.queryKey[0] !== meKey[0] || query.queryKey[1] !== meKey[1],
+    });
   }
 }
 
 type AuthThenGoOpts = {
   convexClient: ConvexReactClient;
   navigate: () => Promise<void> | void;
-  queryClient: QueryClient<ConvexReader>;
+  queryClient: QueryClient;
 };
 
 /**

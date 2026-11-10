@@ -1,3 +1,4 @@
+import { getData, removeAll } from "@raf-query/react";
 import { fireEvent } from "@testing-library/react";
 import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
@@ -25,6 +26,9 @@ import { renderMountedFileRouteWithRouterContext } from "@/test/renderMountedFil
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import { runRouteLoaderWithRouterContext, signedInRouteContext } from "@/test/routeTestContext";
+import { loadQuery } from "@/test/loadQuery";
+
+const vapidPublicKeyQuery = convexQuery(api.pushSubscriptions.getPublicKey);
 
 const ADMIN_ENDPOINT = "https://push.example/alex-phone";
 
@@ -139,7 +143,7 @@ test("DashboardSettingsSheet wires the preloaded profile into the view", async (
   });
   await harness.withIdentity({ subject: userId });
 
-  const profile = await harness.queryClient.ensure(convexQuery(api.profile.get), {});
+  const profile = await loadQuery(harness.queryClient, convexQuery(api.profile.get), {});
 
   await using view = await renderWithConvexTest({
     harness,
@@ -322,11 +326,11 @@ async function signedInHarness(opts: { isAdmin: boolean }) {
       await ctx.db.patch(profile._id, { isAdmin: opts.isAdmin });
     }
   });
-  harness.queryClient.clear();
+  removeAll(harness.queryClient);
   return harness;
 }
 
-type SettingsLoaderData = { adminPush: { vapidPublicKey: { data: string } } | null };
+type SettingsLoaderData = { adminPush: { vapidPublicKey: { input: object } } | null };
 
 async function loadSettings(harness: ConvexTestHarness) {
   return await runRouteLoaderWithRouterContext<SettingsLoaderData>({
@@ -344,27 +348,25 @@ test("the settings loader only prepares admin push for admins", async () => {
 
   await using admin = await signedInHarness({ isAdmin: true });
   const loaded = await loadSettings(admin);
-  expect(loaded.adminPush?.vapidPublicKey.data).toEqual(expect.any(String));
+  expect(loaded.adminPush?.vapidPublicKey).toMatchObject({ input: {} });
+  expect(getData(admin.queryClient, vapidPublicKeyQuery, {})).toEqual(expect.any(String));
 });
 
 async function renderAdminSheet(harness: ConvexTestHarness) {
-  const profile = await harness.queryClient.ensure(convexQuery(api.profile.get), {});
-  const vapidPublicKey = await harness.queryClient.ensure(
+  const profile = await loadQuery(harness.queryClient, convexQuery(api.profile.get), {});
+  const vapidPublicKey = await loadQuery(
+    harness.queryClient,
     convexQuery(api.pushSubscriptions.getPublicKey),
     {},
   );
 
+  seedAdminBrowserPushCapability(harness.queryClient, { kind: "unsubscribed" });
   return await renderWithConvexTest({
     harness,
     ui: (
       <>
         <DashboardSettingsSheet
-          adminPush={{
-            browserPush: seedAdminBrowserPushCapability(harness.queryClient, {
-              kind: "unsubscribed",
-            }),
-            vapidPublicKey,
-          }}
+          adminPush={{ vapidPublicKey }}
           // @ts-expect-error — integration client is not ConvexReactClient
           convexClient={harness.convexClient}
           profile={profile}

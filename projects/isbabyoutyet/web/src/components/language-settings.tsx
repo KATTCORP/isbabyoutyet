@@ -1,7 +1,8 @@
 import { ClockIcon, TranslateIcon } from "@phosphor-icons/react";
 import { useQuery } from "@raf-query/react";
+import { use } from "react";
 import { convexQuery } from "@workspace/convex-query";
-import type { EnsuredConvexQuery } from "@workspace/convex-query";
+import type { ConvexQueryHandle } from "@workspace/convex-query";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
@@ -49,8 +50,9 @@ const defaultTimeZoneOption = {
   value: DEFAULT_TIME_ZONE,
 };
 
-export function LanguageSettings(props: { profile: EnsuredConvexQuery<typeof api.profile.get> }) {
-  const [profile] = useQuery(convexQuery(api.profile.get), props.profile);
+export function LanguageSettings(props: { profile: ConvexQueryHandle<typeof api.profile.get> }) {
+  const [profileThenable] = useQuery(convexQuery(api.profile.get), props.profile);
+  const profile = use(profileThenable);
   const onUpdateLocale = useMutation(api.profile.updateLocale);
   const onUpdateTimeZone = useMutation(api.profile.updateTimeZone);
   const { locale, t } = useI18n();

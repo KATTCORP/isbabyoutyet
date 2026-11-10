@@ -1,7 +1,7 @@
 import { queryOptions } from "@raf-query/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { ConvexReader } from "@workspace/convex-query";
-import { readConvexQuery } from "@workspace/convex-query";
+import { readConvexQuery, runConvexEffect } from "@workspace/convex-query";
 import { isFunction } from "@workspace/runtime/guards";
 import { Effect, Option } from "effect";
 
@@ -23,18 +23,16 @@ const SERVICE_WORKER_READY_TIMEOUT_MS = 5000;
 
 /**
  * This device's push state for a baby page. Only a browser can tell, so it
- * is only enabled in a browser: the server renders it pending, and the
- * browser detects once it renders. `staleTime` 0: every loader prefetch
+ * is `browserOnly`: the server renders it pending, and the browser detects
+ * once it renders. `staleTime` 0: every loader prefetch and window focus
  * rechecks, as permission can change outside the app.
  */
 export function browserPushCapabilityQuery(babyRef: string) {
   return queryOptions({
-    enabled: globalThis.window !== undefined,
-    queryFn: () => resolveBrowserPushCapability(babyRef),
+    meta: { browserOnly: true, retry: false },
+    queryFn: (context) => runConvexEffect(context, resolveBrowserPushCapability(babyRef)),
     queryKey: [BROWSER_PUSH_CAPABILITY_KEY, babyRef],
-    retry: false,
     staleTime: 0,
-    throwOnError: true,
   });
 }
 
@@ -176,11 +174,9 @@ function resolveAdminBrowserPushCapability(): Effect.Effect<
  */
 export function adminBrowserPushCapabilityQuery() {
   return queryOptions({
-    enabled: globalThis.window !== undefined,
-    queryFn: () => resolveAdminBrowserPushCapability(),
+    meta: { browserOnly: true, retry: false },
+    queryFn: (context) => runConvexEffect(context, resolveAdminBrowserPushCapability()),
     queryKey: [ADMIN_BROWSER_PUSH_CAPABILITY_KEY],
-    retry: false,
     staleTime: 0,
-    throwOnError: true,
   });
 }

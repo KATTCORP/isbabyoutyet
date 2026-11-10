@@ -30,8 +30,7 @@ import {
 } from "@workspace/ui/components/popover";
 import { cn } from "@workspace/ui/lib/utils";
 import { useMutation } from "convex/react";
-import type { QueryHandle } from "@raf-query/react";
-import { useQuery } from "@raf-query/react";
+import { useInfiniteQuery, useQuery } from "@raf-query/react";
 import { convexPaginatedQuery, convexQuery } from "@workspace/convex-query";
 import {
   ArrowUpIcon,
@@ -52,7 +51,7 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
-import { Fragment, useId, useRef } from "react";
+import { Fragment, use, useId, useRef } from "react";
 import type { DragEvent, ReactElement, ReactNode } from "react";
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/react";
 import { Streamdown } from "streamdown";
@@ -78,6 +77,7 @@ import {
 import { FormControl, FormField, FormItem, FormMessage } from "@workspace/ui/components/form";
 import { useFormState, useWatch } from "react-hook-form";
 import { htmlDateTimeNow, optionalHtmlDateTime } from "@/lib/html-date";
+import { browserOnlyHandle } from "@/lib/browser-only";
 import { visitorTagQuery } from "@/lib/visitor-tag";
 import { useStoredVisitorId } from "@/lib/use-visitor-id";
 import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
@@ -1373,6 +1373,8 @@ type LinkedTimelineFeedLoad = Extract<TimelineFeedLoad, { kind: "linked" }>;
 
 type TimelineFeedProps = {
   baby: BabyData;
+  /** The baby's document id, which this browser's {@link visitorTagQuery} is for. */
+  babyId: string;
   babyName: string;
   /**
    * Prefetched by the route loader (SSR first page): the latest items, or
@@ -1381,8 +1383,6 @@ type TimelineFeedProps = {
   feed: TimelineFeedLoad;
   isOwner: boolean;
   publicId: string;
-  /** This browser's {@link visitorTagQuery}, started by the route loader. */
-  visitorTag: QueryHandle<typeof visitorTagQuery>;
 };
 
 type RemoveUpdateFn = (
@@ -1415,7 +1415,7 @@ function useTimelineFeedViewBase(props: TimelineFeedProps) {
   const currentVisitorId = useStoredVisitorId();
   // Pending on the server and until the browser hashes its visitor id; read
   // the status instead of `use` so the feed never suspends on it.
-  const [visitorTag] = useQuery(visitorTagQuery, props.visitorTag);
+  const [visitorTag] = useQuery(visitorTagQuery, browserOnlyHandle(visitorTagQuery, props.babyId));
   const removeUpdate = useMutation(api.updates.remove);
   const setAsCurrentPhoto = useMutation(api.updates.setAsCurrentPhoto);
   const removeEncouragement = useMutation(api.encouragements.remove);
@@ -1438,10 +1438,11 @@ const LATEST_TIMELINE_FEED = { kind: "latest" } satisfies TimelineFeedAnchor;
 
 function LatestTimelineFeed(props: TimelineFeedProps & { feed: LatestTimelineFeedLoad }) {
   const base = useTimelineFeedViewBase(props);
-  const [timeline, timelineQuery] = useQuery(
+  const [timelineThenable, timelineQuery] = useInfiniteQuery(
     convexPaginatedQuery(api.timeline.listByBaby),
     props.feed.timeline,
   );
+  const timeline = use(timelineThenable);
   return (
     <TimelineFeedView
       {...base}
@@ -1466,11 +1467,16 @@ function LatestTimelineFeed(props: TimelineFeedProps & { feed: LatestTimelineFee
  */
 function LinkedTimelineFeed(props: TimelineFeedProps & { feed: LinkedTimelineFeedLoad }) {
   const base = useTimelineFeedViewBase(props);
-  const [feedWindow, windowQuery] = useQuery(linkedTimelineQuery, props.feed.window);
-  const [newerCount] = useQuery(
+  const [feedWindowThenable, windowQuery] = useInfiniteQuery(
+    linkedTimelineQuery,
+    props.feed.window,
+  );
+  const feedWindow = use(feedWindowThenable);
+  const [newerCountThenable] = useQuery(
     convexQuery(api.timeline.countNewerThanItem),
     props.feed.newerCount,
   );
+  const newerCount = use(newerCountThenable);
   const isNewerPage = (index: number) => feedWindow.pageParams[index]?.direction === "backward";
   // Newer pages read up from the item; reversed, they read in feed order.
   const items = feedWindow.pages.flatMap((page, index) =>
@@ -1562,8 +1568,8 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
   const liveInsertIds = useLiveInsertIds(
     props.items.map((item) => ({ id: item._id, sortKey: item.postedAt })),
   );
-  // raf-query queues a second `fetchNextPage` behind one in flight (loading
-  // two pages), so the sentinel stays disarmed until the page lands.
+  // A second `fetchNextPage` would restart the one in flight, so the
+  // sentinel stays disarmed until the page lands.
   const canLoadMore = hasNextPage && !isFetchingNextPage;
   const loadMoreRef = useIntersectionAction({
     enabled: canLoadMore,
@@ -1763,7 +1769,7 @@ function NewerItemsDivider(props: {
           aria-label={`${hiddenLabel}, ${showLabel}`}
           className="gap-1.5 rounded-full font-semibold text-muted-foreground hover:text-foreground"
           onClick={() => {
-            // raf-query would queue a second page behind the one in flight.
+            // A second call would restart the page in flight.
             if (newer.isFetching) {
               return;
             }

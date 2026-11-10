@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { UsersIcon } from "@phosphor-icons/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import { useQuery } from "@raf-query/react";
+import { load, swr, useInfiniteQuery } from "@raf-query/react";
+import { use } from "react";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@workspace/ui/components/empty";
 import {
   Table,
@@ -30,10 +31,13 @@ type UserRow = {
 export const Route = createFileRoute("/_auth/dashboard_/admin/users")({
   component: AdminUsersPage,
   loader: async (opts) => {
-    return await opts.context.queryClient.ensure(convexPaginatedQuery(api.admin.listUsers), {
-      args: {},
-      numItems: ADMIN_PAGE_SIZE,
+    const [handles] = await load(opts.context.queryClient, {
+      users: swr(convexPaginatedQuery(api.admin.listUsers), {
+        args: {},
+        numItems: ADMIN_PAGE_SIZE,
+      }),
     });
+    return handles.users;
   },
 });
 
@@ -107,10 +111,11 @@ export function UsersSection(props: {
 }
 
 function AdminUsersPage() {
-  const [usersData, usersQuery] = useQuery(
+  const [usersThenable, usersQuery] = useInfiniteQuery(
     convexPaginatedQuery(api.admin.listUsers),
     Route.useLoaderData(),
   );
+  const usersData = use(usersThenable);
 
   return (
     <UsersSection

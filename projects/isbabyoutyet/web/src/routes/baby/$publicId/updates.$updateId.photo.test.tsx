@@ -1,3 +1,4 @@
+import { getData } from "@raf-query/react";
 import { fireEvent } from "@testing-library/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { expect, test, vi } from "vitest";
@@ -54,7 +55,7 @@ test("update photo loader prefetches the full image in the browser", async () =>
   });
 
   await vi.waitFor(() => {
-    expect(harness.queryClient.getData(browserImageQuery, photoUrl)).toEqual({
+    expect(getData(harness.queryClient, browserImageQuery, photoUrl)).toEqual({
       ok: true,
       url: photoUrl,
     });

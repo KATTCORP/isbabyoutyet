@@ -3,12 +3,12 @@ import { useI18n } from "@/lib/i18n";
 import { ensureWebPushSubscription, readWebPushSubscription } from "@/lib/web-push-subscription";
 import { BellIcon, BellSlashIcon, ExportIcon } from "@phosphor-icons/react";
 import { useQuery } from "@raf-query/react";
+import { use } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { convexQuery } from "@workspace/convex-query";
-import type { EnsuredConvexQuery } from "@workspace/convex-query";
-import type { BrowserPushHandle } from "@/lib/use-browser-push-capability";
+import type { ConvexQueryHandle } from "@workspace/convex-query";
 import { useBrowserPushCapability } from "@/lib/use-browser-push-capability";
 import { usePendingAction } from "@/lib/use-pending-action";
 import type { ReactElement } from "react";
@@ -42,8 +42,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/component
 type NotificationSubscribeProps = {
   audience: "visitor" | "manager";
   babyId: Id<"baby">;
-  browserPush: BrowserPushHandle;
-  vapidPublicKey: EnsuredConvexQuery<typeof api.pushSubscriptions.getPublicKey>;
+  /** The baby page whose push state this device reads. */
+  publicId: string;
+  vapidPublicKey: ConvexQueryHandle<typeof api.pushSubscriptions.getPublicKey>;
 };
 
 type NotificationSelection = {
@@ -53,11 +54,12 @@ type NotificationSelection = {
 
 export function NotificationSubscribe(props: NotificationSubscribeProps) {
   const { t } = useI18n();
-  const [capability, refetchCapability] = useBrowserPushCapability(props.browserPush);
-  const [vapidPublicKey] = useQuery(
+  const [capability, refetchCapability] = useBrowserPushCapability(props.publicId);
+  const [vapidPublicKeyThenable] = useQuery(
     convexQuery(api.pushSubscriptions.getPublicKey),
     props.vapidPublicKey,
   );
+  const vapidPublicKey = use(vapidPublicKeyThenable);
   const [isLoading, runAction] = usePendingAction();
 
   const subscribeMutationFn = useMutation(api.pushSubscriptions.subscribe);

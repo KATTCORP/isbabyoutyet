@@ -1,5 +1,5 @@
 import type { QueryClient } from "@raf-query/react";
-import { hashKey, Query } from "@raf-query/react";
+import { feature, getData, invalidateOne, load, prefetch, setData } from "@raf-query/react";
 import type {
   DefaultFunctionArgs,
   FunctionArgs,
@@ -8,34 +8,12 @@ import type {
 } from "convex/server";
 import { getFunctionName, makeFunctionReference } from "convex/server";
 import type { Value } from "convex/values";
-import { Effect, Predicate, Queue, Stream } from "effect";
+import { Effect, Queue, Stream } from "effect";
+import type { CacheEntry, LiveKey, LoadedPage, PageStart } from "./entries.ts";
+import { liveKey, loadedPages, pageIndex } from "./entries.ts";
 import type { PageDirection, QueryReference } from "./queries.ts";
-import {
-  CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY,
-  CONVEX_PAGINATED_QUERY_KEY,
-  CONVEX_QUERY_KEY,
-  convexBidirectionalPaginatedQuery,
-  convexPaginatedQuery,
-  convexQuery,
-} from "./queries.ts";
-import type { ConvexReader, ConvexWatchClient } from "./reader.ts";
-
-/** A cache entry this module keeps live, decoded from its key. */
-type LiveKey =
-  | { readonly args: DefaultFunctionArgs; readonly kind: "query"; readonly name: string }
-  | {
-      readonly args: DefaultFunctionArgs;
-      readonly kind: "paginated";
-      readonly name: string;
-      readonly numItems: number;
-    }
-  | {
-      readonly args: DefaultFunctionArgs;
-      readonly backwardName: string;
-      readonly forwardName: string;
-      readonly kind: "bidirectional";
-      readonly numItems: number;
-    };
+import { convexBidirectionalPaginatedQuery, convexPaginatedQuery, convexQuery } from "./queries.ts";
+import type { ConvexWatchClient } from "./reader.ts";
 
 /** One Convex subscription feeding part of an entry. */
 interface Subscription {
@@ -47,87 +25,19 @@ interface Subscription {
   onResult(value: Value): void;
 }
 
-function liveKey(key: ReadonlyArray<unknown>): LiveKey | null {
-  const tag = key[0];
-  const name = key[1];
-  if (!Predicate.isString(name)) {
-    return null;
-  }
-  if (tag === CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY && key.length === 5) {
-    const backwardName = key[2];
-    const args = key[3];
-    const numItems = key[4];
-    if (
-      Predicate.isString(backwardName) &&
-      Predicate.isObject(args) &&
-      Predicate.isNumber(numItems)
-    ) {
-      return { args, backwardName, forwardName: name, kind: "bidirectional", numItems };
-    }
-    return null;
-  }
-  const args = key[2];
-  if (!Predicate.isObject(args)) {
-    return null;
-  }
-  if (tag === CONVEX_QUERY_KEY && key.length === 3) {
-    return { args, kind: "query", name };
-  }
-  const numItems = key[3];
-  if (tag === CONVEX_PAGINATED_QUERY_KEY && key.length === 4 && Predicate.isNumber(numItems)) {
-    return { args, kind: "paginated", name, numItems };
-  }
-  return null;
-}
-
-/** A loaded page's cursor, and the direction it was loaded in (`null` for one-way queries). */
-interface PageStart {
-  readonly cursor: string | null;
-  readonly direction: PageDirection | null;
-}
-
-/** A loaded page: where it starts, and how many items it was loaded with. */
-interface LoadedPage extends PageStart {
-  readonly numItems: number;
-}
-
-/** `data`'s pages, or `null` unless every page param is one this package's factories make. */
-function loadedPages(data: Query.State<unknown>["data"]): ReadonlyArray<LoadedPage> | null {
-  if (!Predicate.hasProperty(data, "pageParams") || !Array.isArray(data.pageParams)) {
-    return null;
-  }
-  const pages: Array<LoadedPage> = [];
-  for (const param of data.pageParams) {
-    if (!Predicate.hasProperty(param, "cursor")) {
-      return null;
-    }
-    const cursor = param.cursor;
-    if (cursor !== null && !Predicate.isString(cursor)) {
-      return null;
-    }
-    const direction = Predicate.hasProperty(param, "direction") ? param.direction : null;
-    if (direction !== null && direction !== "forward" && direction !== "backward") {
-      return null;
-    }
-    if (!Predicate.hasProperty(param, "numItems") || !Predicate.isNumber(param.numItems)) {
-      return null;
-    }
-    pages.push({ cursor, direction, numItems: param.numItems });
-  }
-  return pages;
-}
-
 function querySubscription(
   key: Extract<LiveKey, { kind: "query" }>,
-  queryClient: QueryClient<ConvexReader>,
+  queryClient: QueryClient,
 ): Subscription {
   const factory = convexQuery(makeFunctionReference<"query">(key.name));
   return {
     args: key.args,
     id: "query",
     name: key.name,
-    onError: () => void queryClient.invalidate(factory, key.args),
-    onResult: (value) => queryClient.setData(factory, key.args, value),
+    onError: () => void invalidateOne(queryClient, factory, key.args),
+    onResult: (value) => {
+      setData(queryClient, factory, key.args, value);
+    },
   };
 }
 
@@ -176,28 +86,21 @@ function chainSubscriptions(
   });
 }
 
-/** Where the page that starts at `start` sits in `pages`, or -1 once it is gone. */
-function pageIndex(pages: ReadonlyArray<PageStart> | null, start: PageStart) {
-  return (pages ?? []).findIndex(
-    (candidate) => candidate.cursor === start.cursor && candidate.direction === start.direction,
-  );
-}
-
 function pagedSubscriptions(
   key: Exclude<LiveKey, { kind: "query" }>,
-  opts: { pages: ReadonlyArray<LoadedPage>; queryClient: QueryClient<ConvexReader> },
+  opts: { pages: ReadonlyArray<LoadedPage>; queryClient: QueryClient },
 ): ReadonlyArray<Subscription> {
   const input = { args: key.args, numItems: key.numItems };
   switch (key.kind) {
     case "paginated": {
       const factory = convexPaginatedQuery(makeFunctionReference<"query">(key.name));
       const entry: PagedEntry = {
-        invalidate: () => void opts.queryClient.invalidate(factory, input),
+        invalidate: () => void invalidateOne(opts.queryClient, factory, input),
         writePage: (start, page) => {
-          const data = opts.queryClient.getData(factory, input);
+          const data = getData(opts.queryClient, factory, input);
           const index = pageIndex(loadedPages(data), start);
           if (data && index !== -1) {
-            opts.queryClient.setData(factory, input, {
+            setData(opts.queryClient, factory, input, {
               pageParams: data.pageParams,
               pages: data.pages.with(index, page),
             });
@@ -213,12 +116,12 @@ function pagedSubscriptions(
         forward: makeFunctionReference<"query">(key.forwardName),
       });
       const entry: PagedEntry = {
-        invalidate: () => void opts.queryClient.invalidate(factory, input),
+        invalidate: () => void invalidateOne(opts.queryClient, factory, input),
         writePage: (start, page) => {
-          const data = opts.queryClient.getData(factory, input);
+          const data = getData(opts.queryClient, factory, input);
           const index = pageIndex(loadedPages(data), start);
           if (data && index !== -1) {
-            opts.queryClient.setData(factory, input, {
+            setData(opts.queryClient, factory, input, {
               pageParams: data.pageParams,
               pages: data.pages.with(index, page),
             });
@@ -247,11 +150,11 @@ function pagedSubscriptions(
 }
 
 function subscriptionsFor(
-  query: Query.Query,
-  queryClient: QueryClient<ConvexReader>,
+  entry: CacheEntry,
+  queryClient: QueryClient,
 ): ReadonlyArray<Subscription> {
-  const key = liveKey(query.key);
-  const state = Query.getUnsafe(query);
+  const key = liveKey(entry.key);
+  const state = entry.state;
   if (!key || !state.hasData) {
     return [];
   }
@@ -290,73 +193,74 @@ function subscribe(subscription: Subscription, client: ConvexWatchClient) {
 }
 
 /**
- * Keeps every Convex entry in a browser `QueryClient` live: while an entry is
- * cached and has data, it is subscribed with `watchQuery` and every result is
- * written into the cache. Entries leave Convex when they leave the cache
- * (`gcTime` after their last reader), so navigating back shows current data
- * without a refetch. Returns the disconnect.
+ * A raf-query feature that keeps every Convex entry of its client live:
+ * while an entry is cached and has data, it is subscribed with `watchQuery`
+ * and every result is written into the cache. Entries leave Convex when they
+ * leave the cache (`gcTime` after their last reader), so navigating back
+ * shows current data without a refetch. Like every feature, it runs while a
+ * `QueryClientProvider` has the client mounted, so never on the server.
+ *
+ * @example
+ * createQueryClient({ features: [convexLive(convexReactClient)] });
  */
-export function connectConvexLive(opts: {
-  client: ConvexWatchClient;
-  queryClient: QueryClient<ConvexReader>;
-}): () => void {
-  /** Entry hash → subscription id → its watch. */
-  const live = new Map<string, Map<string, Watching>>();
+export function convexLive(client: ConvexWatchClient) {
+  return feature((queryClient, signal) => {
+    /** Entry hash → subscription id → its watch. */
+    const live = new Map<string, Map<string, Watching>>();
 
-  const stop = (hash: string) => {
-    const subscriptions = live.get(hash);
-    live.delete(hash);
-    for (const watching of subscriptions?.values() ?? []) {
-      watching?.unsubscribe();
-    }
-  };
-
-  const sync = (query: Query.Query) => {
-    const wanted = new Map(
-      subscriptionsFor(query, opts.queryClient).map((subscription) => [
-        subscription.id,
-        subscription,
-      ]),
-    );
-    if (wanted.size === 0) {
-      stop(query.hash);
-      return;
-    }
-    const current = live.get(query.hash) ?? new Map<string, Watching>();
-    live.set(query.hash, current);
-    for (const [id, watching] of current) {
-      if (!wanted.has(id)) {
-        current.delete(id);
+    const stop = (hash: string) => {
+      const subscriptions = live.get(hash);
+      live.delete(hash);
+      for (const watching of subscriptions?.values() ?? []) {
         watching?.unsubscribe();
       }
-    }
-    for (const [id, subscription] of wanted) {
-      if (!current.has(id)) {
-        // Claimed before subscribing: a result the client already holds is
-        // written synchronously, and that cache update re-enters `sync`.
-        current.set(id, null);
-        current.set(id, subscribe(subscription, opts.client));
+    };
+
+    const sync = (entry: CacheEntry) => {
+      const wanted = new Map(
+        subscriptionsFor(entry, queryClient).map((subscription) => [subscription.id, subscription]),
+      );
+      if (wanted.size === 0) {
+        stop(entry.hash);
+        return;
       }
-    }
-  };
+      const current = live.get(entry.hash) ?? new Map<string, Watching>();
+      live.set(entry.hash, current);
+      for (const [id, watching] of current) {
+        if (!wanted.has(id)) {
+          current.delete(id);
+          watching?.unsubscribe();
+        }
+      }
+      for (const [id, subscription] of wanted) {
+        if (!current.has(id)) {
+          // Claimed before subscribing: a result the client already holds is
+          // written synchronously, and that cache update re-enters `sync`.
+          current.set(id, null);
+          current.set(id, subscribe(subscription, client));
+        }
+      }
+    };
 
-  const unsubscribe = opts.queryClient.subscribe((event) => {
-    if (event.type === "removed") {
-      stop(event.query.hash);
-      return;
+    queryClient.subscribe(
+      (event) => {
+        if (event.type === "removed") {
+          stop(event.entry.hash);
+          return;
+        }
+        sync(event.entry);
+      },
+      { signal },
+    );
+    for (const entry of queryClient["~entries"].values()) {
+      sync(entry);
     }
-    sync(event.query);
+    signal.addEventListener("abort", () => {
+      for (const hash of live.keys()) {
+        stop(hash);
+      }
+    });
   });
-  for (const query of opts.queryClient.getAll()) {
-    sync(query);
-  }
-
-  return () => {
-    unsubscribe();
-    for (const hash of live.keys()) {
-      stop(hash);
-    }
-  };
 }
 
 /**
@@ -364,11 +268,11 @@ export function connectConvexLive(opts: {
  * if there is one, then every new value the entry takes.
  *
  * The entry is read through the cache, so it shares one request with any
- * `ensure` or `prefetch` of the same query and args. While the stream runs it
- * also holds its own Convex subscription and writes every result into the
- * entry, so it doesn't depend on {@link connectConvexLive} or another reader
- * to see the server's next answer. A failing subscription invalidates the
- * entry, as the live sync does, and the stream keeps waiting.
+ * loader's `load` of the same query and args. While the stream runs it also
+ * holds its own Convex subscription and writes every result into the entry,
+ * so it doesn't depend on {@link convexLive} or another reader to see the
+ * server's next answer. A failing subscription invalidates the entry, as the
+ * live sync does, and the stream keeps waiting.
  *
  * @example
  * // the first profile with a user, without waiting more than 10s
@@ -379,29 +283,24 @@ export function connectConvexLive(opts: {
  * );
  */
 export function watchConvexQuery<TQuery extends QueryReference>(
-  opts: { client: ConvexWatchClient; queryClient: QueryClient<ConvexReader> },
+  opts: { client: ConvexWatchClient; queryClient: QueryClient },
   watch: { args: FunctionArgs<TQuery>; query: TQuery },
 ) {
   const factory = convexQuery(watch.query);
-  const hash = hashKey(factory(watch.args).queryKey);
   return Stream.callback<FunctionReturnType<TQuery>>((queue) =>
     Effect.acquireRelease(
       Effect.sync(() => {
         let last: FunctionReturnType<TQuery> | undefined;
         const emit = () => {
-          const value = opts.queryClient.getData(factory, watch.args);
+          const value = getData(opts.queryClient, factory, watch.args);
           if (value !== undefined && value !== last) {
             last = value;
             Queue.offerUnsafe(queue, value);
           }
         };
-        const unsubscribe = opts.queryClient.subscribe((event) => {
-          if (event.query.hash === hash) {
-            emit();
-          }
-        });
+        const unsubscribe = opts.queryClient.subscribe(emit);
         emit();
-        opts.queryClient.prefetch(factory, watch.args);
+        void load(opts.queryClient, { watched: prefetch(factory, watch.args) });
         const watching = subscribe(
           querySubscription(
             { args: watch.args, kind: "query", name: getFunctionName(watch.query) },

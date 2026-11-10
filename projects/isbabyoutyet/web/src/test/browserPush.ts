@@ -1,5 +1,5 @@
 import type { QueryClient } from "@raf-query/react";
-import type { ConvexReader } from "@workspace/convex-query";
+import { setData } from "@raf-query/react";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import type {
   AdminBrowserPushCapability,
@@ -11,25 +11,25 @@ import {
 } from "@/lib/browser-push-capability";
 
 /**
- * Seeds this device's push capability, as if detection already ran, and
- * returns the handle a baby page loader would pass down. Actions that
- * refetch the capability run real detection against the stubbed browser.
+ * Seeds this device's push capability for the baby page `babyRef`, as if
+ * detection already ran, and returns `babyRef` for the component's
+ * `publicId`. Actions that refetch the capability run real detection
+ * against the stubbed browser.
  */
 export function seedBrowserPushCapability(
-  queryClient: QueryClient<ConvexReader>,
+  queryClient: QueryClient,
   opts: { babyRef: string; capability: BrowserPushCapability },
 ) {
-  queryClient.setData(browserPushCapabilityQuery, opts.babyRef, opts.capability);
-  return queryClient.getQuery(browserPushCapabilityQuery, opts.babyRef).handle;
+  setData(queryClient, browserPushCapabilityQuery, opts.babyRef, opts.capability);
+  return opts.babyRef;
 }
 
 /** {@link seedBrowserPushCapability} for the dashboard's admin new-baby push. */
 export function seedAdminBrowserPushCapability(
-  queryClient: QueryClient<ConvexReader>,
+  queryClient: QueryClient,
   capability: AdminBrowserPushCapability,
 ) {
-  queryClient.setData(adminBrowserPushCapabilityQuery, undefined, capability);
-  return queryClient.getQuery(adminBrowserPushCapabilityQuery).handle;
+  setData(queryClient, adminBrowserPushCapabilityQuery, capability);
 }
 
 /** A browser push subscription whose keys are `auth` / `p256`. */

@@ -1,3 +1,4 @@
+import { getData, setData } from "@raf-query/react";
 import { ConvexHttpClient } from "convex/browser";
 import { isRedirect } from "@tanstack/react-router";
 import { makeAsyncResource } from "@isbabyoutyet/backend/convex/test.resource";
@@ -7,6 +8,8 @@ import type { SignedInProfileContext } from "@/lib/signed-in-profile";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { expect, test, vi } from "vitest";
 import { resolveAuthGuard, Route } from "@/routes/_auth/route";
+
+const profileGetQuery = convexQuery(api.profile.get);
 
 test("auth layout is wired as the route component", () => {
   expect(Route.options.component).toBeTypeOf("function");
@@ -84,8 +87,9 @@ function withoutBrowserWindow(run: () => Promise<void>) {
 test("client navigations reuse a cached profile without an auth round-trip", async () => {
   const fetchToken = vi.fn<() => Promise<string | null>>();
   await using guard = makeGuardCtx();
-  guard.queryClient.setData(
-    convexQuery(api.profile.get),
+  setData(
+    guard.queryClient,
+    profileGetQuery,
     {},
     signedInProfile({
       isAdmin: false,
@@ -100,7 +104,7 @@ test("client navigations reuse a cached profile without an auth round-trip", asy
     pathname: "/dashboard",
   });
 
-  expect(result).toMatchObject({ locale: "sv", me: { data: expect.anything(), input: {} } });
+  expect(result).toMatchObject({ locale: "sv", me: { input: {} } });
   expect(result).not.toHaveProperty("isAuthenticated");
   expect(fetchToken).not.toHaveBeenCalled();
   expect(guard.queryFn).not.toHaveBeenCalled();
@@ -130,7 +134,7 @@ test("client navigations keep the cached profile", async () => {
     timeZone: "Europe/London",
   });
   await using guard = makeGuardCtx();
-  guard.queryClient.setData(convexQuery(api.profile.get), {}, cachedProfile);
+  setData(guard.queryClient, profileGetQuery, {}, cachedProfile);
 
   const result = await runGuard({
     context: guard.context,
@@ -139,7 +143,7 @@ test("client navigations keep the cached profile", async () => {
   });
 
   expect(result).toMatchObject({ locale: "sv" });
-  expect(guard.queryClient.getData(convexQuery(api.profile.get), {})).toEqual(cachedProfile);
+  expect(getData(guard.queryClient, convexQuery(api.profile.get), {})).toEqual(cachedProfile);
   expect(guard.queryFn).not.toHaveBeenCalled();
 });
 

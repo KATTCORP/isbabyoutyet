@@ -1,11 +1,10 @@
 import type { QueryClient } from "@raf-query/react";
-import { allKeyed } from "@raf-query/react";
-import type { ConvexReader } from "@workspace/convex-query";
+import { getData, load, swr } from "@raf-query/react";
 import {
   convexBidirectionalPaginatedQuery,
   convexPaginatedQuery,
   convexQuery,
-  ensureBidirectionalPaginatedQuery,
+  loadBidirectionalPaginatedQuery,
 } from "@workspace/convex-query";
 import { z } from "zod";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
@@ -55,31 +54,36 @@ function linkedTimelineArgs(opts: { itemId: string; publicId: string }) {
   return { babyId: opts.publicId, itemId: opts.itemId };
 }
 
-function loadLatestTimeline(queryClient: QueryClient<ConvexReader>, publicId: string) {
-  return queryClient.ensure(
-    convexPaginatedQuery(api.timeline.listByBaby),
-    latestTimelineInput(publicId),
-  );
+async function loadLatestTimeline(queryClient: QueryClient, publicId: string) {
+  const [handles] = await load(queryClient, {
+    timeline: swr(convexPaginatedQuery(api.timeline.listByBaby), latestTimelineInput(publicId)),
+  });
+  return handles.timeline;
 }
 
 async function loadLinkedTimeline(
-  queryClient: QueryClient<ConvexReader>,
+  queryClient: QueryClient,
   opts: { itemId: string; publicId: string },
 ) {
   const args = linkedTimelineArgs(opts);
-  const loaded = await allKeyed({
-    newerCount: queryClient.ensure(convexQuery(api.timeline.countNewerThanItem), args),
-    window: ensureBidirectionalPaginatedQuery(queryClient, {
+  const [[handles], [windowHandle, windowData]] = await Promise.all([
+    load(queryClient, { newerCount: swr(convexQuery(api.timeline.countNewerThanItem), args) }),
+    loadBidirectionalPaginatedQuery(queryClient, {
       input: { args, numItems: TIMELINE_PAGE_SIZE },
       previousNumItems: LINKED_ITEM_CONTEXT,
       queries: linkedTimelineQueries,
     }),
-  });
+  ]);
   // Newer pages come first; only the item's own pages, forward from it, say
   // whether it's visible.
-  const itemPage = loaded.window.data.pages.find((page) => "linkedItemVisible" in page);
+  const itemPage = windowData.pages.find((page) => "linkedItemVisible" in page);
   if (itemPage && "linkedItemVisible" in itemPage && itemPage.linkedItemVisible) {
-    return { itemId: opts.itemId, kind: "linked" as const, ...loaded };
+    return {
+      itemId: opts.itemId,
+      kind: "linked" as const,
+      newerCount: handles.newerCount,
+      window: windowHandle,
+    };
   }
   // Waterfall: whether to fall back depends on the item's page.
   return {
@@ -95,7 +99,7 @@ async function loadLinkedTimeline(
  * `item` loaded in it, so the page can keep that feed. Reads nothing.
  */
 function feedShowingItem(
-  queryClient: QueryClient<ConvexReader>,
+  queryClient: QueryClient,
   opts: { followedFrom: TimelineFeedAnchor | undefined; item: string; publicId: string },
 ) {
   const parsed = timelineFeedAnchorSchema.safeParse(opts.followedFrom);
@@ -105,11 +109,12 @@ function feedShowingItem(
   const anchor = parsed.data;
   const pages =
     anchor.kind === "latest"
-      ? queryClient.getData(
+      ? getData(
+          queryClient,
           convexPaginatedQuery(api.timeline.listByBaby),
           latestTimelineInput(opts.publicId),
         )?.pages
-      : queryClient.getData(linkedTimelineQuery, {
+      : getData(queryClient, linkedTimelineQuery, {
           args: linkedTimelineArgs({ itemId: anchor.itemId, publicId: opts.publicId }),
           numItems: TIMELINE_PAGE_SIZE,
         })?.pages;
@@ -129,7 +134,7 @@ function feedShowingItem(
  * the feed at `item`.
  */
 export async function loadTimelineFeed(
-  queryClient: QueryClient<ConvexReader>,
+  queryClient: QueryClient,
   opts: { followedFrom: TimelineFeedAnchor | undefined; item: string | null; publicId: string },
 ) {
   if (opts.item === null) {

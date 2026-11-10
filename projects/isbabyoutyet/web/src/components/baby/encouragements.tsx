@@ -9,7 +9,7 @@ import {
 import { Input } from "@workspace/ui/components/input";
 import { Textarea } from "@workspace/ui/components/textarea";
 import { useMutation } from "convex/react";
-import { useQueryClient } from "@raf-query/react";
+import { invalidateOne, useQueryClient } from "@raf-query/react";
 import type { FunctionArgs } from "convex/server";
 import { PaperPlaneTiltIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
@@ -144,7 +144,7 @@ function EncouragementFormFields(
           });
           await promise;
           // A first post creates the visitor id, so the tag is no longer `null`.
-          void queryClient.invalidate(visitorTagQuery, props.babyId);
+          void invalidateOne(queryClient, visitorTagQuery, props.babyId);
           clearEncouragementMessageDraft(props.babyId);
           form.reset({ authorName: values.authorName, message: "" });
         }}

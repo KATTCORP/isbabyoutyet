@@ -24,7 +24,7 @@ export const noConvexQueryHooks = defineRule({
     schema: [],
     messages: {
       banned:
-        "Do not use `{{name}}` from `convex/react`. `ensure` a `convexQuery` / `convexPaginatedQuery` factory in the route loader and read it with `useQuery` from `@raf-query/react`.",
+        "Do not use `{{name}}` from `convex/react`. Start a `convexQuery` / `convexPaginatedQuery` factory with `load` in the route loader and read it with `useQuery` / `useInfiniteQuery` from `@raf-query/react`.",
     },
   },
   create(context) {

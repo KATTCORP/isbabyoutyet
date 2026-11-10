@@ -1,5 +1,6 @@
 import { PhotoLightbox } from "@/components/baby/photo-lightbox";
-import { useQuery } from "@raf-query/react";
+import { load, swr, useQuery } from "@raf-query/react";
+import { use } from "react";
 import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { prefetchBrowserImage } from "@/lib/image-prefetch";
@@ -12,12 +13,14 @@ export const Route = createFileRoute("/baby/$publicId/updates/$updateId/photo")(
   loader: async (opts) => {
     const queryClient = opts.context.queryClient;
     const input = { babyId: opts.params.publicId, updateId: opts.params.updateId };
-    const updatePhoto = await queryClient.ensure(convexQuery(api.timeline.getUpdatePhoto), input);
-    if (!updatePhoto.data) {
+    const [handles, data] = await load(queryClient, {
+      updatePhoto: swr(convexQuery(api.timeline.getUpdatePhoto), input),
+    });
+    if (!data.updatePhoto) {
       throw notFound();
     }
-    prefetchBrowserImage(queryClient, updatePhoto.data.photoUrl);
-    return { updatePhoto };
+    prefetchBrowserImage(queryClient, data.updatePhoto.photoUrl);
+    return handles;
   },
   component: BabyUpdatePhotoOverlay,
 });
@@ -30,10 +33,11 @@ export function BabyUpdatePhotoOverlay() {
     publicId: params.publicId,
     updateId: params.updateId,
   });
-  const [updatePhotoData] = useQuery(
+  const [updatePhotoDataThenable] = useQuery(
     convexQuery(api.timeline.getUpdatePhoto),
     loaderData.updatePhoto,
   );
+  const updatePhotoData = use(updatePhotoDataThenable);
   const updatePhoto = useLastMatch(updatePhotoData, (v) => !!v);
   if (!updatePhoto) {
     throw notFound();

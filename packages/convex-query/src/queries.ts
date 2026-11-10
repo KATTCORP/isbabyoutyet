@@ -1,11 +1,20 @@
 import type {
+  InfiniteData,
   InfiniteQueryOptions,
   QueryClient,
   QueryHandle,
-  QueryHandleWithData,
   QueryOptions,
+  QueryOptionsBuilder,
 } from "@raf-query/react";
-import { infiniteQueryOptions, queryOptions } from "@raf-query/react";
+import {
+  getData,
+  infiniteQueryOptions,
+  load,
+  queryOptions,
+  removeOne,
+  setData,
+  swr,
+} from "@raf-query/react";
 import type {
   DefaultFunctionArgs,
   FunctionArgs,
@@ -15,14 +24,37 @@ import type {
   PaginationResult,
 } from "convex/server";
 import { getFunctionName } from "convex/server";
-import type { ConvexQueryError, ConvexReader } from "./reader.ts";
+import {
+  CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY,
+  CONVEX_PAGINATED_QUERY_KEY,
+  CONVEX_QUERY_KEY,
+} from "./entries.ts";
+import { runConvexEffect } from "./link.ts";
 import { readConvexQuery } from "./reader.ts";
 
-/** First element of every {@link convexQuery} key. */
-export const CONVEX_QUERY_KEY = "convexQuery";
+/**
+ * Factories by what they read. raf-query matches a factory target by
+ * identity, so every `convexQuery(api.profile.get)` must be the same factory
+ * for `invalidateMany(client, convexQuery(api.profile.get))` to reach entries
+ * another call created. Function references are proxies, so key by name.
+ */
+const factories = new Map<string, object>();
 
-/** First element of every {@link convexPaginatedQuery} key. */
-export const CONVEX_PAGINATED_QUERY_KEY = "convexPaginatedQuery";
+// Each key is only ever set by the `make` of one factory kind and names, so
+// what it holds is what that `make` returns.
+function memoized<TFactory extends object>(key: string, make: () => TFactory): TFactory;
+function memoized(key: string, make: () => object) {
+  const existing = factories.get(key);
+  if (existing) {
+    return existing;
+  }
+  const made = make();
+  factories.set(key, made);
+  return made;
+}
+
+/** Convex data is live (see `convexLive`), so it never goes stale, and its errors are deterministic. */
+const LIVE_OPTIONS = { meta: { retry: false }, staleTime: Infinity } as const;
 
 /** A public Convex query. */
 export type QueryReference = FunctionReference<"query", "public">;
@@ -48,54 +80,59 @@ export interface PaginatedQueryInput<TQuery extends PaginatedQueryReference> {
   readonly numItems: number;
 }
 
+/**
+ * The root of the unbound `queryOptions` builders, which factories here are
+ * built with: verbs take any client for them, whatever its links.
+ */
+type UnboundRoot = typeof queryOptions extends QueryOptionsBuilder<infer TTypes> ? TTypes : never;
+
 /** The raf-query factory {@link convexQuery} returns for `TQuery`. */
 export type ConvexQueryFactory<TQuery extends QueryReference> = (
   args: FunctionArgs<TQuery>,
-) => QueryOptions<{
-  data: FunctionReturnType<TQuery>;
-  error: ConvexQueryError;
-  services: ConvexReader;
-  throwOnError: true;
-}>;
+) => QueryOptions<
+  readonly [typeof CONVEX_QUERY_KEY, string, FunctionArgs<TQuery>],
+  FunctionReturnType<TQuery>,
+  FunctionReturnType<TQuery>,
+  UnboundRoot
+>;
 
 /** The raf-query factory {@link convexPaginatedQuery} returns for `TQuery`. */
 export type ConvexPaginatedQueryFactory<TQuery extends PaginatedQueryReference> = (
   input: PaginatedQueryInput<TQuery>,
-) => InfiniteQueryOptions<{
-  error: ConvexQueryError;
-  page: FunctionReturnType<TQuery>;
-  pageParam: PaginationOptions;
-  services: ConvexReader;
-  throwOnError: true;
-}>;
+) => InfiniteQueryOptions<
+  readonly [typeof CONVEX_PAGINATED_QUERY_KEY, string, PaginationArgs<TQuery>, number],
+  FunctionReturnType<TQuery>,
+  PaginationOptions,
+  InfiniteData<FunctionReturnType<TQuery>, PaginationOptions>,
+  UnboundRoot
+>;
 
 /**
  * The raf-query factory for a Convex query: its input is the function's args.
- * Data stays live through {@link connectConvexLive}, so it never goes stale.
- * Call it inline; entries are keyed by function name and args, so every call
- * for the same query reaches the same cache entry. It sets `throwOnError`, so
- * reads get the data and failures reach the route's error boundary; pass
- * `throwOnError: false` on a read to get a `Result` instead.
-
+ * Data stays live through `convexLive`, so it never goes stale. Call it
+ * inline: every call for the same query returns the same factory, and
+ * entries are keyed by function name and args.
  *
  * @example
  * // loader
- * profile: queryClient.ensure(convexQuery(api.profile.get), {}),
+ * const [handles] = await load(queryClient, { profile: swr(convexQuery(api.profile.get), {}) });
  * // component
- * const [profile] = useQuery(convexQuery(api.profile.get), loaderData.profile);
+ * const [profileThenable] = useQuery(convexQuery(api.profile.get), loaderData.profile);
+ * const profile = use(profileThenable);
  */
 export function convexQuery<TQuery extends QueryReference>(
   query: TQuery,
 ): ConvexQueryFactory<TQuery> {
   const functionName = getFunctionName(query);
-  return (args) =>
-    queryOptions({
-      queryFn: () => readConvexQuery(query, args),
-      queryKey: [CONVEX_QUERY_KEY, functionName, args],
-      retry: false,
-      staleTime: Infinity,
-      throwOnError: true,
-    });
+  return memoized(
+    JSON.stringify([CONVEX_QUERY_KEY, functionName]),
+    (): ConvexQueryFactory<TQuery> => (args) =>
+      queryOptions({
+        ...LIVE_OPTIONS,
+        queryFn: (context) => runConvexEffect(context, readConvexQuery(query, args)),
+        queryKey: [CONVEX_QUERY_KEY, functionName, args],
+      }),
+  );
 }
 
 function pageArgs<TQuery extends PaginatedQueryReference>(
@@ -108,36 +145,35 @@ function pageArgs(args: DefaultFunctionArgs, paginationOpts: PaginationOptions) 
 
 /**
  * The raf-query factory for a cursor-paginated Convex query. Pages load with
- * `fetchNextPage`; every loaded page stays live through {@link connectConvexLive}.
- * Like {@link convexQuery}, call it inline.
+ * `fetchNextPage`; every loaded page stays live through `convexLive`. Like
+ * {@link convexQuery}, call it inline.
  *
  * @example
- * timeline: queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
- *   args: { babyId },
- *   numItems: 20,
- * }),
+ * timeline: swr(convexPaginatedQuery(api.timeline.listByBaby), { args: { babyId }, numItems: 20 }),
  */
 export function convexPaginatedQuery<TQuery extends PaginatedQueryReference>(
   query: TQuery,
 ): ConvexPaginatedQueryFactory<TQuery> {
   const functionName = getFunctionName(query);
-  return (input) => {
-    const initialPageParam: PaginationOptions = { cursor: null, numItems: input.numItems };
-    return infiniteQueryOptions({
-      getNextPageParam: (lastPage: FunctionReturnType<TQuery>): PaginationOptions | null =>
-        lastPage.isDone ? null : { cursor: lastPage.continueCursor, numItems: input.numItems },
-      initialPageParam,
-      queryFn: (context) => readConvexQuery(query, pageArgs<TQuery>(input.args, context.pageParam)),
-      queryKey: [CONVEX_PAGINATED_QUERY_KEY, functionName, input.args, input.numItems],
-      retry: false,
-      staleTime: Infinity,
-      throwOnError: true,
-    });
-  };
+  return memoized(
+    JSON.stringify([CONVEX_PAGINATED_QUERY_KEY, functionName]),
+    (): ConvexPaginatedQueryFactory<TQuery> => (input) => {
+      const initialPageParam: PaginationOptions = { cursor: null, numItems: input.numItems };
+      return infiniteQueryOptions({
+        ...LIVE_OPTIONS,
+        getNextPageParam: (lastPage: FunctionReturnType<TQuery>): PaginationOptions | null =>
+          lastPage.isDone ? null : { cursor: lastPage.continueCursor, numItems: input.numItems },
+        initialPageParam,
+        queryFn: (context) =>
+          runConvexEffect(
+            context,
+            readConvexQuery(query, pageArgs<TQuery>(input.args, context.pageParam)),
+          ),
+        queryKey: [CONVEX_PAGINATED_QUERY_KEY, functionName, input.args, input.numItems],
+      });
+    },
+  );
 }
-
-/** First element of every {@link convexBidirectionalPaginatedQuery} key. */
-export const CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY = "convexBidirectionalPaginatedQuery";
 
 /** Which query a page of a {@link convexBidirectionalPaginatedQuery} came from. */
 export type PageDirection = "backward" | "forward";
@@ -180,13 +216,30 @@ export interface BidirectionalPaginatedQueryInput<
 export type ConvexBidirectionalPaginatedQueryFactory<
   TForward extends PaginatedQueryReference,
   TBackward extends PaginatedQueryReference,
-> = (input: BidirectionalPaginatedQueryInput<TForward, TBackward>) => InfiniteQueryOptions<{
-  error: ConvexQueryError;
-  page: FunctionReturnType<TBackward> | FunctionReturnType<TForward>;
-  pageParam: BidirectionalPageParam;
-  services: ConvexReader;
-  throwOnError: true;
-}>;
+> = (
+  input: BidirectionalPaginatedQueryInput<TForward, TBackward>,
+) => InfiniteQueryOptions<
+  readonly [
+    typeof CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY,
+    string,
+    string,
+    PaginationArgs<TForward> & PaginationArgs<TBackward>,
+    number,
+  ],
+  FunctionReturnType<TBackward> | FunctionReturnType<TForward>,
+  BidirectionalPageParam,
+  InfiniteData<
+    FunctionReturnType<TBackward> | FunctionReturnType<TForward>,
+    BidirectionalPageParam
+  >,
+  UnboundRoot
+>;
+
+/** Either direction's page of a {@link convexBidirectionalPaginatedQuery}. */
+type BidirectionalPage<
+  TForward extends PaginatedQueryReference,
+  TBackward extends PaginatedQueryReference,
+> = FunctionReturnType<TBackward> | FunctionReturnType<TForward>;
 
 /**
  * An infinite query that grows from a starting point in both directions,
@@ -196,12 +249,12 @@ export type ConvexBidirectionalPaginatedQueryFactory<
  * from it. raf-query prepends backward pages, so `pages` reads in feed order
  * as long as each backward page is reversed. Nothing loads backward until
  * `fetchPreviousPage` is called, unless the entry is loaded with
- * {@link ensureBidirectionalPaginatedQuery}. Every page stays live through
- * {@link connectConvexLive}, pinned like {@link convexPaginatedQuery}'s.
+ * {@link loadBidirectionalPaginatedQuery}. Every page stays live through
+ * `convexLive`, pinned like {@link convexPaginatedQuery}'s.
  *
  * @example
  * // A linked item, older items on scroll, newer ones on demand.
- * feed: queryClient.ensure(
+ * feed: swr(
  *   convexBidirectionalPaginatedQuery({
  *     backward: api.timeline.listNewerThanItem,
  *     forward: api.timeline.listFromItem,
@@ -217,134 +270,175 @@ export function convexBidirectionalPaginatedQuery<
 ): ConvexBidirectionalPaginatedQueryFactory<TForward, TBackward> {
   const forwardName = getFunctionName(queries.forward);
   const backwardName = getFunctionName(queries.backward);
-  return (input) => {
-    const initialPageParam: BidirectionalPageParam = {
-      cursor: null,
-      direction: "forward",
-      next: null,
-      numItems: input.numItems,
-    };
-    return infiniteQueryOptions({
-      // raf-query passes (lastPage, pages, lastPageParam, pageParams) here and
-      // (firstPage, pages, firstPageParam, pageParams) below; the rest
-      // parameters keep to `max-params`.
-      getNextPageParam: (
-        ...params: [
-          lastPage: FunctionReturnType<TBackward> | FunctionReturnType<TForward>,
-          pages: unknown,
-          lastPageParam: BidirectionalPageParam,
-        ]
-      ): BidirectionalPageParam | null => {
-        const lastPageParam = params[2];
-        if (lastPageParam.direction === "backward") {
-          return lastPageParam.next;
-        }
-        return params[0].isDone
-          ? null
-          : {
-              cursor: params[0].continueCursor,
-              direction: "forward",
-              next: null,
-              numItems: input.numItems,
-            };
-      },
-      getPreviousPageParam: (
-        ...params: [
-          firstPage: FunctionReturnType<TBackward> | FunctionReturnType<TForward>,
-          pages: unknown,
-          firstPageParam: BidirectionalPageParam,
-        ]
-      ): BidirectionalPageParam | null => {
-        const firstPage = params[0];
-        const firstPageParam = params[2];
-        if (firstPageParam.direction === "forward") {
-          return {
-            cursor: null,
-            direction: "backward",
-            next: firstPageParam,
-            numItems: input.numItems,
-          };
-        }
-        return firstPage.isDone
-          ? null
-          : {
-              cursor: firstPage.continueCursor,
+  const memoKey = JSON.stringify([
+    CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY,
+    forwardName,
+    backwardName,
+  ]);
+  return memoized(
+    memoKey,
+    (): ConvexBidirectionalPaginatedQueryFactory<TForward, TBackward> => (input) => {
+      const initialPageParam: BidirectionalPageParam = {
+        cursor: null,
+        direction: "forward",
+        next: null,
+        numItems: input.numItems,
+      };
+      return infiniteQueryOptions({
+        ...LIVE_OPTIONS,
+        // raf-query passes (lastPage, pages, lastPageParam) here and
+        // (firstPage, pages, firstPageParam) below; the rest parameters keep
+        // to `max-params`.
+        getNextPageParam: (
+          ...params: [
+            lastPage: BidirectionalPage<TForward, TBackward>,
+            pages: unknown,
+            lastPageParam: BidirectionalPageParam,
+          ]
+        ): BidirectionalPageParam | null => {
+          const lastPageParam = params[2];
+          if (lastPageParam.direction === "backward") {
+            return lastPageParam.next;
+          }
+          return params[0].isDone
+            ? null
+            : {
+                cursor: params[0].continueCursor,
+                direction: "forward",
+                next: null,
+                numItems: input.numItems,
+              };
+        },
+        getPreviousPageParam: (
+          ...params: [
+            firstPage: BidirectionalPage<TForward, TBackward>,
+            pages: unknown,
+            firstPageParam: BidirectionalPageParam,
+          ]
+        ): BidirectionalPageParam | null => {
+          const firstPage = params[0];
+          const firstPageParam = params[2];
+          if (firstPageParam.direction === "forward") {
+            return {
+              cursor: null,
               direction: "backward",
               next: firstPageParam,
               numItems: input.numItems,
             };
-      },
-      initialPageParam,
-      queryFn: (context) => {
-        const paginationOpts = {
-          cursor: context.pageParam.cursor,
-          numItems: context.pageParam.numItems,
-        };
-        return context.pageParam.direction === "forward"
-          ? readConvexQuery(queries.forward, pageArgs<TForward>(input.args, paginationOpts))
-          : readConvexQuery(queries.backward, pageArgs<TBackward>(input.args, paginationOpts));
-      },
-      queryKey: [
-        CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY,
-        forwardName,
-        backwardName,
-        input.args,
-        input.numItems,
-      ],
-      retry: false,
-      staleTime: Infinity,
-      throwOnError: true,
-    });
-  };
+          }
+          return firstPage.isDone
+            ? null
+            : {
+                cursor: firstPage.continueCursor,
+                direction: "backward",
+                next: firstPageParam,
+                numItems: input.numItems,
+              };
+        },
+        initialPageParam,
+        queryFn: (context): Promise<BidirectionalPage<TForward, TBackward>> => {
+          const paginationOpts = {
+            cursor: context.pageParam.cursor,
+            numItems: context.pageParam.numItems,
+          };
+          return context.pageParam.direction === "forward"
+            ? runConvexEffect(
+                context,
+                readConvexQuery(queries.forward, pageArgs<TForward>(input.args, paginationOpts)),
+              )
+            : runConvexEffect(
+                context,
+                readConvexQuery(queries.backward, pageArgs<TBackward>(input.args, paginationOpts)),
+              );
+        },
+        queryKey: [
+          CONVEX_BIDIRECTIONAL_PAGINATED_QUERY_KEY,
+          forwardName,
+          backwardName,
+          input.args,
+          input.numItems,
+        ],
+      });
+    },
+  );
 }
 
+/** Handle of a {@link convexQuery} entry, from `load` or `waterfallHandle`. */
+export type ConvexQueryHandle<TQuery extends QueryReference> = QueryHandle<
+  ConvexQueryFactory<TQuery>
+>;
+
+/** Handle of a {@link convexPaginatedQuery} entry, from `load` or `waterfallHandle`. */
+export type ConvexPaginatedQueryHandle<TQuery extends PaginatedQueryReference> = QueryHandle<
+  ConvexPaginatedQueryFactory<TQuery>
+>;
+
+/** Handle of a {@link convexBidirectionalPaginatedQuery} entry, from `load` or `waterfallHandle`. */
+export type ConvexBidirectionalPaginatedQueryHandle<
+  TForward extends PaginatedQueryReference,
+  TBackward extends PaginatedQueryReference,
+> = QueryHandle<ConvexBidirectionalPaginatedQueryFactory<TForward, TBackward>>;
+
 /**
- * `queryClient.ensure` for a {@link convexBidirectionalPaginatedQuery} entry
- * that opens with a short first backward page already loaded: the
- * `previousNumItems` items right before its first page, read alongside that
- * page rather than after it, so a loader can show a little context above
- * the start without a waterfall. Later `fetchPreviousPage`s load full
- * `numItems` pages; refetches and {@link connectConvexLive} treat the short
- * page like any other backward page. An entry that already has backward
- * pages is ensured as cached.
+ * `load(queryClient, { feed: swr(convexBidirectionalPaginatedQuery(queries), input) })`
+ * for an entry that opens with a short first backward page already loaded:
+ * the `previousNumItems` items right before its first page, read in the same
+ * `load` as that page rather than after it, so a loader can show a little
+ * context above the start without a waterfall. Later `fetchPreviousPage`s
+ * load full `numItems` pages; refetches and `convexLive` treat the short page
+ * like any other backward page. An entry that already has backward pages is
+ * loaded as cached. Resolves with the entry's handle and data, like `load`.
  *
  * @example
  * // The linked item, with the two items above it.
- * feed: ensureBidirectionalPaginatedQuery(queryClient, {
+ * const [feed, feedData] = await loadBidirectionalPaginatedQuery(queryClient, {
  *   input: { args: { babyId, itemId }, numItems: 20 },
  *   previousNumItems: 2,
  *   queries: { backward: api.timeline.listNewerThanItem, forward: api.timeline.listFromItem },
- * }),
+ * });
  */
-export async function ensureBidirectionalPaginatedQuery<
+export async function loadBidirectionalPaginatedQuery<
   TForward extends PaginatedQueryReference,
   TBackward extends PaginatedQueryReference,
 >(
-  queryClient: QueryClient<ConvexReader>,
+  queryClient: QueryClient,
   opts: {
     input: BidirectionalPaginatedQueryInput<TForward, TBackward>;
     previousNumItems: number;
     queries: BidirectionalPaginatedQueries<TForward, TBackward>;
   },
-): Promise<EnsuredConvexBidirectionalPaginatedQuery<TForward, TBackward>> {
+): Promise<
+  readonly [
+    ConvexBidirectionalPaginatedQueryHandle<TForward, TBackward>,
+    InfiniteData<BidirectionalPage<TForward, TBackward>, BidirectionalPageParam>,
+  ]
+> {
   const factory = convexBidirectionalPaginatedQuery(opts.queries);
-  const startsBackward = () =>
-    queryClient.getData(factory, opts.input)?.pageParams[0]?.direction === "backward";
-  if (startsBackward()) {
-    return queryClient.ensure(factory, opts.input);
+  const loadAsCached = async () => {
+    const [handles, data] = await load(queryClient, { feed: swr(factory, opts.input) });
+    return [handles.feed, data.feed] as const;
+  };
+  if (getData(queryClient, factory, opts.input)?.pageParams[0]?.direction === "backward") {
+    return loadAsCached();
   }
-  const paginationOpts = { cursor: null, numItems: opts.previousNumItems };
-  const [handle, previous] = await Promise.all([
-    queryClient.ensure(factory, opts.input),
-    queryClient.runPromise(
-      readConvexQuery(opts.queries.backward, pageArgs<TBackward>(opts.input.args, paginationOpts)),
-    ),
-  ]);
-  const data = queryClient.getData(factory, opts.input);
+  // The short page is its own `convexQuery` entry, so it reads through the
+  // client's reader alongside the feed's first page.
+  const previousPage = convexQuery(opts.queries.backward);
+  const previousArgs = pageArgs<TBackward>(opts.input.args, {
+    cursor: null,
+    numItems: opts.previousNumItems,
+  });
+  const [handles, loaded] = await load(queryClient, {
+    feed: swr(factory, opts.input),
+    previous: swr(previousPage, previousArgs),
+  });
+  // Read once, then folded into the feed, where the feed's own live page takes over.
+  removeOne(queryClient, previousPage, previousArgs);
+  const data = getData(queryClient, factory, opts.input);
   const first = data?.pageParams[0];
   // Another load may have seeded the entry while this one was reading.
   if (!data || first?.direction !== "forward") {
-    return queryClient.ensure(factory, opts.input);
+    return [handles.feed, data ?? loaded.feed] as const;
   }
   const previousParam: BidirectionalPageParam = {
     cursor: null,
@@ -354,33 +448,8 @@ export async function ensureBidirectionalPaginatedQuery<
   };
   const seeded = {
     pageParams: [previousParam, ...data.pageParams],
-    pages: [previous, ...data.pages],
+    pages: [loaded.previous, ...data.pages],
   };
-  queryClient.setData(factory, opts.input, seeded);
-  return { ...handle, data: seeded };
+  setData(queryClient, factory, opts.input, seeded);
+  return [handles.feed, seeded] as const;
 }
-
-/** Loader handle from `queryClient.ensure(convexQuery(query), args)`. */
-export type EnsuredConvexQuery<TQuery extends QueryReference> = QueryHandleWithData<
-  ConvexQueryFactory<TQuery>
->;
-
-/** Handle from `queryClient.prefetch(convexQuery(query), args)` or `useWaterfall`. */
-export type ConvexQueryHandle<TQuery extends QueryReference> = QueryHandle<
-  ConvexQueryFactory<TQuery>
->;
-
-/** Loader handle from `queryClient.ensure(convexPaginatedQuery(query), input)`. */
-export type EnsuredConvexPaginatedQuery<TQuery extends PaginatedQueryReference> =
-  QueryHandleWithData<ConvexPaginatedQueryFactory<TQuery>>;
-
-/** Handle from `queryClient.prefetch(convexPaginatedQuery(query), input)` or `useWaterfall`. */
-export type ConvexPaginatedQueryHandle<TQuery extends PaginatedQueryReference> = QueryHandle<
-  ConvexPaginatedQueryFactory<TQuery>
->;
-
-/** Loader handle from `queryClient.ensure(convexBidirectionalPaginatedQuery(queries), input)`. */
-export type EnsuredConvexBidirectionalPaginatedQuery<
-  TForward extends PaginatedQueryReference,
-  TBackward extends PaginatedQueryReference,
-> = QueryHandleWithData<ConvexBidirectionalPaginatedQueryFactory<TForward, TBackward>>;

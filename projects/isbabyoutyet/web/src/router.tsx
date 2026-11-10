@@ -1,8 +1,8 @@
 import { createRouter, rootRouteId } from "@tanstack/react-router";
 import { addRouterTracing, reportRouterError } from "@workspace/sentry/browser";
-import { QueryClient, QueryClientProvider } from "@raf-query/react";
+import { QueryClientProvider } from "@raf-query/react";
 import { setupRouterIntegration } from "@raf-query/react/tanstack-router";
-import { connectConvexLive, ConvexReader } from "@workspace/convex-query";
+import { ConvexReader } from "@workspace/convex-query";
 import { isPlainObject, isString } from "@workspace/runtime/guards";
 import { ConvexHttpClient } from "convex/browser";
 import { ConvexProvider } from "convex/react";
@@ -10,12 +10,14 @@ import { routeTree } from "./routeTree.gen";
 import { RootErrorComponent } from "./routes/__root";
 import { getDetectedLocale } from "./lib/i18n";
 import { SessionConvexReactClient, setClientToken } from "./lib/auth-client";
+import { dehydrateBrowserOnly } from "./lib/browser-only";
+import { makeQueryClient } from "./lib/query-client";
 
 /** Router preload policy — tested without constructing the full client graph. */
 export const routerPreloadOptions = {
   defaultPreload: "viewport",
   // raf-query is the cache of record, so preloaded loader data must be
-  // immediately stale to the router: loaders re-run (as cheap `ensure` cache
+  // immediately stale to the router: loaders re-run (as cheap `load` cache
   // hits) instead of the router serving its own ≤30s-old snapshot.
   // Navigation still commits instantly — stale matches revalidate in the
   // background. https://tanstack.com/router/latest/docs/guide/data-loading
@@ -56,20 +58,23 @@ export function getRouter() {
   // by the root `beforeLoad`) and the QueryClient reading through it serve
   // only this request.
   const convexHttpClient = globalThis.window === undefined ? new ConvexHttpClient(convexUrl) : null;
-  const queryClient = new QueryClient({
-    layer: convexHttpClient
-      ? ConvexReader.layerSnapshot(convexHttpClient)
-      : ConvexReader.layerWatch(convexClient),
-  });
-  if (!convexHttpClient) {
-    connectConvexLive({ client: convexClient, queryClient });
-  }
+  const queryClient = convexHttpClient
+    ? makeQueryClient({
+        isServer: true,
+        live: null,
+        reader: ConvexReader.snapshot(convexHttpClient),
+      })
+    : makeQueryClient({
+        isServer: false,
+        live: convexClient,
+        reader: ConvexReader.subscribing(convexClient),
+      });
 
   const router = createRouter({
     routeTree,
     // Viewport preload runs loaders when a Link scrolls into view (not just on
     // hover/focus), so e.g. visible dashboard baby cards prefetch their baby
-    // pages via their `queryClient.ensure` loaders.
+    // pages via their loaders' `load`.
     ...routerPreloadOptions,
     // Friendly recoverable fallback for any route error (reload / go home).
     context: {
@@ -97,7 +102,7 @@ export function getRouter() {
     ),
   });
 
-  setupRouterIntegration({ queryClient, router });
+  setupRouterIntegration({ dehydrateOptions: dehydrateBrowserOnly, queryClient, router });
   addRouterTracing(router);
 
   return router;

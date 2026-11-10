@@ -1,5 +1,6 @@
 import { BabyIcon } from "@phosphor-icons/react";
-import { allKeyed, useQuery } from "@raf-query/react";
+import { load, swr, useQuery } from "@raf-query/react";
+import { use } from "react";
 import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -21,9 +22,10 @@ export const Route = createFileRoute("/")({
   component: HomePage,
   headers: homepageCacheHeaders,
   loader: async (opts) => {
-    return await allKeyed({
-      me: opts.context.queryClient.ensure(convexQuery(api.profile.get), {}),
+    const [handles] = await load(opts.context.queryClient, {
+      me: swr(convexQuery(api.profile.get), {}),
     });
+    return handles;
   },
   head: (opts) => {
     const locale = opts.match.context.locale;
@@ -239,7 +241,8 @@ const HOW_IT_WORKS = [
 
 function HomePage() {
   const loaderData = Route.useLoaderData();
-  const [meData] = useQuery(convexQuery(api.profile.get), loaderData.me);
+  const [meDataThenable] = useQuery(convexQuery(api.profile.get), loaderData.me);
+  const meData = use(meDataThenable);
   return <HomePageView isSignedIn={meData != null} />;
 }
 

@@ -18,7 +18,6 @@ import type { BabyData } from "@isbabyoutyet/backend/src/types";
 import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
 import { isPlainObject } from "@workspace/runtime/guards";
 import { LocaleProvider } from "@/lib/i18n";
-import { visitorTagQuery } from "@/lib/visitor-tag";
 import { loadTimelineFeed } from "@/lib/timeline-feed";
 import { TimelineFeed, TimelineFeedView, UpdateComposer } from "@/components/baby/timeline";
 import { EncouragementForm } from "@/components/baby/encouragements";
@@ -159,11 +158,11 @@ async function renderTimelineFeedFrom(
         <LocaleProvider locale="en-GB">
           <TimelineFeed
             baby={opts.baby}
+            babyId={opts.babyId}
             babyName={opts.baby.name}
             feed={feed}
             isOwner={opts.isOwner}
             publicId={opts.publicId}
-            visitorTag={harness.queryClient.prefetch(visitorTagQuery, opts.babyId)}
           />
         </LocaleProvider>
       </ConvexProvider>
@@ -1562,11 +1561,11 @@ test("the server render has the context above the linked item and the divider ab
             <LocaleProvider locale="en-GB">
               <TimelineFeed
                 baby={notYetBaby}
+                babyId={seeded.baby.babyId}
                 babyName={notYetBaby.name}
                 feed={feed}
                 isOwner={false}
                 publicId={seeded.baby.publicId}
-                visitorTag={server.queryClient.prefetch(visitorTagQuery, seeded.baby.babyId)}
               />
             </LocaleProvider>
           </ConvexProvider>

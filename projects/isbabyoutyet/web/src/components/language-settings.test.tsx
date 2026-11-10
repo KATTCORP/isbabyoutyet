@@ -9,11 +9,12 @@ import { signUpTestUser } from "@/test/convexTestSeed";
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
 import { LanguageSettings } from "./language-settings";
 import { htmlInput } from "@/test/htmlElement";
+import { loadQuery } from "@/test/loadQuery";
 
 async function renderLanguageSettings(
   harness: Awaited<ReturnType<typeof createConvexTestHarness>>,
 ) {
-  const profileHandle = await harness.queryClient.ensure(convexQuery(api.profile.get), {});
+  const profileHandle = await loadQuery(harness.queryClient, convexQuery(api.profile.get), {});
   return renderWithConvexTest({
     harness,
     ui: <LanguageSettings profile={profileHandle} />,

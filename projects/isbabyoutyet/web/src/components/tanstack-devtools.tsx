@@ -1,5 +1,5 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import { QueryDevtoolsPanel } from "@raf-query/react/devtools";
+import { QueryDevtoolsPanel } from "@raf-query/react";
 import { TanStackRouterDevtoolsPanelInProd } from "@tanstack/react-router-devtools";
 import { useHydrated } from "@/lib/use-hydrated";
 

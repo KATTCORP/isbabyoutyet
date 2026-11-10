@@ -1,14 +1,15 @@
-import { QueryClientProvider } from "@raf-query/react";
+import { dehydrate, getData, QueryClientProvider } from "@raf-query/react";
 import { getFunctionName } from "convex/server";
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { expect, test } from "vitest";
+import { dehydrateBrowserOnly } from "@/lib/browser-only";
 import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
 import { stubNoWindowResource } from "@/test/stubJsdomWindow";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { useBrowserPushCapability } from "./use-browser-push-capability";
 
-test("the server renders push capability as pending without detecting", async () => {
+test("the server renders push capability as pending without detecting or sending it", async () => {
   using _window = stubNoWindowResource();
   await using stub = stubQueryClientResource(
     async (query) => {
@@ -16,18 +17,19 @@ test("the server renders push capability as pending without detecting", async ()
     },
     { isServer: true },
   );
-  const handle = stub.queryClient.prefetch(browserPushCapabilityQuery, "baby-smith");
   const rendered: Array<ReturnType<typeof useBrowserPushCapability>> = [];
   function Probe() {
-    rendered.push(useBrowserPushCapability(handle));
+    rendered.push(useBrowserPushCapability("baby-smith"));
     return null;
   }
 
   renderToString(
     createElement(QueryClientProvider, { client: stub.queryClient }, createElement(Probe)),
   );
+  await new Promise((resolve) => setTimeout(resolve, 10));
 
   expect(rendered.map((result) => result[0])).toEqual([null]);
-  await expect(rendered[0]?.[1]()).resolves.toBeUndefined();
-  expect(stub.queryClient.getData(browserPushCapabilityQuery, "baby-smith")).toBeUndefined();
+  expect(getData(stub.queryClient, browserPushCapabilityQuery, "baby-smith")).toBeUndefined();
+  // The browser detects it itself once it renders.
+  expect(dehydrate(stub.queryClient, dehydrateBrowserOnly).entries).toEqual([]);
 });

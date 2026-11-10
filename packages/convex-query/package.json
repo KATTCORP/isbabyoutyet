@@ -18,6 +18,7 @@
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
+    "@raf-query/core": "catalog:",
     "@raf-query/react": "catalog:",
     "@workspace/tsconfig": "workspace:*",
     "convex": "catalog:",
@@ -30,7 +31,7 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@raf-query/react": "^0.11.1",
+    "@raf-query/react": "^0.12.0",
     "convex": "^1.0.0",
     "effect": "^4.0.0"
   }

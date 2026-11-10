@@ -12,6 +12,7 @@ import { seedOwnedBaby, signUpTestUser, postTestUpdate } from "@/test/convexTest
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import { OnboardingHostWithSession, useCompleteOnboardingStep } from "./onboarding-host";
+import { loadQuery } from "@/test/loadQuery";
 
 type CompleteOnboardingStep = (args: { stepId: OnboardingStepId }) => Promise<null>;
 type CompleteStepHolder = {
@@ -23,7 +24,11 @@ async function renderOnboardingHost(opts: {
   session: { data: { user: { id: string } } | null; isPending: boolean };
   surface: "dashboard" | "baby";
 }) {
-  const onboarding = await opts.harness.queryClient.ensure(convexQuery(api.onboarding.getMine), {});
+  const onboarding = await loadQuery(
+    opts.harness.queryClient,
+    convexQuery(api.onboarding.getMine),
+    {},
+  );
   return await renderWithTestRouter(
     <QueryClientProvider client={opts.harness.queryClient}>
       <ConvexProvider
@@ -86,7 +91,7 @@ async function seedAllOnboardingStepsDone(
 
 test("returns null for anonymous visitors", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
-  const onboarding = await harness.queryClient.ensure(convexQuery(api.onboarding.getMine), {});
+  const onboarding = await loadQuery(harness.queryClient, convexQuery(api.onboarding.getMine), {});
 
   await using view = await renderWithConvexTest({
     harness,
