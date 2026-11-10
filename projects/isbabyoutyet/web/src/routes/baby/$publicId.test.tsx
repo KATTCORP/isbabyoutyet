@@ -1012,6 +1012,32 @@ test("opening a link to an item starts the feed at it", async () => {
   expect(ctx.view.queryByRole("button", { name: SHOW_MORE })).toBeNull();
 });
 
+test("links the router preloads leave a linked feed on screen as it is", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
+  const itemId = seeded.itemId("Message 10");
+  await using ctx = await renderBabyPage(harness, `/baby/${seeded.publicId}?item=${itemId}`);
+  await vi.waitFor(() => {
+    expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 10"));
+  });
+  const params = { publicId: seeded.publicId };
+
+  // "Jump to latest" above the feed, and a link to an item it hasn't loaded,
+  // as they scroll into view.
+  await ctx.router.preloadRoute({ params, to: "/baby/$publicId" });
+  await ctx.router.preloadRoute({
+    params,
+    search: { item: seeded.itemId(`Message ${TIMELINE_PAGE_SIZE + 2}`) },
+    to: "/baby/$publicId",
+  });
+  await harness.refresh();
+
+  expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 10"));
+  expect(ctx.view.getByText("Message 12")).toBeTruthy();
+  expect(ctx.view.queryByText("Message 13")).toBeNull();
+  expect(ctx.view.getByRole("button", { name: "10 newer, Show 10 more" })).toBeTruthy();
+});
+
 test("navigating to an item the feed hasn't loaded opens the feed at it", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
