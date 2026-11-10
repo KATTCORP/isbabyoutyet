@@ -366,9 +366,9 @@ const beforeLoad: (
   opts: RouteContextStub & { location: { href: string }; params: { publicId: string } },
 ) => Promise<object | void | null> = routeModule.Route.options.beforeLoad;
 
-async function runBabyLoader(
+async function runLoader(
   queryClient: QueryClient,
-  opts: { item: string | null; preload?: boolean } = { item: null },
+  opts: { item: string | null; preload: boolean },
 ) {
   // As `beforeLoad` does before every loader run.
   await loadQuery(queryClient, convexQuery(api.baby.getByPublicId), { id: "baby-smith" });
@@ -376,8 +376,21 @@ async function runBabyLoader(
     context: { queryClient },
     deps: { item: opts.item },
     params: { publicId: "baby-smith" },
-    preload: opts.preload ?? false,
+    preload: opts.preload,
   });
+}
+
+/** The loader on a navigation. */
+async function runBabyLoader(
+  queryClient: QueryClient,
+  opts: { item: string | null } = { item: null },
+) {
+  return await runLoader(queryClient, { item: opts.item, preload: false });
+}
+
+/** The loader as the router runs it to preload a link in view. */
+async function preloadBabyLoader(queryClient: QueryClient, item: string | null) {
+  return await runLoader(queryClient, { item, preload: true });
 }
 
 test("loader loads the same set for visitors; gated queries come back forbidden", async () => {
@@ -610,8 +623,8 @@ test("preloading a link to another item leaves the feed on screen alone", async 
   read.length = 0;
 
   // "Jump to latest" scrolled into view, and an item the feed hasn't loaded.
-  await runBabyLoader(stub.queryClient, { item: null, preload: true });
-  await runBabyLoader(stub.queryClient, { item: "k57elsewhere", preload: true });
+  await preloadBabyLoader(stub.queryClient, null);
+  await preloadBabyLoader(stub.queryClient, "k57elsewhere");
 
   expect(read).not.toContain("timeline:listFeed");
   const feed = getData(
