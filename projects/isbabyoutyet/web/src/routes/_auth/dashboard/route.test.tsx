@@ -1,4 +1,4 @@
-import { QueryClientProvider } from "@raf-query/react";
+import { getData, QueryClientProvider } from "@raf-query/react";
 import type { AnyRoute } from "@tanstack/react-router";
 import {
   createMemoryHistory,
@@ -169,7 +169,7 @@ test("parent dashboard stays mounted while child routes render through its outle
   expect(view.getByTestId("dashboard-outlet")).toBeTruthy();
 });
 
-test("parent dashboard loader ensures auth-scoped reads without a waterfall", async () => {
+test("parent dashboard loader loads auth-scoped reads without a waterfall", async () => {
   await using loaderQueries = stubLoaderQueries([]);
   // @ts-expect-error — stub context is the subset the loader reads
   const loader: (opts: {
@@ -186,10 +186,10 @@ test("parent dashboard loader ensures auth-scoped reads without a waterfall", as
   });
   loaderQueries.release();
   await expect(pending).resolves.toMatchObject({
-    babies: { data: expect.anything(), input: {} },
-    onboarding: { data: expect.anything(), input: {} },
+    babies: { input: {} },
+    onboarding: { input: {} },
   });
-  expect(loaderQueries.queryClient.getData(convexQuery(api.onboarding.getMine), {})).toEqual(
+  expect(getData(loaderQueries.queryClient, convexQuery(api.onboarding.getMine), {})).toEqual(
     onboardingProgress,
   );
 });

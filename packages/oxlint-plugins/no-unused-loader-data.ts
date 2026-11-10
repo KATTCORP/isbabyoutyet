@@ -7,7 +7,10 @@ import type { ESTree, Scope } from "@oxlint/plugins";
  *
  * Every key the loader returns must be read via `Route.useLoaderData()` or
  * `opts.loaderData` (`head`, `headers`, …). An unread raf-query handle means
- * the loader `ensure`s / `prefetch`es a query nobody renders.
+ * the loader starts a query (`swr` / `revalidate` / `prefetch` in a `load`)
+ * nobody renders. Handles are followed from `const [handles] = await
+ * load(queryClient, { … })` through returns of `handles`, `{ ...handles }`
+ * and `handles.key`.
  *
  * Loader data counts as fully read (no reports) when it escapes as a whole:
  * passed to a function or JSX prop, spread, returned, or read with a computed
@@ -22,7 +25,8 @@ const ROUTE_FACTORIES = new Set([
   "createRoute",
 ]);
 
-const QUERY_START_METHODS = new Set(["ensure", "prefetch"]);
+/** raf-query's `load` entries: each starts a query and gets a handle. */
+const LOAD_ENTRIES = new Set(["prefetch", "revalidate", "swr"]);
 
 const TRANSPARENT_WRAPPERS = new Set([
   "ChainExpression",
@@ -188,20 +192,45 @@ export const noUnusedLoaderData = defineRule({
         : null;
     }
 
+    /**
+     * The entries object of `const [handles] = await load(client, { … })`
+     * when `identifier` is `handles`, else `null`.
+     */
+    function loadEntries(identifier) {
+      const definition = findVariable(identifier)?.defs[0];
+      const declarator = definition?.node;
+      if (
+        !definition ||
+        declarator?.type !== "VariableDeclarator" ||
+        declarator.id.type !== "ArrayPattern" ||
+        declarator.id.elements[0] !== definition.name
+      ) {
+        return null;
+      }
+      const init = unwrap(declarator.init);
+      return init?.type === "CallExpression" && calleeName(init.callee) === "load"
+        ? (init.arguments[1] ?? null)
+        : null;
+    }
+
     function isQueryStart(node, depth) {
       const value = unwrap(node);
       if (!value || depth > MAX_RESOLVE_DEPTH) {
         return false;
       }
       if (value.type === "CallExpression") {
-        return (
-          value.callee.type === "MemberExpression" &&
-          QUERY_START_METHODS.has(calleeName(value.callee))
-        );
+        return value.callee.type === "Identifier" && LOAD_ENTRIES.has(value.callee.name);
       }
       if (value.type === "Identifier") {
         const init = bindingInit(value);
         return init ? isQueryStart(init, depth + 1) : false;
+      }
+      if (value.type === "MemberExpression") {
+        // `handles.key`: the entry `load` got under `key`.
+        const resolved = resolveReturn(value, depth + 1);
+        return resolved.kind === "value" && resolved.node !== value
+          ? isQueryStart(resolved.node, depth + 1)
+          : false;
       }
       return false;
     }
@@ -240,14 +269,16 @@ export const noUnusedLoaderData = defineRule({
         }
         return { kind: "object", entries };
       }
-      if (value.type === "CallExpression" && calleeName(value.callee) === "allKeyed") {
-        return value.arguments[0]
-          ? resolveReturn(value.arguments[0], depth + 1)
-          : { kind: "value", node: value };
-      }
       if (value.type === "Identifier") {
-        const init = bindingInit(value);
+        const init = bindingInit(value) ?? loadEntries(value);
         return init ? resolveReturn(init, depth + 1) : { kind: "value", node: value };
+      }
+      if (value.type === "MemberExpression") {
+        const key = memberKey(value);
+        const object = key === null ? null : resolveReturn(value.object, depth + 1);
+        const entry =
+          object?.kind === "object" ? object.entries.find((item) => item.key === key) : null;
+        return entry ? resolveReturn(entry.value, depth + 1) : { kind: "value", node: value };
       }
       if (value.type === "ConditionalExpression" || value.type === "LogicalExpression") {
         const branches = [

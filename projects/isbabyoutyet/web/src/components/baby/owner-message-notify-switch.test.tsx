@@ -18,6 +18,7 @@ import {
   OwnerMessageNotifyLiveSwitch,
   OwnerMessageNotifySwitchView,
 } from "./owner-message-notify-switch";
+import { loadQuery } from "@/test/loadQuery";
 
 const ENDPOINT = "https://push.example/owner-messages";
 
@@ -36,7 +37,8 @@ async function renderLiveSwitch(opts: {
 }) {
   const harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
-  const vapid = await harness.queryClient.ensure(
+  const vapid = await loadQuery(
+    harness.queryClient,
     convexQuery(api.pushSubscriptions.getPublicKey),
     {},
   );
@@ -45,7 +47,7 @@ async function renderLiveSwitch(opts: {
     ui: (
       <OwnerMessageNotifyLiveSwitch
         babyId={baby.babyId}
-        browserPush={seedBrowserPushCapability(harness.queryClient, {
+        browserPush={await seedBrowserPushCapability(harness.queryClient, {
           babyRef: baby.publicId,
           capability: opts.capability,
         })}

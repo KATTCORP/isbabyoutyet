@@ -1,26 +1,28 @@
 # Loader waterfall examples
 
-`convexQuery` / `convexPaginatedQuery` come from `@workspace/convex-query`; `queryClient` is `opts.context.queryClient`.
+`convexQuery` / `convexPaginatedQuery` come from `@workspace/convex-query`; `load`, `swr` and `prefetch` from `@raf-query/react`; `queryClient` is `opts.context.queryClient`.
 
 ## ❌ Waterfall: resolve id, then prefetch dependents
 
 ```typescript
 beforeLoad: async (opts) => {
-  await queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId });
-  const baby = queryClient.getData(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId });
-  if (!baby) throw notFound();
-  return { babyId: baby._id };
+  const [, data] = await load(queryClient, {
+    baby: swr(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId }),
+  });
+  if (!data.baby) throw notFound();
+  return { babyId: data.baby._id };
 },
 
 loader: async (opts) => {
   const babyId = opts.context.babyId; // loader blocked on beforeLoad
-  return await allKeyed({
-    baby: queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId }),
-    timeline: queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
-      args: { babyId, visitorId: null }, // cannot start until beforeLoad finishes
+  const [handles] = await load(queryClient, {
+    baby: swr(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId }),
+    timeline: swr(convexPaginatedQuery(api.timeline.listByBaby), {
+      args: { babyId }, // cannot start until beforeLoad finishes
       numItems: 20,
     }),
   });
+  return handles;
 };
 ```
 
@@ -31,8 +33,10 @@ Problems: `beforeLoad` → `loader` serializes; timeline prefetch waits on baby 
 ```typescript
 beforeLoad: async (opts) => {
   // routing only: 404, redirect stale slug, locale
-  await queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId });
-  const baby = queryClient.getData(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId });
+  const [, data] = await load(queryClient, {
+    baby: swr(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId }),
+  });
+  const baby = data.baby;
   if (!baby) throw notFound();
   if (baby.publicId !== opts.params.publicId) {
     throw redirect({ to: "/baby/$publicId", params: { publicId: baby.publicId } });
@@ -42,14 +46,15 @@ beforeLoad: async (opts) => {
 
 loader: async (opts) => {
   const publicId = opts.params.publicId;
-  return await allKeyed({
-    baby: queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: publicId }), // cache hit
-    timeline: queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
-      args: { babyId: publicId, visitorId: null },
+  const [handles] = await load(queryClient, {
+    baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }), // cache hit
+    timeline: swr(convexPaginatedQuery(api.timeline.listByBaby), {
+      args: { babyId: publicId },
       numItems: 20,
     }),
-    myAccess: queryClient.ensure(convexQuery(api.coParents.myAccess), { babyId: publicId }),
+    myAccess: swr(convexQuery(api.coParents.myAccess), { babyId: publicId }),
   });
+  return handles;
 };
 ```
 
@@ -61,37 +66,43 @@ Backend queries accept `v.union(v.id("baby"), v.string())` and resolve internall
 loader: async (opts) => {
   const token = await getAuthToken(opts);
   opts.context.convexHttpClient?.setAuth(token);
-  await queryClient.ensure(convexQuery(api.profile.get), {});
-  return await allKeyed({ /* … */ });
+  await load(queryClient, { me: swr(convexQuery(api.profile.get), {}) });
+  const [handles] = await load(queryClient, { /* … */ });
+  return handles;
 };
 ```
 
 Auth and profile loading belong on the authenticated layout, not page loaders.
 
-## ❌ Sequential awaits inside loader
+## ❌ Sequential loads inside loader
 
 ```typescript
 loader: async (opts) => {
-  await queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: publicId });
-  const baby = queryClient.getData(convexQuery(api.baby.getByPublicId), { id: publicId });
-  const timeline = await queryClient.ensure(convexPaginatedQuery(api.timeline.listByBaby), {
-    args: { babyId: baby._id, visitorId: null },
-    numItems: 20,
+  const [, data] = await load(queryClient, {
+    baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
   });
-  return { timeline };
+  const [handles] = await load(queryClient, {
+    timeline: swr(convexPaginatedQuery(api.timeline.listByBaby), {
+      args: { babyId: data.baby._id },
+      numItems: 20,
+    }),
+  });
+  return handles;
 };
 ```
 
-Use `allKeyed` instead.
+Name both in one `load` instead, keyed by the slug.
 
-## ✅ Client-only: non-blocking prefetch handle
+## ✅ Browser-only: started in the browser, never on the server
 
 ```typescript
 loader: async (opts) => {
-  const browserPush = prefetchBrowserPushCapability(queryClient, opts.params.publicId);
-  const data = await allKeyed({ /* convex only */ });
-  return { browserPush, ...data };
+  const [handles] = await load(queryClient, {
+    browserPush: prefetch(browserPushCapabilityQuery, opts.params.publicId),
+    /* convex */
+  });
+  return handles;
 };
 ```
 
-`browserPush` returns immediately (and does nothing on the server); the component reads it with `useBrowserPushCapability(handle)`, which is `null` until detection finishes in the browser.
+The factory sets `ssr: false`, so a server client returns the handle without starting it, and `load` never waits for a `prefetch`. The component reads it with `useBrowserPushCapability(handles.browserPush)`, which is `null` until detection finishes in the browser.

@@ -1,5 +1,6 @@
 import { Button } from "@workspace/ui/components/button";
-import { allKeyed, useQuery } from "@raf-query/react";
+import { load, swr, useQuery } from "@raf-query/react";
+import { use } from "react";
 import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import {
@@ -33,16 +34,16 @@ export const Route = createFileRoute("/baby/$publicId/share")({
   loader: async (opts) => {
     const queryClient = opts.context.queryClient;
     const publicId = opts.params.publicId;
-    const data = await allKeyed({
-      baby: queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: publicId }),
-      myAccess: queryClient.ensure(convexQuery(api.coParents.myAccess), { babyId: publicId }),
+    const [handles, data] = await load(queryClient, {
+      baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
+      myAccess: swr(convexQuery(api.coParents.myAccess), { babyId: publicId }),
     });
-    if (data.baby.data) {
-      prefetchBrowserImage(queryClient, getBabySeo(data.baby.data, publicId).imageUrl);
+    if (data.baby) {
+      prefetchBrowserImage(queryClient, getBabySeo(data.baby, publicId).imageUrl);
     }
 
     return {
-      ...data,
+      ...handles,
       shareLink: canonicalUrl(`/baby/${publicId}`),
     };
   },
@@ -56,8 +57,10 @@ export function BabyShareOverlay() {
   const { t } = useI18n();
   const [copied, showCopied] = useTransientFlag(2000);
   const share = useBabyShareOverlay(params.publicId);
-  const [babyData] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
-  const [myAccessData] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
+  const [babyDataThenable] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
+  const babyData = use(babyDataThenable);
+  const [myAccessDataThenable] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
+  const myAccessData = use(myAccessDataThenable);
   const sharePreview = babyData ? getBabySeo(babyData, params.publicId) : null;
   if (!sharePreview) {
     throw notFound();

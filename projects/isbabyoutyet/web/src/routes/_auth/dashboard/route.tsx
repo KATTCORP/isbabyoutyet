@@ -1,5 +1,6 @@
 import { Button } from "@workspace/ui/components/button";
-import { allKeyed, useQuery } from "@raf-query/react";
+import { load, swr, useQuery } from "@raf-query/react";
+import { use } from "react";
 import { convexQuery } from "@workspace/convex-query";
 import { ButtonGroup } from "@workspace/ui/components/button-group";
 import { ModeToggle } from "@workspace/ui/components/mode-toggle";
@@ -16,12 +17,11 @@ import { useDashboardSettingsOverlayLinks } from "@/lib/overlay-nav";
 export const Route = createFileRoute("/_auth/dashboard")({
   component: DashboardPageLayout,
   loader: async (opts) => {
-    const queryClient = opts.context.queryClient;
-    const data = await allKeyed({
-      babies: queryClient.ensure(convexQuery(api.baby.listByUser), {}),
-      onboarding: queryClient.ensure(convexQuery(api.onboarding.getMine), {}),
+    const [handles] = await load(opts.context.queryClient, {
+      babies: swr(convexQuery(api.baby.listByUser), {}),
+      onboarding: swr(convexQuery(api.onboarding.getMine), {}),
     });
-    return { ...data, isAdmin: opts.context.isAdmin };
+    return { ...handles, isAdmin: opts.context.isAdmin };
   },
   // iOS only delivers Web Push to Home Screen apps, and baby-page manifests
   // are scoped to `/baby/`, so admins install the dashboard for new-baby alerts.
@@ -44,8 +44,10 @@ export function DashboardPageLayout() {
 function DashboardPage() {
   const loaderData = Route.useLoaderData();
   const { t } = useI18n();
-  const [babies] = useQuery(convexQuery(api.baby.listByUser), loaderData.babies);
-  const [progress] = useQuery(convexQuery(api.onboarding.getMine), loaderData.onboarding);
+  const [babiesThenable] = useQuery(convexQuery(api.baby.listByUser), loaderData.babies);
+  const babies = use(babiesThenable);
+  const [progressThenable] = useQuery(convexQuery(api.onboarding.getMine), loaderData.onboarding);
+  const progress = use(progressThenable);
 
   return (
     <div className="flex min-h-screen flex-col bg-background bg-dots">

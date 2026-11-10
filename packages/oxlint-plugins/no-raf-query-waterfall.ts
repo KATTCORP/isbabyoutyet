@@ -1,20 +1,23 @@
 import { defineRule } from "@oxlint/plugins";
 
 /**
- * Ban `useWaterfall` from `@raf-query/react`.
+ * Ban `waterfallHandle` from `@raf-query/react`.
  *
- * It starts a query during render, so every call is a request waterfall.
- * Start queries in the route loader (`ensure` / `prefetch`) instead.
+ * Its handle starts nothing: the component that reads it fetches while
+ * rendering, so every call is a request waterfall. Start queries in the
+ * route loader (`load` with `swr` / `revalidate` / `prefetch`) instead. A
+ * query only a browser can run takes `ssr: false`, and the loader's
+ * `prefetch` still returns its handle.
  *
  * Covers:
- * - `import { useWaterfall } from "@raf-query/react"` (and aliased)
+ * - `import { waterfallHandle } from "@raf-query/react"` (and aliased)
  * - calls through that binding
- * - `import * as raf from "@raf-query/react"; raf.useWaterfall(…)`
- * - `export { useWaterfall } from "@raf-query/react"`
+ * - `import * as raf from "@raf-query/react"; raf.waterfallHandle(…)`
+ * - `export { waterfallHandle } from "@raf-query/react"`
  */
 
 const SOURCE = "@raf-query/react";
-const NAME = "useWaterfall";
+const NAME = "waterfallHandle";
 
 function moduleExportName(node) {
   return node.type === "Identifier" ? node.name : node.value;
@@ -25,12 +28,12 @@ export const noRafQueryWaterfall = defineRule({
     type: "problem",
     docs: {
       description:
-        "Disallow `useWaterfall` from `@raf-query/react`; start queries in the route loader instead",
+        "Disallow `waterfallHandle` from `@raf-query/react`; start queries in the route loader instead",
     },
     schema: [],
     messages: {
       banned:
-        "Do not use `useWaterfall` from `@raf-query/react`: it starts the query during render (a request waterfall). `ensure` / `prefetch` it in the route loader and read the handle with `useQuery`.",
+        "Do not use `waterfallHandle` from `@raf-query/react`: reading its handle fetches during render (a request waterfall). Start the query with `load` in the route loader and read the handle with `useQuery`.",
     },
   },
   create(context) {

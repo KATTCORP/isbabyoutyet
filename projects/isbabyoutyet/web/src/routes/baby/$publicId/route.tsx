@@ -20,7 +20,8 @@ import {
   redirect,
   useMatchRoute,
 } from "@tanstack/react-router";
-import { allKeyed, useQuery } from "@raf-query/react";
+import { getData, load, prefetch, swr, useQuery } from "@raf-query/react";
+import { use } from "react";
 import { z } from "zod";
 import type { FunctionReturnType } from "convex/server";
 import { convexQuery } from "@workspace/convex-query";
@@ -33,7 +34,7 @@ import { babyPageRobotsHeaders, searchRobotsMeta } from "@/lib/robots";
 import { useI18n } from "@/lib/i18n";
 import { BABY_FEED_HASH } from "@isbabyoutyet/backend/src/babyFeedUrl";
 import { useHashScroll } from "@/lib/use-hash-scroll";
-import { loadTimelineFeed } from "@/lib/timeline-feed";
+import { timelineInput, timelineQuery } from "@/lib/timeline-feed";
 import { useDemoToast } from "@/lib/use-demo-toast";
 import { isHomepageDemoPublicId } from "@isbabyoutyet/backend/src/seedCredentials";
 import {
@@ -59,13 +60,17 @@ export const Route = createFileRoute("/baby/$publicId")({
   component: BabyPageLayout,
   validateSearch: babySearchSchema,
   loaderDeps: (opts) => ({ item: opts.search.item ?? null }),
+  // The router preloads links in view, and some on this page lead back to
+  // it without `?item=` ("Jump to latest", overlays). Their loader would
+  // load the feed from the top, and start the feed on screen over under
+  // the reader. Loaders here run on navigation only.
+  preload: false,
 
   beforeLoad: async (opts) => {
-    const queryClient = opts.context.queryClient;
-    const babyHandle = await queryClient.ensure(convexQuery(api.baby.getByPublicId), {
-      id: opts.params.publicId,
+    const [, data] = await load(opts.context.queryClient, {
+      baby: swr(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId }),
     });
-    const babyDoc = babyHandle.data;
+    const babyDoc = data.baby;
     if (!babyDoc) {
       throw notFound();
     }
@@ -83,46 +88,35 @@ export const Route = createFileRoute("/baby/$publicId")({
   loader: async (opts) => {
     const queryClient = opts.context.queryClient;
     const publicId = opts.params.publicId;
-    const browserPush = queryClient.prefetch(browserPushCapabilityQuery, publicId);
     // `beforeLoad` already loaded the baby, so this starts with no wait.
-    const babyDoc = queryClient.getData(convexQuery(api.baby.getByPublicId), { id: publicId });
+    const babyDoc = getData(queryClient, convexQuery(api.baby.getByPublicId), { id: publicId });
     if (!babyDoc) {
       throw notFound();
     }
-    const visitorTag = queryClient.prefetch(visitorTagQuery, babyDoc._id);
-
-    const loaderData = await allKeyed({
-      baby: queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: publicId }),
-      latestUpdate: queryClient.ensure(convexQuery(api.timeline.latestUpdate), {
+    const [handles] = await load(queryClient, {
+      baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
+      // This device's state, which only the browser knows (`ssr: false`):
+      // the server returns its handle unstarted, and the browser runs it.
+      browserPush: prefetch(browserPushCapabilityQuery, publicId),
+      latestUpdate: swr(convexQuery(api.timeline.latestUpdate), { babyId: publicId }),
+      managerBaby: swr(convexQuery(api.baby.getManagerBaby), { babyId: publicId }),
+      me: swr(convexQuery(api.profile.get), {}),
+      myAccess: swr(convexQuery(api.coParents.myAccess), { babyId: publicId }),
+      onboarding: swr(convexQuery(api.onboarding.getMine), {}),
+      scheduledNotifications: swr(convexQuery(api.baby.getScheduledNotifications), {
         babyId: publicId,
       }),
-      me: queryClient.ensure(convexQuery(api.profile.get), {}),
-      managerBaby: queryClient.ensure(convexQuery(api.baby.getManagerBaby), { babyId: publicId }),
-      myAccess: queryClient.ensure(convexQuery(api.coParents.myAccess), { babyId: publicId }),
-      onboarding: queryClient.ensure(convexQuery(api.onboarding.getMine), {}),
-      scheduledNotifications: queryClient.ensure(convexQuery(api.baby.getScheduledNotifications), {
+      subscriptionCount: swr(convexQuery(api.pushSubscriptions.getSubscriptionCount), {
         babyId: publicId,
       }),
-      subscriptionCount: queryClient.ensure(
-        convexQuery(api.pushSubscriptions.getSubscriptionCount),
-        {
-          babyId: publicId,
-        },
-      ),
-      timeline: loadTimelineFeed(queryClient, {
-        followedFrom: opts.location.state.timelineFeed,
-        item: opts.deps.item,
-        publicId,
-      }),
-      vapidPublicKey: queryClient.ensure(convexQuery(api.pushSubscriptions.getPublicKey), {}),
+      // The feed on screen stays while it has `?item=`, so following a
+      // timestamp only moves the highlight.
+      timeline: swr(timelineQuery, timelineInput({ from: opts.deps.item, publicId })),
+      vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
+      visitorTag: prefetch(visitorTagQuery, babyDoc._id),
     });
 
-    return {
-      babyDoc,
-      browserPush,
-      visitorTag,
-      ...loaderData,
-    };
+    return { babyDoc, ...handles };
   },
   head: (opts) => {
     const babyDoc = opts.loaderData?.babyDoc;
@@ -281,23 +275,32 @@ function BabyPageLayout() {
     !!matchRoute({ to: "/baby/$publicId/photo" }) ||
     !!matchRoute({ to: "/baby/$publicId/updates/$updateId/photo" });
   const loaderData = Route.useLoaderData();
+  const loaderDeps = Route.useLoaderDeps();
   if (!loaderData) {
     throw notFound();
   }
 
-  const [babyDoc] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
+  const [babyDocThenable] = useQuery(convexQuery(api.baby.getByPublicId), loaderData.baby);
+  const babyDoc = use(babyDocThenable);
   if (!babyDoc) {
     throw notFound();
   }
   const baby = docToBabyData(babyDoc);
 
-  const [latestUpdate] = useQuery(convexQuery(api.timeline.latestUpdate), loaderData.latestUpdate);
-  const [me] = useQuery(convexQuery(api.profile.get), loaderData.me);
-  const [managerBabyResult] = useQuery(
+  const [latestUpdateThenable] = useQuery(
+    convexQuery(api.timeline.latestUpdate),
+    loaderData.latestUpdate,
+  );
+  const latestUpdate = use(latestUpdateThenable);
+  const [meThenable] = useQuery(convexQuery(api.profile.get), loaderData.me);
+  const me = use(meThenable);
+  const [managerBabyResultThenable] = useQuery(
     convexQuery(api.baby.getManagerBaby),
     loaderData.managerBaby,
   );
-  const [myAccess] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
+  const managerBabyResult = use(managerBabyResultThenable);
+  const [myAccessThenable] = useQuery(convexQuery(api.coParents.myAccess), loaderData.myAccess);
+  const myAccess = use(myAccessThenable);
 
   const completeOnboardingStep = useCompleteOnboardingStep();
   const share = useBabyShareOverlayLinks(params.publicId);
@@ -447,9 +450,10 @@ function BabyPageLayout() {
               <TimelineFeed
                 baby={baby}
                 babyName={baby.name}
-                feed={loaderData.timeline}
+                highlightedItemId={loaderDeps.item}
                 isOwner={canManage}
                 publicId={babyDoc.publicId}
+                timeline={loaderData.timeline}
                 visitorTag={loaderData.visitorTag}
               />
             </section>

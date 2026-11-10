@@ -1,13 +1,13 @@
-import { QueryClient } from "@raf-query/react";
-import { makeAsyncResource, makeResource } from "@isbabyoutyet/backend/convex/test.resource";
+import { createQueryClient, getData, removeAll } from "@raf-query/react";
+import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { expect, test, vi } from "vitest";
 import { browserImageQuery, prefetchBrowserImage } from "@/lib/image-prefetch";
 import { stubNoWindowResource } from "@/test/stubJsdomWindow";
 
 function queryClientResource(opts: { isServer: boolean } = { isServer: false }) {
-  const queryClient = new QueryClient({ isServer: opts.isServer });
-  return makeAsyncResource(queryClient, async () => {
-    await queryClient.dispose();
+  const queryClient = createQueryClient({ isServer: opts.isServer });
+  return makeResource(queryClient, () => {
+    removeAll(queryClient);
   });
 }
 
@@ -17,7 +17,7 @@ test("keeps a stable query key scoped by image URL", () => {
 });
 
 test("prefetches the image into the query cache in the browser", async () => {
-  await using queryClient = queryClientResource();
+  using queryClient = queryClientResource();
   const url = "https://cdn.example/full.jpg";
 
   const OriginalImage = globalThis.Image;
@@ -42,7 +42,7 @@ test("prefetches the image into the query cache in the browser", async () => {
   prefetchBrowserImage(queryClient, url);
 
   await vi.waitFor(() => {
-    expect(queryClient.getData(browserImageQuery, url)).toEqual({
+    expect(getData(queryClient, browserImageQuery, url)).toEqual({
       ok: true,
       url,
     });
@@ -51,7 +51,7 @@ test("prefetches the image into the query cache in the browser", async () => {
 
 test("does not construct Image while prefetching on the server", async () => {
   using _window = stubNoWindowResource();
-  await using queryClient = queryClientResource({ isServer: true });
+  using queryClient = queryClientResource({ isServer: true });
   const url = "https://cdn.example/full.jpg";
 
   const OriginalImage = globalThis.Image;
@@ -65,11 +65,11 @@ test("does not construct Image while prefetching on the server", async () => {
   await Promise.resolve();
 
   expect(ImageSpy).not.toHaveBeenCalled();
-  expect(queryClient.getData(browserImageQuery, url)).toBeUndefined();
+  expect(getData(queryClient, browserImageQuery, url)).toBeUndefined();
 });
 
 test("soft-fails when the image fails to load", async () => {
-  await using queryClient = queryClientResource();
+  using queryClient = queryClientResource();
   const url = "https://cdn.example/missing.jpg";
 
   const OriginalImage = globalThis.Image;
@@ -94,7 +94,7 @@ test("soft-fails when the image fails to load", async () => {
   prefetchBrowserImage(queryClient, url);
 
   await vi.waitFor(() => {
-    expect(queryClient.getData(browserImageQuery, url)).toEqual({
+    expect(getData(queryClient, browserImageQuery, url)).toEqual({
       ok: false,
       url,
     });

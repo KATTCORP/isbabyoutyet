@@ -1,24 +1,41 @@
-import type { InfiniteData } from "@raf-query/react";
-import { Query, QueryClient } from "@raf-query/react";
+import type { InfiniteData, QueryHandle } from "@raf-query/react";
+import {
+  createQueryClient,
+  fetchPreviousPage,
+  getData,
+  hasNextPage,
+  hasPreviousPage,
+  invalidateMany,
+  invalidateOne,
+  isFetching,
+  load,
+  revalidate,
+  swr,
+} from "@raf-query/react";
 import type { PaginationOptions, PaginationResult } from "convex/server";
 import { getFunctionName, makeFunctionReference } from "convex/server";
-import { Effect } from "effect";
-import { expect, expectTypeOf, onTestFinished, test } from "vitest";
+import { expect, expectTypeOf, test } from "vitest";
+import { convexLink } from "./link.ts";
 import type {
-  BidirectionalPageParam,
-  EnsuredConvexBidirectionalPaginatedQuery,
-  EnsuredConvexPaginatedQuery,
-  EnsuredConvexQuery,
+  ConvexPaginatedQueryHandle,
+  ConvexQueryHandle,
+  PageBefore,
+  PageDirection,
+  TwoWayPageParam,
 } from "./queries.ts";
-import {
-  convexBidirectionalPaginatedQuery,
-  convexPaginatedQuery,
-  convexQuery,
-  ensureBidirectionalPaginatedQuery,
-} from "./queries.ts";
+import { convexPaginatedQuery, convexQuery } from "./queries.ts";
 import type { ConvexWatchClient } from "./reader.ts";
 import { ConvexReader } from "./reader.ts";
 import { makeTestConvexClient } from "./testing.ts";
+
+/** A browser client reading through `client`, without gc timers. */
+function makeQueryClient(client: ConvexWatchClient) {
+  return createQueryClient({
+    gcTime: Infinity,
+    isServer: false,
+    links: [convexLink(ConvexReader.subscribing(client))],
+  });
+}
 
 const getMessage = makeFunctionReference<"query", { id: string }, string | null>("messages:get");
 const listMessages = makeFunctionReference<
@@ -26,11 +43,21 @@ const listMessages = makeFunctionReference<
   { paginationOpts: PaginationOptions; room: string },
   PaginationResult<string>
 >("messages:list");
-const listNewerMessages = makeFunctionReference<
+/**
+ * A room's messages read both ways, opened at `from` or at the top. In room
+ * "lobby" two newer messages sit above every start; in room "quiet" none.
+ */
+const listFeed = makeFunctionReference<
   "query",
-  { paginationOpts: PaginationOptions; room: string },
-  PaginationResult<string> & { newer: true }
->("messages:listNewer");
+  {
+    direction: PageDirection;
+    from: string | null;
+    paginationOpts: PaginationOptions;
+    room: string;
+  },
+  PaginationResult<{ _id: string }> & { before: PageBefore | null }
+>("messages:feed");
+const messageFeed = convexPaginatedQuery(listFeed);
 
 function setup() {
   const reads: Array<string> = [];
@@ -40,13 +67,22 @@ function setup() {
     if (getFunctionName(query) === "messages:list") {
       return { continueCursor: "", isDone: true, page: [`${args.room}:hello`] };
     }
-    if (getFunctionName(query) === "messages:listNewer") {
+    if (getFunctionName(query) === "messages:feed" && args.direction === "forward") {
+      const start = args.from ?? "top";
+      return {
+        before: { count: args.room === "quiet" ? 0 : 2, more: false },
+        continueCursor: "",
+        isDone: true,
+        page: [{ _id: `${args.room}:${start}` }, { _id: `${args.room}:older` }],
+      };
+    }
+    if (getFunctionName(query) === "messages:feed") {
       const first = args.paginationOpts.cursor === null;
       return {
+        before: { count: first ? 1 : 0, more: false },
         continueCursor: "newer-1",
         isDone: !first,
-        newer: true,
-        page: [first ? `${args.room}:newer-1` : `${args.room}:newer-2`],
+        page: [{ _id: first ? `${args.room}:newer-1` : `${args.room}:newer-2` }],
       };
     }
     return args.id === "a" ? "hello" : null;
@@ -56,287 +92,216 @@ function setup() {
   const client: ConvexWatchClient = {
     watchQuery: (query, args) => {
       if ("paginationOpts" in args) {
-        pageReads.push(`${getFunctionName(query)} ${args.paginationOpts.cursor ?? "null"}`);
+        const direction = "direction" in args ? ` ${String(args.direction)}` : "";
+        pageReads.push(
+          `${getFunctionName(query)}${direction} ${args.paginationOpts.cursor ?? "null"}`,
+        );
       }
       return backend.client.watchQuery(query, args);
     },
   };
-  const queryClient = new QueryClient({
-    isServer: false,
-    layer: ConvexReader.layerWatch(client),
-  });
-  onTestFinished(() => queryClient.dispose());
-  return { pageReads, queryClient, reads };
+  return { pageReads, queryClient: makeQueryClient(client), reads };
 }
 
 test("inline factories infer from the query and share one entry per query and args", async () => {
   const ctx = setup();
   const queryClient = ctx.queryClient;
 
-  const handle = await queryClient.ensure(convexQuery(getMessage), { id: "a" });
+  const [handles, data] = await load(queryClient, {
+    message: swr(convexQuery(getMessage), { id: "a" }),
+  });
 
-  expectTypeOf(handle).toEqualTypeOf<EnsuredConvexQuery<typeof getMessage>>();
-  expect(handle).toMatchObject({ data: "hello", input: { id: "a" } });
-  expectTypeOf(queryClient.getData(convexQuery(getMessage), { id: "a" })).toEqualTypeOf<
+  expectTypeOf(handles.message).toEqualTypeOf<ConvexQueryHandle<typeof getMessage>>();
+  expect(handles.message).toEqual({
+    input: { id: "a" },
+    queryKey: ["convexQuery", "messages:get", { id: "a" }],
+  });
+  expectTypeOf(data.message).toEqualTypeOf<string | null>();
+  expect(data.message).toBe("hello");
+  expectTypeOf(getData(queryClient, convexQuery(getMessage), { id: "a" })).toEqualTypeOf<
     string | null | undefined
   >();
-  expect(queryClient.getData(convexQuery(getMessage), { id: "a" })).toBe("hello");
-  await queryClient.ensure(convexQuery(getMessage), { id: "a" });
+  expect(convexQuery(getMessage)).toBe(convexQuery(getMessage));
+  await load(queryClient, { message: swr(convexQuery(getMessage), { id: "a" }) });
   expect(ctx.reads).toEqual(["messages:get"]);
 
   // @ts-expect-error — the input is the query's args
-  await queryClient.ensure(convexQuery(getMessage), { nope: "a" }).catch(() => null);
+  swr(convexQuery(getMessage), { nope: "a" });
+});
+
+test("a factory target reaches entries other calls of the factory created", async () => {
+  const ctx = setup();
+  await load(ctx.queryClient, { message: swr(convexQuery(getMessage), { id: "a" }) });
+
+  await invalidateMany(ctx.queryClient, convexQuery(getMessage));
+  const reloading = load(ctx.queryClient, {
+    message: revalidate(convexQuery(getMessage), { id: "a" }),
+  });
+
+  expect(isFetching(ctx.queryClient, convexQuery(getMessage))).toBe(1);
+  await reloading;
+});
+
+test("a client without the reader link fails its Convex queries with a hint", async () => {
+  const queryClient = createQueryClient({ gcTime: Infinity, isServer: false });
+
+  await expect(
+    load(queryClient, { message: swr(convexQuery(getMessage), { id: "a" }) }),
+  ).rejects.toThrow("create its QueryClient with the convexLink link");
 });
 
 test("inline paginated factories infer pages and take the args without paginationOpts", async () => {
   const ctx = setup();
   const queryClient = ctx.queryClient;
 
-  const handle = await queryClient.ensure(convexPaginatedQuery(listMessages), {
-    args: { room: "lobby" },
-    numItems: 10,
+  const [handles, loaded] = await load(queryClient, {
+    list: swr(convexPaginatedQuery(listMessages), { args: { room: "lobby" }, numItems: 10 }),
   });
 
-  expectTypeOf(handle).toEqualTypeOf<EnsuredConvexPaginatedQuery<typeof listMessages>>();
-  const data = queryClient.getData(convexPaginatedQuery(listMessages), {
-    args: { room: "lobby" },
-    numItems: 10,
-  });
-  expectTypeOf(data).toEqualTypeOf<
-    InfiniteData<{ page: PaginationResult<string>; pageParam: PaginationOptions }> | undefined
+  expectTypeOf(handles.list).toEqualTypeOf<ConvexPaginatedQueryHandle<typeof listMessages>>();
+  expectTypeOf(loaded.list).toEqualTypeOf<
+    InfiniteData<PaginationResult<string>, PaginationOptions>
   >();
-  expect(data?.pages.flatMap((page) => page.page)).toEqual(["lobby:hello"]);
+  expect(loaded.list.pages.flatMap((page) => page.page)).toEqual(["lobby:hello"]);
 
-  await queryClient.ensure(
-    convexPaginatedQuery(listMessages),
-    { args: { room: "lobby" }, numItems: 10 },
-    { pages: 2 },
-  );
+  await load(queryClient, {
+    list: swr(
+      convexPaginatedQuery(listMessages),
+      { args: { room: "lobby" }, numItems: 10 },
+      { pages: 2 },
+    ),
+  });
 });
 
-test("two-way factories load backward pages only on fetchPreviousPage, prepending them", async () => {
+/** A feed's pages, as their item ids. */
+function feedIds(
+  data: { pages: ReadonlyArray<{ page: ReadonlyArray<{ _id: string }> }> } | undefined,
+) {
+  return data?.pages.map((page) => page.page.map((item) => item._id));
+}
+
+test("two-way factories load pages before the first only on fetchPreviousPage, prepending them", async () => {
   const ctx = setup();
   const queryClient = ctx.queryClient;
-  const around = convexBidirectionalPaginatedQuery({
-    backward: listNewerMessages,
-    forward: listMessages,
-  });
-  const input = { args: { room: "lobby" }, numItems: 10 };
+  const input = { args: { room: "lobby" }, from: null, numItems: 10 };
 
-  const handle = await queryClient.ensure(around, input);
-  expectTypeOf(handle).toEqualTypeOf<
-    EnsuredConvexBidirectionalPaginatedQuery<typeof listMessages, typeof listNewerMessages>
-  >();
-  expect(ctx.reads).toEqual(["messages:list"]);
-  const query = queryClient.getQuery(around, input);
-  expect(Query.hasPreviousPageUnsafe(query)).toBe(true);
-  expect(Query.hasNextPageUnsafe(query)).toBe(false);
+  const [handles] = await load(queryClient, { feed: swr(messageFeed, input) });
+  expectTypeOf(handles.feed).toEqualTypeOf<ConvexPaginatedQueryHandle<typeof listFeed>>();
+  expectTypeOf(handles.feed).toExtend<QueryHandle>();
+  // Where it starts isn't part of its key.
+  expect(handles.feed.queryKey).toEqual([
+    "convexPaginatedQuery",
+    "messages:feed",
+    { room: "lobby" },
+    10,
+  ]);
+  expect(ctx.pageReads).toEqual(["messages:feed forward null"]);
+  expect(hasPreviousPage(queryClient, messageFeed, input)).toBe(true);
+  expect(hasNextPage(queryClient, messageFeed, input)).toBe(false);
 
-  await Effect.runPromise(Query.fetchPreviousPage(query));
-  await Effect.runPromise(Query.fetchPreviousPage(query));
-  expect(ctx.reads).toEqual(["messages:list", "messages:listNewer", "messages:listNewer"]);
-  const data = queryClient.getData(around, input);
-  expectTypeOf(data?.pageParams).toEqualTypeOf<ReadonlyArray<BidirectionalPageParam> | undefined>();
-  expect(data?.pages.map((page) => page.page)).toEqual([
+  await fetchPreviousPage(queryClient, messageFeed, input);
+  expect(hasPreviousPage(queryClient, messageFeed, input)).toBe(true);
+  await fetchPreviousPage(queryClient, messageFeed, input);
+  expect(ctx.pageReads).toEqual([
+    "messages:feed forward null",
+    "messages:feed backward null",
+    "messages:feed backward newer-1",
+  ]);
+  const data = getData(queryClient, messageFeed, input);
+  expectTypeOf(data?.pageParams).toEqualTypeOf<ReadonlyArray<TwoWayPageParam> | undefined>();
+  expect(feedIds(data)).toEqual([
     ["lobby:newer-2"],
     ["lobby:newer-1"],
-    ["lobby:hello"],
+    ["lobby:top", "lobby:older"],
   ]);
-  const first = { cursor: null, direction: "forward", next: null, numItems: 10 } as const;
-  const newer = { cursor: null, direction: "backward", next: first, numItems: 10 } as const;
+  const first = {
+    cursor: null,
+    direction: "forward",
+    from: null,
+    next: null,
+    numItems: 10,
+  } as const;
+  const newer = {
+    cursor: null,
+    direction: "backward",
+    from: null,
+    next: first,
+    numItems: 10,
+  } as const;
   expect(data?.pageParams).toEqual([
-    { cursor: "newer-1", direction: "backward", next: newer, numItems: 10 },
+    { cursor: "newer-1", direction: "backward", from: null, next: newer, numItems: 10 },
     newer,
     first,
   ]);
-  expect(Query.hasPreviousPageUnsafe(query)).toBe(false);
+  // The top page says nothing is before it.
+  expect(hasPreviousPage(queryClient, messageFeed, input)).toBe(false);
 });
 
-/** A two-way backend over real cursors: `older` from the start, `newer` nearest first. */
-function setupAround() {
-  const older = ["a", "b", "c"];
-  const newer = ["n1", "n2", "n3", "n4", "n5"];
-  const events: Array<string> = [];
-  const paginate = (items: ReadonlyArray<string>, opts: PaginationOptions) => {
-    const start = opts.cursor === null ? 0 : items.indexOf(opts.cursor) + 1;
-    const page = items.slice(start, start + opts.numItems);
-    return {
-      continueCursor: page.at(-1) ?? "",
-      isDone: start + opts.numItems >= items.length,
-      page,
-    };
-  };
-  const backend = makeTestConvexClient(async (query, args) => {
-    const read = `${getFunctionName(query)} ${args.paginationOpts.cursor ?? "null"}/${args.paginationOpts.numItems}`;
-    events.push(`start ${read}`);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    events.push(`end ${read}`);
-    return getFunctionName(query) === "messages:list"
-      ? paginate(older, args.paginationOpts)
-      : { ...paginate(newer, args.paginationOpts), newer: true };
-  });
-  // Every watch, including ones a live subscription answers without
-  // re-running the query.
-  const watches: Array<string> = [];
-  const client: ConvexWatchClient = {
-    watchQuery: (query, args) => {
-      if ("paginationOpts" in args) {
-        const opts = args.paginationOpts;
-        watches.push(`${getFunctionName(query)} ${opts.cursor ?? "null"}/${opts.numItems}`);
-      }
-      return backend.client.watchQuery(query, args);
-    },
-  };
-  const queryClient = new QueryClient({ isServer: false, layer: ConvexReader.layerWatch(client) });
-  onTestFinished(() => queryClient.dispose());
-  const queries = { backward: listNewerMessages, forward: listMessages };
-  return {
-    around: convexBidirectionalPaginatedQuery(queries),
-    events,
-    input: { args: { room: "lobby" }, numItems: 3 },
-    newer,
-    queries,
-    queryClient,
-    watches,
-  };
-}
+test("a two-way query whose first page has nothing before it has no previous page", async () => {
+  const ctx = setup();
+  const input = { args: { room: "quiet" }, from: "m3", numItems: 10 };
 
-test("a two-way ensure reads a short first backward page alongside the first page", async () => {
-  const ctx = setupAround();
+  await load(ctx.queryClient, { feed: swr(messageFeed, input) });
 
-  const handle = await ensureBidirectionalPaginatedQuery(ctx.queryClient, {
-    input: ctx.input,
-    previousNumItems: 2,
-    queries: ctx.queries,
-  });
-
-  expectTypeOf(handle).toEqualTypeOf<
-    EnsuredConvexBidirectionalPaginatedQuery<typeof listMessages, typeof listNewerMessages>
-  >();
-  expect(ctx.events.slice(0, 2).toSorted()).toEqual([
-    "start messages:list null/3",
-    "start messages:listNewer null/2",
-  ]);
-  expect(handle.data.pages.map((page) => page.page)).toEqual([
-    ["n1", "n2"],
-    ["a", "b", "c"],
-  ]);
-  const first = { cursor: null, direction: "forward", next: null, numItems: 3 } as const;
-  const context = { cursor: null, direction: "backward", next: first, numItems: 2 } as const;
-  expect(handle.data.pageParams).toEqual([context, first]);
-
-  // Past the short page, backward pages are full again.
-  const query = ctx.queryClient.getQuery(ctx.around, ctx.input);
-  await Effect.runPromise(Query.fetchPreviousPage(query));
-  expect(ctx.events.at(-1)).toBe("end messages:listNewer n2/3");
-  expect(ctx.queryClient.getData(ctx.around, ctx.input)?.pageParams[0]).toEqual({
-    cursor: "n2",
-    direction: "backward",
-    next: context,
-    numItems: 3,
-  });
-  expect(Query.hasPreviousPageUnsafe(query)).toBe(false);
+  expect(hasPreviousPage(ctx.queryClient, messageFeed, input)).toBe(false);
+  await fetchPreviousPage(ctx.queryClient, messageFeed, input);
+  expect(ctx.pageReads).toEqual(["messages:feed forward null"]);
 });
 
-test("a two-way ensure keeps the backward pages an entry already has", async () => {
-  const ctx = setupAround();
-  const opts = { input: ctx.input, previousNumItems: 2, queries: ctx.queries };
-  await ensureBidirectionalPaginatedQuery(ctx.queryClient, opts);
-  await Effect.runPromise(Query.fetchPreviousPage(ctx.queryClient.getQuery(ctx.around, ctx.input)));
-  ctx.events.length = 0;
-
-  const handle = await ensureBidirectionalPaginatedQuery(ctx.queryClient, opts);
-
-  expect(ctx.events).toEqual([]);
-  expect(handle.data.pages.map((page) => page.page)).toEqual([
-    ["n3", "n4", "n5"],
-    ["n1", "n2"],
-    ["a", "b", "c"],
-  ]);
-});
-
-test("two concurrent two-way ensures seed the short backward page once", async () => {
-  const ctx = setupAround();
-  const opts = { input: ctx.input, previousNumItems: 2, queries: ctx.queries };
-
-  const handles = await Promise.all([
-    ensureBidirectionalPaginatedQuery(ctx.queryClient, opts),
-    ensureBidirectionalPaginatedQuery(ctx.queryClient, opts),
-  ]);
-
-  for (const handle of handles) {
-    expect(handle.data.pages.map((page) => page.page)).toEqual([
-      ["n1", "n2"],
-      ["a", "b", "c"],
-    ]);
-  }
-  expect(ctx.queryClient.getData(ctx.around, ctx.input)?.pageParams).toHaveLength(2);
-});
-
-test("a two-way ensure with nothing before the start has no previous page", async () => {
-  const ctx = setupAround();
-  ctx.newer.length = 0;
-
-  const handle = await ensureBidirectionalPaginatedQuery(ctx.queryClient, {
-    input: ctx.input,
-    previousNumItems: 2,
-    queries: ctx.queries,
-  });
-
-  expect(handle.data.pages.map((page) => page.page)).toEqual([[], ["a", "b", "c"]]);
-  expect(Query.hasPreviousPageUnsafe(ctx.queryClient.getQuery(ctx.around, ctx.input))).toBe(false);
-});
-
-test("a two-way refetch retraces a short first backward page at its own size", async () => {
-  const ctx = setupAround();
-  await ensureBidirectionalPaginatedQuery(ctx.queryClient, {
-    input: ctx.input,
-    previousNumItems: 2,
-    queries: ctx.queries,
-  });
-  await Effect.runPromise(Query.fetchPreviousPage(ctx.queryClient.getQuery(ctx.around, ctx.input)));
-  ctx.watches.length = 0;
-
-  await ctx.queryClient.invalidate(ctx.around, ctx.input);
-  await ctx.queryClient.fetch(ctx.around, ctx.input);
-
-  expect(ctx.watches).toEqual([
-    "messages:listNewer n2/3",
-    "messages:listNewer null/2",
-    "messages:list null/3",
-  ]);
-  expect(ctx.queryClient.getData(ctx.around, ctx.input)?.pages.map((page) => page.page)).toEqual([
-    ["n3", "n4", "n5"],
-    ["n1", "n2"],
-    ["a", "b", "c"],
-  ]);
-});
-
-test("a two-way refetch retraces backward pages with the backward query, then forward", async () => {
+test("a two-way refetch retraces backward pages backward, then forward, from its start", async () => {
   const ctx = setup();
   const queryClient = ctx.queryClient;
-  const around = convexBidirectionalPaginatedQuery({
-    backward: listNewerMessages,
-    forward: listMessages,
-  });
-  const input = { args: { room: "lobby" }, numItems: 10 };
-  await queryClient.ensure(around, input);
-  const query = queryClient.getQuery(around, input);
-  await Effect.runPromise(Query.fetchPreviousPage(query));
-  await Effect.runPromise(Query.fetchPreviousPage(query));
+  const input = { args: { room: "lobby" }, from: "m7", numItems: 10 };
+  await load(queryClient, { feed: swr(messageFeed, input) });
+  await fetchPreviousPage(queryClient, messageFeed, input);
+  await fetchPreviousPage(queryClient, messageFeed, input);
   ctx.pageReads.length = 0;
 
-  await queryClient.invalidate(around, input);
-  await queryClient.fetch(around, input);
+  // Read through another start it shows: the entry keeps its own.
+  const other = { ...input, from: "lobby:older" };
+  await invalidateOne(queryClient, messageFeed, other);
+  await load(queryClient, { feed: revalidate(messageFeed, other) });
 
   expect(ctx.pageReads).toEqual([
-    "messages:listNewer newer-1",
-    "messages:listNewer null",
-    "messages:list null",
+    "messages:feed backward newer-1",
+    "messages:feed backward null",
+    "messages:feed forward null",
   ]);
-  expect(queryClient.getData(around, input)?.pages.map((page) => page.page)).toEqual([
+  expect(feedIds(getData(queryClient, messageFeed, input))).toEqual([
     ["lobby:newer-2"],
     ["lobby:newer-1"],
-    ["lobby:hello"],
+    ["lobby:m7", "lobby:older"],
   ]);
+});
+
+test("a load keeps a feed that shows the item, and starts it over at one it doesn't", async () => {
+  const ctx = setup();
+  const queryClient = ctx.queryClient;
+  const at = (from: string | null) => ({ args: { room: "lobby" }, from, numItems: 10 });
+  await load(queryClient, { feed: swr(messageFeed, at(null)) });
+  ctx.reads.length = 0;
+
+  // An item it shows, and back to where it started: nothing to read.
+  await load(queryClient, { feed: swr(messageFeed, at("lobby:older")) });
+  await load(queryClient, { feed: swr(messageFeed, at(null)) });
+  expect(ctx.reads).toEqual([]);
+
+  // An item it doesn't show starts it over there.
+  const [, linked] = await load(queryClient, {
+    feed: swr(messageFeed, at("m3")),
+  });
+  expect(ctx.reads).toEqual(["messages:feed"]);
+  expect(feedIds(linked.feed)).toEqual([["lobby:m3", "lobby:older"]]);
+  expect(linked.feed.pageParams[0]?.from).toBe("m3");
+
+  // The same link again, even one whose item isn't there, keeps it.
+  await load(queryClient, { feed: swr(messageFeed, at("m3")) });
+  expect(ctx.reads).toEqual(["messages:feed"]);
+
+  // The top, from a feed that starts at an item, starts over at the top.
+  const [, top] = await load(queryClient, {
+    feed: swr(messageFeed, at(null)),
+  });
+  expect(top.feed.pageParams[0]?.from).toBeNull();
+  expect(feedIds(top.feed)).toEqual([["lobby:top", "lobby:older"]]);
 });

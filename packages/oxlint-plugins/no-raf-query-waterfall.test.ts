@@ -12,34 +12,34 @@ const tester = new RuleTester({
 tester.run("no-raf-query-waterfall", noRafQueryWaterfall, {
   valid: [
     `import { useQuery } from "@raf-query/react";`,
-    `import { useWaterfall } from "./local";
-     useWaterfall(postQuery, { id });`,
+    `import { waterfallHandle } from "./local";
+     waterfallHandle(postQuery, { id });`,
     `import * as raf from "@raf-query/react";
      raf.useQuery(postQuery, handle);`,
     `export { useQuery } from "@raf-query/react";`,
   ],
   invalid: [
     {
-      code: `import { useWaterfall } from "@raf-query/react";`,
+      code: `import { waterfallHandle } from "@raf-query/react";`,
       errors: [{ messageId: "banned" }],
     },
     {
-      code: `import { useQuery, useWaterfall } from "@raf-query/react";
-     const handle = useWaterfall(postQuery, { id });`,
+      code: `import { useQuery, waterfallHandle } from "@raf-query/react";
+     const handle = waterfallHandle(postQuery, { id });`,
       errors: [{ messageId: "banned" }, { messageId: "banned" }],
     },
     {
-      code: `import { useWaterfall as startQuery } from "@raf-query/react";
+      code: `import { waterfallHandle as startQuery } from "@raf-query/react";
      startQuery(postQuery, { id });`,
       errors: [{ messageId: "banned" }, { messageId: "banned" }],
     },
     {
       code: `import * as raf from "@raf-query/react";
-     raf.useWaterfall(postQuery, { id });`,
+     raf.waterfallHandle(postQuery, { id });`,
       errors: [{ messageId: "banned" }],
     },
     {
-      code: `export { useWaterfall } from "@raf-query/react";`,
+      code: `export { waterfallHandle } from "@raf-query/react";`,
       errors: [{ messageId: "banned" }],
     },
   ],

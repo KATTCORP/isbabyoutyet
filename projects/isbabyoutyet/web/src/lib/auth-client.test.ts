@@ -1,3 +1,4 @@
+import { getData, setData } from "@raf-query/react";
 import type { AuthTokenFetcher } from "convex/browser";
 import { ConvexReactClient } from "convex/react";
 import { getFunctionName } from "convex/server";
@@ -67,7 +68,7 @@ function profileBackendResource(initial: typeof signedInProfile | null) {
     }
     throw new Error(`unexpected query ${getFunctionName(query)}`);
   });
-  stub.queryClient.setData(convexQuery(api.baby.listByUser), {}, []);
+  setData(stub.queryClient, convexQuery(api.baby.listByUser), {}, []);
   return Object.assign(stub, { serverProfile });
 }
 
@@ -80,8 +81,8 @@ test("waitForMe watches me itself and drops the rest of the cache when present",
     queryClient: clients.queryClient,
   });
 
-  expect(clients.queryClient.getData(convexQuery(api.profile.get), {})).toEqual(signedInProfile);
-  expect(clients.queryClient.getData(convexQuery(api.baby.listByUser), {})).toBeUndefined();
+  expect(getData(clients.queryClient, convexQuery(api.profile.get), {})).toEqual(signedInProfile);
+  expect(getData(clients.queryClient, convexQuery(api.baby.listByUser), {})).toBeUndefined();
 });
 
 test("waitForMe keeps me and drops the rest of the cache when absent", async () => {
@@ -93,8 +94,8 @@ test("waitForMe keeps me and drops the rest of the cache when absent", async () 
     queryClient: clients.queryClient,
   });
 
-  expect(clients.queryClient.getData(convexQuery(api.profile.get), {})).toBeNull();
-  expect(clients.queryClient.getData(convexQuery(api.baby.listByUser), {})).toBeUndefined();
+  expect(getData(clients.queryClient, convexQuery(api.profile.get), {})).toBeNull();
+  expect(getData(clients.queryClient, convexQuery(api.baby.listByUser), {})).toBeUndefined();
 });
 
 test("waitForMe waits until Convex answers with the new identity", async () => {
@@ -113,14 +114,14 @@ test("waitForMe waits until Convex answers with the new identity", async () => {
   });
   await clients.backend.refresh();
   expect(settled).toBe(false);
-  expect(clients.queryClient.getData(convexQuery(api.baby.listByUser), {})).toEqual([]);
+  expect(getData(clients.queryClient, convexQuery(api.baby.listByUser), {})).toEqual([]);
 
   clients.serverProfile.current = signedInProfile;
   await clients.backend.refresh();
   await waiting;
 
-  expect(clients.queryClient.getData(convexQuery(api.profile.get), {})).toEqual(signedInProfile);
-  expect(clients.queryClient.getData(convexQuery(api.baby.listByUser), {})).toBeUndefined();
+  expect(getData(clients.queryClient, convexQuery(api.profile.get), {})).toEqual(signedInProfile);
+  expect(getData(clients.queryClient, convexQuery(api.baby.listByUser), {})).toBeUndefined();
 });
 
 test("setClientToken hands the inline JWT to Convex without a token round trip", async () => {

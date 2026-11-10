@@ -31,8 +31,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils";
 import { useMutation } from "convex/react";
 import type { QueryHandle } from "@raf-query/react";
-import { useQuery } from "@raf-query/react";
-import { convexPaginatedQuery, convexQuery } from "@workspace/convex-query";
+import { useInfiniteQuery, useQuery } from "@raf-query/react";
 import {
   ArrowUpIcon,
   BellRingingIcon,
@@ -52,7 +51,7 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
-import { Fragment, useId, useRef } from "react";
+import { Fragment, use, useId, useRef } from "react";
 import type { DragEvent, ReactElement, ReactNode } from "react";
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/react";
 import { Streamdown } from "streamdown";
@@ -89,8 +88,7 @@ import { useObjectUrl } from "@/lib/use-object-url";
 import { useBabyUpdatePhotoOverlayLinks } from "@/lib/overlay-nav";
 import { BlurImage } from "@/components/blur-image";
 import { keepScrollAnchor } from "@/lib/keep-scroll-anchor";
-import type { TimelineFeedAnchor, TimelineFeedLoad } from "@/lib/timeline-feed";
-import { followedFromFeed, linkedTimelineQuery, TIMELINE_PAGE_SIZE } from "@/lib/timeline-feed";
+import { TIMELINE_PAGE_SIZE, timelineQuery } from "@/lib/timeline-feed";
 import { BABY_FEED_HASH, feedItemDomId } from "@isbabyoutyet/backend/src/babyFeedUrl";
 import { MILESTONE_LABEL_KEYS } from "./translation-keys";
 
@@ -104,7 +102,7 @@ const TIMELINE_ITEM_TRANSITION = { damping: 32, stiffness: 420, type: "spring" }
 /** Start the next page about half a phone screen before the skeleton scrolls in. */
 const TIMELINE_PRELOAD_MARGIN = "0px 0px 400px 0px";
 
-type TimelineItemData = FunctionReturnType<typeof api.timeline.listByBaby>["page"][number];
+type TimelineItemData = FunctionReturnType<typeof api.timeline.listFeed>["page"][number];
 type UpdateItemData = Extract<TimelineItemData, { kind: "update" }>;
 type EncouragementItemData = Extract<TimelineItemData, { kind: "encouragement" }>;
 
@@ -774,7 +772,6 @@ function MilestoneWhenField(props: { composer: ComposerState; milestone: Milesto
 type UpdateTimelineItemProps = {
   baby: BabyData;
   babyName: string;
-  feedAnchor: TimelineFeedAnchor;
   isOwner: boolean;
   item: UpdateItemData;
   onDelete: (updateId: Id<"updates">) => Promise<void>;
@@ -804,12 +801,11 @@ const emptyActionSchema = z.object({});
  * and the browser's own "Copy link" works, that opens the feed at the item.
  * Never preloaded: the router preloads links in view, and every row has one.
  *
- * Clicked in the app, the item is already on screen: the history state names
- * this feed so the loader keeps it, and the item scrolls to where a cold load
- * of the same URL puts it, without resetting the page to the top first.
+ * Clicked in the app, the item is already on screen, so the loader keeps
+ * the feed (its `keepPages`), and the item scrolls to where a cold load of the
+ * same URL puts it, without resetting the page to the top first.
  */
 function TimelineItemPermalink(props: {
-  feedAnchor: TimelineFeedAnchor;
   itemId: Id<"timelineItems">;
   kind: TimelineItemData["kind"];
   postedAt: number;
@@ -833,7 +829,6 @@ function TimelineItemPermalink(props: {
       preload={false}
       resetScroll={false}
       search={{ item: props.itemId }}
-      state={followedFromFeed(props.feedAnchor)}
       title={props.title}
       to="/baby/$publicId"
     >
@@ -1074,7 +1069,6 @@ function UpdateTimelineItem(props: UpdateTimelineItemProps) {
               </Badge>
             )}
             <TimelineItemPermalink
-              feedAnchor={props.feedAnchor}
               itemId={props.item._id}
               kind="update"
               postedAt={props.item.postedAt}
@@ -1198,7 +1192,6 @@ function TimelinePhoto(props: TimelinePhotoProps) {
 type EncouragementTimelineItemProps = {
   currentVisitorId: string;
   currentVisitorTag: string | null;
-  feedAnchor: TimelineFeedAnchor;
   isOwner: boolean;
   item: EncouragementItemData;
   onDelete: (id: Id<"encouragements">, visitorId: string | undefined) => Promise<void>;
@@ -1305,7 +1298,6 @@ function EncouragementTimelineItem(props: EncouragementTimelineItemProps) {
             </span>
             <span className="font-medium text-foreground truncate">{encouragement.authorName}</span>
             <TimelineItemPermalink
-              feedAnchor={props.feedAnchor}
               itemId={props.item._id}
               kind="encouragement"
               postedAt={encouragement.createdAt}
@@ -1368,19 +1360,18 @@ function EncouragementTimelineItem(props: EncouragementTimelineItemProps) {
 
 // --- Feed ---
 
-type LatestTimelineFeedLoad = Extract<TimelineFeedLoad, { kind: "latest" }>;
-type LinkedTimelineFeedLoad = Extract<TimelineFeedLoad, { kind: "linked" }>;
-
 type TimelineFeedProps = {
   baby: BabyData;
   babyName: string;
-  /**
-   * Prefetched by the route loader (SSR first page): the latest items, or
-   * the window around the item a link names.
-   */
-  feed: TimelineFeedLoad;
+  /** The item the URL names (`?item=`), wherever the feed starts. */
+  highlightedItemId: string | null;
   isOwner: boolean;
   publicId: string;
+  /**
+   * Prefetched by the route loader (SSR first page): the latest items, or
+   * the feed from the item a link names.
+   */
+  timeline: QueryHandle<typeof timelineQuery>;
   /** This browser's {@link visitorTagQuery}, started by the route loader. */
   visitorTag: QueryHandle<typeof visitorTagQuery>;
 };
@@ -1398,20 +1389,15 @@ type UpdateEncouragementFn = (
   args: FunctionArgs<typeof api.encouragements.update>,
 ) => Promise<FunctionReturnType<typeof api.encouragements.update>>;
 
-/** Hooks into Convex, then delegates to the pure `TimelineFeedView`. */
+/**
+ * The feed from the newest item, or from a linked one with the few items
+ * right above it for context. Older items load as the skeleton scrolls in;
+ * the other newer ones only on "Show more", so nothing above the item moves
+ * it. Live items newer than everything loaded only raise the divider's
+ * count, until the reader has caught up. Hooks into Convex, then delegates
+ * to the pure `TimelineFeedView`.
+ */
 export function TimelineFeed(props: TimelineFeedProps) {
-  const feed = props.feed;
-  // Keyed so following another link starts a fresh feed, live-insert
-  // baseline included.
-  return feed.kind === "linked" ? (
-    <LinkedTimelineFeed {...props} feed={feed} key={feed.itemId} />
-  ) : (
-    <LatestTimelineFeed {...props} feed={feed} key="latest" />
-  );
-}
-
-/** The view props both feeds share: who's looking, and what they can do. */
-function useTimelineFeedViewBase(props: TimelineFeedProps) {
   const currentVisitorId = useStoredVisitorId();
   // Pending on the server and until the browser hashes its visitor id; read
   // the status instead of `use` so the feed never suspends on it.
@@ -1420,86 +1406,53 @@ function useTimelineFeedViewBase(props: TimelineFeedProps) {
   const setAsCurrentPhoto = useMutation(api.updates.setAsCurrentPhoto);
   const removeEncouragement = useMutation(api.encouragements.remove);
   const updateEncouragement = useMutation(api.encouragements.update);
-  return {
-    baby: props.baby,
-    babyName: props.babyName,
-    currentVisitorId,
-    currentVisitorTag: visitorTag.status === "fulfilled" ? visitorTag.value : null,
-    isOwner: props.isOwner,
-    publicId: props.publicId,
-    removeEncouragement,
-    removeUpdate,
-    setAsCurrentPhoto,
-    updateEncouragement,
-  };
-}
-
-const LATEST_TIMELINE_FEED = { kind: "latest" } satisfies TimelineFeedAnchor;
-
-function LatestTimelineFeed(props: TimelineFeedProps & { feed: LatestTimelineFeedLoad }) {
-  const base = useTimelineFeedViewBase(props);
-  const [timeline, timelineQuery] = useQuery(
-    convexPaginatedQuery(api.timeline.listByBaby),
-    props.feed.timeline,
-  );
-  return (
-    <TimelineFeedView
-      {...base}
-      anchor={LATEST_TIMELINE_FEED}
-      fetchNextPage={timelineQuery.fetchNextPage}
-      hasNextPage={timelineQuery.hasNextPage}
-      highlightedItemId={props.feed.highlightedItemId}
-      isFetchingNextPage={timelineQuery.isFetchingNextPage}
-      items={timeline.pages.flatMap((page) => page.page)}
-      linkUnavailable={props.feed.linkUnavailable}
-      newer={null}
-    />
-  );
-}
-
-/**
- * The feed from a linked item down, with the few items right above it for
- * context. Older items load as the skeleton scrolls in, like the latest
- * feed; the other newer ones only on "Show more", so nothing above the item
- * moves it. Live items newer than everything loaded only raise the
- * divider's count, until the reader has caught up.
- */
-function LinkedTimelineFeed(props: TimelineFeedProps & { feed: LinkedTimelineFeedLoad }) {
-  const base = useTimelineFeedViewBase(props);
-  const [feedWindow, windowQuery] = useQuery(linkedTimelineQuery, props.feed.window);
-  const [newerCount] = useQuery(
-    convexQuery(api.timeline.countNewerThanItem),
-    props.feed.newerCount,
-  );
-  const isNewerPage = (index: number) => feedWindow.pageParams[index]?.direction === "backward";
+  const [timelineThenable, timelineState] = useInfiniteQuery(timelineQuery, props.timeline);
+  const timeline = use(timelineThenable);
+  const isNewerPage = (index: number) => timeline.pageParams[index]?.direction === "backward";
+  // Where the feed the page shows starts, whichever item the URL highlights.
+  const from = timeline.pageParams[0]?.from ?? null;
+  // The first page read forward, after any newer pages, says whether the
+  // linked item is there.
+  const linkUnavailable =
+    timeline.pages.find((_, index) => !isNewerPage(index))?.linkUnavailable ?? false;
   // Newer pages read up from the item; reversed, they read in feed order.
-  const items = feedWindow.pages.flatMap((page, index) =>
+  const items = timeline.pages.flatMap((page, index) =>
     isNewerPage(index) ? page.page.toReversed() : page.page,
   );
-  const newerShown = feedWindow.pages.flatMap((page, index) =>
-    isNewerPage(index) ? page.page : [],
-  ).length;
-  const newerHidden = Math.max(0, newerCount.count - newerShown);
+  // The top page says how many newer items are still above it.
+  const newer = timeline.pages[0]?.before ?? null;
   return (
     <TimelineFeedView
-      {...base}
-      anchor={{ itemId: props.feed.itemId, kind: "linked" }}
-      fetchNextPage={windowQuery.fetchNextPage}
-      hasNextPage={windowQuery.hasNextPage}
-      highlightedItemId={props.feed.highlightedItemId}
-      isFetchingNextPage={windowQuery.isFetchingNextPage}
+      baby={props.baby}
+      babyName={props.babyName}
+      currentVisitorId={currentVisitorId}
+      currentVisitorTag={visitorTag.status === "fulfilled" ? visitorTag.value : null}
+      fetchNextPage={timelineState.fetchNextPage}
+      hasNextPage={timelineState.hasNextPage}
+      highlightedItemId={linkUnavailable ? null : props.highlightedItemId}
+      isFetchingNextPage={timelineState.isFetchingNextPage}
+      isOwner={props.isOwner}
       items={items}
-      linkUnavailable={false}
+      // A feed started over at another item is a fresh feed, live-insert
+      // baseline included.
+      key={from ?? "latest"}
+      linkUnavailable={linkUnavailable}
       newer={
-        windowQuery.hasPreviousPage && newerHidden > 0
+        timelineState.hasPreviousPage && newer
           ? {
-              count: newerHidden,
-              isFetching: windowQuery.isFetchingPreviousPage,
-              more: newerCount.more,
-              show: windowQuery.fetchPreviousPage,
+              count: newer.count,
+              isFetching: timelineState.isFetchingPreviousPage,
+              more: newer.more,
+              show: timelineState.fetchPreviousPage,
             }
           : null
       }
+      publicId={props.publicId}
+      removeEncouragement={removeEncouragement}
+      removeUpdate={removeUpdate}
+      setAsCurrentPhoto={setAsCurrentPhoto}
+      startsAtItem={from !== null}
+      updateEncouragement={updateEncouragement}
     />
   );
 }
@@ -1515,8 +1468,6 @@ type NewerTimelineItems = {
 };
 
 type TimelineFeedViewProps = {
-  /** Where this feed starts; timestamps followed from it keep it if they can. */
-  anchor: TimelineFeedAnchor;
   baby: BabyData;
   babyName: string;
   currentVisitorId: string;
@@ -1528,7 +1479,10 @@ type TimelineFeedViewProps = {
   isFetchingNextPage: boolean;
   isOwner: boolean;
   items: Array<TimelineItemData>;
-  /** A link named an item that isn't here, so this is the latest instead. */
+  /**
+   * A link named an item that isn't here: a removed one's place in the
+   * feed, or the latest items for one that never was.
+   */
   linkUnavailable: boolean;
   /** Above a linked item; null once everything newer is showing. */
   newer: NewerTimelineItems | null;
@@ -1536,6 +1490,8 @@ type TimelineFeedViewProps = {
   removeEncouragement: RemoveEncouragementFn;
   removeUpdate: RemoveUpdateFn;
   setAsCurrentPhoto: SetAsCurrentPhotoFn;
+  /** Opened at a linked item rather than the newest one. */
+  startsAtItem: boolean;
   updateEncouragement: UpdateEncouragementFn;
 };
 
@@ -1562,8 +1518,8 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
   const liveInsertIds = useLiveInsertIds(
     props.items.map((item) => ({ id: item._id, sortKey: item.postedAt })),
   );
-  // raf-query queues a second `fetchNextPage` behind one in flight (loading
-  // two pages), so the sentinel stays disarmed until the page lands.
+  // A second `fetchNextPage` would restart the one in flight, so the
+  // sentinel stays disarmed until the page lands.
   const canLoadMore = hasNextPage && !isFetchingNextPage;
   const loadMoreRef = useIntersectionAction({
     enabled: canLoadMore,
@@ -1664,7 +1620,7 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
                   key={item._id}
                   // Layout animations would slide every item down when newer
                   // ones load above the linked item, the jump this avoids.
-                  layout={props.anchor.kind === "linked" ? false : TIMELINE_ITEM_LAYOUT}
+                  layout={props.startsAtItem ? false : TIMELINE_ITEM_LAYOUT}
                 >
                   <div
                     aria-current={isHighlighted ? "true" : undefined}
@@ -1684,7 +1640,6 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
                         <UpdateTimelineItem
                           baby={props.baby}
                           babyName={props.babyName}
-                          feedAnchor={props.anchor}
                           isOwner={props.isOwner}
                           item={item}
                           onDelete={handleDeleteUpdate}
@@ -1695,7 +1650,6 @@ export function TimelineFeedView(props: TimelineFeedViewProps) {
                         <EncouragementTimelineItem
                           currentVisitorId={props.currentVisitorId}
                           currentVisitorTag={props.currentVisitorTag}
-                          feedAnchor={props.anchor}
                           isOwner={props.isOwner}
                           item={item}
                           onDelete={handleDeleteEncouragement}
@@ -1763,7 +1717,7 @@ function NewerItemsDivider(props: {
           aria-label={`${hiddenLabel}, ${showLabel}`}
           className="gap-1.5 rounded-full font-semibold text-muted-foreground hover:text-foreground"
           onClick={() => {
-            // raf-query would queue a second page behind the one in flight.
+            // A second call would restart the page in flight.
             if (newer.isFetching) {
               return;
             }
@@ -1812,7 +1766,7 @@ function UnavailableLinkNotice(props: { publicId: string }) {
     <div className="flex items-start gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/30 p-3 text-sm">
       <LinkBreakIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
       <p className="min-w-0 flex-1 font-medium text-foreground" role="status">
-        {t("That update or message isn't here any more, so here's the latest.")}
+        {t("That update or message isn't here any more.")}
       </p>
       <Link
         aria-label={t("Dismiss notice")}

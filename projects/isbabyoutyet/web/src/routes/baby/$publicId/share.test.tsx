@@ -1,3 +1,4 @@
+import { getData, setData } from "@raf-query/react";
 import { fireEvent } from "@testing-library/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
@@ -40,13 +41,13 @@ test("loader prefetches the canonical OG image in the browser", async () => {
   );
   expect(prefetchedImageUrl.search).toBe("");
   await vi.waitFor(() => {
-    expect(harness.queryClient.getData(browserImageQuery, imageUrl)).toEqual({
+    expect(getData(harness.queryClient, browserImageQuery, imageUrl)).toEqual({
       ok: true,
       url: imageUrl,
     });
   });
   expect(
-    harness.queryClient.getData(convexQuery(api.coParents.myAccess), { babyId: baby.publicId })
+    getData(harness.queryClient, convexQuery(api.coParents.myAccess), { babyId: baby.publicId })
       ?.canManage,
   ).toBe(true);
   expect(data.shareLink).toBe(`https://isbabyoutyet.com/baby/${baby.publicId}`);
@@ -65,7 +66,8 @@ test("loader reuses a cached baby snapshot instead of refetching", async () => {
   if (!cachedBaby) {
     throw new Error("expected baby");
   }
-  harness.queryClient.setData(
+  setData(
+    harness.queryClient,
     convexQuery(api.baby.getByPublicId),
     { id: baby.publicId },
     cachedBaby,
@@ -92,7 +94,7 @@ test("loader reuses a cached baby snapshot instead of refetching", async () => {
   }
   const cachedImageUrl = getBabySeo(cachedBaby, baby.publicId).imageUrl;
   await vi.waitFor(() => {
-    expect(harness.queryClient.getData(browserImageQuery, cachedImageUrl)).toMatchObject({
+    expect(getData(harness.queryClient, browserImageQuery, cachedImageUrl)).toMatchObject({
       url: cachedImageUrl,
     });
   });

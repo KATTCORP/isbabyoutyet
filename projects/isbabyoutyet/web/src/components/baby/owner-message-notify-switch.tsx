@@ -3,12 +3,13 @@ import { useClientHydration } from "@/lib/use-client-hydration";
 import { ensureWebPushSubscription, readWebPushSubscription } from "@/lib/web-push-subscription";
 import { BellIcon } from "@phosphor-icons/react";
 import { useQuery } from "@raf-query/react";
+import { use } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { needsIosPushInstall } from "@/lib/browser-push-capability";
 import { convexQuery } from "@workspace/convex-query";
-import type { EnsuredConvexQuery } from "@workspace/convex-query";
+import type { ConvexQueryHandle } from "@workspace/convex-query";
 import type { BrowserPushHandle } from "@/lib/use-browser-push-capability";
 import { useBrowserPushCapability } from "@/lib/use-browser-push-capability";
 import { usePendingAction } from "@/lib/use-pending-action";
@@ -176,17 +177,19 @@ export function OwnerMessageNotifyFormField<
 
 type OwnerMessageNotifyLiveSwitchProps = {
   babyId: Id<"baby">;
+  /** This device's push state for the baby page, started by the route loader. */
   browserPush: BrowserPushHandle;
-  vapidPublicKey: EnsuredConvexQuery<typeof api.pushSubscriptions.getPublicKey>;
+  vapidPublicKey: ConvexQueryHandle<typeof api.pushSubscriptions.getPublicKey>;
 };
 
 export function OwnerMessageNotifyLiveSwitch(props: OwnerMessageNotifyLiveSwitchProps) {
   const { t } = useI18n();
   const [capability, refetchCapability] = useBrowserPushCapability(props.browserPush);
-  const [vapidPublicKey] = useQuery(
+  const [vapidPublicKeyThenable] = useQuery(
     convexQuery(api.pushSubscriptions.getPublicKey),
     props.vapidPublicKey,
   );
+  const vapidPublicKey = use(vapidPublicKeyThenable);
   const [isPending, runAction] = usePendingAction();
   const subscribeAsOwnerMutationFn = useMutation(api.pushSubscriptions.subscribeAsOwner);
   const unsubscribeAsOwnerMutationFn = useMutation(api.pushSubscriptions.unsubscribeAsOwner);

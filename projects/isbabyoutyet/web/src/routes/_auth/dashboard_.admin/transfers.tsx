@@ -3,7 +3,8 @@ import { ArrowsLeftRightIcon } from "@phosphor-icons/react";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import { useQuery } from "@raf-query/react";
+import { load, swr, useInfiniteQuery } from "@raf-query/react";
+import { use } from "react";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@workspace/ui/components/empty";
 import {
   Table,
@@ -45,10 +46,13 @@ type PublicIdTransferRow = {
 export const Route = createFileRoute("/_auth/dashboard_/admin/transfers")({
   component: AdminTransfersPage,
   loader: async (opts) => {
-    return await opts.context.queryClient.ensure(
-      convexPaginatedQuery(api.admin.listPublicIdTransfers),
-      { args: {}, numItems: ADMIN_PAGE_SIZE },
-    );
+    const [handles] = await load(opts.context.queryClient, {
+      transfers: swr(convexPaginatedQuery(api.admin.listPublicIdTransfers), {
+        args: {},
+        numItems: ADMIN_PAGE_SIZE,
+      }),
+    });
+    return handles.transfers;
   },
 });
 
@@ -219,10 +223,11 @@ export function PermalinkTransfersSection(props: {
 function AdminTransfersPage() {
   const { t } = useI18n();
   const transferPublicId = useMutation(api.admin.transferPublicId);
-  const [transfersData, transfersQuery] = useQuery(
+  const [transfersThenable, transfersQuery] = useInfiniteQuery(
     convexPaginatedQuery(api.admin.listPublicIdTransfers),
     Route.useLoaderData(),
   );
+  const transfersData = use(transfersThenable);
 
   return (
     <div className="flex flex-col gap-4">

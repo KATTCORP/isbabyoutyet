@@ -6,6 +6,7 @@ import { CoParentsSettings } from "@/components/baby/co-parents-settings";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { seedOwnedBaby, signUpTestUser } from "@/test/convexTestSeed";
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
+import { loadQuery } from "@/test/loadQuery";
 
 test("CoParentsSettings lists co-parents seeded through convex-test", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
@@ -16,7 +17,7 @@ test("CoParentsSettings lists co-parents seeded through convex-test", async () =
     email: "bob@example.com",
   });
 
-  const listing = await harness.queryClient.ensure(convexQuery(api.coParents.listForBaby), {
+  const listing = await loadQuery(harness.queryClient, convexQuery(api.coParents.listForBaby), {
     babyId: baby.babyId,
   });
 
@@ -32,7 +33,7 @@ test("CoParentsSettings lists co-parents seeded through convex-test", async () =
 test("owner can invite a co-parent by email through real mutations", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
-  const listing = await harness.queryClient.ensure(convexQuery(api.coParents.listForBaby), {
+  const listing = await loadQuery(harness.queryClient, convexQuery(api.coParents.listForBaby), {
     babyId: baby.babyId,
   });
 
@@ -78,7 +79,7 @@ test("owner can remove co-parents and cancel pending invites", async () => {
     email: "newbie@example.com",
   });
 
-  const listing = await harness.queryClient.ensure(convexQuery(api.coParents.listForBaby), {
+  const listing = await loadQuery(harness.queryClient, convexQuery(api.coParents.listForBaby), {
     babyId: baby.babyId,
   });
 
@@ -123,7 +124,7 @@ test("co-parents see a read-only list without invite form", async () => {
   });
 
   await harness.withIdentity({ subject: bobId });
-  const listing = await harness.queryClient.ensure(convexQuery(api.coParents.listForBaby), {
+  const listing = await loadQuery(harness.queryClient, convexQuery(api.coParents.listForBaby), {
     babyId: baby.babyId,
   });
 

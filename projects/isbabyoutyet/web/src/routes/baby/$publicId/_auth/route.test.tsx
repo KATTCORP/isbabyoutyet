@@ -1,3 +1,4 @@
+import { setData } from "@raf-query/react";
 import { ConvexHttpClient } from "convex/browser";
 import { isRedirect } from "@tanstack/react-router";
 import { makeAsyncResource } from "@isbabyoutyet/backend/convex/test.resource";
@@ -90,7 +91,8 @@ function withoutBrowserWindow(run: () => Promise<void>) {
 test("client overlay navigations reuse a cached profile without an auth round-trip", async () => {
   const fetchToken = vi.fn<() => Promise<string | null>>();
   await using guard = makeGuardCtx();
-  guard.queryClient.setData(
+  setData(
+    guard.queryClient,
     convexQuery(api.profile.get),
     {},
     signedInProfile({
@@ -107,7 +109,7 @@ test("client overlay navigations reuse a cached profile without an auth round-tr
     publicId: "baby-waiting",
   });
 
-  expect(result).toMatchObject({ me: { data: expect.anything(), input: {} }, token: null });
+  expect(result).toMatchObject({ me: { input: {} }, token: null });
   expect(result).not.toHaveProperty("locale");
   expect(fetchToken).not.toHaveBeenCalled();
   expect(guard.queryFn).not.toHaveBeenCalled();
@@ -116,7 +118,8 @@ test("client overlay navigations reuse a cached profile without an auth round-tr
 test("manager overlays keep the baby page locale instead of the signed-in profile locale", async () => {
   const fetchToken = vi.fn<() => Promise<string | null>>();
   await using guard = makeGuardCtx();
-  guard.queryClient.setData(
+  setData(
+    guard.queryClient,
     convexQuery(api.profile.get),
     {},
     signedInProfile({

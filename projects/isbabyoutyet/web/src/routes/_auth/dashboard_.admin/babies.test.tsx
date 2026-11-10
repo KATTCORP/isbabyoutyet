@@ -1,5 +1,4 @@
 import type { QueryClient } from "@raf-query/react";
-import type { ConvexReader } from "@workspace/convex-query";
 import { getFunctionName } from "convex/server";
 import type { ReactElement } from "react";
 import { expect, test } from "vitest";
@@ -127,7 +126,7 @@ test("babies loader prefetches only the babies page for the URL's sort and filte
   });
   // @ts-expect-error — stub loader opts are the fields this route reads
   const loader: (opts: {
-    context: { queryClient: QueryClient<ConvexReader> };
+    context: { queryClient: QueryClient };
     deps: { hideDemo: boolean; order: string; sort: string };
   }) => Promise<object> = AdminBabiesRoute.options.loader;
 
@@ -137,7 +136,6 @@ test("babies loader prefetches only the babies page for the URL's sort and filte
   });
 
   expect(result).toMatchObject({
-    data: expect.anything(),
     input: { args: { hideDemo: false, sortBy: "updated", sortOrder: "asc" }, numItems: 20 },
   });
   expect(called).toEqual(["admin:listBabies"]);

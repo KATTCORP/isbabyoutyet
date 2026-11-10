@@ -9,12 +9,12 @@ const getMessage = makeFunctionReference<"query", { id: string }, string>("messa
 
 const readMessage = (id: string) => readConvexQuery(getMessage, { id });
 
-describe("ConvexReader.layerWatch", () => {
+describe("ConvexReader.subscribing", () => {
   it.effect("resolves with the first result", () =>
     Effect.gen(function* () {
       const backend = makeTestConvexClient(async (_query, args) => `message ${args.id}`);
       const message = yield* readMessage("a").pipe(
-        Effect.provide(ConvexReader.layerWatch(backend.client)),
+        Effect.provideService(ConvexReader, ConvexReader.subscribing(backend.client)),
       );
       expect(message).toBe("message a");
     }),
@@ -27,7 +27,9 @@ describe("ConvexReader.layerWatch", () => {
     });
     const backend = makeTestConvexClient(async () => "hello");
     await Effect.runPromise(
-      readMessage("a").pipe(Effect.provide(ConvexReader.layerWatch(backend.client))),
+      readMessage("a").pipe(
+        Effect.provideService(ConvexReader, ConvexReader.subscribing(backend.client)),
+      ),
     );
     expect(backend.subscriptions()).toEqual([{ args: { id: "a" }, name: "messages:get" }]);
     vi.advanceTimersByTime(5000);
@@ -40,7 +42,7 @@ describe("ConvexReader.layerWatch", () => {
         throw new Error("Baby not found");
       });
       const error = yield* readMessage("a").pipe(
-        Effect.provide(ConvexReader.layerWatch(backend.client)),
+        Effect.provideService(ConvexReader, ConvexReader.subscribing(backend.client)),
         Effect.flip,
       );
       expect(error).toBeInstanceOf(ConvexQueryError);
@@ -54,7 +56,7 @@ describe("ConvexReader.layerWatch", () => {
     Effect.gen(function* () {
       const backend = makeTestConvexClient(() => new Promise(() => {}));
       const fiber = yield* readMessage("a").pipe(
-        Effect.provide(ConvexReader.layerWatch(backend.client)),
+        Effect.provideService(ConvexReader, ConvexReader.subscribing(backend.client)),
         Effect.forkChild,
       );
       yield* Effect.yieldNow;
@@ -66,13 +68,14 @@ describe("ConvexReader.layerWatch", () => {
   );
 });
 
-describe("ConvexReader.layerSnapshot", () => {
+describe("ConvexReader.snapshot", () => {
   it.effect("reads through consistentQuery", () =>
     Effect.gen(function* () {
       const calls: Array<string> = [];
       const message = yield* readMessage("a").pipe(
-        Effect.provide(
-          ConvexReader.layerSnapshot({
+        Effect.provideService(
+          ConvexReader,
+          ConvexReader.snapshot({
             consistentQuery: async (_query, args) => {
               calls.push(JSON.stringify(args));
               return "snapshot";
@@ -88,8 +91,9 @@ describe("ConvexReader.layerSnapshot", () => {
   it.effect("fails with a ConvexQueryError naming the function", () =>
     Effect.gen(function* () {
       const error = yield* readMessage("a").pipe(
-        Effect.provide(
-          ConvexReader.layerSnapshot({
+        Effect.provideService(
+          ConvexReader,
+          ConvexReader.snapshot({
             consistentQuery: () => Promise.reject(new Error("Unauthenticated")),
           }),
         ),

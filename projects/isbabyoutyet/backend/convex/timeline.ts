@@ -1,3 +1,4 @@
+import type { PaginationOptions } from "convex/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { query } from "./_generated/server";
@@ -146,26 +147,32 @@ async function hydratePage(
   return page;
 }
 
+/** A page of the feed from the newest item down; empty for a missing or removed baby. */
+async function readLatestPage(
+  ctx: QueryCtx,
+  args: { babyId: string; paginationOpts: PaginationOptions },
+) {
+  const baby = await findBabyByIdOrPublicId(ctx.db, args.babyId);
+  if (!baby || !isActive(baby)) {
+    return { continueCursor: "", isDone: true, page: [] };
+  }
+  const babyId = baby._id;
+
+  const result = await ctx.db
+    .query("timelineItems")
+    .withIndex("by_babyId_and_postedAt", (q) => q.eq("babyId", babyId))
+    .order("desc")
+    .paginate(args.paginationOpts);
+
+  return { ...result, page: await hydratePage(ctx, { baby, items: result.page }) };
+}
+
 export const listByBaby = query({
   args: {
     babyId: babyIdOrPublicIdValidator,
     paginationOpts: paginationOptsValidator,
   },
-  handler: async (ctx, args) => {
-    const baby = await findBabyByIdOrPublicId(ctx.db, args.babyId);
-    if (!baby || !isActive(baby)) {
-      return { continueCursor: "", isDone: true, page: [] };
-    }
-    const babyId = baby._id;
-
-    const result = await ctx.db
-      .query("timelineItems")
-      .withIndex("by_babyId_and_postedAt", (q) => q.eq("babyId", babyId))
-      .order("desc")
-      .paginate(args.paginationOpts);
-
-    return { ...result, page: await hydratePage(ctx, { baby, items: result.page }) };
-  },
+  handler: (ctx, args) => readLatestPage(ctx, args),
 });
 
 // --- Linked items (`/baby/{publicId}?item={timelineItemId}`) ---
@@ -191,75 +198,144 @@ async function findLinkedItem(ctx: QueryCtx, opts: { babyRef: string; itemId: st
   return { baby, item };
 }
 
-const EMPTY_LINKED_PAGE = {
+/** Reads at most this many rows to count what's above a linked feed. */
+export const NEWER_THAN_ITEM_COUNT_CAP = 100;
+
+const NO_NEWER_ITEMS = { count: 0, more: false };
+
+/**
+ * How many shown feed items are newer than `start`, for the divider above
+ * a feed's top page. Capped so a link deep in a busy feed stays a bounded read:
+ * past the cap, `count` is the cap and `more` is true.
+ */
+async function countNewerThan(ctx: QueryCtx, start: Doc<"timelineItems">) {
+  const rows = await newerThan(ctx, start)
+    .filter((q) => q.or(q.eq(q.field("deletedAt"), null), q.eq(q.field("deletedAt"), undefined)))
+    .take(NEWER_THAN_ITEM_COUNT_CAP + 1);
+  return {
+    count: Math.min(rows.length, NEWER_THAN_ITEM_COUNT_CAP),
+    more: rows.length > NEWER_THAN_ITEM_COUNT_CAP,
+  };
+}
+
+/**
+ * Where a linked feed starts: `context` rows above the linked item, or the
+ * item itself when fewer are newer. Counts removed rows too, so removing
+ * one doesn't shift a window someone is reading. `null` when the link
+ * doesn't resolve on this page, or for no link.
+ */
+async function findLinkedWindow(
+  ctx: QueryCtx,
+  opts: { babyRef: string; context: number; itemId: string | null },
+) {
+  if (opts.itemId === null) {
+    return null;
+  }
+  const linked = await findLinkedItem(ctx, { babyRef: opts.babyRef, itemId: opts.itemId });
+  if (!linked) {
+    return null;
+  }
+  const above = opts.context > 0 ? await newerThan(ctx, linked.item).take(opts.context) : [];
+  return { ...linked, start: above.at(-1) ?? linked.item };
+}
+
+const feedArgs = {
+  babyId: babyIdOrPublicIdValidator,
+  /** How many items right above the linked one the first page starts with. */
+  context: v.number(),
+  /**
+   * Which way the page reads from where the feed starts: `"forward"` down
+   * through older items, `"backward"` up through newer ones.
+   */
+  direction: v.union(v.literal("forward"), v.literal("backward")),
+  /** The linked item (`?item=`) the feed starts at, or `null` for the latest. */
+  from: v.union(v.string(), v.null()),
+  paginationOpts: paginationOptsValidator,
+};
+
+/** A page that reads nothing: past the end, or for a link that doesn't resolve. */
+const EMPTY_FEED_PAGE = {
+  before: NO_NEWER_ITEMS,
   continueCursor: "",
   isDone: true,
-  linkedItemVisible: false,
+  linkUnavailable: false,
   page: [],
 };
 
 /**
- * The feed from a linked item down: the item itself, then everything older,
- * newest first like {@link listByBaby}. Positions by the feed's index key
- * (`postedAt`, then Convex's built-in `_creationTime`), so rows posted in
- * the same millisecond keep one stable order across this query and
- * {@link listNewerThanItem}. `linkedItemVisible` is false when the link is
- * unknown, removed, or for another page; the page then falls back to the
- * latest feed.
+ * The baby page's feed, newest first like {@link listByBaby}, from the top
+ * or from a linked item with `context` items right above it. One query
+ * reads both ways (`direction`), so the page pages it like any infinite
+ * query: older items forward, newer ones backward. Positions by the feed's
+ * index key (`postedAt`, then Convex's built-in `_creationTime`), so rows
+ * posted in the same millisecond keep one stable order in both directions.
+ *
+ * - Forward pages read from the start down. A link that doesn't resolve on
+ *   this page (unknown, malformed, another baby's) reads the latest feed
+ *   instead; `linkUnavailable` is true for that and for a removed linked
+ *   item, whose feed still holds its place.
+ * - Backward pages read from right above the start up, oldest first; the
+ *   page prepends each in reverse. Empty for the latest feed.
+ * - `before` counts the shown items above the page that aren't loaded, on
+ *   the first forward page and on every backward page; other forward pages
+ *   have pages above them, and carry `null`.
  */
-export const listFromItem = query({
-  args: {
-    babyId: babyIdOrPublicIdValidator,
-    itemId: v.string(),
-    paginationOpts: paginationOptsValidator,
-  },
+export const listFeed = query({
+  args: feedArgs,
   handler: async (ctx, args) => {
-    const linked = await findLinkedItem(ctx, { babyRef: args.babyId, itemId: args.itemId });
-    if (!linked) {
-      return EMPTY_LINKED_PAGE;
+    const window = await findLinkedWindow(ctx, {
+      babyRef: args.babyId,
+      context: args.context,
+      itemId: args.from,
+    });
+    if (args.direction === "backward") {
+      if (!window) {
+        return EMPTY_FEED_PAGE;
+      }
+      const result = await newerThan(ctx, window.start).paginate(args.paginationOpts);
+      const top = result.page.at(-1);
+      return {
+        ...result,
+        before: result.isDone || !top ? NO_NEWER_ITEMS : await countNewerThan(ctx, top),
+        linkUnavailable: false,
+        page: await hydratePage(ctx, { baby: window.baby, items: result.page }),
+      };
     }
-    const anchor = linked.item;
+    const firstPage = args.paginationOpts.cursor === null;
+    if (!window) {
+      const latest = await readLatestPage(ctx, args);
+      return {
+        ...latest,
+        before: firstPage ? NO_NEWER_ITEMS : null,
+        linkUnavailable: args.from !== null,
+      };
+    }
+    const start = window.start;
     const result = await ctx.db
       .query("timelineItems")
       .withIndex("by_babyId_and_postedAt", (q) =>
-        q.eq("babyId", anchor.babyId).lte("postedAt", anchor.postedAt),
+        q.eq("babyId", start.babyId).lte("postedAt", start.postedAt),
       )
       .order("desc")
-      // An index range can't express "(postedAt, _creationTime) <= anchor";
-      // this only skips rows tied with the anchor's postedAt but newer.
+      // An index range can't express "(postedAt, _creationTime) <= start";
+      // this only skips rows tied with the start's postedAt but newer.
       .filter((q) =>
         q.or(
-          q.lt(q.field("postedAt"), anchor.postedAt),
-          q.lte(q.field("_creationTime"), anchor._creationTime),
+          q.lt(q.field("postedAt"), start.postedAt),
+          q.lte(q.field("_creationTime"), start._creationTime),
         ),
       )
       .paginate(args.paginationOpts);
-    const page = await hydratePage(ctx, { baby: linked.baby, items: result.page });
+    const page = await hydratePage(ctx, { baby: window.baby, items: result.page });
     const linkedItemVisible =
-      page.some((item) => item._id === anchor._id) ||
-      (await hydratePage(ctx, { baby: linked.baby, items: [anchor] })).length > 0;
-    return { ...result, linkedItemVisible, page };
-  },
-});
-
-/**
- * Feed items newer than a linked item, oldest first: page one is the items
- * right above the link, and each next page climbs towards the newest. The
- * page reveals these only when asked, prepending each page in reverse.
- */
-export const listNewerThanItem = query({
-  args: {
-    babyId: babyIdOrPublicIdValidator,
-    itemId: v.string(),
-    paginationOpts: paginationOptsValidator,
-  },
-  handler: async (ctx, args) => {
-    const linked = await findLinkedItem(ctx, { babyRef: args.babyId, itemId: args.itemId });
-    if (!linked) {
-      return { continueCursor: "", isDone: true, page: [] };
-    }
-    const result = await newerThan(ctx, linked.item).paginate(args.paginationOpts);
-    return { ...result, page: await hydratePage(ctx, { baby: linked.baby, items: result.page }) };
+      page.some((item) => item._id === window.item._id) ||
+      (await hydratePage(ctx, { baby: window.baby, items: [window.item] })).length > 0;
+    return {
+      ...result,
+      before: firstPage ? await countNewerThan(ctx, start) : null,
+      linkUnavailable: !linkedItemVisible,
+      page,
+    };
   },
 });
 
@@ -277,34 +353,6 @@ function newerThan(ctx: QueryCtx, anchor: Doc<"timelineItems">) {
       ),
     );
 }
-
-/** Reads at most this many rows to count what's above a link. */
-export const NEWER_THAN_ITEM_COUNT_CAP = 100;
-
-/**
- * How many feed items are newer than a linked item, for the divider above
- * it. Capped so a link deep in a busy feed stays a bounded read: past
- * the cap, `count` is the cap and `more` is true.
- */
-export const countNewerThanItem = query({
-  args: {
-    babyId: babyIdOrPublicIdValidator,
-    itemId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const linked = await findLinkedItem(ctx, { babyRef: args.babyId, itemId: args.itemId });
-    if (!linked) {
-      return { count: 0, more: false };
-    }
-    const rows = await newerThan(ctx, linked.item)
-      .filter((q) => q.or(q.eq(q.field("deletedAt"), null), q.eq(q.field("deletedAt"), undefined)))
-      .take(NEWER_THAN_ITEM_COUNT_CAP + 1);
-    return {
-      count: Math.min(rows.length, NEWER_THAN_ITEM_COUNT_CAP),
-      more: rows.length > NEWER_THAN_ITEM_COUNT_CAP,
-    };
-  },
-});
 
 /**
  * The newest owner update carrying a message — powers the status card's

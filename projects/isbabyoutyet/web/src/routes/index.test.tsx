@@ -1,3 +1,4 @@
+import { getData } from "@raf-query/react";
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
@@ -208,14 +209,14 @@ test("homepage language picker saves an explicit language choice", async () => {
 
 test("homepage loader prefetches profile.get", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
-  const data = await runRouteLoader<{ me: { data: unknown } }>({
+  const data = await runRouteLoader<{ me: { input: unknown } }>({
     harness,
     location: { pathname: "/" },
     params: {},
     route: Route,
   });
-  expect(data.me).toMatchObject({ data: null, input: {} });
-  expect(harness.queryClient.getData(convexQuery(api.profile.get), {})).toBeNull();
+  expect(data.me).toMatchObject({ input: {} });
+  expect(getData(harness.queryClient, convexQuery(api.profile.get), {})).toBeNull();
 });
 
 test("signed-in profile.get flips homepage CTAs to the dashboard", async () => {

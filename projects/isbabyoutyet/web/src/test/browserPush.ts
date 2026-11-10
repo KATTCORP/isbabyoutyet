@@ -1,5 +1,6 @@
 import type { QueryClient } from "@raf-query/react";
-import type { ConvexReader } from "@workspace/convex-query";
+import { setData } from "@raf-query/react";
+import { prefetchQuery } from "@/test/loadQuery";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import type {
   AdminBrowserPushCapability,
@@ -11,25 +12,30 @@ import {
 } from "@/lib/browser-push-capability";
 
 /**
- * Seeds this device's push capability, as if detection already ran, and
- * returns the handle a baby page loader would pass down. Actions that
- * refetch the capability run real detection against the stubbed browser.
+ * Seeds this device's push capability for the baby page `babyRef`, as if
+ * detection already ran, and resolves with the handle a loader would pass
+ * the component. Actions that refetch the capability run real detection
+ * against the stubbed browser.
  */
-export function seedBrowserPushCapability(
-  queryClient: QueryClient<ConvexReader>,
+export async function seedBrowserPushCapability(
+  queryClient: QueryClient,
   opts: { babyRef: string; capability: BrowserPushCapability },
 ) {
-  queryClient.setData(browserPushCapabilityQuery, opts.babyRef, opts.capability);
-  return queryClient.getQuery(browserPushCapabilityQuery, opts.babyRef).handle;
+  // The loader's prefetch starts detection (never fresh); the seed, written
+  // while it runs, wins over its late answer.
+  const handle = await prefetchQuery(queryClient, browserPushCapabilityQuery, opts.babyRef);
+  setData(queryClient, browserPushCapabilityQuery, opts.babyRef, opts.capability);
+  return handle;
 }
 
 /** {@link seedBrowserPushCapability} for the dashboard's admin new-baby push. */
-export function seedAdminBrowserPushCapability(
-  queryClient: QueryClient<ConvexReader>,
+export async function seedAdminBrowserPushCapability(
+  queryClient: QueryClient,
   capability: AdminBrowserPushCapability,
 ) {
-  queryClient.setData(adminBrowserPushCapabilityQuery, undefined, capability);
-  return queryClient.getQuery(adminBrowserPushCapabilityQuery).handle;
+  const handle = await prefetchQuery(queryClient, adminBrowserPushCapabilityQuery);
+  setData(queryClient, adminBrowserPushCapabilityQuery, capability);
+  return handle;
 }
 
 /** A browser push subscription whose keys are `auth` / `p256`. */

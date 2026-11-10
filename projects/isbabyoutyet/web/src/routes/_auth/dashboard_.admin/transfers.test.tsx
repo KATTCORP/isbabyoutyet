@@ -1,3 +1,4 @@
+import { removeAll } from "@raf-query/react";
 import { fireEvent } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
@@ -120,7 +121,7 @@ test("transfers route loads the form and audit table from Convex", async () => {
   });
 
   await harness.withIdentity({ subject: staffId });
-  harness.queryClient.clear();
+  removeAll(harness.queryClient);
   await harness.client.mutation(api.admin.transferPublicId, {
     fromPublicId: "baby-2",
     motivation: "Give the real page the canonical slug",

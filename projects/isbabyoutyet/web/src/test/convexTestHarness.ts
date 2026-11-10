@@ -1,5 +1,5 @@
-import { QueryClient } from "@raf-query/react";
-import { connectConvexLive, ConvexReader } from "@workspace/convex-query";
+import type { QueryClient } from "@raf-query/react";
+import { removeAll } from "@raf-query/react";
 import type { ConvexWatchClient } from "@workspace/convex-query";
 import { makeTestConvexClient } from "@workspace/convex-query/testing";
 import { convexTest } from "convex-test";
@@ -8,6 +8,7 @@ import type { Value } from "convex/values";
 import schema from "@isbabyoutyet/backend/convex/schema";
 import { makeAsyncResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { modules, registerComponents } from "@isbabyoutyet/backend/convex/test.setup";
+import { makeBrowserQueryClient } from "@/lib/query-client";
 import { stubJsdomWindow } from "@/test/stubJsdomWindow";
 
 type ConvexTestRoot = ReturnType<typeof convexTest>;
@@ -33,7 +34,7 @@ export type IntegrationConvexClient = ConvexWatchClient & {
 export type ConvexTestHarness = {
   client: ConvexTestCaller;
   convexClient: IntegrationConvexClient;
-  queryClient: QueryClient<ConvexReader>;
+  queryClient: QueryClient;
   /** Re-run every live query, as the server would after a write made through `client`. */
   refresh: () => Promise<void>;
   t: ConvexTestRoot;
@@ -43,7 +44,8 @@ export type ConvexTestHarness = {
 
 /**
  * Boots a shared in-memory Convex backend (`convex-test`) and wires it into the
- * same raf-query + live Convex stack production uses — no `vi.mock("convex/*")`,
+ * same raf-query + live Convex stack production uses (live once a provider
+ * mounts the client) — no `vi.mock("convex/*")`,
  * no hand-built query results. Mutations, actions and identity switches re-run
  * every live query before they resolve, as the server pushes new results.
  */
@@ -89,11 +91,8 @@ export async function createConvexTestHarness(opts: { identity: Partial<UserIden
     watchQuery: backend.client.watchQuery,
   };
 
-  const queryClient = new QueryClient({
-    isServer: false,
-    layer: ConvexReader.layerWatch(backend.client),
-  });
-  const disconnect = connectConvexLive({ client: backend.client, queryClient });
+  // Its live sync runs while a `QueryClientProvider` has it mounted, as in the app.
+  const queryClient = makeBrowserQueryClient(backend.client);
 
   const harness: ConvexTestHarness = {
     get client() {
@@ -116,8 +115,7 @@ export async function createConvexTestHarness(opts: { identity: Partial<UserIden
     // Photo mutations schedule sharp thumbnail actions; let them finish while
     // the module graph is still alive instead of after environment teardown.
     await t.finishAllScheduledFunctions(() => {});
-    disconnect();
-    await queryClient.dispose();
+    removeAll(queryClient);
     jsdomWindow.restore();
   });
 }

@@ -1,3 +1,4 @@
+import { removeAll } from "@raf-query/react";
 import { fireEvent } from "@testing-library/react";
 import { isRedirect } from "@tanstack/react-router";
 import type { ReactElement } from "react";
@@ -121,7 +122,7 @@ async function seedAdminHarness() {
     }
   });
   await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Real Baby" });
-  harness.queryClient.clear();
+  removeAll(harness.queryClient);
   return harness;
 }
 

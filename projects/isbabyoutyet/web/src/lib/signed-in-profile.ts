@@ -1,12 +1,12 @@
 import type { QueryClient } from "@raf-query/react";
-import type { ConvexReader } from "@workspace/convex-query";
+import { load, swr } from "@raf-query/react";
 import type { ConvexHttpClient } from "convex/browser";
 import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 
 export type SignedInProfileContext = {
   convexHttpClient: ConvexHttpClient | null;
-  queryClient: QueryClient<ConvexReader>;
+  queryClient: QueryClient;
   token: string | null | undefined;
 };
 
@@ -41,15 +41,15 @@ export async function loadSignedInProfile(opts: {
     opts.context.convexHttpClient?.setAuth(token);
   }
 
-  const meHandle = await queryClient.ensure(convexQuery(api.profile.get), {});
-  if (!meHandle.data) {
+  const [handles, data] = await load(queryClient, { me: swr(convexQuery(api.profile.get), {}) });
+  if (!data.me) {
     return null;
   }
   return {
-    isAdmin: meHandle.data.isAdmin,
-    locale: meHandle.data.locale,
+    isAdmin: data.me.isAdmin,
+    locale: data.me.locale,
     /** `profile.get`'s handle, for child routes to read with `useQuery`. */
-    me: meHandle,
+    me: handles.me,
     token,
   };
 }

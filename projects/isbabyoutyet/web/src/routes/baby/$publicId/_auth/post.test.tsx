@@ -1,3 +1,4 @@
+import { getData } from "@raf-query/react";
 import { fireEvent } from "@testing-library/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { expect, test, vi } from "vitest";
@@ -22,11 +23,10 @@ test("post loader fetches manager access data", async () => {
   });
 
   expect(result.managerBaby).toMatchObject({
-    data: expect.anything(),
     input: { babyId: baby.publicId },
   });
   expect(
-    harness.queryClient.getData(convexQuery(api.baby.getManagerBaby), { babyId: baby.publicId }),
+    getData(harness.queryClient, convexQuery(api.baby.getManagerBaby), { babyId: baby.publicId }),
   ).toMatchObject({ name: "Baby Smith" });
 });
 

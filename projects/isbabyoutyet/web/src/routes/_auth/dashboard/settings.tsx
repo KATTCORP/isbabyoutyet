@@ -1,11 +1,11 @@
 import { BabyIcon, ShieldIcon, SignOutIcon } from "@phosphor-icons/react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import type { QueryClient } from "@raf-query/react";
-import { useQuery } from "@raf-query/react";
-import type { ConvexReader, EnsuredConvexQuery } from "@workspace/convex-query";
+import { load, prefetch, swr, useQuery } from "@raf-query/react";
+import type { ConvexQueryHandle } from "@workspace/convex-query";
 import type { ConvexReactClient } from "convex/react";
 import { useMutation } from "convex/react";
-import { useRef } from "react";
+import { use, useRef } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -50,12 +50,13 @@ export const Route = createFileRoute("/_auth/dashboard/settings")({
       return { adminPush: null };
     }
     const queryClient = opts.context.queryClient;
-    const browserPush = queryClient.prefetch(adminBrowserPushCapabilityQuery);
-    const vapidPublicKey = await queryClient.ensure(
-      convexQuery(api.pushSubscriptions.getPublicKey),
-      {},
-    );
-    return { adminPush: { browserPush, vapidPublicKey } };
+    const [handles] = await load(queryClient, {
+      browserPush: prefetch(adminBrowserPushCapabilityQuery),
+      vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
+    });
+    return {
+      adminPush: { browserPush: handles.browserPush, vapidPublicKey: handles.vapidPublicKey },
+    };
   },
   component: DashboardSettingsRoute,
 });
@@ -75,8 +76,9 @@ export function DashboardSettingsRoute() {
 }
 
 type AdminPushLoaderData = {
+  /** This device's admin push state, started by the loader (`ssr: false`). */
   browserPush: AdminBrowserPushHandle;
-  vapidPublicKey: EnsuredConvexQuery<typeof api.pushSubscriptions.getPublicKey>;
+  vapidPublicKey: ConvexQueryHandle<typeof api.pushSubscriptions.getPublicKey>;
 };
 
 function SettingsSection(props: { children: ReactNode; title: string }) {
@@ -101,10 +103,11 @@ function SettingsSection(props: { children: ReactNode; title: string }) {
 export function DashboardSettingsSheet(props: {
   adminPush: AdminPushLoaderData | null;
   convexClient: ConvexReactClient;
-  profile: EnsuredConvexQuery<typeof api.profile.get>;
-  queryClient: QueryClient<ConvexReader>;
+  profile: ConvexQueryHandle<typeof api.profile.get>;
+  queryClient: QueryClient;
 }) {
-  const [profile] = useQuery(convexQuery(api.profile.get), props.profile);
+  const [profileThenable] = useQuery(convexQuery(api.profile.get), props.profile);
+  const profile = use(profileThenable);
   const settings = useDashboardSettingsOverlay();
   const { t } = useI18n();
   const router = useRouter();
@@ -290,10 +293,11 @@ export function AdminNewBabyPushSwitchView(props: {
 function AdminNewBabyPushSwitch(props: AdminPushLoaderData) {
   const { t } = useI18n();
   const [capability, refetchCapability] = useAdminBrowserPushCapability(props.browserPush);
-  const [vapidPublicKey] = useQuery(
+  const [vapidPublicKeyThenable] = useQuery(
     convexQuery(api.pushSubscriptions.getPublicKey),
     props.vapidPublicKey,
   );
+  const vapidPublicKey = use(vapidPublicKeyThenable);
   const [isPending, runAction] = usePendingAction();
   const subscribeMutationFn = useMutation(api.adminPushSubscriptions.subscribe);
   const unsubscribeMutationFn = useMutation(api.adminPushSubscriptions.unsubscribe);

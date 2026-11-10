@@ -1,5 +1,5 @@
+import { getData } from "@raf-query/react";
 import type { QueryClient } from "@raf-query/react";
-import type { ConvexReader } from "@workspace/convex-query";
 import { isFunction, isPlainObject } from "@workspace/runtime/guards";
 import type { JsonValue } from "@workspace/runtime/json";
 import { convexTest } from "convex-test";
@@ -26,22 +26,17 @@ import {
 } from "@isbabyoutyet/backend/src/types";
 import { LocaleProvider } from "@/lib/i18n";
 import { browserPushCapabilityQuery } from "@/lib/browser-push-capability";
-import { convexPaginatedQuery, convexQuery } from "@workspace/convex-query";
+import { convexQuery } from "@workspace/convex-query";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { getBabySeo } from "@/lib/seo";
-import type { TimelineFeedAnchor } from "@/lib/timeline-feed";
-import {
-  followedFromFeed,
-  LINKED_ITEM_CONTEXT,
-  linkedTimelineQuery,
-  TIMELINE_PAGE_SIZE,
-} from "@/lib/timeline-feed";
+import { TIMELINE_PAGE_SIZE, timelineInput, timelineQuery } from "@/lib/timeline-feed";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import type { ConvexTestHarness } from "@/test/convexTestHarness";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { seedOwnedBaby, seedTimelineEncouragement } from "@/test/convexTestSeed";
 import { htmlElement } from "@/test/htmlElement";
 import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
+import { loadQuery } from "@/test/loadQuery";
 
 const routeModule = await import("@/routes/baby/$publicId/route");
 const { docToBabyData, managerDocToBabyData } = routeModule;
@@ -339,7 +334,7 @@ type BabyLoaderResult = {
   timeline: unknown;
   vapidPublicKey: unknown;
 };
-type RouteContextStub = { context: { queryClient: QueryClient<ConvexReader> } };
+type RouteContextStub = { context: { queryClient: QueryClient } };
 
 type QueryRunner = Parameters<typeof stubQueryClientResource>[0];
 
@@ -357,13 +352,10 @@ function loaderQueryClientResource(handlers: QueryHandlers, read: Array<string> 
   return stubQueryClientResource(answerByName(handlers, read));
 }
 
-type LoaderLocationStub = { state: { timelineFeed: TimelineFeedAnchor | undefined } };
-
 // @ts-expect-error — stub opts are the fields the loader reads
 const loader: (
   opts: RouteContextStub & {
     deps: { item: string | null };
-    location: LoaderLocationStub;
     params: { publicId: string };
   },
 ) => Promise<BabyLoaderResult> = routeModule.Route.options.loader;
@@ -374,23 +366,19 @@ const beforeLoad: (
 ) => Promise<object | void | null> = routeModule.Route.options.beforeLoad;
 
 async function runBabyLoader(
-  queryClient: QueryClient<ConvexReader>,
-  opts: { item: string | null; timelineFeed: TimelineFeedAnchor | undefined } = {
-    item: null,
-    timelineFeed: undefined,
-  },
+  queryClient: QueryClient,
+  opts: { item: string | null } = { item: null },
 ) {
   // As `beforeLoad` does before every loader run.
-  await queryClient.ensure(convexQuery(api.baby.getByPublicId), { id: "baby-smith" });
+  await loadQuery(queryClient, convexQuery(api.baby.getByPublicId), { id: "baby-smith" });
   return await loader({
     context: { queryClient },
     deps: { item: opts.item },
-    location: { state: { timelineFeed: opts.timelineFeed } },
     params: { publicId: "baby-smith" },
   });
 }
 
-test("loader ensures the same set for visitors; gated queries come back forbidden", async () => {
+test("loader loads the same set for visitors; gated queries come back forbidden", async () => {
   // Workers share jsdom storage across files; this visitor has never posted.
   localStorage.removeItem("encouragement-visitor-id");
   await using stub = loaderQueryClientResource({
@@ -399,36 +387,31 @@ test("loader ensures the same set for visitors; gated queries come back forbidde
     "baby:getScheduledNotifications": "forbidden",
     "coParents:myAccess": { canManage: false, isOwner: false },
     "pushSubscriptions:getSubscriptionCount": "forbidden",
-    "timeline:listByBaby": EMPTY_PAGE,
+    "timeline:listFeed": EMPTY_PAGE,
   });
   const queryClient = stub.queryClient;
   const result = await runBabyLoader(queryClient);
 
-  expect(result.baby).toMatchObject({ data: expect.anything(), input: { id: "baby-smith" } });
+  expect(result.baby).toMatchObject({ input: { id: "baby-smith" } });
   expect(result.timeline).toMatchObject({
-    kind: "latest",
-    linkUnavailable: false,
-    timeline: {
-      data: expect.anything(),
-      input: { args: { babyId: "baby-smith" }, numItems: 20 },
-    },
+    input: timelineInput({ from: null, publicId: "baby-smith" }),
   });
-  expect(queryClient.getData(convexQuery(api.baby.getByPublicId), { id: "baby-smith" })).toEqual(
+  expect(getData(queryClient, convexQuery(api.baby.getByPublicId), { id: "baby-smith" })).toEqual(
     BABY_DOC,
   );
   expect(
-    queryClient.getData(convexQuery(api.coParents.myAccess), { babyId: "baby-smith" }),
+    getData(queryClient, convexQuery(api.coParents.myAccess), { babyId: "baby-smith" }),
   ).toMatchObject({
     canManage: false,
   });
-  expect(queryClient.getData(convexQuery(api.baby.getManagerBaby), { babyId: "baby-smith" })).toBe(
+  expect(getData(queryClient, convexQuery(api.baby.getManagerBaby), { babyId: "baby-smith" })).toBe(
     "forbidden",
   );
   expect(
-    queryClient.getData(convexQuery(api.baby.getScheduledNotifications), { babyId: "baby-smith" }),
+    getData(queryClient, convexQuery(api.baby.getScheduledNotifications), { babyId: "baby-smith" }),
   ).toBe("forbidden");
   expect(
-    queryClient.getData(convexQuery(api.pushSubscriptions.getSubscriptionCount), {
+    getData(queryClient, convexQuery(api.pushSubscriptions.getSubscriptionCount), {
       babyId: "baby-smith",
     }),
   ).toBe("forbidden");
@@ -441,24 +424,25 @@ test("loader gives managers the same handles with real data", async () => {
     "baby:getScheduledNotifications": [],
     "coParents:myAccess": { canManage: true, isOwner: true },
     "pushSubscriptions:getSubscriptionCount": 2,
-    "timeline:listByBaby": EMPTY_PAGE,
+    "timeline:listFeed": EMPTY_PAGE,
   });
   const queryClient = stub.queryClient;
   const result = await runBabyLoader(queryClient);
 
   expect(result.scheduledNotifications).toMatchObject({ input: { babyId: "baby-smith" } });
   expect(result.subscriptionCount).toMatchObject({ input: { babyId: "baby-smith" } });
-  expect(result.onboarding).toMatchObject({ data: null, input: {} });
+  expect(result.onboarding).toMatchObject({ input: {} });
+  expect(getData(queryClient, convexQuery(api.onboarding.getMine), {})).toBeNull();
   expect(
-    queryClient.getData(convexQuery(api.baby.getScheduledNotifications), { babyId: "baby-smith" }),
+    getData(queryClient, convexQuery(api.baby.getScheduledNotifications), { babyId: "baby-smith" }),
   ).toEqual([]);
   expect(
-    queryClient.getData(convexQuery(api.pushSubscriptions.getSubscriptionCount), {
+    getData(queryClient, convexQuery(api.pushSubscriptions.getSubscriptionCount), {
       babyId: "baby-smith",
     }),
   ).toBe(2);
   expect(
-    queryClient.getData(convexQuery(api.baby.getManagerBaby), { babyId: "baby-smith" }),
+    getData(queryClient, convexQuery(api.baby.getManagerBaby), { babyId: "baby-smith" }),
   ).toMatchObject({
     birthJourney: "labor",
   });
@@ -509,197 +493,106 @@ test("beforeLoad rewrites a stale public id and keeps the subpath", async () => 
 test("loader prefetches browser push capability on the client", async () => {
   await using stub = loaderQueryClientResource({
     "baby:getByPublicId": BABY_DOC,
-    "timeline:listByBaby": EMPTY_PAGE,
+    "timeline:listFeed": EMPTY_PAGE,
   });
   const queryClient = stub.queryClient;
-  const result = await runBabyLoader(queryClient);
+  await runBabyLoader(queryClient);
 
-  expect(result.browserPush).toMatchObject({ input: "baby-smith" });
   await vi.waitFor(() => {
-    expect(queryClient.getData(browserPushCapabilityQuery, "baby-smith")).toEqual({
+    expect(getData(queryClient, browserPushCapabilityQuery, "baby-smith")).toEqual({
       kind: "unsupported",
     });
   });
 });
 
-test("a linked item loads its window, the items right above it and the newer count at once", async () => {
+test("a linked item loads its feed in the same load as the rest of the page", async () => {
   const read: Array<string> = [];
   const pageSizes: Array<string> = [];
   const answer = answerByName(
     {
       "baby:getByPublicId": BABY_DOC,
-      "timeline:countNewerThanItem": { count: 3, more: false },
-      "timeline:listFromItem": {
+      "timeline:listFeed": {
         ...EMPTY_PAGE,
-        linkedItemVisible: true,
-        page: [{ _id: "k57linked" }],
-      },
-      "timeline:listNewerThanItem": {
-        continueCursor: "k57above",
-        isDone: false,
-        page: [{ _id: "k57above" }, { _id: "k57top" }],
+        linkUnavailable: false,
+        newerCount: { count: 3, more: false },
+        page: [{ _id: "k57above" }, { _id: "k57linked" }],
       },
     },
     read,
   );
-  // Held until all three are asked for: one waiting on another never settles.
-  const linkedReads = Promise.withResolvers<void>();
+  // Held until the feed is asked for: anything waiting on another read never settles.
+  const feedRead = Promise.withResolvers<void>();
   await using stub = stubQueryClientResource(async (query, args) => {
     const value = await answer(query);
     if ("paginationOpts" in args && isPlainObject(args.paginationOpts)) {
       pageSizes.push(`${getFunctionName(query)} ${String(args.paginationOpts.numItems)}`);
     }
     if (getFunctionName(query) !== "baby:getByPublicId") {
-      await linkedReads.promise;
+      await feedRead.promise;
     }
     return value;
   });
-  const loaded = runBabyLoader(stub.queryClient, { item: "k57linked", timelineFeed: undefined });
+  const loaded = runBabyLoader(stub.queryClient, { item: "k57linked" });
 
   await vi.waitFor(() => {
-    expect(read).toEqual(
-      expect.arrayContaining([
-        "timeline:countNewerThanItem",
-        "timeline:listFromItem",
-        "timeline:listNewerThanItem",
-      ]),
-    );
+    expect(read).toContain("timeline:listFeed");
   });
-  linkedReads.resolve();
+  feedRead.resolve();
   const result = await loaded;
 
-  const args = { babyId: "baby-smith", itemId: "k57linked" };
   expect(result.timeline).toMatchObject({
-    itemId: "k57linked",
-    kind: "linked",
-    newerCount: { data: { count: 3, more: false }, input: args },
-    window: { input: { args, numItems: TIMELINE_PAGE_SIZE } },
+    input: timelineInput({ from: "k57linked", publicId: "baby-smith" }),
   });
-  expect(read).not.toContain("timeline:listByBaby");
-  expect(pageSizes.toSorted()).toEqual([
-    `timeline:listFromItem ${TIMELINE_PAGE_SIZE}`,
-    `timeline:listNewerThanItem ${LINKED_ITEM_CONTEXT}`,
-  ]);
-  const window = stub.queryClient.getData(linkedTimelineQuery, {
-    args,
-    numItems: TIMELINE_PAGE_SIZE,
-  });
-  expect(window?.pages.map((page) => page.page.map((item) => item._id))).toEqual([
-    ["k57above", "k57top"],
-    ["k57linked"],
-  ]);
-  expect(window?.pageParams.map((param) => [param.direction, param.numItems])).toEqual([
-    ["backward", LINKED_ITEM_CONTEXT],
-    ["forward", TIMELINE_PAGE_SIZE],
-  ]);
+  // The items above the link come with its first page; newer ones wait for "Show more".
+  expect(pageSizes).toEqual([`timeline:listFeed ${TIMELINE_PAGE_SIZE}`]);
 });
 
-test("a link to an item that isn't visible falls back to the latest page", async () => {
-  await using stub = loaderQueryClientResource({
-    "baby:getByPublicId": BABY_DOC,
-    "timeline:countNewerThanItem": { count: 0, more: false },
-    "timeline:listByBaby": EMPTY_PAGE,
-    "timeline:listFromItem": { ...EMPTY_PAGE, linkedItemVisible: false },
-    "timeline:listNewerThanItem": EMPTY_PAGE,
-  });
-  const result = await runBabyLoader(stub.queryClient, {
-    item: "k57gone",
-    timelineFeed: undefined,
-  });
-
-  expect(result.timeline).toMatchObject({
-    kind: "latest",
-    linkUnavailable: true,
-    timeline: { input: { args: { babyId: "baby-smith" }, numItems: 20 } },
-  });
-});
-
-test("a malformed item id falls back to the latest page without asking for it", async () => {
-  const read: Array<string> = [];
-  await using stub = loaderQueryClientResource(
-    { "baby:getByPublicId": BABY_DOC, "timeline:listByBaby": EMPTY_PAGE },
-    read,
-  );
-  const result = await runBabyLoader(stub.queryClient, {
-    item: "../not an id",
-    timelineFeed: undefined,
-  });
-
-  expect(result.timeline).toMatchObject({ kind: "latest", linkUnavailable: true });
-  expect(read).not.toContain("timeline:listFromItem");
-  expect(read).not.toContain("timeline:countNewerThanItem");
-});
-
-test("an item followed from the feed that loaded it keeps that feed and highlights it", async () => {
+test("an item the feed on screen shows keeps that feed, reading nothing", async () => {
   const read: Array<string> = [];
   await using stub = loaderQueryClientResource(
     {
       "baby:getByPublicId": BABY_DOC,
-      "timeline:listByBaby": { ...EMPTY_PAGE, page: [{ _id: "k57shown" }] },
+      "timeline:listFeed": { ...EMPTY_PAGE, page: [{ _id: "k57shown" }] },
     },
     read,
   );
   await runBabyLoader(stub.queryClient);
   read.length = 0;
 
-  const result = await runBabyLoader(stub.queryClient, {
-    item: "k57shown",
-    timelineFeed: { kind: "latest" },
-  });
+  await runBabyLoader(stub.queryClient, { item: "k57shown" });
+  // And back again.
+  await runBabyLoader(stub.queryClient);
 
-  expect(result.timeline).toMatchObject({
-    highlightedItemId: "k57shown",
-    kind: "latest",
-    linkUnavailable: false,
-    timeline: { input: { args: { babyId: "baby-smith" }, numItems: 20 } },
-  });
   expect(read).toEqual([]);
+  const feed = getData(
+    stub.queryClient,
+    timelineQuery,
+    timelineInput({ from: null, publicId: "baby-smith" }),
+  );
+  expect(feed?.pageParams[0]?.from).toBeNull();
 });
 
-test("the server opens the feed at the item, whatever feed it was followed from", async () => {
-  await using stub = stubQueryClientResource(
-    answerByName(
-      {
-        "baby:getByPublicId": BABY_DOC,
-        "timeline:countNewerThanItem": { count: 0, more: false },
-        "timeline:listByBaby": { ...EMPTY_PAGE, page: [{ _id: "k57shown" }] },
-        "timeline:listFromItem": { ...EMPTY_PAGE, linkedItemVisible: true },
-        "timeline:listNewerThanItem": EMPTY_PAGE,
-      },
-      [],
-    ),
-    { isServer: true },
+test("an item the feed on screen hasn't loaded starts the feed over at it", async () => {
+  const read: Array<string> = [];
+  await using stub = loaderQueryClientResource(
+    {
+      "baby:getByPublicId": BABY_DOC,
+      "timeline:listFeed": { ...EMPTY_PAGE, page: [{ _id: "k57shown" }] },
+    },
+    read,
   );
   await runBabyLoader(stub.queryClient);
+  read.length = 0;
 
-  const result = await runBabyLoader(stub.queryClient, {
-    item: "k57shown",
-    timelineFeed: { kind: "latest" },
-  });
+  await runBabyLoader(stub.queryClient, { item: "k57older" });
 
-  expect(result.timeline).toMatchObject({ itemId: "k57shown", kind: "linked" });
-});
-
-test("an item the feed it was followed from hasn't loaded opens the window from it", async () => {
-  await using stub = loaderQueryClientResource({
-    "baby:getByPublicId": BABY_DOC,
-    "timeline:countNewerThanItem": { count: 1, more: false },
-    "timeline:listByBaby": { ...EMPTY_PAGE, page: [{ _id: "k57shown" }] },
-    "timeline:listFromItem": { ...EMPTY_PAGE, linkedItemVisible: true },
-    "timeline:listNewerThanItem": EMPTY_PAGE,
-  });
-  await runBabyLoader(stub.queryClient);
-
-  const result = await runBabyLoader(stub.queryClient, {
-    item: "k57older",
-    timelineFeed: { kind: "latest" },
-  });
-
-  expect(result.timeline).toMatchObject({
-    highlightedItemId: "k57older",
-    itemId: "k57older",
-    kind: "linked",
-  });
+  expect(read).toContain("timeline:listFeed");
+  const feed = getData(
+    stub.queryClient,
+    timelineQuery,
+    timelineInput({ from: "k57older", publicId: "baby-smith" }),
+  );
+  expect(feed?.pageParams[0]?.from).toBe("k57older");
 });
 
 test("docToBabyData coalesces missing public due date text to null", () => {
@@ -930,9 +823,10 @@ const SHOW_MORE = /newer, Show \d+ more$/;
 /** The latest feed with its second page loaded, as after scrolling to the skeleton. */
 async function renderLatestFeedTwoPages(harness: ConvexTestHarness) {
   const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
-  await harness.queryClient.ensure(
-    convexPaginatedQuery(api.timeline.listByBaby),
-    { args: { babyId: seeded.publicId }, numItems: TIMELINE_PAGE_SIZE },
+  await loadQuery(
+    harness.queryClient,
+    timelineQuery,
+    timelineInput({ from: null, publicId: seeded.publicId }),
     { pages: 2 },
   );
   const ctx = await renderBabyPage(harness, `/baby/${seeded.publicId}`);
@@ -1078,6 +972,32 @@ test("opening a link to an item starts the feed at it", async () => {
   expect(ctx.view.queryByRole("button", { name: SHOW_MORE })).toBeNull();
 });
 
+test("links the router preloads leave a linked feed on screen as it is", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
+  const itemId = seeded.itemId("Message 10");
+  await using ctx = await renderBabyPage(harness, `/baby/${seeded.publicId}?item=${itemId}`);
+  await vi.waitFor(() => {
+    expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 10"));
+  });
+  const params = { publicId: seeded.publicId };
+
+  // "Jump to latest" above the feed, and a link to an item it hasn't loaded,
+  // as they scroll into view.
+  await ctx.router.preloadRoute({ params, to: "/baby/$publicId" });
+  await ctx.router.preloadRoute({
+    params,
+    search: { item: seeded.itemId(`Message ${TIMELINE_PAGE_SIZE + 2}`) },
+    to: "/baby/$publicId",
+  });
+  await harness.refresh();
+
+  expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 10"));
+  expect(ctx.view.getByText("Message 12")).toBeTruthy();
+  expect(ctx.view.queryByText("Message 13")).toBeNull();
+  expect(ctx.view.getByRole("button", { name: "10 newer, Show 10 more" })).toBeTruthy();
+});
+
 test("navigating to an item the feed hasn't loaded opens the feed at it", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
@@ -1090,7 +1010,6 @@ test("navigating to an item the feed hasn't loaded opens the feed at it", async 
     hash: `item-${itemId}`,
     params: { publicId: seeded.publicId },
     search: { item: itemId },
-    state: followedFromFeed({ kind: "latest" }),
     to: "/baby/$publicId",
   });
 

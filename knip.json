@@ -34,6 +34,7 @@
         "src/test/renderMountedFileRoute.tsx!",
         "src/test/routeTestContext.ts!",
         "src/test/browserPush.ts!",
+        "src/test/loadQuery.ts!",
         "vite.config.ts!"
       ]
     },
@@ -94,7 +95,9 @@
     "projects/isbabyoutyet/email": {
       "entry": ["emails/**/*.{ts,tsx}!", "src/index.ts!"]
     },
-    "packages/convex-query": {},
+    "packages/convex-query": {
+      "entry": ["src/test-cache.ts!"]
+    },
     "packages/ui": {},
     "tooling/typescript": {}
   }

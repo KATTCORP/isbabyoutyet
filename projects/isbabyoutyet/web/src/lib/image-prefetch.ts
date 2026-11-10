@@ -1,32 +1,28 @@
-import { queryOptions } from "@raf-query/react";
 import type { QueryClient } from "@raf-query/react";
-import type { ConvexReader } from "@workspace/convex-query";
+import { load, prefetch, queryOptions } from "@raf-query/react";
 
 const BROWSER_IMAGE_PREFETCH_KEY = "browserImagePrefetch";
 
-/**
- * Decodes an image into the browser cache. Only enabled in a browser: on
- * the server the SSR'd `<img>` loads it.
- */
+/** Decodes an image into the browser cache. */
 export function browserImageQuery(imageUrl: string) {
   return queryOptions({
-    enabled: globalThis.window !== undefined,
+    meta: { retry: false },
     queryFn: () => loadBrowserImage(imageUrl),
     queryKey: [BROWSER_IMAGE_PREFETCH_KEY, imageUrl],
-    retry: false,
     staleTime: Infinity,
   });
 }
 
 /**
  * Fire-and-forget image warm in route loaders, so a client navigation starts
- * downloading the photo alongside the route's data.
+ * downloading the photo alongside the route's data. Browser only: on the
+ * server the SSR'd `<img>` loads it.
  */
-export function prefetchBrowserImage(queryClient: QueryClient<ConvexReader>, imageUrl: string) {
-  if (imageUrl === "") {
+export function prefetchBrowserImage(queryClient: QueryClient, imageUrl: string) {
+  if (queryClient.isServer || imageUrl === "") {
     return;
   }
-  queryClient.prefetch(browserImageQuery, imageUrl);
+  void load(queryClient, { image: prefetch(browserImageQuery, imageUrl) });
 }
 
 function loadBrowserImage(imageUrl: string) {
