@@ -357,6 +357,7 @@ const loader: (
   opts: RouteContextStub & {
     deps: { item: string | null };
     params: { publicId: string };
+    preload: boolean;
   },
 ) => Promise<BabyLoaderResult> = routeModule.Route.options.loader;
 
@@ -367,7 +368,7 @@ const beforeLoad: (
 
 async function runBabyLoader(
   queryClient: QueryClient,
-  opts: { item: string | null } = { item: null },
+  opts: { item: string | null; preload?: boolean } = { item: null },
 ) {
   // As `beforeLoad` does before every loader run.
   await loadQuery(queryClient, convexQuery(api.baby.getByPublicId), { id: "baby-smith" });
@@ -375,6 +376,7 @@ async function runBabyLoader(
     context: { queryClient },
     deps: { item: opts.item },
     params: { publicId: "baby-smith" },
+    preload: opts.preload ?? false,
   });
 }
 
@@ -593,6 +595,31 @@ test("an item the feed on screen hasn't loaded starts the feed over at it", asyn
     timelineInput({ from: "k57older", publicId: "baby-smith" }),
   );
   expect(feed?.pageParams[0]?.from).toBe("k57older");
+});
+
+test("preloading a link to another item leaves the feed on screen alone", async () => {
+  const read: Array<string> = [];
+  await using stub = loaderQueryClientResource(
+    {
+      "baby:getByPublicId": BABY_DOC,
+      "timeline:listFeed": { ...EMPTY_PAGE, page: [{ _id: "k57linked" }] },
+    },
+    read,
+  );
+  await runBabyLoader(stub.queryClient, { item: "k57linked" });
+  read.length = 0;
+
+  // "Jump to latest" scrolled into view, and an item the feed hasn't loaded.
+  await runBabyLoader(stub.queryClient, { item: null, preload: true });
+  await runBabyLoader(stub.queryClient, { item: "k57elsewhere", preload: true });
+
+  expect(read).not.toContain("timeline:listFeed");
+  const feed = getData(
+    stub.queryClient,
+    timelineQuery,
+    timelineInput({ from: "k57linked", publicId: "baby-smith" }),
+  );
+  expect(feed?.pageParams[0]?.from).toBe("k57linked");
 });
 
 test("docToBabyData coalesces missing public due date text to null", () => {

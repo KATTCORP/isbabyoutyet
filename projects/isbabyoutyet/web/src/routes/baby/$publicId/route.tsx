@@ -105,8 +105,12 @@ export const Route = createFileRoute("/baby/$publicId")({
         babyId: publicId,
       }),
       // The feed on screen stays while it has `?item=`, so following a
-      // timestamp only moves the highlight.
-      timeline: swr(timelineQuery, timelineInput({ from: opts.deps.item, publicId })),
+      // timestamp only moves the highlight. A preload (a link in view) is
+      // only a hint: it never starts the feed on screen over.
+      timeline: (opts.preload ? prefetch : swr)(
+        timelineQuery,
+        timelineInput({ from: opts.deps.item, publicId }),
+      ),
       vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
       visitorTag: prefetch(visitorTagQuery, babyDoc._id),
     });
