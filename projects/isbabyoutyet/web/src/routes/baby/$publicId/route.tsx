@@ -18,6 +18,7 @@ import {
   notFound,
   Outlet,
   redirect,
+  retainSearchParams,
   useMatchRoute,
 } from "@tanstack/react-router";
 import { getData, load, prefetch, swr, useQuery } from "@raf-query/react";
@@ -59,12 +60,13 @@ export const babySearchSchema = z.object({
 export const Route = createFileRoute("/baby/$publicId")({
   component: BabyPageLayout,
   validateSearch: babySearchSchema,
+  search: {
+    // Links over or back to this page (overlays, the router's preloads of
+    // them) keep its `?item=`, so the feed under them stays where it is.
+    // A link that starts the feed over says `item: undefined`.
+    middlewares: [retainSearchParams(["item"])],
+  },
   loaderDeps: (opts) => ({ item: opts.search.item ?? null }),
-  // The router preloads links in view, and some on this page lead back to
-  // it without `?item=` ("Jump to latest", overlays). Their loader would
-  // load the feed from the top, and start the feed on screen over under
-  // the reader. Loaders here run on navigation only.
-  preload: false,
 
   beforeLoad: async (opts) => {
     const [, data] = await load(opts.context.queryClient, {

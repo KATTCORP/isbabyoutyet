@@ -35,10 +35,15 @@ import type { ConvexTestHarness } from "@/test/convexTestHarness";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { seedOwnedBaby, seedTimelineEncouragement } from "@/test/convexTestSeed";
 import { htmlElement } from "@/test/htmlElement";
-import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
+import {
+  renderMountedFileRoute,
+  renderMountedFileRouteWithPreloads,
+} from "@/test/renderMountedFileRoute";
 import { loadQuery } from "@/test/loadQuery";
 
 const routeModule = await import("@/routes/baby/$publicId/route");
+const shareRouteModule = await import("@/routes/baby/$publicId/share");
+const loginRouteModule = await import("@/routes/baby/$publicId/login");
 const { docToBabyData, managerDocToBabyData } = routeModule;
 
 test("parent route caches public overlays and keeps manager overlays private", () => {
@@ -972,23 +977,70 @@ test("opening a link to an item starts the feed at it", async () => {
   expect(ctx.view.queryByRole("button", { name: SHOW_MORE })).toBeNull();
 });
 
-test("links the router preloads leave a linked feed on screen as it is", async () => {
+/**
+ * Every element the page observes is in view at once, so the router
+ * preloads every link on it, as scrolling past them all would.
+ */
+function everythingInViewResource() {
+  class InView implements IntersectionObserver {
+    readonly callback: IntersectionObserverCallback;
+    readonly root = null;
+    readonly rootMargin = "0px";
+    readonly scrollMargin = "0px";
+    readonly thresholds: ReadonlyArray<number> = [0];
+    constructor(callback: IntersectionObserverCallback) {
+      this.callback = callback;
+    }
+    observe(target: Element) {
+      const rect = target.getBoundingClientRect();
+      const entry: IntersectionObserverEntry = {
+        boundingClientRect: rect,
+        intersectionRatio: 1,
+        intersectionRect: rect,
+        isIntersecting: true,
+        rootBounds: null,
+        target,
+        time: 0,
+      };
+      queueMicrotask(() => {
+        this.callback([entry], this);
+      });
+    }
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  }
+  const original = globalThis.IntersectionObserver;
+  vi.stubGlobal("IntersectionObserver", InView);
+  return makeResource({}, () => {
+    vi.stubGlobal("IntersectionObserver", original);
+  });
+}
+
+test("every link on a linked feed's page can preload and leave the feed as it is", async () => {
   await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
   const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
   const itemId = seeded.itemId("Message 10");
-  await using ctx = await renderBabyPage(harness, `/baby/${seeded.publicId}?item=${itemId}`);
+  // "Jump to latest" above the feed, and the owner's overlay links
+  // (settings, post, share), come into view with the rest.
+  await using _inView = everythingInViewResource();
+  // As the app routes it: links preload as they come into view, and the
+  // overlays a visitor can open are there to preload.
+  await using ctx = await renderBabyPageWithPreloads(
+    harness,
+    `/baby/${seeded.publicId}?item=${itemId}`,
+  );
   await vi.waitFor(() => {
     expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 10"));
   });
-  const params = { publicId: seeded.publicId };
-
-  // "Jump to latest" above the feed, and a link to an item it hasn't loaded,
-  // as they scroll into view.
-  await ctx.router.preloadRoute({ params, to: "/baby/$publicId" });
-  await ctx.router.preloadRoute({
-    params,
-    search: { item: seeded.itemId(`Message ${TIMELINE_PAGE_SIZE + 2}`) },
-    to: "/baby/$publicId",
+  await vi.waitFor(() => {
+    expect(ctx.view.getByRole("link", { name: "Jump to latest" })).toBeTruthy();
+  });
+  // Let every preload run and settle.
+  await new Promise((resolve) => {
+    setTimeout(resolve, 200);
   });
   await harness.refresh();
 
@@ -996,6 +1048,133 @@ test("links the router preloads leave a linked feed on screen as it is", async (
   expect(ctx.view.getByText("Message 12")).toBeTruthy();
   expect(ctx.view.queryByText("Message 13")).toBeNull();
   expect(ctx.view.getByRole("button", { name: "10 newer, Show 10 more" })).toBeTruthy();
+});
+
+/** The baby page at `entry`, routed as the app routes it, with the overlays a visitor can open. */
+async function renderBabyPageWithPreloads(harness: ConvexTestHarness, entry: string) {
+  return await renderMountedFileRouteWithPreloads({
+    childRoutes: [
+      { path: "share", route: shareRouteModule.Route },
+      { path: "login", route: loginRouteModule.Route },
+    ],
+    harness,
+    initialEntry: entry,
+    overlayHistory: null,
+    path: "/baby/$publicId",
+    route: routeModule.Route,
+    wrap: null,
+  });
+}
+
+test("a removed item's notice can preload its dismiss link and leave the feed as it is", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
+  const itemId = seeded.itemId("Message 10");
+  await harness.t.run(async (ctx) => {
+    await ctx.db.patch(itemId, { deletedAt: Date.now() });
+  });
+  await using _inView = everythingInViewResource();
+  await using ctx = await renderBabyPageWithPreloads(
+    harness,
+    `/baby/${seeded.publicId}?item=${itemId}`,
+  );
+  await ctx.view.findByText("That update or message isn't here any more.");
+  await new Promise((resolve) => {
+    setTimeout(resolve, 200);
+  });
+  await harness.refresh();
+
+  // Still the removed item's place, with the notice.
+  expect(ctx.view.getByText("That update or message isn't here any more.")).toBeTruthy();
+  expect(ctx.view.getByText("Message 12")).toBeTruthy();
+  expect(ctx.view.queryByText("Message 13")).toBeNull();
+});
+
+test("opening an overlay over a linked feed keeps the feed under it", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
+  const itemId = seeded.itemId("Message 10");
+  await using ctx = await renderBabyPageWithPreloads(
+    harness,
+    `/baby/${seeded.publicId}?item=${itemId}`,
+  );
+  await vi.waitFor(() => {
+    expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 10"));
+  });
+
+  fireEvent.click(ctx.view.getByLabelText("Share the link"));
+  await vi.waitFor(() => {
+    expect(ctx.router.state.location.pathname).toBe(`/baby/${seeded.publicId}/share`);
+  });
+  await harness.refresh();
+
+  expect(ctx.router.state.location.search).toEqual({ item: itemId });
+  expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 10"));
+  expect(ctx.view.getByText("Message 12")).toBeTruthy();
+  expect(ctx.view.queryByText("Message 13")).toBeNull();
+});
+
+test("closing an overlay the page was opened at goes back to the linked feed", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
+  const itemId = seeded.itemId("Message 10");
+  // No overlay history to go back to: closing navigates to the page.
+  await using ctx = await renderBabyPageWithPreloads(
+    harness,
+    `/baby/${seeded.publicId}/share?item=${itemId}`,
+  );
+  await vi.waitFor(() => {
+    expect(ctx.view.getByRole("dialog")).toBeTruthy();
+  });
+
+  fireEvent.keyDown(ctx.view.getByRole("dialog"), { key: "Escape" });
+
+  await vi.waitFor(() => {
+    expect(ctx.router.state.location.pathname).toBe(`/baby/${seeded.publicId}`);
+  });
+  expect(ctx.router.state.location.search).toEqual({ item: itemId });
+  await vi.waitFor(() => {
+    expect(highlightedRow(ctx.view)).toBe(messageRow(ctx.view, "Message 10"));
+  });
+});
+
+test("Jump to latest leaves the linked feed for the latest one", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
+  const itemId = seeded.itemId("Message 10");
+  await using ctx = await renderBabyPageWithPreloads(
+    harness,
+    `/baby/${seeded.publicId}?item=${itemId}`,
+  );
+
+  fireEvent.click(await ctx.view.findByRole("link", { name: "Jump to latest" }));
+
+  await vi.waitFor(() => {
+    expect(ctx.router.state.location.search).toEqual({});
+  });
+  await ctx.view.findByText(`Message ${TIMELINE_PAGE_SIZE + 2}`);
+  expect(highlightedRow(ctx.view)).toBeNull();
+});
+
+test("dismissing a removed item's notice leaves for the latest feed", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const seeded = await seedFeedMessages(harness, { count: TIMELINE_PAGE_SIZE + 2 });
+  const itemId = seeded.itemId("Message 10");
+  await harness.t.run(async (ctx) => {
+    await ctx.db.patch(itemId, { deletedAt: Date.now() });
+  });
+  await using ctx = await renderBabyPageWithPreloads(
+    harness,
+    `/baby/${seeded.publicId}?item=${itemId}`,
+  );
+
+  fireEvent.click(await ctx.view.findByRole("link", { name: "Dismiss notice" }));
+
+  await vi.waitFor(() => {
+    expect(ctx.router.state.location.search).toEqual({});
+  });
+  await ctx.view.findByText(`Message ${TIMELINE_PAGE_SIZE + 2}`);
+  expect(ctx.view.queryByText("That update or message isn't here any more.")).toBeNull();
 });
 
 test("navigating to an item the feed hasn't loaded opens the feed at it", async () => {
