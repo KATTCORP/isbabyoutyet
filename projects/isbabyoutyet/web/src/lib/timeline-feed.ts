@@ -1,3 +1,4 @@
+import type { InputOf } from "@raf-query/react";
 import { convexPaginatedQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 
@@ -17,7 +18,10 @@ const LINKED_ITEM_CONTEXT = 2;
 export const timelineQuery = convexPaginatedQuery(api.timeline.listFeed);
 
 /** The {@link timelineQuery} input for the feed from `from`, or the latest one. */
-export function timelineInput(opts: { from: string | null; publicId: string }) {
+export function timelineInput(opts: {
+  from: string | null;
+  publicId: string;
+}): InputOf<typeof timelineQuery> {
   return {
     args: { babyId: opts.publicId, context: LINKED_ITEM_CONTEXT },
     from: opts.from,
