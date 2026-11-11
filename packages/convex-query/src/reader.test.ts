@@ -89,8 +89,7 @@ describe("snapshotReader", () => {
 
   it("names the function when the failure has no message", async () => {
     const reader = snapshotReader({ consistentQuery: () => Promise.reject("offline") });
-    const error = await rejection(readMessage(reader));
-    expect(error).toMatchObject({
+    await expect(readMessage(reader)).rejects.toMatchObject({
       cause: "offline",
       message: "Convex query `messages:get` failed",
     });
