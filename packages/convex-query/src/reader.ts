@@ -1,22 +1,36 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import { getFunctionName } from "convex/server";
-import { Context, Effect, Predicate, Schema } from "effect";
+import { isPlainObject, isString } from "@workspace/runtime/guards";
 
 /** A Convex query function reference, public or internal. */
 export type AnyQueryReference = FunctionReference<"query">;
 
 /** A Convex query failed: the function threw, or the client could not run it. */
-export class ConvexQueryError extends Schema.TaggedError<ConvexQueryError>()("ConvexQueryError", {
-  cause: Schema.Defect(),
-  functionName: Schema.String,
-}) {
-  /** The Convex error's message, so error boundaries show what the function threw. */
-  override get message() {
-    const cause = this.cause;
-    return Predicate.hasProperty(cause, "message") && Predicate.isString(cause.message)
-      ? cause.message
-      : `Convex query \`${this.functionName}\` failed`;
+export class ConvexQueryError extends Error {
+  readonly functionName: string;
+  override readonly name = "ConvexQueryError";
+
+  constructor(opts: { cause: unknown; functionName: string }) {
+    const cause = opts.cause;
+    // The Convex error's message, so error boundaries show what the function threw.
+    super(
+      isPlainObject(cause) || cause instanceof Error
+        ? messageOf(cause, opts.functionName)
+        : fallbackMessage(opts.functionName),
+      { cause },
+    );
+    this.functionName = opts.functionName;
   }
+}
+
+function fallbackMessage(functionName: string) {
+  return `Convex query \`${functionName}\` failed`;
+}
+
+function messageOf(cause: object, functionName: string) {
+  return "message" in cause && isString(cause.message)
+    ? cause.message
+    : fallbackMessage(functionName);
 }
 
 /** One subscription to a query, as `ConvexReactClient.watchQuery` returns it. */
@@ -55,79 +69,87 @@ function queryError(opts: { cause: unknown; query: AnyQueryReference }) {
   return new ConvexQueryError({ cause: opts.cause, functionName: getFunctionName(opts.query) });
 }
 
-/**
- * Reads Convex queries for raf-query `queryFn`s. Each `QueryClient` gets its
- * own through the `convex` part, so a server request's
- * authenticated HTTP client can't serve another request.
- */
-export class ConvexReader extends Context.Service<
-  ConvexReader,
-  {
-    readonly query: <TQuery extends AnyQueryReference>(
-      query: TQuery,
-      args: FunctionArgs<TQuery>,
-    ) => Effect.Effect<FunctionReturnType<TQuery>, ConvexQueryError>;
-  }
->()("@workspace/convex-query/ConvexReader") {
-  /**
-   * Browser reads over a subscribing client: resolves with the first result
-   * (at once if the client already has it), and keeps the subscription a
-   * moment longer for the live sync to pick up.
-   */
-  static readonly subscribing = (client: ConvexWatchClient) =>
-    ConvexReader.of({
-      query: (query, args) =>
-        Effect.callback((resume) => {
-          const watch = client.watchQuery(query, args);
-          let settled = false;
-          const settle = () => {
-            if (settled) {
-              return;
-            }
-            let result;
-            try {
-              result = watch.localQueryResult();
-            } catch (error) {
-              settled = true;
-              unsubscribe();
-              resume(Effect.fail(queryError({ cause: error, query })));
-              return;
-            }
-            if (result === undefined) {
-              return;
-            }
-            settled = true;
-            setTimeout(unsubscribe, KEEP_SUBSCRIBED_MS);
-            resume(Effect.succeed(result));
-          };
-          const unsubscribe = watch.onUpdate(settle);
-          settle();
-          return Effect.sync(() => {
-            if (!settled) {
-              unsubscribe();
-            }
-          });
-        }),
-    });
-
-  /** Server reads: one consistent snapshot per HTTP client (one per request). */
-  static readonly snapshot = (client: ConvexSnapshotClient) =>
-    ConvexReader.of({
-      query: (query, args) =>
-        Effect.tryPromise({
-          catch: (cause) => queryError({ cause, query }),
-          try: () => client.consistentQuery(query, args),
-        }),
-    });
+/** One read: the query, its args, and the signal that drops it. */
+interface ConvexRead<TQuery extends AnyQueryReference> {
+  readonly args: FunctionArgs<TQuery>;
+  readonly query: TQuery;
+  /** Aborted when raf-query drops the request; the read rejects with its reason. */
+  readonly signal: AbortSignal;
 }
 
-/** Read a query through the current {@link ConvexReader}. */
-export function readConvexQuery<TQuery extends AnyQueryReference>(
-  query: TQuery,
-  args: FunctionArgs<TQuery>,
-) {
-  return Effect.gen(function* () {
-    const reader = yield* ConvexReader;
-    return yield* reader.query(query, args);
-  });
+/**
+ * Reads Convex queries for raf-query `queryFn`s. Each `QueryClient` gets its
+ * own through the `convex` part, so a server request's authenticated HTTP
+ * client can't serve another request. A read rejects with a
+ * {@link ConvexQueryError}.
+ */
+export interface ConvexReader {
+  query<TQuery extends AnyQueryReference>(
+    read: ConvexRead<TQuery>,
+  ): Promise<FunctionReturnType<TQuery>>;
+}
+
+/**
+ * Browser reads over a subscribing client: resolves with the first result
+ * (at once if the client already has it), and keeps the subscription a
+ * moment longer for the live sync to pick up.
+ */
+export function subscribingReader(client: ConvexWatchClient): ConvexReader {
+  return {
+    query: (read) => {
+      const settled = Promise.withResolvers<FunctionReturnType<typeof read.query>>();
+      const watch = client.watchQuery(read.query, read.args);
+      let done = false;
+      const stop = (unsubscribe: () => void) => {
+        done = true;
+        read.signal.removeEventListener("abort", onAbort);
+        unsubscribe();
+      };
+      const settle = () => {
+        if (done) {
+          return;
+        }
+        let result;
+        try {
+          result = watch.localQueryResult();
+        } catch (error) {
+          stop(unsubscribe);
+          settled.reject(queryError({ cause: error, query: read.query }));
+          return;
+        }
+        if (result === undefined) {
+          return;
+        }
+        stop(() => setTimeout(unsubscribe, KEEP_SUBSCRIBED_MS));
+        settled.resolve(result);
+      };
+      const onAbort = () => {
+        if (!done) {
+          stop(unsubscribe);
+          settled.reject(read.signal.reason);
+        }
+      };
+      const unsubscribe = watch.onUpdate(settle);
+      read.signal.addEventListener("abort", onAbort);
+      if (read.signal.aborted) {
+        onAbort();
+      } else {
+        settle();
+      }
+      return settled.promise;
+    },
+  };
+}
+
+/** Server reads: one consistent snapshot per HTTP client (one per request). */
+export function snapshotReader(client: ConvexSnapshotClient): ConvexReader {
+  return {
+    query: async (read) => {
+      try {
+        return await client.consistentQuery(read.query, read.args);
+      } catch (error) {
+        throw queryError({ cause: error, query: read.query });
+      }
+    },
+  };
 }

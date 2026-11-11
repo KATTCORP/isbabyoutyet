@@ -393,10 +393,10 @@ importers:
       '@raf-query/react':
         specifier: file:../../vendor/raf-query/raf-query-react-0.14.0-parts.0.tgz
         version: file:vendor/raf-query/raf-query-react-0.14.0-parts.0.tgz(@tanstack/react-router@1.170.41(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
+      '@workspace/runtime':
+        specifier: workspace:*
+        version: link:../runtime
     devDependencies:
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.1(effect@4.0.1)(vitest@5.0.3)
       '@raf-query/core':
         specifier: file:../../vendor/raf-query/raf-query-core-0.14.0-parts.0.tgz
         version: file:vendor/raf-query/raf-query-core-0.14.0-parts.0.tgz
@@ -406,9 +406,6 @@ importers:
       convex:
         specifier: 'catalog:'
         version: 1.46.0(react@19.3.0)
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.1
       oxfmt:
         specifier: 'catalog:'
         version: 0.72.0
@@ -871,9 +868,6 @@ importers:
       date-fns:
         specifier: 'catalog:'
         version: 4.4.0
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.1
       motion:
         specifier: 'catalog:'
         version: 14.0.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)

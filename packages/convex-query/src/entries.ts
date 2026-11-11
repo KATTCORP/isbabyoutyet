@@ -1,6 +1,6 @@
 import type { QueryClient } from "@raf-query/react";
 import type { DefaultFunctionArgs } from "convex/server";
-import { Predicate } from "effect";
+import { isNumber, isPlainObject, isString } from "@workspace/runtime/guards";
 import type { PageDirection } from "./queries.ts";
 
 /** First element of every `convexQuery` key. */
@@ -29,18 +29,18 @@ export type LiveKey =
 export function liveKey(key: CacheEntry["key"]): LiveKey | null {
   const tag = key[0];
   const name = key[1];
-  if (!Predicate.isString(name)) {
+  if (!isString(name)) {
     return null;
   }
   const args = key[2];
-  if (!Predicate.isObject(args)) {
+  if (!isPlainObject(args)) {
     return null;
   }
   if (tag === CONVEX_QUERY_KEY && key.length === 3) {
     return { args, kind: "query", name };
   }
   const numItems = key[3];
-  if (tag === CONVEX_PAGINATED_QUERY_KEY && key.length === 4 && Predicate.isNumber(numItems)) {
+  if (tag === CONVEX_PAGINATED_QUERY_KEY && key.length === 4 && isNumber(numItems)) {
     return { args, kind: "paginated", name, numItems };
   }
   return null;
@@ -61,34 +61,35 @@ export interface LoadedPage extends PageStart {
 
 /** `data`'s pages, or `null` unless every page param is one this package's factories make. */
 export function loadedPages(data: EntryData): ReadonlyArray<LoadedPage> | null {
-  if (!Predicate.hasProperty(data, "pageParams") || !Array.isArray(data.pageParams)) {
+  if (!isPlainObject(data) || !Array.isArray(data.pageParams)) {
     return null;
   }
   const pages: Array<LoadedPage> = [];
   for (const param of data.pageParams) {
-    if (!Predicate.hasProperty(param, "cursor")) {
+    if (!isPlainObject(param) || !("cursor" in param)) {
       return null;
     }
     const cursor = param.cursor;
-    if (cursor !== null && !Predicate.isString(cursor)) {
+    if (cursor !== null && !isString(cursor)) {
       return null;
     }
-    const direction = Predicate.hasProperty(param, "direction") ? param.direction : null;
+    const direction = param.direction ?? null;
     if (direction !== null && direction !== "forward" && direction !== "backward") {
       return null;
     }
-    if (!Predicate.hasProperty(param, "numItems") || !Predicate.isNumber(param.numItems)) {
+    const numItems = param.numItems;
+    if (!isNumber(numItems)) {
       return null;
     }
-    if (!Predicate.hasProperty(param, "from")) {
-      pages.push({ cursor, direction, numItems: param.numItems });
+    if (!("from" in param)) {
+      pages.push({ cursor, direction, numItems });
       continue;
     }
     const from = param.from;
-    if (from !== null && !Predicate.isString(from)) {
+    if (from !== null && !isString(from)) {
       return null;
     }
-    pages.push({ cursor, direction, from, numItems: param.numItems });
+    pages.push({ cursor, direction, from, numItems });
   }
   return pages;
 }

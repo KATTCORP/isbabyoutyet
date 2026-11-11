@@ -16,13 +16,14 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
+  "dependencies": {
+    "@workspace/runtime": "workspace:*"
+  },
   "devDependencies": {
-    "@effect/vitest": "catalog:",
     "@raf-query/core": "catalog:",
     "@raf-query/react": "catalog:",
     "@workspace/tsconfig": "workspace:*",
     "convex": "catalog:",
-    "effect": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "oxlint-tsgolint": "catalog:",
@@ -32,7 +33,6 @@
   },
   "peerDependencies": {
     "@raf-query/react": "^0.14.0-parts.0",
-    "convex": "^1.0.0",
-    "effect": "^4.0.0"
+    "convex": "^1.0.0"
   }
 }

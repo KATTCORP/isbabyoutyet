@@ -16,7 +16,6 @@ import {
 } from "@raf-query/react";
 import type { PaginationOptions, PaginationResult } from "convex/server";
 import { getFunctionName, makeFunctionReference } from "convex/server";
-import { Effect, Fiber, Option, Stream } from "effect";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { isInvalidatedEntry } from "./test-cache.ts";
 import type { ConvexQueryClient } from "./context.ts";
@@ -25,7 +24,7 @@ import { convex } from "./part.ts";
 import { CONVEX_PAGINATED_QUERY_KEY, CONVEX_QUERY_KEY } from "./entries.ts";
 import type { PageBefore, PageDirection } from "./queries.ts";
 import { convexPaginatedQuery, convexQuery } from "./queries.ts";
-import { ConvexReader } from "./reader.ts";
+import { subscribingReader } from "./reader.ts";
 import { makeTestConvexClient } from "./testing.ts";
 
 /**
@@ -137,7 +136,7 @@ function setup() {
   const queryClient = createQueryClient({
     defaults: { gcTime: Infinity },
     isServer: false,
-    parts: [convex({ live: backend.client, reader: ConvexReader.subscribing(backend.client) })],
+    parts: [convex({ live: backend.client, reader: subscribingReader(backend.client) })],
   });
   // What `QueryClientProvider` does while mounted.
   const disconnect = mount(queryClient);
@@ -542,28 +541,24 @@ describe("the convex part's live sync", () => {
   });
 });
 
-/** Await `promise` while `vi.waitFor` advances the fake timers Effect schedules on. */
-async function settle<A>(promise: Promise<A>) {
-  let result: { value: A } | undefined;
-  void promise.then((value) => {
-    result = { value };
-  });
-  return await vi.waitFor(() => {
-    if (!result) {
-      throw new Error("still pending");
-    }
-    return result.value;
-  });
-}
-
 describe("watchConvexQuery", () => {
-  const watchMessage = (live: ReturnType<typeof setup>) =>
-    watchConvexQuery(live, { args: { id: "a" }, query: getMessage });
+  /** Watch message "a", collecting its values until the test stops it. */
+  function watchMessage(live: ReturnType<typeof setup>) {
+    const values: Array<string> = [];
+    const stop = watchConvexQuery(live, {
+      args: { id: "a" },
+      onValue: (value) => {
+        values.push(value);
+      },
+      query: getMessage,
+    });
+    return { stop, values };
+  }
 
-  it("subscribes itself and streams each new result", async () => {
+  it("subscribes itself and reports each new result", async () => {
     const live = setup();
     live.disconnect();
-    const values = Effect.runPromise(watchMessage(live).pipe(Stream.take(2), Stream.runCollect));
+    const watching = watchMessage(live);
     await vi.waitFor(() => {
       expect(getData(live.queryClient, message, { id: "a" })).toBe("hello");
     });
@@ -571,42 +566,47 @@ describe("watchConvexQuery", () => {
     await live.backend.refresh();
     live.messages.set("a", "edited");
     await live.backend.refresh();
-    expect(await settle(values)).toEqual(["hello", "edited"]);
+    expect(watching.values).toEqual(["hello", "edited"]);
     expect(getData(live.queryClient, message, { id: "a" })).toBe("edited");
+    watching.stop();
     vi.advanceTimersByTime(5000);
     expect(live.backend.subscriptions()).toEqual([]);
   });
 
   it("shares the entry and its read with a loader's load", async () => {
     const live = setup();
-    const first = Effect.runPromise(Stream.runHead(watchMessage(live)));
+    const watching = watchMessage(live);
     await live.load(message, { id: "a" });
     expect(live.queryClient["~entries"].size).toBe(1);
 
-    expect(await settle(first)).toEqual(Option.some("hello"));
+    await vi.waitFor(() => {
+      expect(watching.values).toEqual(["hello"]);
+    });
     expect(live.runs()).toBe(1);
+    watching.stop();
   });
 
-  it("starts with the cached value", async () => {
+  it("starts with the cached value", () => {
     const live = setup();
     live.disconnect();
     setData(live.queryClient, message, { id: "a" }, "cached");
 
-    const first = Effect.runPromise(Stream.runHead(watchMessage(live)));
+    const watching = watchMessage(live);
 
-    expect(await settle(first)).toEqual(Option.some("cached"));
+    expect(watching.values).toEqual(["cached"]);
+    watching.stop();
     expect(live.backend.subscriptions()).toEqual([]);
   });
 
-  it("unsubscribes when interrupted", async () => {
+  it("unsubscribes when stopped", async () => {
     const live = setup();
     live.disconnect();
-    const fiber = Effect.runFork(Stream.runDrain(watchMessage(live)));
+    const watching = watchMessage(live);
     await vi.waitFor(() => {
       expect(getData(live.queryClient, message, { id: "a" })).toBe("hello");
     });
 
-    await Effect.runPromise(Fiber.interrupt(fiber));
+    watching.stop();
     vi.advanceTimersByTime(5000);
     expect(live.backend.subscriptions()).toEqual([]);
   });

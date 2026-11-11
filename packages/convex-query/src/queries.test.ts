@@ -26,7 +26,7 @@ import type {
 } from "./queries.ts";
 import { convexPaginatedQuery, convexQuery } from "./queries.ts";
 import type { ConvexWatchClient } from "./reader.ts";
-import { ConvexReader } from "./reader.ts";
+import { subscribingReader } from "./reader.ts";
 import { makeTestConvexClient } from "./testing.ts";
 
 /** A browser client reading through `client`, without gc timers. */
@@ -34,7 +34,7 @@ function makeQueryClient(client: ConvexWatchClient) {
   return createQueryClient({
     defaults: { gcTime: Infinity },
     isServer: false,
-    parts: [convex({ live: null, reader: ConvexReader.subscribing(client) })],
+    parts: [convex({ live: null, reader: subscribingReader(client) })],
   });
 }
 

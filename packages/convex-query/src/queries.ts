@@ -20,8 +20,7 @@ import type {
 import { getFunctionName } from "convex/server";
 import { CONVEX_PAGINATED_QUERY_KEY, CONVEX_QUERY_KEY } from "./entries.ts";
 import type { Convex } from "./context.ts";
-import { runConvexEffect } from "./context.ts";
-import { readConvexQuery } from "./reader.ts";
+import { readConvexQuery } from "./context.ts";
 
 /**
  * Factories by what they read. raf-query matches a factory target by
@@ -175,7 +174,7 @@ export function convexQuery<TQuery extends QueryReference>(
     (): ConvexQueryFactory<TQuery> => (args) =>
       queryOptions({
         ...LIVE_OPTIONS,
-        queryFn: (context) => runConvexEffect(context, readConvexQuery(query, args)),
+        queryFn: (context) => readConvexQuery(context, { args, query }),
         queryKey: [CONVEX_QUERY_KEY, functionName, args],
       }),
   );
@@ -225,10 +224,7 @@ function oneWayOptions<TQuery extends PaginatedQueryReference>(
       lastPage.isDone ? null : { cursor: lastPage.continueCursor, numItems: input.numItems },
     initialPageParam,
     queryFn: (context) =>
-      runConvexEffect(
-        context,
-        readConvexQuery(query, pageArgs<TQuery>(input.args, context.pageParam)),
-      ),
+      readConvexQuery(context, { args: pageArgs<TQuery>(input.args, context.pageParam), query }),
     queryKey: [CONVEX_PAGINATED_QUERY_KEY, getFunctionName(query), input.args, input.numItems],
   });
 }
@@ -324,10 +320,10 @@ function twoWayOptions<TQuery extends TwoWayPaginatedQueryReference>(
     // at `from` or show it, and starts over at `from` otherwise.
     keepPages: (data) => showsStart(data, input.from),
     queryFn: (context) =>
-      runConvexEffect(
-        context,
-        readConvexQuery(query, twoWayPageArgs<TQuery>(input.args, context.pageParam)),
-      ),
+      readConvexQuery(context, {
+        args: twoWayPageArgs<TQuery>(input.args, context.pageParam),
+        query,
+      }),
     queryKey: [CONVEX_PAGINATED_QUERY_KEY, getFunctionName(query), input.args, input.numItems],
   });
 }

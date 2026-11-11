@@ -21,15 +21,15 @@ import type { ConvexReader, ConvexWatchClient } from "./reader.ts";
  *   parts: [
  *     ...recommended(),
  *     isServer
- *       ? convex({ live: null, reader: ConvexReader.snapshot(convexHttpClient) })
- *       : convex({ live: convexReactClient, reader: ConvexReader.subscribing(convexReactClient) }),
+ *       ? convex({ live: null, reader: snapshotReader(convexHttpClient) })
+ *       : convex({ live: convexReactClient, reader: subscribingReader(convexReactClient) }),
  *   ],
  * });
  */
 export function convex(opts: {
   /** Browser only: the subscribing client that keeps cached entries live. */
   readonly live: ConvexWatchClient | null;
-  readonly reader: ConvexReader["Service"];
+  readonly reader: ConvexReader;
 }): Part<Convex> {
   const context: Convex["context"] = { convex: opts.reader };
   return opts.live

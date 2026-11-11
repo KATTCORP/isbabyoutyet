@@ -1,6 +1,6 @@
 import { createQueryClient, recommended } from "@raf-query/react";
-import type { ConvexWatchClient } from "@workspace/convex-query";
-import { convex, ConvexReader } from "@workspace/convex-query";
+import type { ConvexReader, ConvexWatchClient } from "@workspace/convex-query";
+import { convex, subscribingReader } from "@workspace/convex-query";
 
 /**
  * The app's raf-query client. Convex queries read through `reader` (the
@@ -18,7 +18,7 @@ export function makeQueryClient(opts: {
   isServer: boolean;
   /** Browser only: the subscribing client that keeps Convex entries live. */
   live: ConvexWatchClient | null;
-  reader: ConvexReader["Service"];
+  reader: ConvexReader;
 }) {
   return createQueryClient({
     isServer: opts.isServer,
@@ -34,6 +34,6 @@ export function makeBrowserQueryClient(client: ConvexWatchClient) {
   return makeQueryClient({
     isServer: false,
     live: client,
-    reader: ConvexReader.subscribing(client),
+    reader: subscribingReader(client),
   });
 }

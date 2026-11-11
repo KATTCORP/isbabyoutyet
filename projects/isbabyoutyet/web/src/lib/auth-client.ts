@@ -11,7 +11,6 @@ import type {
   FunctionReturnType,
   OptionalRestArgs,
 } from "convex/server";
-import { Effect, Option, Stream } from "effect";
 import { ConvexReactClient } from "convex/react";
 import type { MutationOptions } from "convex/react";
 import type { AuthTokenFetcher } from "convex/browser";
@@ -250,18 +249,26 @@ export async function waitForMe(opts: {
 }) {
   // Convex can answer with the old identity until the auth change re-runs the
   // query, so wait for a matching value instead of reading once.
-  const me = await Effect.runPromise(
-    watchConvexQuery(
-      { client: opts.convexClient, queryClient: opts.queryClient },
-      { args: {}, query: api.profile.get },
-    ).pipe(
-      Stream.filter((value) => meMatchesPresence(value, opts.presence)),
-      Stream.runHead,
-      Effect.timeoutOption(SETTLED_ME_WAIT_MS),
-      Effect.map(Option.flatten),
-    ),
+  const matched = Promise.withResolvers<boolean>();
+  const timer = setTimeout(() => {
+    matched.resolve(false);
+  }, SETTLED_ME_WAIT_MS);
+  const stop = watchConvexQuery(
+    { client: opts.convexClient, queryClient: opts.queryClient },
+    {
+      args: {},
+      onValue: (value) => {
+        if (meMatchesPresence(value, opts.presence)) {
+          matched.resolve(true);
+        }
+      },
+      query: api.profile.get,
+    },
   );
-  if (Option.isSome(me)) {
+  const settled = await matched.promise;
+  clearTimeout(timer);
+  stop();
+  if (settled) {
     const meKey = convexQuery(api.profile.get)({}).queryKey;
     removeMany(opts.queryClient, {
       where: (query) => query.queryKey[0] !== meKey[0] || query.queryKey[1] !== meKey[1],

@@ -1,40 +1,40 @@
-import type { QueryClient, QueryFunctionContext, RootOf } from "@raf-query/react";
-import { Effect } from "effect";
-import { ConvexReader } from "./reader.ts";
+import type { QueryClient, RootOf } from "@raf-query/react";
+import type { FunctionArgs, FunctionReturnType } from "convex/server";
+import type { AnyQueryReference, ConvexReader } from "./reader.ts";
 
 /**
  * What the `convex` part declares: every `queryFn` on its client gets the
  * client's {@link ConvexReader} as `context.convex`.
  */
 export interface Convex {
-  readonly context: { readonly convex: ConvexReader["Service"] };
+  readonly context: { readonly convex: ConvexReader };
 }
 
 /** A raf-query client that has the `convex` part: it runs this package's factories. */
 export type ConvexQueryClient = QueryClient<RootOf<Convex>>;
 
-/** What {@link runConvexEffect} reads from a `queryFn`'s context. */
-type RequestContext = Pick<
-  QueryFunctionContext<ReadonlyArray<unknown>, RootOf<Convex>>,
-  "convex" | "signal"
->;
+/** What {@link readConvexQuery} reads from a `queryFn`'s context. */
+export interface ConvexRequest {
+  readonly convex: ConvexReader;
+  readonly signal: AbortSignal;
+}
 
 /**
- * Run a `queryFn`'s Effect with the client's {@link ConvexReader}, and
- * interrupt it when raf-query aborts the request. A failure rejects with the
- * Effect's error, so readers' error boundaries get it as is.
+ * Read a Convex query from a `queryFn`, through the reader of the client
+ * making the request. The read is dropped when raf-query aborts the
+ * request, and rejects with a `ConvexQueryError`, so readers' error
+ * boundaries get it as is.
  *
  * @example
  * queryOptions({
- *   queryKey: ["pushCapability", babyRef],
- *   queryFn: (context) => runConvexEffect(context, resolvePushCapability(babyRef)),
+ *   queryKey: ["isSubscribed", endpoint],
+ *   queryFn: (context) =>
+ *     readConvexQuery(context, { args: { endpoint }, query: api.pushSubscriptions.isSubscribed }),
  * });
  */
-export function runConvexEffect<A, E>(
-  request: RequestContext,
-  effect: Effect.Effect<A, E, ConvexReader>,
-): Promise<A> {
-  return Effect.runPromiseWith(ConvexReader.context(request.convex))(effect, {
-    signal: request.signal,
-  });
+export function readConvexQuery<TQuery extends AnyQueryReference>(
+  request: ConvexRequest,
+  read: { readonly args: FunctionArgs<TQuery>; readonly query: TQuery },
+): Promise<FunctionReturnType<TQuery>> {
+  return request.convex.query({ args: read.args, query: read.query, signal: request.signal });
 }

@@ -2,7 +2,7 @@ import { createRouter, rootRouteId } from "@tanstack/react-router";
 import { addRouterTracing, reportRouterError } from "@workspace/sentry/browser";
 import { QueryClientProvider } from "@raf-query/react";
 import { setupRouterIntegration } from "@raf-query/react/tanstack-router";
-import { ConvexReader } from "@workspace/convex-query";
+import { snapshotReader, subscribingReader } from "@workspace/convex-query";
 import { isPlainObject, isString } from "@workspace/runtime/guards";
 import { ConvexHttpClient } from "convex/browser";
 import { ConvexProvider } from "convex/react";
@@ -61,12 +61,12 @@ export function getRouter() {
     ? makeQueryClient({
         isServer: true,
         live: null,
-        reader: ConvexReader.snapshot(convexHttpClient),
+        reader: snapshotReader(convexHttpClient),
       })
     : makeQueryClient({
         isServer: false,
         live: convexClient,
-        reader: ConvexReader.subscribing(convexClient),
+        reader: subscribingReader(convexClient),
       });
 
   const router = createRouter({
