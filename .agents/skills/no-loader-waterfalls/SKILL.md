@@ -35,13 +35,16 @@ Build factories inline with `convexQuery(api.x.y)` / `convexPaginatedQuery(api.x
 
 Reference: [`projects/isbabyoutyet/web/src/routes/baby/$publicId/route.tsx`](../../../projects/isbabyoutyet/web/src/routes/baby/$publicId/route.tsx).
 
-## Guards go in the loader, never `beforeLoad`
+## Guards that read data go in the loader, not `beforeLoad`
 
-`beforeLoad` runs before any loader, root to leaf, one route after the other, on **every** navigation (back button included): each await in one holds back every loader under it. It is banned (`workspace/no-before-load`). Loaders start together.
+`beforeLoad` runs before any loader, root to leaf, one route after the other, on **every** navigation (back button included): each await in one holds back every loader under it. A `beforeLoad` the router waits for is banned (`workspace/no-async-before-load`). Loaders start together.
+
+A **synchronous** `beforeLoad` holds nothing back and is fine: a redirect the URL alone decides (`?tab=` on the admin index), or route context computed on the spot (the sous vide guide's locale). Write it inline, not `async`, returning an object literal or nothing, so the rule can see the router gets no promise.
 
 | Concern | Where |
 |--------|--------|
-| 404, redirect | the route's `loader`: `throw notFound()` / `throw redirect(…)` after its one `load` |
+| 404 or redirect that needs data | the route's `loader`: `throw notFound()` / `throw redirect(…)` after its one `load` |
+| Redirect or context from the URL alone | a synchronous `beforeLoad` |
 | Everything the page reads | the same `load` |
 | What a parent used to hand down in route context (the profile, a flag) | each child's own `load`: the same query in two loaders is one request |
 | The request's token and locale on the server | router creation (`requestConvex`, `visitorLocale` in `router.tsx`), not a route |
@@ -123,7 +126,7 @@ Before merging loader work, verify:
 
 - [ ] No `await` chain where step N+1 only needs something available from the URL or static args
 - [ ] All independent prefetches are entries of one `load`
-- [ ] No `beforeLoad`: guards throw from the `loader`, and no loader reads what a parent put in route context
+- [ ] No `beforeLoad` that awaits or returns a promise: guards that read data throw from the `loader`, and no loader reads data a parent put in route context
 - [ ] Loader tests assert parallel prefetch inputs (e.g. slug passed to every baby query, not only after a prior fetch)
 - [ ] Browser-only queries set `ssr: false` and load with `prefetch(…)`, never a blocking `swr` / `revalidate`
 

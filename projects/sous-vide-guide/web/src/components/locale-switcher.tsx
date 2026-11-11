@@ -74,7 +74,7 @@ export function LocaleSwitcher(props: LocaleSwitcherProps) {
               );
             }
             // Even when the URL is unchanged, navigating re-runs the root
-            // loader, which pushes the new locale through its loader data.
+            // `beforeLoad`, which pushes the new locale through route context.
             void setLocaleInPlace(value).then(() =>
               navigate({
                 replace: true,

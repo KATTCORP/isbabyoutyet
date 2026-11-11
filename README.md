@@ -39,10 +39,11 @@ pnpm clean                            # wipe caches and reinstall
   consumer already exports, not `Record<string, unknown>` or `object`. A
   literal passed straight to a call is typed by its parameter.
   `workspace/no-untyped-object-literal` enforces it.
-- **Routes:** no `beforeLoad` (`workspace/no-before-load`): it runs before
-  every loader under it, one route after the other. A guard throws
-  `redirect()` / `notFound()` from its `loader`, and child routes load what
-  they need themselves. See
+- **Routes:** no `beforeLoad` that the router waits for
+  (`workspace/no-async-before-load`): it runs before every loader under it,
+  one route after the other. A guard that reads data throws `redirect()` /
+  `notFound()` from its `loader`, and child routes load what they need
+  themselves. A synchronous `beforeLoad` is fine. See
   [`no-loader-waterfalls`](.agents/skills/no-loader-waterfalls/SKILL.md).
 - **Tests:** prefer Vitest/jsdom over a browser. Only use a computer-use agent
   if the user asks for a walkthrough or the change needs a real viewport.

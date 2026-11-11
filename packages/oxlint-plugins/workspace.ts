@@ -4,7 +4,7 @@ import { inferCallbackParams } from "./infer-callback-params.ts";
 import { inlineJsxCallback } from "./inline-jsx-callback.ts";
 import { noBannedReactReexport } from "./no-banned-react-reexport.ts";
 import { noUndocumentedOptional } from "./no-convex-optional.ts";
-import { noBeforeLoad } from "./no-before-load.ts";
+import { noAsyncBeforeLoad } from "./no-async-before-load.ts";
 import { noConvexQueryHooks } from "./no-convex-query-hooks.ts";
 import { noCustomTestTimeout } from "./no-custom-test-timeout.ts";
 import { noInvalidConvexClient } from "./no-invalid-convex-client.ts";
@@ -28,7 +28,7 @@ const plugin = eslintCompatPlugin({
     "infer-callback-params": inferCallbackParams,
     "inline-jsx-callback": inlineJsxCallback,
     "no-banned-react-reexport": noBannedReactReexport,
-    "no-before-load": noBeforeLoad,
+    "no-async-before-load": noAsyncBeforeLoad,
     "no-convex-query-hooks": noConvexQueryHooks,
     "no-custom-test-timeout": noCustomTestTimeout,
     "no-invalid-convex-client": noInvalidConvexClient,

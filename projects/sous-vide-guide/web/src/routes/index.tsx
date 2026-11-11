@@ -1,12 +1,5 @@
 import { useDeferredValue } from "react";
-import {
-  createFileRoute,
-  redirect,
-  rootRouteId,
-  stripSearchParams,
-  useLoaderData,
-  useLocation,
-} from "@tanstack/react-router";
+import { createFileRoute, redirect, stripSearchParams, useLocation } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { SousVideBrowser } from "@/components/sous-vide-browser";
@@ -30,13 +23,12 @@ const sousVideSearchSchema = z.object({
 });
 
 export const Route = createFileRoute("/")({
-  loaderDeps: (opts) => ({ info: opts.search.info }),
-  loader: (opts) => {
-    if (opts.deps.info !== "") {
+  beforeLoad: (ctx) => {
+    if (ctx.search.info !== "") {
       throw redirect({
-        hash: infoHash(opts.deps.info),
+        hash: infoHash(ctx.search.info),
         replace: true,
-        search: (search) => ({ ...search, info: "" }),
+        search: { ...ctx.search, info: "" },
         to: "/",
       });
     }
@@ -57,9 +49,9 @@ export const Route = createFileRoute("/")({
 
 function SousVideGuidePage() {
   const search = Route.useSearch();
-  // Subscribing to the root loader's locale re-renders the page on an in-place
+  // Subscribing to the context locale re-renders the page on an in-place
   // language switch, even when the URL (and so the search) is unchanged.
-  const locale = useLoaderData({ from: rootRouteId, select: (data) => data.locale });
+  const locale = Route.useRouteContext({ select: (context) => context.locale });
   const info = useLocation({ select: (location) => infoCutIdFromHash(location.hash) });
   const unit = search.unit ?? defaultTemperatureUnit(locale);
   // Filtering follows the field one render behind so typing never waits on it.

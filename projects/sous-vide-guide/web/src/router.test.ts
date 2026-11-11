@@ -8,7 +8,10 @@ import { getRouter } from "./router";
 /** The app's router, loaded at `entry` as a browser would on a navigation. */
 async function loadAt(entry: string) {
   const router = getRouter();
-  router.update({ history: createMemoryHistory({ initialEntries: [entry] }) });
+  router.update({
+    context: router.options.context,
+    history: createMemoryHistory({ initialEntries: [entry] }),
+  });
   await router.load();
   return router;
 }
@@ -28,8 +31,8 @@ test("a link without ?info= stays where it is", async () => {
   expect(router.state.location.search).toEqual({ q: "pork" });
 });
 
-test("the root loader carries the locale the page renders in", async () => {
+test("route context carries the locale the page renders in", async () => {
   const router = await loadAt("/");
 
-  expect(router.state.matches[0]?.loaderData).toEqual({ locale: getLocale() });
+  expect(router.state.matches[0]?.context).toMatchObject({ locale: getLocale() });
 });
