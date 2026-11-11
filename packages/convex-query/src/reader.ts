@@ -5,32 +5,23 @@ import { isPlainObject, isString } from "@workspace/runtime/guards";
 /** A Convex query function reference, public or internal. */
 export type AnyQueryReference = FunctionReference<"query">;
 
+/** The Convex error's message, so error boundaries show what the function threw. */
+function messageOf(opts: { cause: unknown; functionName: string }) {
+  const cause = opts.cause;
+  return isPlainObject(cause) && isString(cause.message)
+    ? cause.message
+    : `Convex query \`${opts.functionName}\` failed`;
+}
+
 /** A Convex query failed: the function threw, or the client could not run it. */
 export class ConvexQueryError extends Error {
   readonly functionName: string;
   override readonly name = "ConvexQueryError";
 
   constructor(opts: { cause: unknown; functionName: string }) {
-    const cause = opts.cause;
-    // The Convex error's message, so error boundaries show what the function threw.
-    super(
-      isPlainObject(cause) || cause instanceof Error
-        ? messageOf(cause, opts.functionName)
-        : fallbackMessage(opts.functionName),
-      { cause },
-    );
+    super(messageOf(opts), { cause: opts.cause });
     this.functionName = opts.functionName;
   }
-}
-
-function fallbackMessage(functionName: string) {
-  return `Convex query \`${functionName}\` failed`;
-}
-
-function messageOf(cause: object, functionName: string) {
-  return "message" in cause && isString(cause.message)
-    ? cause.message
-    : fallbackMessage(functionName);
 }
 
 /** One subscription to a query, as `ConvexReactClient.watchQuery` returns it. */

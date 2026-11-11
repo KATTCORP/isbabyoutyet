@@ -10,16 +10,6 @@ function readMessage(reader: ConvexReader, signal = new AbortController().signal
   return reader.query({ args: { id: "a" }, query: getMessage, signal });
 }
 
-/** How `read` rejected: its error, once it has one. */
-async function rejection(read: Promise<unknown>) {
-  return await read.then(
-    () => {
-      throw new Error("the read resolved");
-    },
-    (error: unknown) => error,
-  );
-}
-
 describe("subscribingReader", () => {
   it("resolves with the first result", async () => {
     const backend = makeTestConvexClient(async (_query, args) => `message ${args.id}`);
@@ -42,9 +32,12 @@ describe("subscribingReader", () => {
     const backend = makeTestConvexClient(async () => {
       throw new Error("Baby not found");
     });
-    const error = await rejection(readMessage(subscribingReader(backend.client)));
-    expect(error).toBeInstanceOf(ConvexQueryError);
-    expect(error).toMatchObject({ functionName: "messages:get", message: "Baby not found" });
+    const read = readMessage(subscribingReader(backend.client));
+    await expect(read).rejects.toBeInstanceOf(ConvexQueryError);
+    await expect(read).rejects.toMatchObject({
+      functionName: "messages:get",
+      message: "Baby not found",
+    });
     expect(backend.subscriptions()).toEqual([]);
   });
 
@@ -56,7 +49,7 @@ describe("subscribingReader", () => {
 
     const reason = new Error("dropped");
     controller.abort(reason);
-    expect(await rejection(read)).toBe(reason);
+    await expect(read).rejects.toBe(reason);
     expect(backend.subscriptions()).toEqual([]);
   });
 
@@ -64,7 +57,7 @@ describe("subscribingReader", () => {
     const backend = makeTestConvexClient(async () => "hello");
     const reason = new Error("dropped");
     const read = readMessage(subscribingReader(backend.client), AbortSignal.abort(reason));
-    expect(await rejection(read)).toBe(reason);
+    await expect(read).rejects.toBe(reason);
     expect(backend.subscriptions()).toEqual([]);
   });
 });
@@ -86,9 +79,12 @@ describe("snapshotReader", () => {
     const reader = snapshotReader({
       consistentQuery: () => Promise.reject(new Error("Unauthenticated")),
     });
-    const error = await rejection(readMessage(reader));
-    expect(error).toBeInstanceOf(ConvexQueryError);
-    expect(error).toMatchObject({ functionName: "messages:get", message: "Unauthenticated" });
+    const read = readMessage(reader);
+    await expect(read).rejects.toBeInstanceOf(ConvexQueryError);
+    await expect(read).rejects.toMatchObject({
+      functionName: "messages:get",
+      message: "Unauthenticated",
+    });
   });
 
   it("names the function when the failure has no message", async () => {
