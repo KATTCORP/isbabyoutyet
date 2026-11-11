@@ -17,7 +17,6 @@ import { makeAsyncResource, makeResource } from "@isbabyoutyet/backend/convex/te
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { LocaleProvider } from "@/lib/i18n";
 import type { ConvexTestHarness } from "@/test/convexTestHarness";
-import type { ParentRouteContext } from "@/test/routeTestContext";
 import { routeContextFromHarness } from "@/test/routeTestContext";
 import { stubJsdomWindow } from "@/test/stubJsdomWindow";
 import { routerPreloadOptions } from "@/router";
@@ -62,25 +61,11 @@ type MountedFileRouteOpts = {
 };
 
 /**
- * Mounts a real file-route component end-to-end: beforeLoad + loader + the
+ * Mounts a real file-route component end-to-end: loader + the
  * production wrapper, backed by `convex-test` through the shared harness.
  */
 export async function renderMountedFileRoute(opts: MountedFileRouteOpts) {
-  return await mountFileRoute(opts, { childRoutes: [], preload: null, routerContext: {} });
-}
-
-/**
- * Same as {@link renderMountedFileRoute}, with extra router context (e.g. a
- * parent guard's `signedInRouteContext`) merged onto the harness defaults.
- */
-export async function renderMountedFileRouteWithRouterContext(
-  opts: MountedFileRouteOpts & { routerContext: ParentRouteContext },
-) {
-  return await mountFileRoute(opts, {
-    childRoutes: [],
-    preload: null,
-    routerContext: opts.routerContext,
-  });
+  return await mountFileRoute(opts, { childRoutes: [], preload: null });
 }
 
 type ChildFileRoute = {
@@ -90,20 +75,13 @@ type ChildFileRoute = {
 };
 
 /**
- * Same as {@link renderMountedFileRouteWithRouterContext}, with the layout's
+ * Same as {@link renderMountedFileRoute}, with the layout's
  * real child file routes mounted under it so tests can navigate between them.
  */
 export async function renderMountedFileRouteTree(
-  opts: MountedFileRouteOpts & {
-    childRoutes: Array<ChildFileRoute>;
-    routerContext: ParentRouteContext;
-  },
+  opts: MountedFileRouteOpts & { childRoutes: Array<ChildFileRoute> },
 ) {
-  return await mountFileRoute(opts, {
-    childRoutes: opts.childRoutes,
-    preload: null,
-    routerContext: opts.routerContext,
-  });
+  return await mountFileRoute(opts, { childRoutes: opts.childRoutes, preload: null });
 }
 
 /**
@@ -120,7 +98,6 @@ export async function renderMountedFileRouteWithPreloads(
       defaultPreload: routerPreloadOptions.defaultPreload,
       defaultPreloadStaleTime: routerPreloadOptions.defaultPreloadStaleTime,
     },
-    routerContext: {},
   });
 }
 
@@ -135,7 +112,6 @@ async function mountFileRoute(
     childRoutes: Array<ChildFileRoute>;
     /** The router's preload policy; `null` for TanStack's default, which preloads nothing. */
     preload: RouterPreload | null;
-    routerContext: ParentRouteContext;
   },
 ) {
   const history =
@@ -179,7 +155,7 @@ async function mountFileRoute(
 
   const router = createRouter({
     ...extra.preload,
-    context: { ...routeContextFromHarness(opts.harness), ...extra.routerContext },
+    context: routeContextFromHarness(opts.harness),
     // Closing an overlay navigates to its parent, which this single-route tree
     // does not mount.
     defaultNotFoundComponent: () => null,

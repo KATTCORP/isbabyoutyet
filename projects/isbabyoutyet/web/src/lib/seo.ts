@@ -227,7 +227,7 @@ export function getBabySeo(doc: PublicBabyDoc, routePublicId: string) {
           dueDateDisplayMode: "message" as const,
           publicDueDateText: doc.publicDueDateText ?? "",
         }),
-    // beforeLoad canonicalizes this route parameter. During same-route
+    // The loader canonicalizes this route parameter. During same-route
     // navigation, reactive query data can briefly belong to the prior slug.
     babyBorn: doc.babyBorn,
     laborStarted: doc.laborStarted,

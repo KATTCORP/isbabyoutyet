@@ -21,7 +21,7 @@ import {
   retainSearchParams,
   useMatchRoute,
 } from "@tanstack/react-router";
-import { getData, load, prefetch, swr, useQuery } from "@raf-query/react";
+import { load, prefetch, swr, useQuery } from "@raf-query/react";
 import { use } from "react";
 import { z } from "zod";
 import type { FunctionReturnType } from "convex/server";
@@ -68,34 +68,15 @@ export const Route = createFileRoute("/baby/$publicId")({
   },
   loaderDeps: (opts) => ({ item: opts.search.item ?? null }),
 
-  beforeLoad: async (opts) => {
-    const [, data] = await load(opts.context.queryClient, {
-      baby: swr(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId }),
-    });
-    const babyDoc = data.baby;
-    if (!babyDoc) {
-      throw notFound();
-    }
-    if (babyDoc.publicId !== opts.params.publicId) {
-      throw redirect(
-        replaceBabyPublicId({
-          fromPublicId: opts.params.publicId,
-          href: opts.location.href,
-          toPublicId: babyDoc.publicId,
-        }),
-      );
-    }
-    return { locale: babyDoc.resolvedLocale };
-  },
+  // Everything the page reads is named by the URL alone, so it all starts in
+  // one round. For a baby that doesn't exist the other queries answer
+  // `null`, `FORBIDDEN` or an empty feed, and the page is a 404; for a public
+  // id the baby no longer goes by, the redirect starts the round again.
+  // The overlays' loaders start beside this one, and the router lets the
+  // 404 or the redirect here win over whatever they find.
   loader: async (opts) => {
-    const queryClient = opts.context.queryClient;
     const publicId = opts.params.publicId;
-    // `beforeLoad` already loaded the baby, so this starts with no wait.
-    const babyDoc = getData(queryClient, convexQuery(api.baby.getByPublicId), { id: publicId });
-    if (!babyDoc) {
-      throw notFound();
-    }
-    const [handles] = await load(queryClient, {
+    const [handles, data] = await load(opts.context.queryClient, {
       baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
       // This device's state, which only the browser knows (`ssr: false`):
       // the server returns its handle unstarted, and the browser runs it.
@@ -115,8 +96,21 @@ export const Route = createFileRoute("/baby/$publicId")({
       // timestamp only moves the highlight.
       timeline: swr(timelineQuery, timelineInput({ from: opts.deps.item, publicId })),
       vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
-      visitorTag: prefetch(visitorTagQuery, babyDoc._id),
+      visitorTag: prefetch(visitorTagQuery, publicId),
     });
+    const babyDoc = data.baby;
+    if (!babyDoc) {
+      throw notFound();
+    }
+    if (babyDoc.publicId !== publicId) {
+      throw redirect(
+        replaceBabyPublicId({
+          fromPublicId: publicId,
+          href: opts.location.href,
+          toPublicId: babyDoc.publicId,
+        }),
+      );
+    }
 
     return { babyDoc, ...handles };
   },

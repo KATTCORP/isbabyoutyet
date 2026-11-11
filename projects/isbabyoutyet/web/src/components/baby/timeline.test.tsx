@@ -155,7 +155,7 @@ async function renderTimelineFeedFrom(
 
   // As the baby route's loader does on a client navigation.
   await harness.refresh();
-  const visitorTag = await prefetchQuery(harness.queryClient, visitorTagQuery, opts.babyId);
+  const visitorTag = await prefetchQuery(harness.queryClient, visitorTagQuery, opts.publicId);
   // As the baby route's loader reads the feed.
   const [{ timeline }] = await load(harness.queryClient, {
     timeline: swr(timelineQuery, timelineInput({ from: opts.item, publicId: opts.publicId })),

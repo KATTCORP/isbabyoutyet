@@ -22,10 +22,10 @@ import { createConvexTestHarness } from "@/test/convexTestHarness";
 import type { ConvexTestHarness } from "@/test/convexTestHarness";
 import { signUpTestUser } from "@/test/convexTestSeed";
 import { WithOverlayControl } from "@/test/overlayControl";
-import { renderMountedFileRouteWithRouterContext } from "@/test/renderMountedFileRoute";
+import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
-import { runRouteLoaderWithRouterContext, signedInRouteContext } from "@/test/routeTestContext";
+import { runRouteLoader } from "@/test/routeTestContext";
 import { loadQuery } from "@/test/loadQuery";
 
 const ADMIN_ENDPOINT = "https://push.example/alex-phone";
@@ -176,13 +176,12 @@ test("discarding a dirty account editor from the sheet backdrop goes back to /da
 
   // Push-opened from the dashboard header, under jsdom's real window.history
   // so `back()` runs the router's navigation blockers on popstate.
-  await using ctx = await renderMountedFileRouteWithRouterContext({
+  await using ctx = await renderMountedFileRoute({
     harness,
     initialEntry: "/dashboard/settings",
     overlayHistory: { engine: "browser", overlayPush: true, parentEntry: "/dashboard" },
     path: "/dashboard/settings",
     route: Route,
-    routerContext: await signedInRouteContext(harness),
     wrap: null,
   });
 
@@ -331,18 +330,17 @@ async function signedInHarness(opts: { isAdmin: boolean }) {
 type SettingsLoaderData = { adminPush: { vapidPublicKey: { input: object } } | null };
 
 async function loadSettings(harness: ConvexTestHarness) {
-  return await runRouteLoaderWithRouterContext<SettingsLoaderData>({
+  return await runRouteLoader<SettingsLoaderData>({
     harness,
     location: undefined,
     params: {},
     route: Route,
-    routerContext: await signedInRouteContext(harness),
   });
 }
 
 test("the settings loader only prepares admin push for admins", async () => {
   await using member = await signedInHarness({ isAdmin: false });
-  expect(await loadSettings(member)).toEqual({ adminPush: null });
+  expect(await loadSettings(member)).toMatchObject({ adminPush: null, profile: { input: {} } });
 
   await using admin = await signedInHarness({ isAdmin: true });
   const loaded = await loadSettings(admin);

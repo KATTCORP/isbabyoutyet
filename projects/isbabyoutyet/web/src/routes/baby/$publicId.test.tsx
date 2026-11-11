@@ -337,6 +337,7 @@ const EMPTY_PAGE = {
 type QueryHandlers = Record<string, JsonValue>;
 type BabyLoaderResult = {
   baby: unknown;
+  babyDoc: { resolvedLocale: string };
   browserPush: unknown;
   latestUpdate: unknown;
   managerBaby: unknown;
@@ -370,24 +371,19 @@ function loaderQueryClientResource(handlers: QueryHandlers, read: Array<string> 
 const loader: (
   opts: RouteContextStub & {
     deps: { item: string | null };
+    location: { href: string };
     params: { publicId: string };
   },
 ) => Promise<BabyLoaderResult> = routeModule.Route.options.loader;
-
-// @ts-expect-error — stub opts are the fields beforeLoad reads
-const beforeLoad: (
-  opts: RouteContextStub & { location: { href: string }; params: { publicId: string } },
-) => Promise<object | void | null> = routeModule.Route.options.beforeLoad;
 
 async function runBabyLoader(
   queryClient: AppQueryClient,
   opts: { item: string | null } = { item: null },
 ) {
-  // As `beforeLoad` does before every loader run.
-  await loadQuery(queryClient, convexQuery(api.baby.getByPublicId), { id: "baby-smith" });
   return await loader({
     context: { queryClient },
     deps: { item: opts.item },
+    location: { href: "/baby/baby-smith" },
     params: { publicId: "baby-smith" },
   });
 }
@@ -462,37 +458,36 @@ test("loader gives managers the same handles with real data", async () => {
   });
 });
 
-test("beforeLoad 404s unknown babies", async () => {
-  await using stub = loaderQueryClientResource({ "baby:getByPublicId": null });
-  const pending = beforeLoad({
-    context: { queryClient: stub.queryClient },
-    location: { href: "/baby/baby-smith" },
-    params: { publicId: "baby-smith" },
-  });
-
-  await expect(pending).rejects.toMatchObject({ isNotFound: true });
-});
-
-test("beforeLoad uses the baby's resolved locale", async () => {
+test("an unknown baby is a 404", async () => {
   await using stub = loaderQueryClientResource({
-    "baby:getByPublicId": { ...BABY_DOC, publicId: "test-baby-4", resolvedLocale: "sv" },
+    "baby:getByPublicId": null,
+    "timeline:listFeed": EMPTY_PAGE,
+  });
+
+  await expect(runBabyLoader(stub.queryClient)).rejects.toMatchObject({ isNotFound: true });
+});
+
+test("the loader data carries the baby's language for the document", async () => {
+  await using stub = loaderQueryClientResource({
+    "baby:getByPublicId": { ...BABY_DOC, resolvedLocale: "sv" },
+    "timeline:listFeed": EMPTY_PAGE,
+  });
+
+  const data = await runBabyLoader(stub.queryClient);
+
+  expect(data.babyDoc.resolvedLocale).toBe("sv");
+});
+
+test("a public id the baby no longer goes by redirects and keeps the subpath", async () => {
+  await using stub = loaderQueryClientResource({
+    "baby:getByPublicId": BABY_DOC,
+    "timeline:listFeed": EMPTY_PAGE,
   });
 
   await expect(
-    beforeLoad({
+    loader({
       context: { queryClient: stub.queryClient },
-      location: { href: "/baby/test-baby-4" },
-      params: { publicId: "test-baby-4" },
-    }),
-  ).resolves.toEqual({ locale: "sv" });
-});
-
-test("beforeLoad rewrites a stale public id and keeps the subpath", async () => {
-  await using stub = loaderQueryClientResource({ "baby:getByPublicId": BABY_DOC });
-
-  await expect(
-    beforeLoad({
-      context: { queryClient: stub.queryClient },
+      deps: { item: null },
       location: { href: "/baby/old-slug/settings" },
       params: { publicId: "old-slug" },
     }),
@@ -800,6 +795,31 @@ async function renderBabyPage(harness: ConvexTestHarness, initialEntry: string) 
     wrap: null,
   });
 }
+
+test("a baby that doesn't exist is a 404 against Convex, though its page's queries all ran", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  await using ctx = await renderBabyPage(harness, "/baby/no-such-baby");
+
+  expect(
+    ctx.router.state.matches.find((match) => match.routeId === routeModule.Route.id)?.status,
+  ).toBe("notFound");
+});
+
+test("a baby opened by its document id goes to its public id", async () => {
+  await using harness = await createConvexTestHarness({ identity: { subject: "alice" } });
+  const seeded = await seedFeedMessages(harness, { count: 1 });
+  const babyId = await harness.t.run(async (db) => {
+    const baby = await db.db
+      .query("baby")
+      .filter((q) => q.eq(q.field("publicId"), seeded.publicId))
+      .unique();
+    return baby?._id;
+  });
+  await using ctx = await renderBabyPage(harness, `/baby/${babyId}`);
+
+  expect(ctx.router.state.location.pathname).toBe(`/baby/${seeded.publicId}`);
+  await ctx.view.findByText("Message 1");
+});
 
 /** Every Convex query the page asks for from here on, and every scroll it makes. */
 function watchFeedResource(harness: ConvexTestHarness) {

@@ -7,12 +7,13 @@ type LocaleRequestDeps = {
   readHeader: (name: string) => string | undefined;
 };
 
-export function detectLocaleFromRequestHeaders<TServerContext>(
-  _serverContext: TServerContext | undefined = undefined,
-  deps: LocaleRequestDeps | undefined = undefined,
-) {
-  const readHeader = deps?.readHeader ?? getRequestHeader;
-  const readCookie = deps?.readCookie ?? getCookie;
+/** The live request's cookies and headers. */
+const requestDeps: LocaleRequestDeps = { readCookie: getCookie, readHeader: getRequestHeader };
+
+/** The request's locale: the saved `PARAGLIDE_LOCALE` cookie, then `Accept-Language`. */
+export function detectLocaleFromRequestHeaders(deps: LocaleRequestDeps = requestDeps) {
+  const readHeader = deps.readHeader;
+  const readCookie = deps.readCookie;
   const savedLocale = readCookie("PARAGLIDE_LOCALE");
   if (savedLocale && isSupportedLocale(savedLocale)) {
     return savedLocale;

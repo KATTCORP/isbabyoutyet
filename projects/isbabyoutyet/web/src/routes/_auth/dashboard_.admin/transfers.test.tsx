@@ -6,8 +6,7 @@ import { expect, test, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n";
 import { createConvexTestHarness } from "@/test/convexTestHarness";
 import { seedOwnedBaby, signUpTestUser } from "@/test/convexTestSeed";
-import { renderMountedFileRouteWithRouterContext } from "@/test/renderMountedFileRoute";
-import { signedInRouteContext } from "@/test/routeTestContext";
+import { renderMountedFileRoute } from "@/test/renderMountedFileRoute";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
 import {
   PermalinkTransfersSection,
@@ -128,13 +127,12 @@ test("transfers route loads the form and audit table from Convex", async () => {
     toPublicId: "baby",
   });
 
-  await using ctx = await renderMountedFileRouteWithRouterContext({
+  await using ctx = await renderMountedFileRoute({
     harness,
     initialEntry: "/dashboard/admin/transfers",
     overlayHistory: null,
     path: "/dashboard/admin/transfers",
     route: AdminTransfersRoute,
-    routerContext: await signedInRouteContext(harness),
     wrap: null,
   });
 

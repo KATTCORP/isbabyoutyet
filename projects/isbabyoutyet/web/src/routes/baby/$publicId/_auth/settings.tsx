@@ -21,6 +21,7 @@ export const Route = createFileRoute("/baby/$publicId/_auth/settings")({
       coParentsList: swr(convexQuery(api.coParents.listForBaby), { babyId: babyRef }),
       managerBaby: swr(convexQuery(api.baby.getManagerBaby), { babyId: babyRef }),
       myAccess: swr(convexQuery(api.coParents.myAccess), { babyId: babyRef }),
+      profile: swr(convexQuery(api.profile.get), {}),
       vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
     });
     return {
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/baby/$publicId/_auth/settings")({
       coParentsList: handles.coParentsList,
       managerBaby: handles.managerBaby,
       myAccess: handles.myAccess,
-      profile: opts.context.me,
+      profile: handles.profile,
       vapidPublicKey: handles.vapidPublicKey,
     };
   },

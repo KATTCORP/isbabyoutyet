@@ -1,216 +1,109 @@
-import { getData, setData } from "@raf-query/react";
-import { ConvexHttpClient } from "convex/browser";
+import { setData } from "@raf-query/react";
 import type { FunctionReturnType } from "convex/server";
 import { isRedirect } from "@tanstack/react-router";
-import { makeAsyncResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import type { SignedInProfileContext } from "@/lib/signed-in-profile";
+import type { AppQueryClient } from "@/lib/query-client";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { expect, test, vi } from "vitest";
-import { resolveAuthGuard, Route } from "@/routes/_auth/route";
+import { Route } from "@/routes/_auth/route";
 
 test("auth layout is wired as the route component", () => {
   expect(Route.options.component).toBeTypeOf("function");
 });
 
-type ProfileSnapshot = {
-  isAdmin: boolean;
-  locale: "en-GB" | "sv";
-  timeZone: string;
-};
+type Profile = NonNullable<FunctionReturnType<typeof api.profile.get>>;
 
-function signedInProfile(
-  snapshot: ProfileSnapshot,
-): NonNullable<FunctionReturnType<typeof api.profile.get>> {
+function signedInProfile(snapshot: Pick<Profile, "isAdmin" | "locale" | "timeZone">): Profile {
   return { email: "ada@example.com", emailVerified: true, name: "Ada", ...snapshot };
 }
 
-function makeGuardCtx() {
-  const queryFn = vi.fn<() => Promise<null | ReturnType<typeof signedInProfile>>>(() =>
-    Promise.resolve(null),
-  );
+/** A query client whose `profile.get` answers what the test says, signed out by default. */
+function makeGuard() {
+  const queryFn = vi.fn<() => Promise<Profile | null>>(() => Promise.resolve(null));
   const stub = stubQueryClientResource(queryFn);
-  const convexHttpClient = new ConvexHttpClient("https://guard-test.convex.cloud");
-  const setServerAuth = vi.spyOn(convexHttpClient, "setAuth");
-  const context: SignedInProfileContext = {
-    convexHttpClient,
-    queryClient: stub.queryClient,
-    token: null,
-  };
-  return makeAsyncResource(
-    { context, queryClient: stub.queryClient, queryFn, setServerAuth },
-    async () => {
-      await stub[Symbol.asyncDispose]();
-    },
-  );
+  return Object.assign(stub, { queryFn });
 }
 
-async function runGuard(opts: {
-  context: ReturnType<typeof makeGuardCtx>["context"];
-  fetchToken: () => Promise<string | null>;
-  pathname: string;
-}) {
-  return await resolveAuthGuard({
-    context: opts.context,
-    fetchToken: opts.fetchToken,
-    pathname: opts.pathname,
-  });
-}
+// @ts-expect-error — stub loader opts are the fields this route reads
+const loader: (opts: {
+  context: { queryClient: AppQueryClient };
+  location: { pathname: string };
+}) => Promise<{ locale: Profile["locale"] }> = Route.options.loader;
 
-/** Guard runs that are expected to throw a redirect (result is never observed). */
-type GuardRunResult = object | null | void;
-
-async function expectRedirectToLogin(run: () => Promise<GuardRunResult>, pathname: string) {
+async function redirectOf(run: () => Promise<object>) {
   try {
     await run();
-    expect.unreachable("expected a redirect");
   } catch (error) {
-    expect(isRedirect(error)).toBe(true);
     if (isRedirect(error)) {
-      expect(error.options.to).toBe("/auth/login");
-      expect(error.options.search).toEqual({ redirect: pathname });
-      expect(error.options.replace).toBe(true);
+      return error.options;
     }
+    throw error;
   }
+  return expect.unreachable("expected a redirect");
 }
 
-function withoutBrowserWindow(run: () => Promise<void>) {
-  const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
-  Object.defineProperty(globalThis, "window", { configurable: true, value: undefined });
-  return run().finally(() => {
-    if (windowDescriptor) {
-      Object.defineProperty(globalThis, "window", windowDescriptor);
-    }
+test("signed in, the dashboard is in the profile's language", async () => {
+  await using guard = makeGuard();
+  guard.queryFn.mockResolvedValueOnce(
+    signedInProfile({ isAdmin: false, locale: "sv", timeZone: "Europe/London" }),
+  );
+
+  const data = await loader({
+    context: { queryClient: guard.queryClient },
+    location: { pathname: "/dashboard" },
   });
-}
 
-test("client navigations reuse a cached profile without an auth round-trip", async () => {
-  const fetchToken = vi.fn<() => Promise<string | null>>();
-  await using guard = makeGuardCtx();
+  expect(data).toEqual({ locale: "sv" });
+  expect(guard.queryFn).toHaveBeenCalledTimes(1);
+});
+
+test("a cached profile is not asked for again", async () => {
+  await using guard = makeGuard();
   setData(
     guard.queryClient,
     convexQuery(api.profile.get),
     {},
-    signedInProfile({
-      isAdmin: false,
-      locale: "sv",
-      timeZone: "Europe/London",
-    }),
+    signedInProfile({ isAdmin: false, locale: "sv", timeZone: "Europe/London" }),
   );
 
-  const result = await runGuard({
-    context: guard.context,
-    fetchToken,
-    pathname: "/dashboard",
+  const data = await loader({
+    context: { queryClient: guard.queryClient },
+    location: { pathname: "/dashboard" },
   });
 
-  expect(result).toMatchObject({ locale: "sv", me: { input: {} } });
-  expect(result).not.toHaveProperty("isAuthenticated");
-  expect(fetchToken).not.toHaveBeenCalled();
+  expect(data).toEqual({ locale: "sv" });
   expect(guard.queryFn).not.toHaveBeenCalled();
 });
 
-test("client navigations without a profile send the user to login with a return path", async () => {
-  const fetchToken = vi.fn<() => Promise<string | null>>();
-  await using guard = makeGuardCtx();
+test("signed out, the dashboard sends the visitor to login with a return path", async () => {
+  await using guard = makeGuard();
 
-  await expectRedirectToLogin(
-    () =>
-      runGuard({
-        context: guard.context,
-        fetchToken,
-        pathname: "/dashboard/settings",
-      }),
-    "/dashboard/settings",
-  );
-  expect(fetchToken).not.toHaveBeenCalled();
-});
-
-test("client navigations keep the cached profile", async () => {
-  const fetchToken = vi.fn<() => Promise<string | null>>();
-  const cachedProfile = signedInProfile({
-    isAdmin: false,
-    locale: "sv",
-    timeZone: "Europe/London",
-  });
-  await using guard = makeGuardCtx();
-  setData(guard.queryClient, convexQuery(api.profile.get), {}, cachedProfile);
-
-  const result = await runGuard({
-    context: guard.context,
-    fetchToken,
-    pathname: "/dashboard",
-  });
-
-  expect(result).toMatchObject({ locale: "sv" });
-  expect(getData(guard.queryClient, convexQuery(api.profile.get), {})).toEqual(cachedProfile);
-  expect(guard.queryFn).not.toHaveBeenCalled();
-});
-
-test("server render redirects to login when no auth token is available", async () => {
-  const fetchToken = vi.fn<() => Promise<string | null>>().mockResolvedValueOnce(null);
-  await using guard = makeGuardCtx();
-
-  await withoutBrowserWindow(async () => {
-    await expectRedirectToLogin(
-      () =>
-        runGuard({
-          context: guard.context,
-          fetchToken,
-          pathname: "/dashboard",
-        }),
-      "/dashboard",
-    );
-    expect(fetchToken).toHaveBeenCalledTimes(1);
-  });
-});
-
-test("server render reuses the layout token without calling getAuthToken", async () => {
-  const fetchToken = vi.fn<() => Promise<string | null>>();
-  await using guard = makeGuardCtx();
-  guard.queryFn.mockResolvedValueOnce(
-    signedInProfile({
-      isAdmin: false,
-      locale: "en-GB",
-      timeZone: "Europe/London",
+  const redirect = await redirectOf(() =>
+    loader({
+      context: { queryClient: guard.queryClient },
+      location: { pathname: "/dashboard/settings" },
     }),
   );
-  guard.context.token = "ssr-token";
 
-  await withoutBrowserWindow(async () => {
-    const result = await runGuard({
-      context: guard.context,
-      fetchToken,
-      pathname: "/dashboard",
-    });
-
-    expect(result).toMatchObject({
-      locale: "en-GB",
-      token: "ssr-token",
-    });
-    expect(result).not.toHaveProperty("isAuthenticated");
-    expect(fetchToken).not.toHaveBeenCalled();
-    expect(guard.setServerAuth).toHaveBeenCalledWith("ssr-token");
-    expect(guard.queryFn).toHaveBeenCalledTimes(1);
+  expect(redirect).toMatchObject({
+    replace: true,
+    search: { redirect: "/dashboard/settings" },
+    to: "/auth/login",
   });
 });
 
-test("server render redirects to login when its authenticated profile cannot be read", async () => {
-  const fetchToken = vi.fn<() => Promise<string | null>>();
-  await using guard = makeGuardCtx();
-  guard.context.token = "ssr-token";
+test("an expired session, which flips the cached profile to null, goes to login", async () => {
+  await using guard = makeGuard();
+  setData(guard.queryClient, convexQuery(api.profile.get), {}, null);
 
-  await withoutBrowserWindow(async () => {
-    await expectRedirectToLogin(
-      () =>
-        runGuard({
-          context: guard.context,
-          fetchToken,
-          pathname: "/dashboard/admin",
-        }),
-      "/dashboard/admin",
-    );
-    expect(guard.queryFn).toHaveBeenCalledTimes(1);
-  });
+  const redirect = await redirectOf(() =>
+    loader({
+      context: { queryClient: guard.queryClient },
+      location: { pathname: "/dashboard/admin" },
+    }),
+  );
+
+  expect(redirect).toMatchObject({ search: { redirect: "/dashboard/admin" }, to: "/auth/login" });
+  expect(guard.queryFn).not.toHaveBeenCalled();
 });

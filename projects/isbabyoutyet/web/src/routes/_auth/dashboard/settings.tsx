@@ -46,16 +46,18 @@ import { ensureWebPushSubscription, readWebPushSubscription } from "@/lib/web-pu
 
 export const Route = createFileRoute("/_auth/dashboard/settings")({
   loader: async (opts) => {
-    if (!opts.context.isAdmin) {
-      return { adminPush: null };
-    }
-    const queryClient = opts.context.queryClient;
-    const [handles] = await load(queryClient, {
+    // One round: the push key is public and the device's push state is read
+    // in the browser, so neither waits to learn whether this is an admin.
+    const [handles, data] = await load(opts.context.queryClient, {
       browserPush: prefetch(adminBrowserPushCapabilityQuery),
+      profile: swr(convexQuery(api.profile.get), {}),
       vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
     });
     return {
-      adminPush: { browserPush: handles.browserPush, vapidPublicKey: handles.vapidPublicKey },
+      adminPush: data.profile?.isAdmin
+        ? { browserPush: handles.browserPush, vapidPublicKey: handles.vapidPublicKey }
+        : null,
+      profile: handles.profile,
     };
   },
   component: DashboardSettingsRoute,
@@ -69,7 +71,7 @@ export function DashboardSettingsRoute() {
     <DashboardSettingsSheet
       adminPush={loaderData.adminPush}
       convexClient={context.convexClient}
-      profile={context.me}
+      profile={loaderData.profile}
       queryClient={context.queryClient}
     />
   );

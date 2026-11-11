@@ -22,6 +22,9 @@ import { Field, FieldLabel } from "@workspace/ui/components/field";
 import { Switch } from "@workspace/ui/components/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui/components/tabs";
 import { z } from "zod";
+import { load, swr } from "@raf-query/react";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { useI18n } from "@/lib/i18n";
 
 export const ADMIN_TABS = ["babies", "transfers", "users"] as const;
@@ -57,10 +60,14 @@ export const Route = createFileRoute("/_auth/dashboard_/admin")({
       stripSearchParams(ADMIN_BABIES_DEFAULT_SEARCH),
     ],
   },
-  // Child loaders run alongside this route's loader, so the guard must run in
-  // beforeLoad to stop them before any admin query is fetched.
-  beforeLoad: (opts) => {
-    if (!opts.context.isAdmin) {
+  // Admins only. The tabs' loaders start beside this one; for anyone else
+  // their queries fail (`requireAdmin`), and the router lets this redirect
+  // win. Signed out is `/_auth`'s redirect to make.
+  loader: async (opts) => {
+    const [, data] = await load(opts.context.queryClient, {
+      me: swr(convexQuery(api.profile.get), {}),
+    });
+    if (data.me && !data.me.isAdmin) {
       throw redirect({ to: "/dashboard" });
     }
   },

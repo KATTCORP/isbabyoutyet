@@ -181,6 +181,7 @@ test("parent dashboard loader loads auth-scoped reads without a waterfall", asyn
   await vi.waitFor(() => {
     expect(loaderQueries.calls).toEqual([
       getFunctionName(api.baby.listByUser),
+      getFunctionName(api.profile.get),
       getFunctionName(api.onboarding.getMine),
     ]);
   });
