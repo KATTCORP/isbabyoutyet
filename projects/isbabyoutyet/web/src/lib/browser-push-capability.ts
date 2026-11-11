@@ -1,9 +1,9 @@
-import { queryOptions } from "@raf-query/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { ConvexReader } from "@workspace/convex-query";
 import { readConvexQuery, runConvexEffect } from "@workspace/convex-query";
 import { isFunction } from "@workspace/runtime/guards";
 import { Effect, Option } from "effect";
+import { queryOptions } from "@/lib/raf";
 
 export type BrowserPushCapability =
   | { kind: "unsupported" }
@@ -29,9 +29,9 @@ const SERVICE_WORKER_READY_TIMEOUT_MS = 5000;
  */
 export function browserPushCapabilityQuery(babyRef: string) {
   return queryOptions({
-    meta: { retry: false },
     queryFn: (context) => runConvexEffect(context, resolveBrowserPushCapability(babyRef)),
     queryKey: [BROWSER_PUSH_CAPABILITY_KEY, babyRef],
+    retry: false,
     ssr: false,
     staleTime: 0,
   });
@@ -175,9 +175,9 @@ function resolveAdminBrowserPushCapability(): Effect.Effect<
  */
 export function adminBrowserPushCapabilityQuery() {
   return queryOptions({
-    meta: { retry: false },
     queryFn: (context) => runConvexEffect(context, resolveAdminBrowserPushCapability()),
     queryKey: [ADMIN_BROWSER_PUSH_CAPABILITY_KEY],
+    retry: false,
     ssr: false,
     staleTime: 0,
   });

@@ -1,5 +1,5 @@
 import { getData } from "@raf-query/react";
-import type { QueryClient } from "@raf-query/react";
+import type { AppQueryClient } from "@/lib/query-client";
 import { isFunction, isPlainObject } from "@workspace/runtime/guards";
 import type { JsonValue } from "@workspace/runtime/json";
 import { convexTest } from "convex-test";
@@ -339,7 +339,7 @@ type BabyLoaderResult = {
   timeline: unknown;
   vapidPublicKey: unknown;
 };
-type RouteContextStub = { context: { queryClient: QueryClient } };
+type RouteContextStub = { context: { queryClient: AppQueryClient } };
 
 type QueryRunner = Parameters<typeof stubQueryClientResource>[0];
 
@@ -371,7 +371,7 @@ const beforeLoad: (
 ) => Promise<object | void | null> = routeModule.Route.options.beforeLoad;
 
 async function runBabyLoader(
-  queryClient: QueryClient,
+  queryClient: AppQueryClient,
   opts: { item: string | null } = { item: null },
 ) {
   // As `beforeLoad` does before every loader run.

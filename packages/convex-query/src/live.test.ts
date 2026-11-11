@@ -1,5 +1,5 @@
 import { mount } from "@raf-query/core/internal";
-import type { InputOf, LoadEntryOptions, QueryClient, QueryFactory } from "@raf-query/react";
+import type { InputOf, LoadEntry, LoadEntryOptions, QueryFactory } from "@raf-query/react";
 import {
   createQueryClient,
   fetchNextPage,
@@ -19,8 +19,9 @@ import { getFunctionName, makeFunctionReference } from "convex/server";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { isInvalidatedEntry } from "./test-cache.ts";
-import { convexLink } from "./link.ts";
-import { convexLive, watchConvexQuery } from "./live.ts";
+import type { ConvexQueryClient } from "./context.ts";
+import { watchConvexQuery } from "./live.ts";
+import { convex } from "./part.ts";
 import { CONVEX_PAGINATED_QUERY_KEY, CONVEX_QUERY_KEY } from "./entries.ts";
 import type { PageBefore, PageDirection } from "./queries.ts";
 import { convexPaginatedQuery, convexQuery } from "./queries.ts";
@@ -32,7 +33,7 @@ import { makeTestConvexClient } from "./testing.ts";
  * queries never go stale, so `revalidate` alone would keep the cached pages.
  */
 async function refetchAll(
-  queryClient: QueryClient,
+  queryClient: ConvexQueryClient,
   query: { factory: typeof messageList; input: InputOf<typeof messageList> },
 ) {
   await invalidateOne(queryClient, query.factory, query.input);
@@ -134,10 +135,9 @@ function setup() {
     }
   });
   const queryClient = createQueryClient({
-    features: [convexLive(backend.client)],
-    gcTime: Infinity,
+    defaults: { gcTime: Infinity },
     isServer: false,
-    links: [convexLink(ConvexReader.subscribing(backend.client))],
+    parts: [convex({ live: backend.client, reader: ConvexReader.subscribing(backend.client) })],
   });
   // What `QueryClientProvider` does while mounted.
   const disconnect = mount(queryClient);
@@ -176,7 +176,8 @@ function setup() {
       ...args: [input?: Parameters<TFactory>[0], options?: LoadEntryOptions]
     ) => {
       // SAFETY: `swr` takes the factory's input, which `args` passes on.
-      await load(queryClient, { entry: swr(factory, ...(args as [never])) });
+      const entry: LoadEntry = swr(factory, ...(args as [never]));
+      await load(queryClient, { entry });
     },
     messages,
     newer,
@@ -186,7 +187,7 @@ function setup() {
   };
 }
 
-describe("convexLive", () => {
+describe("the convex part's live sync", () => {
   it("writes every result of a cached query into the cache", async () => {
     const live = setup();
     await live.load(message, { id: "a" });

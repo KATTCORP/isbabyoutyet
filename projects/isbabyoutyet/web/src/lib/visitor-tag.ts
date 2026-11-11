@@ -1,5 +1,5 @@
-import { queryOptions } from "@raf-query/react";
 import { visitorTag } from "@isbabyoutyet/backend/src/visitorId";
+import { queryOptions } from "@/lib/raf";
 import { peekVisitorId } from "@/lib/use-visitor-id";
 
 /**

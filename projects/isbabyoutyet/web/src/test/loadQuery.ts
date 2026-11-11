@@ -1,7 +1,8 @@
 import type {
+  ClientFor,
   DataOf,
+  LoadEntry,
   LoadEntryOptions,
-  QueryClient,
   QueryFactory,
   QueryHandle,
 } from "@raf-query/react";
@@ -18,12 +19,13 @@ type LoadArgs<TFactory extends QueryFactory> =
  * route loaders pass to components.
  */
 export async function loadQuery<TFactory extends QueryFactory>(
-  queryClient: QueryClient,
+  queryClient: ClientFor<TFactory>,
   factory: TFactory,
   ...args: LoadArgs<TFactory>
 ): Promise<QueryHandle<TFactory>> {
   // SAFETY: `swr` takes the factory's input, which `args` passes on.
-  const entry = swr(factory, ...(args as [never]));
+  // `ClientFor` checked the client against the factory; `load` can't through a type parameter.
+  const entry: LoadEntry = swr(factory, ...(args as [never]));
   const [handles] = await load(queryClient, { query: entry });
   // SAFETY: the entry is this factory's, so its handle is too.
   return handles.query as QueryHandle<TFactory>;
@@ -31,12 +33,13 @@ export async function loadQuery<TFactory extends QueryFactory>(
 
 /** {@link loadQuery} without waiting: a loader's `prefetch`, for readers to suspend on. */
 export async function prefetchQuery<TFactory extends QueryFactory>(
-  queryClient: QueryClient,
+  queryClient: ClientFor<TFactory>,
   factory: TFactory,
   ...args: LoadArgs<TFactory>
 ): Promise<QueryHandle<TFactory>> {
   // SAFETY: `prefetch` takes the factory's input, which `args` passes on.
-  const entry = prefetch(factory, ...(args as [never]));
+  // `ClientFor` checked the client against the factory; `load` can't through a type parameter.
+  const entry: LoadEntry = prefetch(factory, ...(args as [never]));
   const [handles] = await load(queryClient, { query: entry });
   // SAFETY: the entry is this factory's, so its handle is too.
   return handles.query as QueryHandle<TFactory>;
@@ -47,13 +50,15 @@ export async function prefetchQuery<TFactory extends QueryFactory>(
  * refetch after an invalidation does.
  */
 export async function fetchQueryData<TFactory extends QueryFactory>(
-  queryClient: QueryClient,
+  queryClient: ClientFor<TFactory>,
   factory: TFactory,
   ...args: [] | [input: Parameters<TFactory>[0]]
 ): Promise<DataOf<TFactory>> {
   await invalidateMany(queryClient, factory);
   // SAFETY: `revalidate` takes the factory's input, which `args` passes on.
-  const [, data] = await load(queryClient, { query: revalidate(factory, ...(args as [never])) });
+  // `ClientFor` checked the client against the factory; `load` can't through a type parameter.
+  const entry: LoadEntry<QueryFactory, "revalidate"> = revalidate(factory, ...(args as [never]));
+  const [, data] = await load(queryClient, { query: entry });
   // SAFETY: a `revalidate` entry's data is its factory's.
   return (data as { readonly query: DataOf<TFactory> }).query;
 }

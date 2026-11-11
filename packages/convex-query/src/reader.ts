@@ -57,7 +57,7 @@ function queryError(opts: { cause: unknown; query: AnyQueryReference }) {
 
 /**
  * Reads Convex queries for raf-query `queryFn`s. Each `QueryClient` gets its
- * own through the {@link provideConvexReader} link, so a server request's
+ * own through the `convex` part, so a server request's
  * authenticated HTTP client can't serve another request.
  */
 export class ConvexReader extends Context.Service<

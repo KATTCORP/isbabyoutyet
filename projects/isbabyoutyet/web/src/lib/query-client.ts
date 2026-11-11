@@ -1,6 +1,6 @@
 import { createQueryClient, recommended } from "@raf-query/react";
 import type { ConvexWatchClient } from "@workspace/convex-query";
-import { convexLink, convexLive, ConvexReader } from "@workspace/convex-query";
+import { convex, ConvexReader } from "@workspace/convex-query";
 
 /**
  * The app's raf-query client. Convex queries read through `reader` (the
@@ -9,6 +9,10 @@ import { convexLink, convexLive, ConvexReader } from "@workspace/convex-query";
  * cached Convex entry subscribed while a provider has the client mounted.
  * `recommended()` adds retries and refetching stale queries on focus and
  * reconnect; Convex queries opt out of both (`retry: false`, never stale).
+ *
+ * Its parts type what the app's queries can set and what their `queryFn`s
+ * get: build factories with the builders in [`raf.ts`](./raf.ts), which are
+ * bound to this client.
  */
 export function makeQueryClient(opts: {
   isServer: boolean;
@@ -16,13 +20,14 @@ export function makeQueryClient(opts: {
   live: ConvexWatchClient | null;
   reader: ConvexReader["Service"];
 }) {
-  const preset = recommended();
   return createQueryClient({
-    features: opts.live ? [...preset.features, convexLive(opts.live)] : preset.features,
     isServer: opts.isServer,
-    links: [...preset.links, convexLink(opts.reader)],
+    parts: [...recommended(), convex({ live: opts.live, reader: opts.reader })],
   });
 }
+
+/** The app's query client: what loaders, the router context and tests pass around. */
+export type AppQueryClient = ReturnType<typeof makeQueryClient>;
 
 /** A browser client over one subscribing Convex client: reads and live sync. */
 export function makeBrowserQueryClient(client: ConvexWatchClient) {

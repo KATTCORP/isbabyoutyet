@@ -31,7 +31,7 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@raf-query/react": "^0.12.0",
+    "@raf-query/react": "^0.14.0-parts.0",
     "convex": "^1.0.0",
     "effect": "^4.0.0"
   }

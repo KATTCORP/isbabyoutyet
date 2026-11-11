@@ -1,4 +1,4 @@
-import type { QueryClient } from "@raf-query/react";
+import type { AppQueryClient } from "@/lib/query-client";
 import { load, swr } from "@raf-query/react";
 import type { ConvexHttpClient } from "convex/browser";
 import { convexQuery } from "@workspace/convex-query";
@@ -6,7 +6,7 @@ import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 
 export type SignedInProfileContext = {
   convexHttpClient: ConvexHttpClient | null;
-  queryClient: QueryClient;
+  queryClient: AppQueryClient;
   token: string | null | undefined;
 };
 

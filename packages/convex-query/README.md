@@ -1,18 +1,19 @@
 # Convex for raf-query
 
 Convex queries as [raf-query](https://raf-query.katt.dev) query factories:
-loaders `load` them for SSR and instant client navigation, and a live feature
-keeps every cached entry subscribed, so components read plain `useQuery`
+loaders `load` them for SSR and instant client navigation, and the `convex`
+part keeps every cached entry subscribed, so components read plain `useQuery`
 data that Convex keeps current.
 
 ## Layers
 
 ```
 reader.ts   ConvexReader Effect service: browser subscribing reads, server snapshot reads
-link.ts     convexLink: the client's reader for queryFns
+context.ts  Convex: what the part declares, the reader in every queryFn's context
             runConvexEffect: run a queryFn's Effect with the client's reader
-queries.ts  convexQuery / convexPaginatedQuery factories
-live.ts     convexLive: a feature that subscribes cached entries and writes results into the cache
+part.ts     convex: the client's part, its reader and (in the browser) the live sync
+queries.ts  convexQuery / convexPaginatedQuery factories, bound to the part
+live.ts     the live sync: subscribes cached entries and writes results into the cache
             watchConvexQuery: one entry's values as an Effect Stream
 entries.ts  key constants, and decoding a cache entry's key and page params
 testing.ts  makeTestConvexClient: a watch client over any async runner (convex-test)
@@ -20,25 +21,33 @@ testing.ts  makeTestConvexClient: a watch client over any async runner (convex-t
 
 Query functions are Effects that `yield* ConvexReader`. raf-query runs plain
 promises, so `runConvexEffect` runs them with the reader of the client making
-the request (`context.client`), which `convexLink` gives its reader. Each
-`QueryClient` takes its own link, which keeps a server request's
-authenticated `ConvexHttpClient` scoped to the request.
+the request: the `convex` part puts it in every `queryFn`'s context, as
+`context.convex`. Each `QueryClient` takes its own part, which keeps a server
+request's authenticated `ConvexHttpClient` scoped to the request.
 
 ## Wiring
 
 ```tsx
 const queryClient = createQueryClient({
-  // Browser only; features run while a `QueryClientProvider` has the client mounted.
-  features: isServer ? [] : [convexLive(convexReactClient)],
-  links: [
-    convexLink(
-      isServer
-        ? ConvexReader.snapshot(convexHttpClient) // one consistent snapshot per request
-        : ConvexReader.subscribing(convexReactClient),
-    ),
+  parts: [
+    ...recommended(),
+    isServer
+      ? // One consistent snapshot per request; features never run on a server.
+        convex({ live: null, reader: ConvexReader.snapshot(convexHttpClient) })
+      : // `live` keeps cached entries subscribed while a `QueryClientProvider` has the client mounted.
+        convex({ live: convexReactClient, reader: ConvexReader.subscribing(convexReactClient) }),
   ],
 });
 ```
+
+The factories are bound to the part, so they run on any client that has it,
+whatever else the client has. A client without it is a type error where it
+meets a factory: in `load`, `setData` and the other verbs. `ConvexQueryClient`
+is the type of a client that has the part.
+
+An app's own queries that read Convex are built with `queryOptions` bound to
+the app's client (`bindQueryOptions<typeof makeQueryClient>()`), which types
+`context.convex` for `runConvexEffect`.
 
 ## Usage
 
@@ -73,7 +82,8 @@ const [timelineThenable, timeline] = useInfiniteQuery(
 
 The query functions fail with a typed `ConvexQueryError` whose message is the
 Convex error's, so error boundaries show what the function threw. Factories
-never go stale (`staleTime: Infinity`) and don't retry (`meta: { retry: false }`).
+never go stale (`staleTime: Infinity`) and don't retry (`retry: false`, on a
+client that has `retry()`).
 
 Type props that receive a loader handle with `ConvexQueryHandle<typeof
 api.profile.get>` or `ConvexPaginatedQueryHandle<typeof
@@ -134,7 +144,7 @@ watchConvexQuery({ client, queryClient }, { args: {}, query: api.profile.get }).
 ## Testing
 
 `makeTestConvexClient(run)` returns `{ client, refresh, subscriptions }`. Pass
-`client` to `ConvexReader.subscribing` and `convexLive`, and call `refresh()`
+`client` to `ConvexReader.subscribing` and as the part's `live`, and call `refresh()`
 after a write so live entries re-run, as the server would after a mutation.
 Outside React, `mount(queryClient)` from `@raf-query/core/internal` starts the
 features, as `QueryClientProvider` does.

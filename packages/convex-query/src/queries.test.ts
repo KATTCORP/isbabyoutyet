@@ -9,13 +9,14 @@ import {
   invalidateOne,
   isFetching,
   load,
+  retry,
   revalidate,
   swr,
 } from "@raf-query/react";
 import type { PaginationOptions, PaginationResult } from "convex/server";
 import { getFunctionName, makeFunctionReference } from "convex/server";
 import { expect, expectTypeOf, test } from "vitest";
-import { convexLink } from "./link.ts";
+import { convex } from "./part.ts";
 import type {
   ConvexPaginatedQueryHandle,
   ConvexQueryHandle,
@@ -31,9 +32,9 @@ import { makeTestConvexClient } from "./testing.ts";
 /** A browser client reading through `client`, without gc timers. */
 function makeQueryClient(client: ConvexWatchClient) {
   return createQueryClient({
-    gcTime: Infinity,
+    defaults: { gcTime: Infinity },
     isServer: false,
-    links: [convexLink(ConvexReader.subscribing(client))],
+    parts: [convex({ live: null, reader: ConvexReader.subscribing(client) })],
   });
 }
 
@@ -142,12 +143,20 @@ test("a factory target reaches entries other calls of the factory created", asyn
   await reloading;
 });
 
-test("a client without the reader link fails its Convex queries with a hint", async () => {
-  const queryClient = createQueryClient({ gcTime: Infinity, isServer: false });
-
-  await expect(
-    load(queryClient, { message: swr(convexQuery(getMessage), { id: "a" }) }),
-  ).rejects.toThrow("create its QueryClient with the convexLink link");
+test("a client without the convex part doesn't type-check where it meets a factory", () => {
+  const queryClient = createQueryClient({ parts: [retry()] });
+  const wrong = () => {
+    void load(queryClient, {
+      // @ts-expect-error — this client has no `convex` part, so no reader for the queryFn
+      message: swr(convexQuery(getMessage), { id: "a" }),
+    });
+    // @ts-expect-error — the verbs check it too
+    void invalidateMany(queryClient, convexQuery(getMessage));
+  };
+  expectTypeOf(wrong).toBeFunction();
+  // `retry` is optional: a client with the part alone runs the factories.
+  const withoutRetry = makeQueryClient(makeTestConvexClient(async () => null).client);
+  expectTypeOf(invalidateMany(withoutRetry, convexQuery(getMessage))).resolves.toBeVoid();
 });
 
 test("inline paginated factories infer pages and take the args without paginationOpts", async () => {

@@ -1,14 +1,15 @@
-import type { QueryClient } from "@raf-query/react";
-import { load, prefetch, queryOptions } from "@raf-query/react";
+import { load, prefetch } from "@raf-query/react";
+import type { AppQueryClient } from "@/lib/query-client";
+import { queryOptions } from "@/lib/raf";
 
 const BROWSER_IMAGE_PREFETCH_KEY = "browserImagePrefetch";
 
 /** Decodes an image into the browser cache. */
 export function browserImageQuery(imageUrl: string) {
   return queryOptions({
-    meta: { retry: false },
     queryFn: () => loadBrowserImage(imageUrl),
     queryKey: [BROWSER_IMAGE_PREFETCH_KEY, imageUrl],
+    retry: false,
     staleTime: Infinity,
   });
 }
@@ -18,7 +19,7 @@ export function browserImageQuery(imageUrl: string) {
  * downloading the photo alongside the route's data. Browser only: on the
  * server the SSR'd `<img>` loads it.
  */
-export function prefetchBrowserImage(queryClient: QueryClient, imageUrl: string) {
+export function prefetchBrowserImage(queryClient: AppQueryClient, imageUrl: string) {
   if (queryClient.isServer || imageUrl === "") {
     return;
   }

@@ -9,7 +9,8 @@ import {
 import { Input } from "@workspace/ui/components/input";
 import { Textarea } from "@workspace/ui/components/textarea";
 import { useMutation } from "convex/react";
-import { invalidateOne, useQueryClient } from "@raf-query/react";
+import { invalidateOne } from "@raf-query/react";
+import { useQueryClient } from "@/lib/raf";
 import type { FunctionArgs } from "convex/server";
 import { PaperPlaneTiltIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";

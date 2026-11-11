@@ -10,7 +10,7 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { legacyPolyfillsHeadScripts } from "@workspace/browser-support/head";
-import type { QueryClient } from "@raf-query/react";
+import type { AppQueryClient } from "@/lib/query-client";
 import type { ConvexHttpClient } from "convex/browser";
 import type { ConvexReactClient } from "convex/react";
 import type { ReactNode } from "react";
@@ -50,7 +50,7 @@ export const Route = createRootRouteWithContext<{
   /** The server request's Convex client; `null` in the browser. */
   convexHttpClient: ConvexHttpClient | null;
   locale: SupportedLocale;
-  queryClient: QueryClient;
+  queryClient: AppQueryClient;
   token: string | undefined;
 }>()({
   beforeLoad: async (ctx) => {

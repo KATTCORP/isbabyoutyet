@@ -1,11 +1,14 @@
 import type {
   InfiniteData,
   InfiniteQueryOptions,
+  Optional,
+  OptionsOf,
   QueryHandle,
   QueryOptions,
-  QueryOptionsBuilder,
+  Retry,
+  RootOf,
 } from "@raf-query/react";
-import { infiniteQueryOptions, queryOptions } from "@raf-query/react";
+import { bindInfiniteQueryOptions, bindQueryOptions } from "@raf-query/react";
 import type {
   DefaultFunctionArgs,
   FunctionArgs,
@@ -16,7 +19,8 @@ import type {
 } from "convex/server";
 import { getFunctionName } from "convex/server";
 import { CONVEX_PAGINATED_QUERY_KEY, CONVEX_QUERY_KEY } from "./entries.ts";
-import { runConvexEffect } from "./link.ts";
+import type { Convex } from "./context.ts";
+import { runConvexEffect } from "./context.ts";
 import { readConvexQuery } from "./reader.ts";
 
 /**
@@ -40,8 +44,18 @@ function memoized(key: string, make: () => object) {
   return made;
 }
 
-/** Convex data is live (see `convexLive`), so it never goes stale, and its errors are deterministic. */
-const LIVE_OPTIONS = { meta: { retry: false }, staleTime: Infinity } as const;
+/**
+ * What this package's factories need of a client: the `convex` part, whose
+ * reader their `queryFn`s read through. They also set `retry` where the
+ * client retries, without needing it to.
+ */
+type Parts = Convex & Optional<Retry>;
+
+const queryOptions = bindQueryOptions<Parts>();
+const infiniteQueryOptions = bindInfiniteQueryOptions<Parts>();
+
+/** Convex data is live (see `convex`), so it never goes stale, and its errors are deterministic. */
+const LIVE_OPTIONS = { retry: false, staleTime: Infinity } satisfies OptionsOf<Parts>;
 
 /** A public Convex query. */
 export type QueryReference = FunctionReference<"query", "public">;
@@ -126,11 +140,8 @@ export interface TwoWayPageParam {
 export type PaginatedPageParam<TQuery extends PaginatedQueryReference> =
   TQuery extends TwoWayPaginatedQueryReference ? TwoWayPageParam : PaginationOptions;
 
-/**
- * The root of the unbound `queryOptions` builders, which factories here are
- * built with: verbs take any client for them, whatever its links.
- */
-type UnboundRoot = typeof queryOptions extends QueryOptionsBuilder<infer TTypes> ? TTypes : never;
+/** The root of this package's factories: they run on the clients that have the `convex` part. */
+type ConvexRoot = RootOf<Convex>;
 
 /** The raf-query factory {@link convexQuery} returns for `TQuery`. */
 export type ConvexQueryFactory<TQuery extends QueryReference> = (
@@ -139,12 +150,12 @@ export type ConvexQueryFactory<TQuery extends QueryReference> = (
   readonly [typeof CONVEX_QUERY_KEY, string, FunctionArgs<TQuery>],
   FunctionReturnType<TQuery>,
   FunctionReturnType<TQuery>,
-  UnboundRoot
+  ConvexRoot
 >;
 
 /**
  * The raf-query factory for a Convex query: its input is the function's args.
- * Data stays live through `convexLive`, so it never goes stale. Call it
+ * Data stays live through the `convex` part, so it never goes stale. Call it
  * inline: every call for the same query returns the same factory, and
  * entries are keyed by function name and args.
  *
@@ -178,7 +189,7 @@ export type ConvexPaginatedQueryFactory<TQuery extends PaginatedQueryReference> 
   FunctionReturnType<TQuery>,
   PaginatedPageParam<TQuery>,
   InfiniteData<FunctionReturnType<TQuery>, PaginatedPageParam<TQuery>>,
-  UnboundRoot
+  ConvexRoot
 >;
 
 function pageArgs<TQuery extends PaginatedQueryReference>(
@@ -330,7 +341,7 @@ function asTwoWay(query: QueryReference) {
 
 /**
  * The raf-query factory for a cursor-paginated Convex query. Pages load with
- * `fetchNextPage`; every loaded page stays live through `convexLive`, and
+ * `fetchNextPage`; every loaded page stays live through the `convex` part, and
  * every page but the last is pinned to end where the next starts. Like
  * {@link convexQuery}, call it inline.
  *

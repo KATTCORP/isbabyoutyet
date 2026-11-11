@@ -1,5 +1,4 @@
-import type { QueryClient } from "@raf-query/react";
-import { feature, getData, invalidateOne, load, prefetch, setData } from "@raf-query/react";
+import { getData, invalidateOne, load, prefetch, setData } from "@raf-query/react";
 import type {
   DefaultFunctionArgs,
   FunctionArgs,
@@ -11,6 +10,7 @@ import type { Value } from "convex/values";
 import { Effect, Queue, Stream } from "effect";
 import type { CacheEntry, LiveKey, LoadedPage, PageStart } from "./entries.ts";
 import { liveKey, loadedPages, pageIndex } from "./entries.ts";
+import type { ConvexQueryClient } from "./context.ts";
 import type { PageDirection, QueryReference } from "./queries.ts";
 import { convexPaginatedQuery, convexQuery } from "./queries.ts";
 import type { ConvexWatchClient } from "./reader.ts";
@@ -27,7 +27,7 @@ interface Subscription {
 
 function querySubscription(
   key: Extract<LiveKey, { kind: "query" }>,
-  queryClient: QueryClient,
+  queryClient: ConvexQueryClient,
 ): Subscription {
   const factory = convexQuery(makeFunctionReference<"query">(key.name));
   return {
@@ -91,7 +91,7 @@ function chainSubscriptions(
 
 function pagedSubscriptions(
   key: Extract<LiveKey, { kind: "paginated" }>,
-  opts: { pages: ReadonlyArray<LoadedPage>; queryClient: QueryClient },
+  opts: { pages: ReadonlyArray<LoadedPage>; queryClient: ConvexQueryClient },
 ): ReadonlyArray<Subscription> {
   const queryClient = opts.queryClient;
   const from = opts.pages[0]?.from;
@@ -152,7 +152,7 @@ function pagedSubscriptions(
 
 function subscriptionsFor(
   entry: CacheEntry,
-  queryClient: QueryClient,
+  queryClient: ConvexQueryClient,
 ): ReadonlyArray<Subscription> {
   const key = liveKey(entry.key);
   const state = entry.state;
@@ -194,18 +194,16 @@ function subscribe(subscription: Subscription, client: ConvexWatchClient) {
 }
 
 /**
- * A raf-query feature that keeps every Convex entry of its client live:
- * while an entry is cached and has data, it is subscribed with `watchQuery`
- * and every result is written into the cache. Entries leave Convex when they
- * leave the cache (`gcTime` after their last reader), so navigating back
- * shows current data without a refetch. Like every feature, it runs while a
- * `QueryClientProvider` has the client mounted, so never on the server.
- *
- * @example
- * createQueryClient({ features: [convexLive(convexReactClient)] });
+ * The feature of the `convex` part: it keeps every Convex entry of its
+ * client live. While an entry is cached and has data, it is subscribed with
+ * `watchQuery` and every result is written into the cache. Entries leave
+ * Convex when they leave the cache (`gcTime` after their last reader), so
+ * navigating back shows current data without a refetch. Like every feature,
+ * it runs while a `QueryClientProvider` has the client mounted, so never on
+ * the server.
  */
-export function convexLive(client: ConvexWatchClient) {
-  return feature((queryClient, signal) => {
+export function liveSync(client: ConvexWatchClient) {
+  return (queryClient: ConvexQueryClient, signal: AbortSignal) => {
     /** Entry hash → subscription id → its watch. */
     const live = new Map<string, Map<string, Watching>>();
 
@@ -259,7 +257,7 @@ export function convexLive(client: ConvexWatchClient) {
         stop(hash);
       }
     });
-  });
+  };
 }
 
 /**
@@ -269,7 +267,7 @@ export function convexLive(client: ConvexWatchClient) {
  * The entry is read through the cache, so it shares one request with any
  * loader's `load` of the same query and args. While the stream runs it also
  * holds its own Convex subscription and writes every result into the entry,
- * so it doesn't depend on {@link convexLive} or another reader to see the
+ * so it doesn't depend on the live sync or another reader to see the
  * server's next answer. A failing subscription invalidates the entry, as the
  * live sync does, and the stream keeps waiting.
  *
@@ -282,7 +280,7 @@ export function convexLive(client: ConvexWatchClient) {
  * );
  */
 export function watchConvexQuery<TQuery extends QueryReference>(
-  opts: { client: ConvexWatchClient; queryClient: QueryClient },
+  opts: { client: ConvexWatchClient; queryClient: ConvexQueryClient },
   watch: { args: FunctionArgs<TQuery>; query: TQuery },
 ) {
   const factory = convexQuery(watch.query);

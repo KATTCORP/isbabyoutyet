@@ -1,4 +1,4 @@
-import type { QueryClient } from "@raf-query/react";
+import type { AppQueryClient } from "@/lib/query-client";
 import { getFunctionName } from "convex/server";
 import type { ReactElement } from "react";
 import { expect, test } from "vitest";
@@ -126,7 +126,7 @@ test("babies loader prefetches only the babies page for the URL's sort and filte
   });
   // @ts-expect-error — stub loader opts are the fields this route reads
   const loader: (opts: {
-    context: { queryClient: QueryClient };
+    context: { queryClient: AppQueryClient };
     deps: { hideDemo: boolean; order: string; sort: string };
   }) => Promise<object> = AdminBabiesRoute.options.loader;
 

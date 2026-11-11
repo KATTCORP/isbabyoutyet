@@ -1,6 +1,6 @@
 import { BabyIcon, ShieldIcon, SignOutIcon } from "@phosphor-icons/react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import type { QueryClient } from "@raf-query/react";
+import type { AppQueryClient } from "@/lib/query-client";
 import { load, prefetch, swr, useQuery } from "@raf-query/react";
 import type { ConvexQueryHandle } from "@workspace/convex-query";
 import type { ConvexReactClient } from "convex/react";
@@ -104,7 +104,7 @@ export function DashboardSettingsSheet(props: {
   adminPush: AdminPushLoaderData | null;
   convexClient: ConvexReactClient;
   profile: ConvexQueryHandle<typeof api.profile.get>;
-  queryClient: QueryClient;
+  queryClient: AppQueryClient;
 }) {
   const [profileThenable] = useQuery(convexQuery(api.profile.get), props.profile);
   const profile = use(profileThenable);
