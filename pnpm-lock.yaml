@@ -3503,7 +3503,7 @@ packages:
         optional: true
 
   '@raf-query/core@file:vendor/raf-query/raf-query-core-0.14.0-parts.0.tgz':
-    resolution: {integrity: sha512-HkL+M7PZLhfxbMEXZ+4V7i7OSmR/4g1ek+gqdI5P68+3XroVRAODubNbroR9TVN10Avq3rkUmo3n4ABQtg4W5g==, tarball: file:vendor/raf-query/raf-query-core-0.14.0-parts.0.tgz}
+    resolution: {integrity: sha512-cRwuVhOU+7WulJo0I+tIF+tXpBDAgt7Rzss+AiDDAPPtpgxGP/NC2F7vv4d1io5sXGs8fSaIFKrbmJH3aQynNA==, tarball: file:vendor/raf-query/raf-query-core-0.14.0-parts.0.tgz}
     version: 0.14.0-parts.0
     engines: {node: '>=22'}
 

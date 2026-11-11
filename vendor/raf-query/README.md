@@ -1,7 +1,8 @@
 # Vendored raf-query
 
-`@raf-query/core` and `@raf-query/react`, built from an unreleased branch of
-[KATT/raf-query](https://github.com/KATT/raf-query). The `overrides` in
+`@raf-query/core` and `@raf-query/react`, built from
+[KATT/raf-query#250](https://github.com/KATT/raf-query/pull/250), which is not
+released yet. The `overrides` in
 [`pnpm-workspace.yaml`](../../pnpm-workspace.yaml) point both packages at the
 tarballs here.
 
