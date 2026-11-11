@@ -1,5 +1,12 @@
 import { useSyncExternalStore } from "react";
 
+type DismissedIdsStore = {
+  clear: () => void;
+  dismiss: (id: string) => void;
+  isDismissed: (id: string) => boolean;
+  subscribe: (notify: () => void) => () => void;
+};
+
 /**
  * Module-level set of dismissed string ids with useSyncExternalStore so feature
  * components can hide UI after dismiss without local useState.
@@ -10,7 +17,7 @@ import { useSyncExternalStore } from "react";
  * memoize `isDismissed(id)` as a pure function of `id`, so "Got it" never
  * hides the UI.
  */
-export function createDismissedIdsStore() {
+export function createDismissedIdsStore(): DismissedIdsStore {
   const dismissed = new Set<string>();
   const listeners = new Set<() => void>();
 
@@ -48,7 +55,7 @@ export function createDismissedIdsStore() {
   return { clear, dismiss, isDismissed, subscribe };
 }
 
-export function useIsDismissed(store: ReturnType<typeof createDismissedIdsStore>, id: string) {
+export function useIsDismissed(store: DismissedIdsStore, id: string) {
   function getSnapshot() {
     return store.isDismissed(id);
   }

@@ -27,7 +27,7 @@ const base: OnboardingProgress = {
 function createMineStore(seed: OnboardingProgress | undefined) {
   let value = seed;
   const store = {
-    getQuery(...args: [unknown, unknown]) {
+    getQuery(...args: Array<unknown>) {
       expect(args[1]).toEqual({});
       return value;
     },
@@ -38,6 +38,8 @@ function createMineStore(seed: OnboardingProgress | undefined) {
       expect(args[1]).toEqual({});
       value = args[2];
     },
+  } satisfies Pick<OptimisticLocalStore, "getQuery" | "setQuery"> & {
+    read: () => OnboardingProgress | undefined;
   };
   // SAFETY: Test fixture is a subset of the production type.
   return store as OptimisticLocalStore & {
@@ -60,8 +62,10 @@ test("completeStep is a no-op when the step is already completed", () => {
 });
 
 test("completeStep credits hasUpdate into effectiveSteps when posting an update", () => {
-  const withUpdate = { ...base, effectiveSteps: [], hasBaby: false, hasUpdate: true };
-  const next = optimisticallyCompleteStep(withUpdate, "post_update");
+  const next = optimisticallyCompleteStep(
+    { ...base, effectiveSteps: [], hasBaby: false, hasUpdate: true },
+    "post_update",
+  );
   expect(next.effectiveSteps).toEqual(["post_update"]);
 });
 

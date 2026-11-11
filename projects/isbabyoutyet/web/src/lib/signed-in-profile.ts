@@ -2,12 +2,24 @@ import type { AppQueryClient } from "@/lib/query-client";
 import { load, swr } from "@raf-query/react";
 import type { ConvexHttpClient } from "convex/browser";
 import { convexQuery } from "@workspace/convex-query";
+import type { ConvexQueryHandle } from "@workspace/convex-query";
+import type { FunctionReturnType } from "convex/server";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 
 export type SignedInProfileContext = {
   convexHttpClient: ConvexHttpClient | null;
   queryClient: AppQueryClient;
   token: string | null | undefined;
+};
+
+/** What a signed-in guard adds to route context. */
+export type SignedInProfile = Pick<
+  NonNullable<FunctionReturnType<typeof api.profile.get>>,
+  "isAdmin" | "locale"
+> & {
+  /** `profile.get`'s handle, for child routes to read with `useQuery`. */
+  me: ConvexQueryHandle<typeof api.profile.get>;
+  token: SignedInProfileContext["token"];
 };
 
 /**
@@ -29,7 +41,7 @@ export type SignedInProfileContext = {
 export async function loadSignedInProfile(opts: {
   context: SignedInProfileContext;
   fetchToken: () => Promise<string | null>;
-}) {
+}): Promise<SignedInProfile | null> {
   const queryClient = opts.context.queryClient;
   let token = opts.context.token;
 
@@ -48,7 +60,6 @@ export async function loadSignedInProfile(opts: {
   return {
     isAdmin: data.me.isAdmin,
     locale: data.me.locale,
-    /** `profile.get`'s handle, for child routes to read with `useQuery`. */
     me: handles.me,
     token,
   };

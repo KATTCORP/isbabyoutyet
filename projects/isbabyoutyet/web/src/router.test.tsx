@@ -3,7 +3,10 @@ import { expect, test } from "vitest";
 import { rootAuthToken, routerPreloadOptions } from "@/router";
 
 test("rootAuthToken dehydrates the root cookie JWT and null for anonymous requests", () => {
-  const child = { context: { token: "child-token" }, routeId: "/_auth" };
+  const child: Parameters<typeof rootAuthToken>[0][number] = {
+    context: { token: "child-token" },
+    routeId: "/_auth",
+  };
   expect(rootAuthToken([{ context: { token: "a.b.c" }, routeId: rootRouteId }, child])).toBe(
     "a.b.c",
   );

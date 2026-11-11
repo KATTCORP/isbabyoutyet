@@ -40,7 +40,7 @@ export {
   type FormGuardHandle,
 } from "@workspace/form-guard";
 
-interface UseZodForm<TInput extends FieldValues, TContext, TOutput> extends UseFormReturn<
+export interface UseZodForm<TInput extends FieldValues, TContext, TOutput> extends UseFormReturn<
   TInput,
   TContext,
   TOutput

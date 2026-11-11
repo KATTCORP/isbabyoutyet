@@ -16,7 +16,7 @@ const babyB = "baby_b" as Id<"baby">;
 
 function sessionStorageResource() {
   const store = new Map<string, string>();
-  const storage = {
+  const storage: Pick<Storage, "getItem" | "removeItem" | "setItem"> = {
     getItem(key: string) {
       return store.get(key) ?? null;
     },
@@ -156,7 +156,7 @@ test("legacy message-only drafts still restore the message", async () => {
 
 test("write swallows sessionStorage quota errors", async () => {
   let setItemCalled = false;
-  const storage = {
+  const storage: Pick<Storage, "getItem" | "removeItem" | "setItem"> = {
     getItem() {
       return null;
     },

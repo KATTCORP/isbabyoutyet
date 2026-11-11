@@ -93,10 +93,15 @@ export function accountSessionSnapshot(
   };
 }
 
+/** What the account section reads from a better-auth result. */
+type AuthActionResult = {
+  error: Partial<{ message: string }> | null;
+};
+
 async function defaultChangeEmail(body: {
   newEmail: string;
   persist: (args: { newEmail: string }) => Promise<null>;
-}) {
+}): Promise<AuthActionResult> {
   try {
     await body.persist({ newEmail: body.newEmail });
     return { error: null };
@@ -105,20 +110,26 @@ async function defaultChangeEmail(body: {
   }
 }
 
+type AccountAuthAdapter = {
+  changeEmail: typeof defaultChangeEmail;
+  changePassword: (body: {
+    currentPassword: string;
+    newPassword: string;
+    revokeOtherSessions: true;
+  }) => Promise<AuthActionResult>;
+  updateUser: (body: { name: string }) => Promise<AuthActionResult>;
+};
+
 /**
  * Mutable auth adapters so sheet tests can swap the network-backed
  * better-auth client without `vi.mock`.
  *
  * @internal
  */
-export const accountAuthAdapter = {
+export const accountAuthAdapter: AccountAuthAdapter = {
   changeEmail: defaultChangeEmail,
-  changePassword: (body: {
-    currentPassword: string;
-    newPassword: string;
-    revokeOtherSessions: true;
-  }) => authClient.changePassword(body),
-  updateUser: (body: { name: string }) => authClient.updateUser(body),
+  changePassword: (body) => authClient.changePassword(body),
+  updateUser: (body) => authClient.updateUser(body),
 };
 
 function nameSchema(t: TranslationFunction) {

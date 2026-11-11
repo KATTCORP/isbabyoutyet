@@ -2,7 +2,17 @@ import { parseISO } from "date-fns";
 import { z } from "zod";
 import type { TranslationFunction } from "@/lib/i18n";
 
-function zonedDateTimeParts(date: Date, timeZone: string) {
+/** Zero-padded wall-clock fields of an instant in a time zone. */
+type ZonedDateTimeParts = {
+  day: string;
+  hour: string;
+  minute: string;
+  month: string;
+  second: string;
+  year: string;
+};
+
+function zonedDateTimeParts(date: Date, timeZone: string): ZonedDateTimeParts | null {
   const parts = new Intl.DateTimeFormat("en-CA", {
     day: "2-digit",
     hour: "2-digit",

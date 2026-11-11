@@ -180,8 +180,21 @@ export function openGraphImageMeta(opts: { alt: string; imageUrl: string }) {
 
 type PublicBabyDoc = NonNullable<FunctionReturnType<typeof api.baby.getByPublicId>>;
 
+/** What a baby page's `head` is built from. */
+type BabySeoHead = {
+  canonical: string;
+  description: string;
+  imageAlt: string;
+  imageUrl: string;
+  indexable: boolean;
+  locale: SupportedLocale;
+  ogUrl: string;
+  themeColor: string;
+  title: string;
+};
+
 /** @internal Exported for tests; production uses {@link getBabySeo}. */
-export function babySeoHead(baby: BabySeoInput) {
+export function babySeoHead(baby: BabySeoInput): BabySeoHead {
   const title = babyPageTitle(baby);
   const description = babyPageDescription(baby);
   const pagePath = `/baby/${baby.publicId}`;

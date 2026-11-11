@@ -214,7 +214,7 @@ export const Route = createFileRoute("/baby/$publicId")({
 export function docToBabyData(
   doc: NonNullable<FunctionReturnType<typeof api.baby.getByPublicId>>,
 ): BabyData {
-  const common = {
+  const common: Omit<BabyData, "dueDate" | "dueDateDisplayMode" | "publicDueDateText"> = {
     babyBorn: doc.babyBorn ?? null,
     laborStarted: doc.laborStarted ?? null,
     locale: doc.locale ?? null,

@@ -2,6 +2,7 @@ import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { ConvexRequest } from "@workspace/convex-query";
 import { readConvexQuery } from "@workspace/convex-query";
 import { isFunction } from "@workspace/runtime/guards";
+import type { FunctionReturnType } from "convex/server";
 import { queryOptions } from "@/lib/raf";
 
 export type BrowserPushCapability =
@@ -46,7 +47,12 @@ function hasStandaloneFlag(
   return "standalone" in value;
 }
 
-function getIOSStatus() {
+type IOSStatus = {
+  isIOS: boolean;
+  isStandalone: boolean;
+};
+
+function getIOSStatus(): IOSStatus {
   if (globalThis.window === undefined) {
     return { isIOS: false, isStandalone: false };
   }
@@ -79,10 +85,16 @@ function isPushSupported() {
   );
 }
 
+/** What this device is subscribed to for a baby. */
+type SubscriptionFlags = {
+  family: FunctionReturnType<typeof api.pushSubscriptions.isSubscribed>;
+  messages: FunctionReturnType<typeof api.pushSubscriptions.isOwnerSubscribed>;
+};
+
 async function readSubscriptionFlags(
   request: ConvexRequest,
   args: { babyId: string; endpoint: string },
-) {
+): Promise<SubscriptionFlags> {
   const [family, messages] = await Promise.all([
     readConvexQuery(request, { args, query: api.pushSubscriptions.isSubscribed }),
     readConvexQuery(request, { args, query: api.pushSubscriptions.isOwnerSubscribed }),

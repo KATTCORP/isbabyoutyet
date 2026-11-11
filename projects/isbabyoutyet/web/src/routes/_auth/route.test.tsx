@@ -1,5 +1,6 @@
 import { getData, setData } from "@raf-query/react";
 import { ConvexHttpClient } from "convex/browser";
+import type { FunctionReturnType } from "convex/server";
 import { isRedirect } from "@tanstack/react-router";
 import { makeAsyncResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { convexQuery } from "@workspace/convex-query";
@@ -19,7 +20,9 @@ type ProfileSnapshot = {
   timeZone: string;
 };
 
-function signedInProfile(snapshot: ProfileSnapshot) {
+function signedInProfile(
+  snapshot: ProfileSnapshot,
+): NonNullable<FunctionReturnType<typeof api.profile.get>> {
   return { email: "ada@example.com", emailVerified: true, name: "Ada", ...snapshot };
 }
 

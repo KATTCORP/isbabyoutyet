@@ -1,6 +1,6 @@
 import { authServer } from "@/lib/auth-server";
 import { loadSignedInProfile } from "@/lib/signed-in-profile";
-import type { SignedInProfileContext } from "@/lib/signed-in-profile";
+import type { SignedInProfile, SignedInProfileContext } from "@/lib/signed-in-profile";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
@@ -30,7 +30,7 @@ export async function resolveBabyManagerGuard(opts: {
   fetchToken: () => Promise<string | null>;
   pathname: string;
   publicId: string;
-}) {
+}): Promise<Pick<SignedInProfile, "me" | "token">> {
   const session = await loadSignedInProfile({
     context: opts.context,
     fetchToken: opts.fetchToken,

@@ -42,7 +42,7 @@ const babySmith = {
   role: "owner" as const,
   timeZone: "Europe/London",
   wentToHospital: null,
-};
+} satisfies Partial<FunctionReturnType<typeof api.baby.listByUser>[number]>;
 
 const onboardingProgress: FunctionReturnType<typeof api.onboarding.getMine> = {
   activeCoachmarkStepId: null,

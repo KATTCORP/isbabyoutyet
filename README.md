@@ -32,6 +32,13 @@ pnpm clean                            # wipe caches and reinstall
   [`typescript-best-practices`](.agents/skills/typescript-best-practices/SKILL.md).
   [`.oxlintrc.json`](.oxlintrc.json) enforces the rest (for example, at most
   two params per function), and web apps add stricter rules.
+- **Object literals:** never leave one loose. An object bound to a variable,
+  or returned from a function declared on its own, names the type it fills
+  in: `const input: TimelineInput = { … }`, `{ … } satisfies TimelineInput`
+  (or `as const satisfies`), or the function's return type. Use the type the
+  consumer already exports, not `Record<string, unknown>` or `object`. A
+  literal passed straight to a call is typed by its parameter.
+  `workspace/no-untyped-object-literal` enforces it.
 - **Tests:** prefer Vitest/jsdom over a browser. Only use a computer-use agent
   if the user asks for a walkthrough or the change needs a real viewport.
   `vi.mock` / `vi.hoisted` / `vi.doMock` are banned (`no-mock`). Build a seam

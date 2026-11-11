@@ -18,7 +18,14 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   return outputArray;
 }
 
-function keysFromPushSubscription(subscription: PushSubscription) {
+/** What Convex stores to push to this device. */
+type WebPushKeys = {
+  auth: string;
+  endpoint: string;
+  p256dh: string;
+};
+
+function keysFromPushSubscription(subscription: PushSubscription): WebPushKeys | null {
   const subscriptionData = subscription.toJSON();
   if (subscriptionData.endpoint && subscriptionData.keys?.p256dh && subscriptionData.keys?.auth) {
     return {

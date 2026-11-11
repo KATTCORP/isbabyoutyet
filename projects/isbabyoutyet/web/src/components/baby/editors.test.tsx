@@ -209,7 +209,7 @@ test("reopening the editor picks up the latest name without any reset", async ()
 test("status editor saves the matching milestone instant", async () => {
   const onRedate = vi.fn<MilestoneRedateHandler>().mockResolvedValue(undefined);
   const onRemove = vi.fn<MilestoneRemoveHandler>().mockResolvedValue(undefined);
-  const laborBaby = { ...baby, laborStarted: "2026-08-10T08:00:00.000Z" };
+  const laborBaby = { ...baby, laborStarted: "2026-08-10T08:00:00.000Z" } satisfies BabyData;
   await using view = await renderWithTestRouter(
     <StatusDateEditor
       baby={laborBaby}
@@ -458,7 +458,7 @@ test("status editor confirms destructive deletion", async () => {
     babyBorn: "2026-08-11T03:00:00.000Z",
     laborStarted: "2026-08-10T08:00:00.000Z",
     wentToHospital: "2026-08-10T12:00:00.000Z",
-  };
+  } satisfies BabyData;
   await using view = await renderWithTestRouter(
     <StatusDateEditor
       baby={bornBaby}
@@ -497,7 +497,7 @@ test("status delete dialog stays open while deletion is pending", async () => {
     babyBorn: "2026-08-11T03:00:00.000Z",
     laborStarted: "2026-08-10T08:00:00.000Z",
     wentToHospital: "2026-08-10T12:00:00.000Z",
-  };
+  } satisfies BabyData;
   await using view = await renderWithTestRouter(
     <StatusDateEditor
       baby={bornBaby}
@@ -534,7 +534,7 @@ test("status deletion is disabled until later statuses are deleted", async () =>
     ...baby,
     babyBorn: "2026-08-11T03:00:00.000Z",
     wentToHospital: "2026-08-10T12:00:00.000Z",
-  };
+  } satisfies BabyData;
   await using view = await renderWithTestRouter(
     <TooltipProvider>
       <StatusDateEditor

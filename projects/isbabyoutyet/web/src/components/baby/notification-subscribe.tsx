@@ -5,6 +5,7 @@ import { BellIcon, BellSlashIcon, ExportIcon } from "@phosphor-icons/react";
 import { useQuery } from "@raf-query/react";
 import { use } from "react";
 import { useMutation } from "convex/react";
+import type { FunctionArgs } from "convex/server";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { convexQuery } from "@workspace/convex-query";
@@ -85,7 +86,7 @@ export function NotificationSubscribe(props: NotificationSubscribeProps) {
       if (!existing) {
         return;
       }
-      const pushKeys = {
+      const pushKeys: FunctionArgs<typeof api.pushSubscriptions.unsubscribe> = {
         auth: existing.auth,
         babyId: props.babyId,
         endpoint: existing.endpoint,
@@ -101,7 +102,7 @@ export function NotificationSubscribe(props: NotificationSubscribeProps) {
     }
 
     const keys = await ensureWebPushSubscription(vapidPublicKey, { t });
-    const pushKeys = {
+    const pushKeys: FunctionArgs<typeof api.pushSubscriptions.subscribe> = {
       auth: keys.auth,
       babyId: props.babyId,
       endpoint: keys.endpoint,

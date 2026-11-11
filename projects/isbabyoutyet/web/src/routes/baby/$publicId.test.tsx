@@ -3,7 +3,7 @@ import type { AppQueryClient } from "@/lib/query-client";
 import { isFunction, isPlainObject } from "@workspace/runtime/guards";
 import type { JsonValue } from "@workspace/runtime/json";
 import { convexTest } from "convex-test";
-import type { FunctionReturnType } from "convex/server";
+import type { FunctionReturnType, PaginationResult } from "convex/server";
 import { getFunctionName } from "convex/server";
 import type { RenderResult } from "@testing-library/react";
 import { fireEvent, within } from "@testing-library/react";
@@ -322,8 +322,17 @@ test("renders the public baby status in Brazilian Portuguese", async () => {
 
 // --- Route loader: awaited handles plus the owner/visitor branching ---
 
-const BABY_DOC = { _id: "baby-1", publicId: "baby-smith", resolvedLocale: "en-GB" };
-const EMPTY_PAGE = { continueCursor: "", isDone: true, page: [] };
+const BABY_DOC = {
+  // SAFETY: Seeded convex-test document id.
+  _id: "baby-1" as Id<"baby">,
+  publicId: "baby-smith",
+  resolvedLocale: "en-GB",
+} satisfies Partial<PublicBaby>;
+const EMPTY_PAGE = {
+  continueCursor: "",
+  isDone: true,
+  page: [],
+} satisfies PaginationResult<never>;
 
 type QueryHandlers = Record<string, JsonValue>;
 type BabyLoaderResult = {
@@ -739,8 +748,18 @@ test("notification #feed landmark is the messages list, not the compose box", as
 
 // --- Following an item's timestamp: highlight in place, or open the feed at it ---
 
+type SeededFeedMessages = {
+  itemId: (
+    message: string,
+  ) => FunctionReturnType<typeof api.timeline.listByBaby>["page"][number]["_id"];
+  publicId: string;
+};
+
 /** `Message 1` (oldest) to `Message {count}` (newest), posted by a visitor. */
-async function seedFeedMessages(harness: ConvexTestHarness, opts: { count: number }) {
+async function seedFeedMessages(
+  harness: ConvexTestHarness,
+  opts: { count: number },
+): Promise<SeededFeedMessages> {
   const baby = await seedOwnedBaby(harness, { dueDate: "2026-09-01", name: "Baby Smith" });
   for (let index = 1; index <= opts.count; index++) {
     await seedTimelineEncouragement(harness, {

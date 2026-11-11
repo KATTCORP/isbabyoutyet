@@ -9,7 +9,7 @@ const babyId = "baby_test_2" as Id<"baby">;
 
 function sessionStorageResource() {
   const store = new Map<string, string>();
-  const storage = {
+  const storage: Pick<Storage, "getItem" | "removeItem" | "setItem"> = {
     getItem(key: string) {
       return store.get(key) ?? null;
     },

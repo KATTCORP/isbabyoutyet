@@ -147,7 +147,13 @@ export function formatDueDate(dateString: string, locale: SupportedLocale): stri
   }).format(parseCalendarDate(dateString));
 }
 
-function datePartsInTimeZone(date: Date, timeZone: string) {
+type CalendarDateParts = {
+  day: number;
+  month: number;
+  year: number;
+};
+
+function datePartsInTimeZone(date: Date, timeZone: string): CalendarDateParts | null {
   const parts = new Intl.DateTimeFormat("en-US", {
     day: "2-digit",
     month: "2-digit",

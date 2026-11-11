@@ -28,7 +28,7 @@ function publicCacheHeaders(policy: PublicCachePolicy) {
     Vary: "Accept-Language, Cookie",
     "Vercel-Cache-Tag": policy.tags.join(","),
     "Vercel-CDN-Cache-Control": `public, s-maxage=${policy.maxAgeSeconds}, stale-while-revalidate=${PUBLIC_STALE_SECONDS}`,
-  };
+  } satisfies Record<string, string>;
 }
 
 export function privateCacheHeaders() {
@@ -36,7 +36,7 @@ export function privateCacheHeaders() {
     "Cache-Control": PRIVATE_CACHE_CONTROL,
     Vary: "Cookie",
     "Vercel-CDN-Cache-Control": PRIVATE_CACHE_CONTROL,
-  };
+  } satisfies Record<string, string>;
 }
 
 export function homepageCacheHeaders() {

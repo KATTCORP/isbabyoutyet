@@ -1,7 +1,8 @@
-import type { BabyData, BabyStatus } from "@isbabyoutyet/backend/src/types";
+import type { BabyData, BabyStatus, Milestone } from "@isbabyoutyet/backend/src/types";
 import { getMilestonePolicy, MILESTONE_FIELDS } from "@isbabyoutyet/backend/src/types";
 import { getRelativeTime } from "./utils";
 import { useI18n } from "@/lib/i18n";
+import type { TranslationKey } from "@/lib/i18n";
 import { MILESTONE_LABEL_KEYS } from "./translation-keys";
 
 type ProgressIndicatorProps = {
@@ -19,7 +20,7 @@ export function ProgressIndicator(props: ProgressIndicatorProps) {
     born: { emoji: "🎉", labelKey: MILESTONE_LABEL_KEYS.born },
     gone_to_hospital: { emoji: "🏥", labelKey: MILESTONE_LABEL_KEYS.gone_to_hospital },
     labor_started: { emoji: "💫", labelKey: MILESTONE_LABEL_KEYS.labor_started },
-  } as const;
+  } as const satisfies Record<Milestone, { emoji: string; labelKey: TranslationKey }>;
   const steps = milestonePolicy.visibleMilestones.map((milestone) => ({
     key: milestone,
     ...stepMeta[milestone],

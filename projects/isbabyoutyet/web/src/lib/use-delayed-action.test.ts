@@ -51,11 +51,14 @@ test("delays becoming true and hides on the next timeout", async () => {
   expect(hook.result.current).toBe(false);
 });
 
+type TransitionProps = {
+  value: "pending" | "sent";
+};
+
 test("reports only a live transition for the configured duration", async () => {
   vi.useFakeTimers();
   await using _timers = makeResource({}, () => vi.useRealTimers());
-  // SAFETY: Test fixture is a subset of the production type.
-  const initialProps = { value: "sent" as "pending" | "sent" };
+  const initialProps: TransitionProps = { value: "sent" };
   const hook = renderHook(
     (props) =>
       useTimedTransition({

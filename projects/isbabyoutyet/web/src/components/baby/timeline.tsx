@@ -52,15 +52,16 @@ import {
 } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { Fragment, use, useId, useRef } from "react";
-import type { DragEvent, ReactElement, ReactNode } from "react";
+import type { DragEvent, HTMLAttributes, ReactElement, ReactNode } from "react";
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/react";
+import type { TargetAndTransition, Transition } from "motion/react";
 import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { z } from "zod";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import type { BabyData, Milestone } from "@isbabyoutyet/backend/src/types";
+import type { BabyData, BabyStatus, Milestone } from "@isbabyoutyet/backend/src/types";
 import {
   getBlockingLaterMilestone,
   getMilestonePolicy,
@@ -74,6 +75,7 @@ import {
   useFormGuard,
   useZodForm,
 } from "@/components/Form";
+import type { UseZodForm } from "@/components/Form";
 import { FormControl, FormField, FormItem, FormMessage } from "@workspace/ui/components/form";
 import { useFormState, useWatch } from "react-hook-form";
 import { htmlDateTimeNow, optionalHtmlDateTime } from "@/lib/html-date";
@@ -96,9 +98,13 @@ const EDIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const TIMELINE_ITEM_LAYOUT = "position" as const;
 const TIMELINE_PRESENCE_MODE = "popLayout" as const;
 const TIMELINE_REDUCED_MOTION = "user" as const;
-const TIMELINE_ITEM_HIDDEN = { opacity: 0, scale: 0.96, y: -12 };
-const TIMELINE_ITEM_VISIBLE = { opacity: 1, scale: 1, y: 0 };
-const TIMELINE_ITEM_TRANSITION = { damping: 32, stiffness: 420, type: "spring" } as const;
+const TIMELINE_ITEM_HIDDEN: TargetAndTransition = { opacity: 0, scale: 0.96, y: -12 };
+const TIMELINE_ITEM_VISIBLE: TargetAndTransition = { opacity: 1, scale: 1, y: 0 };
+const TIMELINE_ITEM_TRANSITION = {
+  damping: 32,
+  stiffness: 420,
+  type: "spring",
+} as const satisfies Transition;
 /** Start the next page about half a phone screen before the skeleton scrolls in. */
 const TIMELINE_PRELOAD_MARGIN = "0px 0px 400px 0px";
 
@@ -254,11 +260,27 @@ export function UpdateComposer(props: UpdateComposerProps) {
   );
 }
 
+type ComposerSchema = ReturnType<typeof composerSchema>;
+
+type ComposerState = {
+  acceptPhoto: (file: File | undefined) => void;
+  baby: BabyData;
+  babyName: string;
+  clearPhoto: () => void;
+  form: UseZodForm<z.input<ComposerSchema>, BabyStatus["type"], z.output<ComposerSchema>>;
+  futureMilestones: Array<Milestone>;
+  photoFile: File | null;
+  photoPreviewUrl: string | null;
+  selectedMilestone: Milestone | null;
+  setMilestone: (value: Milestone | "none") => void;
+  submit: (values: PostUpdateArgs & { photo: File | null }) => Promise<void>;
+};
+
 /**
  * The composer's form state and handlers, separate from layout so the
  * sections below (note, photo, status) can each pull what they need.
  */
-function useUpdateComposer(props: UpdateComposerFormProps) {
+function useUpdateComposer(props: UpdateComposerFormProps): ComposerState {
   const { t } = useI18n();
 
   // The status only moves forward: offer only stages AFTER the current one,
@@ -356,8 +378,6 @@ function useUpdateComposer(props: UpdateComposerFormProps) {
     },
   };
 }
-
-type ComposerState = ReturnType<typeof useUpdateComposer>;
 
 /** Each part of the post is its own soft card: label on top, content below. */
 const COMPOSER_SECTION_CARD =
@@ -566,7 +586,9 @@ function setDragging(event: DragEvent<HTMLElement>, dragging: boolean) {
   }
 }
 
-function photoDropProps(composer: ComposerState) {
+function photoDropProps(
+  composer: ComposerState,
+): Pick<HTMLAttributes<HTMLElement>, "onDragLeave" | "onDragOver" | "onDrop"> {
   return {
     onDragLeave: (event: DragEvent<HTMLElement>) => {
       // Ignore leave events fired when moving between children.

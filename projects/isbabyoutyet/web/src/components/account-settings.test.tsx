@@ -44,7 +44,7 @@ function renderAccount(opts: {
   );
 }
 
-function readyHandlers() {
+function readyHandlers(): AccountSettingsHandlers {
   return {
     onChangeEmail: vi.fn(async () => {}),
     onChangePassword: vi.fn(async () => {}),

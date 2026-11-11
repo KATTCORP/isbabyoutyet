@@ -138,8 +138,6 @@ async function mountFileRoute(
     routerContext: ParentRouteContext;
   },
 ) {
-  const context = { ...routeContextFromHarness(opts.harness), ...extra.routerContext };
-
   const history =
     opts.overlayHistory === null
       ? createMemoryHistory({ initialEntries: [opts.initialEntry] })
@@ -181,7 +179,7 @@ async function mountFileRoute(
 
   const router = createRouter({
     ...extra.preload,
-    context,
+    context: { ...routeContextFromHarness(opts.harness), ...extra.routerContext },
     // Closing an overlay navigates to its parent, which this single-route tree
     // does not mount.
     defaultNotFoundComponent: () => null,

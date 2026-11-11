@@ -4,7 +4,6 @@ import { playwright } from "@vitest/browser-playwright";
 import type { BrowserCommand } from "vitest/node";
 import { workspaceCoverage } from "../../../vitest.coverage.ts";
 
-const VIEWPORT = { height: 924, width: 393 };
 const APP_BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const WEB_ROOT = import.meta.dirname;
 
@@ -33,7 +32,7 @@ const measureMobileOverflow: BrowserCommand<[PageCheckOptions], OverflowResult> 
   }
 
   const page = await context.context.newPage();
-  await page.setViewportSize(VIEWPORT);
+  await page.setViewportSize({ height: 924, width: 393 });
   await page.goto(new URL(options.path, APP_BASE_URL).href);
   await page.getByRole("heading", { name: options.heading }).waitFor();
   if (options.expectedText) {

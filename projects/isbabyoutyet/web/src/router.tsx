@@ -1,4 +1,5 @@
 import { createRouter, rootRouteId } from "@tanstack/react-router";
+import type { AnyRouter } from "@tanstack/react-router";
 import { addRouterTracing, reportRouterError } from "@workspace/sentry/browser";
 import { QueryClientProvider } from "@raf-query/react";
 import { setupRouterIntegration } from "@raf-query/react/tanstack-router";
@@ -22,7 +23,7 @@ export const routerPreloadOptions = {
   // background. https://tanstack.com/router/latest/docs/guide/data-loading
   defaultPreloadStaleTime: 0,
   scrollRestoration: true,
-} as const;
+} as const satisfies Partial<AnyRouter["options"]>;
 
 /**
  * Cookie JWT the root `beforeLoad` resolved on the server, for the client

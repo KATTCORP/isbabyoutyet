@@ -157,6 +157,7 @@
     "workspace/no-convex-query-hooks": "error",
     // `useWaterfall` starts a query during render; start it in the loader.
     "workspace/no-raf-query-waterfall": "error",
+    "workspace/no-untyped-object-literal": "error",
     "workspace/no-use-effect": "error",
     "workspace/no-use-state": "error",
     // Always on — including projects/*/web/src/lib — so banned hooks cannot be
@@ -537,6 +538,7 @@
         "anti-slop/no-widen-then-assert": "off",
         "anti-slop/require-safety-comment-for-type-assertion": "off",
         "eslint/max-params": "off",
+        "workspace/no-untyped-object-literal": "off",
         "eslint/no-shadow": "off",
         "eslint/no-underscore-dangle": "off",
         "workspace/no-use-effect": "off",

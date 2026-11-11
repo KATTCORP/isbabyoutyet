@@ -1,4 +1,5 @@
 import { useI18n } from "@/lib/i18n";
+import type { TranslationKey } from "@/lib/i18n";
 import { useClientHydration } from "@/lib/use-client-hydration";
 import { ensureWebPushSubscription, readWebPushSubscription } from "@/lib/web-push-subscription";
 import { BellIcon } from "@phosphor-icons/react";
@@ -30,26 +31,31 @@ import { IosPwaInstallPrompt } from "./notification-subscribe";
 
 type DisabledReason = "unsupported" | "needsIosInstall";
 
+type OwnerMessageNotifyCopy = {
+  description: TranslationKey;
+  title: TranslationKey;
+};
+
 function ownerMessageNotifyCopy(opts: { checked: boolean; disabledReason: DisabledReason | null }) {
   if (opts.disabledReason === "needsIosInstall") {
     return {
       description:
         "On iPhone, message notifications need the Home Screen app. You'll turn them on after you open it from the icon.",
       title: "Message notifications",
-    } as const;
+    } as const satisfies OwnerMessageNotifyCopy;
   }
   if (opts.disabledReason === "unsupported") {
     return {
       description: "Push notifications are not supported in this browser.",
       title: "Message notifications",
-    } as const;
+    } as const satisfies OwnerMessageNotifyCopy;
   }
   return {
     description: opts.checked
       ? "You'll get a push when someone leaves a message on this page."
       : "Get notified when someone leaves a message",
     title: "Message notifications",
-  } as const;
+  } as const satisfies OwnerMessageNotifyCopy;
 }
 
 type SwitchViewProps = {

@@ -74,10 +74,10 @@ export function searchRobotsMeta(opts: { index: boolean }) {
 }
 
 export function noIndexHeaders() {
-  return { "X-Robots-Tag": "noindex, nofollow" };
+  return { "X-Robots-Tag": "noindex, nofollow" } satisfies Record<string, string>;
 }
 
-export function babyPageRobotsHeaders(publicId: string) {
+export function babyPageRobotsHeaders(publicId: string): Record<string, string> {
   if (!isIndexableBabyPublicId(publicId)) {
     return noIndexHeaders();
   }

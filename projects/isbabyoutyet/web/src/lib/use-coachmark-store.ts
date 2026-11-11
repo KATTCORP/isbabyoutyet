@@ -28,7 +28,13 @@ function isHtmlElement(value: Element | null): value is HTMLElement {
 
 function noop() {}
 
-function createCoachmarkStore(opts: { targetId: string }) {
+type CoachmarkStore = {
+  getSnapshot: () => CoachmarkSnapshot | null;
+  setOnDismiss: (next: () => void) => void;
+  subscribe: (notify: () => void) => () => void;
+};
+
+function createCoachmarkStore(opts: { targetId: string }): CoachmarkStore {
   let snapshot: CoachmarkSnapshot | null = null;
   let onDismiss = noop;
 

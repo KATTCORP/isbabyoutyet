@@ -1,5 +1,6 @@
 import { getData } from "@raf-query/react";
 import { fireEvent } from "@testing-library/react";
+import type { FunctionArgs } from "convex/server";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { FORBIDDEN } from "@isbabyoutyet/backend/src/types";
 import { expect, test, vi } from "vitest";
@@ -30,7 +31,7 @@ test("settings loader fetches only manager settings data", async () => {
     routerContext: { me: (await signedInRouteContext(harness)).me },
   });
 
-  const babyArgs = { babyId: baby.publicId };
+  const babyArgs: FunctionArgs<typeof api.baby.getManagerBaby> = { babyId: baby.publicId };
   expect(result.managerBaby).toMatchObject({ input: babyArgs });
   expect(result.coParentsList).toMatchObject({ input: babyArgs });
   expect(result.profile).toMatchObject({ input: {} });

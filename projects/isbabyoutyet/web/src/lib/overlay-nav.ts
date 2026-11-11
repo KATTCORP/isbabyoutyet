@@ -29,9 +29,6 @@ import type { MouseEvent } from "react";
 import { useFormGuard } from "@workspace/form-guard";
 import type { FormGuardHandle } from "@workspace/form-guard";
 
-/** History state marker for push-opened overlays. */
-const overlayHistoryState = { overlay: true as const };
-
 function isOverlayHistoryState(state: { overlay: true | undefined }) {
   return state.overlay === true;
 }
@@ -56,7 +53,8 @@ export function openOverlayLink(options: OverlayOpenInput): LinkProps {
     ...options,
     preload: "viewport",
     resetScroll: false,
-    state: overlayHistoryState,
+    // History state marker for push-opened overlays.
+    state: { overlay: true },
   };
 }
 

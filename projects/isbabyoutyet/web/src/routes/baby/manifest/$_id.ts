@@ -6,6 +6,27 @@ import { translate } from "@/lib/i18n";
 import { withPublicCache } from "@/lib/cachePolicy";
 import { ALL_BABY_PAGES_CACHE_TAG, babyIdCacheTag } from "@isbabyoutyet/backend/src/cacheTags";
 
+type WebAppManifestIcon = {
+  sizes: string;
+  src: string;
+  type: string;
+};
+
+/** The Web App Manifest members a baby page's manifest sets. */
+type WebAppManifest = {
+  background_color: string;
+  description: string;
+  display: "browser" | "fullscreen" | "minimal-ui" | "standalone";
+  icons: Array<WebAppManifestIcon | (WebAppManifestIcon & { purpose: string })>;
+  id: string;
+  lang: string;
+  name: string;
+  scope: string;
+  short_name: string;
+  start_url: string;
+  theme_color: string;
+};
+
 export const Route = createFileRoute("/baby/manifest/$_id")({
   server: {
     handlers: {
@@ -29,7 +50,7 @@ export const Route = createFileRoute("/baby/manifest/$_id")({
         const themeColor = getThemePrimaryColor(baby.theme);
         const permanentUrl = `/baby/${baby._id}`;
 
-        const manifest = {
+        const manifest: WebAppManifest = {
           background_color: "#0f172a",
           description: translate(locale, "Track {{name}}'s journey – know when baby arrives!", {
             name: baby.name,

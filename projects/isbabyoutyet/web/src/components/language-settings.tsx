@@ -36,16 +36,21 @@ function formatTimeZoneLabel(timeZone: string) {
   return location ? `${location} (${area})` : area;
 }
 
+type TimeZoneOption = {
+  label: string;
+  value: string;
+};
+
 const timeZoneOptions = Array.from(
   new Set([DEFAULT_TIME_ZONE, ...Intl.supportedValuesOf("timeZone")]),
 )
   .toSorted()
-  .map((timeZone) => ({
+  .map((timeZone): TimeZoneOption => ({
     label: formatTimeZoneLabel(timeZone),
     value: timeZone,
   }));
 
-const defaultTimeZoneOption = {
+const defaultTimeZoneOption: TimeZoneOption = {
   label: formatTimeZoneLabel(DEFAULT_TIME_ZONE),
   value: DEFAULT_TIME_ZONE,
 };

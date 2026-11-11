@@ -1,9 +1,16 @@
+import type { Mock } from "vitest";
 import { expect, test, vi } from "vitest";
 import { createFormGuardStore, REQUEST_CLOSE_REASON } from "./guard-store.js";
 import type { FormGuardStore, FormStateFlags, OverlayDismissEventDetails } from "./guard-store.js";
 
-function dismissEvent(reason: string) {
-  const cancel = vi.fn();
+/** A dismiss event for the store, and the spy that tells whether it was cancelled. */
+interface DismissEvent {
+  readonly cancel: Mock<() => void>;
+  readonly eventDetails: OverlayDismissEventDetails;
+}
+
+function dismissEvent(reason: string): DismissEvent {
+  const cancel = vi.fn<() => void>();
   const eventDetails: OverlayDismissEventDetails = { cancel, reason };
   return { cancel, eventDetails };
 }

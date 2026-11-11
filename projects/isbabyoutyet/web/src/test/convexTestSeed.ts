@@ -2,8 +2,13 @@ import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { createAuth } from "@isbabyoutyet/backend/convex/auth";
 import { testPhotoBlob } from "@isbabyoutyet/backend/convex/test.setup";
-import type { FunctionArgs } from "convex/server";
+import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import type { ConvexTestHarness } from "@/test/convexTestHarness";
+
+export type SeededBaby = {
+  babyId: Id<"baby">;
+  publicId: string;
+};
 
 /** Creates a baby owned by the harness identity (must already be set). */
 export async function seedOwnedBaby(
@@ -12,7 +17,7 @@ export async function seedOwnedBaby(
     dueDate: string | null;
     name: string;
   },
-) {
+): Promise<SeededBaby> {
   const created = await harness.client.mutation(api.baby.create, {
     birthJourney: "labor",
     dueDate: opts.dueDate,
@@ -65,6 +70,10 @@ export async function settleScheduledFunctions(harness: ConvexTestHarness) {
   await harness.t.finishAllScheduledFunctions(() => {});
 }
 
+type SeededBabyWithPhoto = SeededBaby & {
+  photoId: Id<"_storage">;
+};
+
 /** Creates a baby with a page photo stored in the in-memory Convex backend. */
 export async function seedBabyWithPhoto(
   harness: ConvexTestHarness,
@@ -72,7 +81,7 @@ export async function seedBabyWithPhoto(
     dueDate: string | null;
     name: string;
   },
-) {
+): Promise<SeededBabyWithPhoto> {
   const baby = await seedOwnedBaby(harness, opts);
   const photoId = await storeTestBlob(harness);
   await harness.client.mutation(api.baby.updatePhoto, {
@@ -86,6 +95,11 @@ export async function seedBabyWithPhoto(
   };
 }
 
+type SeededPhotoUpdate = {
+  photoId: Id<"_storage">;
+  updateId: FunctionReturnType<typeof api.updates.post>;
+};
+
 /** Posts a timeline update with a photo and returns the update id. */
 export async function seedTimelineUpdateWithPhoto(
   harness: ConvexTestHarness,
@@ -93,7 +107,7 @@ export async function seedTimelineUpdateWithPhoto(
     babyId: Id<"baby">;
     message: string;
   },
-) {
+): Promise<SeededPhotoUpdate> {
   const photoId = await storeTestBlob(harness);
   const updateId = await harness.client.mutation(api.updates.post, {
     babyId: opts.babyId,

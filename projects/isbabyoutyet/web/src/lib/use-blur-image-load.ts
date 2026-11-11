@@ -61,6 +61,14 @@ function handleLoading(img: HTMLImageElement, options: HandleLoadingOptions) {
     });
 }
 
+type BlurImageLoad = {
+  imgRef: RefObject<HTMLImageElement | null>;
+  loaded: boolean;
+  onError: (event: SyntheticEvent<HTMLImageElement>) => void;
+  onLoad: (event: SyntheticEvent<HTMLImageElement>) => void;
+  showAltText: boolean;
+};
+
 /**
  * Owns BlurImage load/fail tracking. Lives in lib so feature UI stays free of
  * useState (audited seam under no-use-state).
@@ -69,7 +77,7 @@ export function useBlurImageLoad(opts: {
   onError: ImgHTMLAttributes<HTMLImageElement>["onError"];
   onLoad: ImgHTMLAttributes<HTMLImageElement>["onLoad"];
   srcKey: string;
-}) {
+}): BlurImageLoad {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const loadedSrcRef = useRef<string | null>(null);
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);

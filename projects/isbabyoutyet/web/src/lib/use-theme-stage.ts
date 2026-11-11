@@ -23,6 +23,12 @@ const INITIAL_STATE: ThemeStageState = {
   themeIndex: 0,
 };
 
+/** What {@link useThemeStage} shows now, and the controls that take over from autoplay. */
+type ThemeStage = Pick<ThemeStageState, "announced" | "beat" | "stageIndex" | "themeIndex"> & {
+  pickStage: (index: number) => void;
+  pickTheme: (index: number) => void;
+};
+
 /**
  * State for the homepage's self-playing theme stage: which journey step and
  * which theme are showing, and whether it still plays itself. It advances
@@ -41,7 +47,7 @@ export function useThemeStage(opts: {
   /** The stage moves one step every this many beats. */
   stepEveryBeats: number;
   themeCount: number;
-}) {
+}): ThemeStage {
   const [state, setState] = useState(INITIAL_STATE);
 
   useAutoplayTick({
