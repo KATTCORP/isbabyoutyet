@@ -55,7 +55,6 @@ function matchMediaResource() {
 }
 
 const rootRoute = createRootRoute({
-  beforeLoad: () => ({ locale: getLocale() }),
   component: () => (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <TooltipProvider>
@@ -64,13 +63,12 @@ const rootRoute = createRootRoute({
       </TooltipProvider>
     </ThemeProvider>
   ),
+  loader: () => ({ locale: getLocale() }),
   search: { middlewares: [unitSearchMiddleware(getLocale)] },
   validateSearch: z.object({ unit: temperatureUnitSearchSchema }),
 });
 const indexRoute = createRoute({
-  component: () => (
-    <main>{indexRoute.useRouteContext({ select: (context) => context.locale })}</main>
-  ),
+  component: () => <main>{rootRoute.useLoaderData({ select: (data) => data.locale })}</main>,
   getParentRoute: () => rootRoute,
   path: "/",
 });

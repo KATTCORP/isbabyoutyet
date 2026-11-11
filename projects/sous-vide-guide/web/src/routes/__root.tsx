@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
+import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
 import { legacyPolyfillsHeadScripts } from "@workspace/browser-support/head";
 import { ThemeProvider } from "next-themes";
 import { z } from "zod";
@@ -34,14 +34,13 @@ const rootSearchSchema = z.object({
   unit: temperatureUnitSearchSchema,
 });
 
-export const Route = createRootRouteWithContext<{ locale: Locale }>()({
-  beforeLoad: async () => {
-    // Locale is ALS-scoped by paraglideMiddleware + custom Accept-Language strategy.
-    return { locale: getLocale() };
-  },
+export const Route = createRootRoute({
+  // Locale is ALS-scoped by paraglideMiddleware + custom Accept-Language
+  // strategy. An in-place language switch navigates, which runs this again.
+  loader: () => ({ locale: getLocale() }),
   component: RootComponent,
   head: (ctx) => {
-    const locale = ctx.match.context.locale;
+    const locale = ctx.loaderData?.locale ?? getLocale();
     return {
       links: [
         { href: appCss, rel: "stylesheet" },
@@ -89,7 +88,7 @@ export const Route = createRootRouteWithContext<{ locale: Locale }>()({
 });
 
 function RootComponent() {
-  const { locale } = Route.useRouteContext();
+  const { locale } = Route.useLoaderData();
   useSmoothScrollAfterMount();
 
   return (
