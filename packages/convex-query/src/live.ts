@@ -1,3 +1,4 @@
+import type { InputOf } from "@raf-query/react";
 import { getData, invalidateOne, load, prefetch, setData } from "@raf-query/react";
 import type {
   DefaultFunctionArgs,
@@ -98,7 +99,7 @@ function pagedSubscriptions(
     const factory = convexPaginatedQuery(
       makeFunctionReference<"query", { paginationOpts: PaginationOptions }>(key.name),
     );
-    const input = { args: key.args, numItems: key.numItems };
+    const input: InputOf<typeof factory> = { args: key.args, numItems: key.numItems };
     const entry: PagedEntry = {
       invalidate: () => void invalidateOne(queryClient, factory, input),
       writePage: (start, page) => {
@@ -112,7 +113,7 @@ function pagedSubscriptions(
         }
       },
     };
-    const chain = { direction: null, name: key.name, pages: opts.pages };
+    const chain: PageChain = { direction: null, name: key.name, pages: opts.pages };
     return chainSubscriptions(chain, { args: key.args, entry });
   }
   // A two-way entry, read with the start its pages carry: writes go through
@@ -124,7 +125,7 @@ function pagedSubscriptions(
       { direction: PageDirection; from: string | null; paginationOpts: PaginationOptions }
     >(key.name),
   );
-  const input = { args: key.args, from, numItems: key.numItems };
+  const input: InputOf<typeof factory> = { args: key.args, from, numItems: key.numItems };
   const entry: PagedEntry = {
     invalidate: () => void invalidateOne(queryClient, factory, input),
     writePage: (start, page) => {
@@ -165,10 +166,15 @@ function subscriptionsFor(
   return pages ? pagedSubscriptions(key, { pages, queryClient }) : [];
 }
 
-/** A live subscription, or `null` while it is being claimed. */
-type Watching = { unsubscribe(): void } | null;
+/** A live subscription to Convex. */
+interface Watch {
+  unsubscribe(): void;
+}
 
-function subscribe(subscription: Subscription, client: ConvexWatchClient) {
+/** A live subscription, or `null` while it is being claimed. */
+type Watching = Watch | null;
+
+function subscribe(subscription: Subscription, client: ConvexWatchClient): Watch {
   const watch = client.watchQuery(
     makeFunctionReference<"query">(subscription.name),
     subscription.args,

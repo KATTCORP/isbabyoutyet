@@ -19,12 +19,14 @@ import { getFunctionName, makeFunctionReference } from "convex/server";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { isInvalidatedEntry } from "./test-cache.ts";
 import type { ConvexQueryClient } from "./context.ts";
+import type { ConvexWatchClient } from "./reader.ts";
 import { watchConvexQuery } from "./live.ts";
 import { convex } from "./part.ts";
 import { CONVEX_PAGINATED_QUERY_KEY, CONVEX_QUERY_KEY } from "./entries.ts";
-import type { PageBefore, PageDirection } from "./queries.ts";
+import type { PageBefore, PageDirection, PaginationArgs } from "./queries.ts";
 import { convexPaginatedQuery, convexQuery } from "./queries.ts";
 import { subscribingReader } from "./reader.ts";
+import type { TestConvexClient } from "./testing.ts";
 import { makeTestConvexClient } from "./testing.ts";
 
 /**
@@ -66,7 +68,7 @@ const messageList = convexPaginatedQuery(listMessages);
 const messageFeed = convexPaginatedQuery(listFeed);
 
 /** A feed's page of `ids`, as items. */
-function feedPage(result: PaginationResult<string>) {
+function feedPage(result: PaginationResult<string>): PaginationResult<{ _id: string }> {
   return { ...result, page: result.page.map((id) => ({ _id: id })) };
 }
 
@@ -89,7 +91,41 @@ function paginate(items: ReadonlyArray<string>, opts: PaginationOptions): Pagina
   };
 }
 
-function setup() {
+/** A read of a page, held until the test releases it. */
+interface HeldRead {
+  /** Resolves once a read is held. */
+  readonly reached: Promise<void>;
+  release(): void;
+}
+
+/** A mounted query client over a fake backend the test edits and refreshes. */
+interface Setup {
+  readonly backend: TestConvexClient;
+  readonly client: ConvexWatchClient;
+  /** Stop the live sync, as unmounting the provider does. */
+  disconnect(): void;
+  /** Make every later read fail. */
+  fail(): void;
+  /**
+   * Hold the response to reads of the unpinned page starting after `cursor`
+   * (`"null"` for the first) until `release` is called. The page is read
+   * before it is held; `reached` resolves once a read is held.
+   */
+  hold(cursor: string): HeldRead;
+  readonly items: Array<string>;
+  /** A loader's `swr`: resolves once the entry has data, read now unless cached. */
+  load<TFactory extends QueryFactory>(
+    factory: TFactory,
+    ...args: [input?: Parameters<TFactory>[0], options?: LoadEntryOptions]
+  ): Promise<void>;
+  readonly messages: Map<string, string>;
+  readonly newer: Array<string>;
+  readonly queryClient: ConvexQueryClient;
+  /** How many times the backend ran a query. */
+  runs(): number;
+}
+
+function setup(): Setup {
   vi.useFakeTimers();
   const messages = new Map([["a", "hello"]]);
   const items = ["a", "b", "c", "d", "e"];
@@ -211,7 +247,7 @@ describe("the convex part's live sync", () => {
   it("pins every page but the last, so items added inside a page stay on it", async () => {
     const live = setup();
     const factory = messageList;
-    const input = { args: { room: "lobby" }, numItems: 2 };
+    const input: InputOf<typeof messageList> = { args: { room: "lobby" }, numItems: 2 };
     await live.load(factory, input, { pages: 2 });
     vi.advanceTimersByTime(5000);
     expect(live.backend.subscriptions().map((subscription) => subscription.args)).toEqual(
@@ -238,7 +274,7 @@ describe("the convex part's live sync", () => {
   it("subscribes a page once it loads, and re-pins the page before it", async () => {
     const live = setup();
     const factory = messageList;
-    const input = { args: { room: "lobby" }, numItems: 2 };
+    const input: InputOf<typeof messageList> = { args: { room: "lobby" }, numItems: 2 };
     await live.load(factory, input);
     vi.advanceTimersByTime(5000);
     expect(live.backend.subscriptions().map((subscription) => subscription.args)).toEqual([
@@ -258,7 +294,7 @@ describe("the convex part's live sync", () => {
 
   it("keeps a page update that lands while the next page loads", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, numItems: 2 };
+    const input: InputOf<typeof messageList> = { args: { room: "lobby" }, numItems: 2 };
     await live.load(messageList, input, { pages: 2 });
 
     const { release } = live.hold("d");
@@ -285,7 +321,7 @@ describe("the convex part's live sync", () => {
 
   it("keeps a page update that lands while every page refetches", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, numItems: 2 };
+    const input: InputOf<typeof messageList> = { args: { room: "lobby" }, numItems: 2 };
     await live.load(messageList, input, { pages: 2 });
     // The reads' own subscriptions lapse, so the refetch reads the backend.
     vi.advanceTimersByTime(5000);
@@ -315,7 +351,7 @@ describe("the convex part's live sync", () => {
 
   it("follows the page boundaries a refetch moves", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, numItems: 2 };
+    const input: InputOf<typeof messageList> = { args: { room: "lobby" }, numItems: 2 };
     await live.load(messageList, input, { pages: 2 });
     vi.advanceTimersByTime(5000);
 
@@ -337,7 +373,7 @@ describe("the convex part's live sync", () => {
 
   it("pins both directions of a two-way query, writing each page where it sits", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, from: null, numItems: 2 };
+    const input: InputOf<typeof messageFeed> = { args: { room: "lobby" }, from: null, numItems: 2 };
     await live.load(messageFeed, input, { pages: 2 });
     await fetchPreviousPage(live.queryClient, messageFeed, input);
     await fetchPreviousPage(live.queryClient, messageFeed, input);
@@ -405,7 +441,7 @@ describe("the convex part's live sync", () => {
   it("follows what's before a two-way query's top page as it changes", async () => {
     const live = setup();
     live.newer.length = 0;
-    const input = { args: { room: "lobby" }, from: null, numItems: 2 };
+    const input: InputOf<typeof messageFeed> = { args: { room: "lobby" }, from: null, numItems: 2 };
     await live.load(messageFeed, input);
     vi.advanceTimersByTime(5000);
     expect(hasPreviousPage(live.queryClient, messageFeed, input)).toBe(false);
@@ -423,7 +459,7 @@ describe("the convex part's live sync", () => {
 
   it("subscribes a two-way query's pages from where they start, whatever start reads it", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, from: "b", numItems: 2 };
+    const input: InputOf<typeof messageFeed> = { args: { room: "lobby" }, from: "b", numItems: 2 };
     await live.load(messageFeed, input);
     // Another start it shows reads the same entry: the key leaves `from` out.
     await live.load(messageFeed, { ...input, from: "a" });
@@ -452,7 +488,7 @@ describe("the convex part's live sync", () => {
 
   it("invalidates a paged entry when a page subscription fails", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, numItems: 2 };
+    const input: InputOf<typeof messageList> = { args: { room: "lobby" }, numItems: 2 };
     await live.load(messageList, input);
     live.fail();
     await live.backend.refresh();
@@ -462,7 +498,7 @@ describe("the convex part's live sync", () => {
 
   it("invalidates a two-way entry when a page subscription fails", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, from: null, numItems: 2 };
+    const input: InputOf<typeof messageFeed> = { args: { room: "lobby" }, from: null, numItems: 2 };
     await live.load(messageFeed, input);
     await fetchPreviousPage(live.queryClient, messageFeed, input);
     live.fail();
@@ -484,8 +520,12 @@ describe("the convex part's live sync", () => {
 
   it("leaves entries with malformed Convex keys or page params alone", async () => {
     const live = setup();
-    const args = { room: "lobby" };
-    const page = { continueCursor: "b", isDone: false, page: ["a", "b"] };
+    const args: PaginationArgs<typeof listMessages> = { room: "lobby" };
+    const page: PaginationResult<string> = {
+      continueCursor: "b",
+      isDone: false,
+      page: ["a", "b"],
+    };
     const entries: ReadonlyArray<{ data: unknown; key: ReadonlyArray<unknown> }> = [
       { data: "x", key: [CONVEX_QUERY_KEY, 1, args] },
       { data: "x", key: ["other", "messages:get", args] },
@@ -542,8 +582,14 @@ describe("the convex part's live sync", () => {
 });
 
 describe("watchConvexQuery", () => {
+  /** A watch of message "a": the values it has reported, and the function that stops it. */
+  interface Watching {
+    stop(): void;
+    readonly values: Array<string>;
+  }
+
   /** Watch message "a", collecting its values until the test stops it. */
-  function watchMessage(live: ReturnType<typeof setup>) {
+  function watchMessage(live: Setup): Watching {
     const values: Array<string> = [];
     const stop = watchConvexQuery(live, {
       args: { id: "a" },

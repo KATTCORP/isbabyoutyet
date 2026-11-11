@@ -13,6 +13,7 @@ import { noOptional } from "./no-optional.ts";
 import { noOverzealousDestructuring } from "./no-overzealous-destructuring.ts";
 import { noRafQueryWaterfall } from "./no-raf-query-waterfall.ts";
 import { noRhfWatch } from "./no-rhf-watch.ts";
+import { noUntypedObjectLiteral } from "./no-untyped-object-literal.ts";
 import { noUnusedLoaderData } from "./no-unused-loader-data.ts";
 import { noUnusedProps } from "./no-unused-props.ts";
 import { noUseEffect } from "./no-use-effect.ts";
@@ -36,6 +37,7 @@ const plugin = eslintCompatPlugin({
     "no-raf-query-waterfall": noRafQueryWaterfall,
     "no-rhf-watch": noRhfWatch,
     "no-undocumented-optional": noUndocumentedOptional,
+    "no-untyped-object-literal": noUntypedObjectLiteral,
     "no-unused-loader-data": noUnusedLoaderData,
     "no-unused-props": noUnusedProps,
     "no-use-effect": noUseEffect,

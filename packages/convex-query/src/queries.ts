@@ -195,7 +195,10 @@ function pageArgs<TQuery extends PaginatedQueryReference>(
   args: DefaultFunctionArgs,
   paginationOpts: PaginationOptions,
 ): FunctionArgs<TQuery>;
-function pageArgs(args: DefaultFunctionArgs, paginationOpts: PaginationOptions) {
+function pageArgs(
+  args: DefaultFunctionArgs,
+  paginationOpts: PaginationOptions,
+): DefaultFunctionArgs {
   return { ...args, paginationOpts };
 }
 
@@ -203,7 +206,7 @@ function twoWayPageArgs<TQuery extends TwoWayPaginatedQueryReference>(
   args: DefaultFunctionArgs,
   param: TwoWayPageParam,
 ): FunctionArgs<TQuery>;
-function twoWayPageArgs(args: DefaultFunctionArgs, param: TwoWayPageParam) {
+function twoWayPageArgs(args: DefaultFunctionArgs, param: TwoWayPageParam): DefaultFunctionArgs {
   return {
     ...args,
     direction: param.direction,
