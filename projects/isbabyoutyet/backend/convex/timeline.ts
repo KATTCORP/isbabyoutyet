@@ -210,6 +210,12 @@ export const listByBaby = query({
 
 // --- Linked items (`/baby/{publicId}?item={timelineItemId}`) ---
 
+/** A linked feed row, and the baby whose page it is on. */
+type LinkedItem = {
+  baby: Doc<"baby">;
+  item: Doc<"timelineItems">;
+};
+
 /**
  * The feed row a link points at, on this baby's page. A soft-deleted row
  * still positions the window, so deleting the linked item while someone is
@@ -218,11 +224,6 @@ export const listByBaby = query({
  * unknown, another baby's) resolves to `null`, indistinguishable from each
  * other, so a link can't probe for items outside this page.
  */
-type LinkedItem = {
-  baby: Doc<"baby">;
-  item: Doc<"timelineItems">;
-};
-
 async function findLinkedItem(
   ctx: QueryCtx,
   opts: { babyRef: string; itemId: string },

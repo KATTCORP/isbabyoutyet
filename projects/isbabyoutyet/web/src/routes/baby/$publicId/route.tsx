@@ -85,8 +85,16 @@ function babyPageEntries(input: { item: string | null; publicId: string }) {
   } satisfies Readonly<Record<string, LoadEntry>>;
 }
 
-/** `beforeLoad` only starts the page's entries: the loader's own `load` reports a failure. */
-function ignoreUntilLoader() {}
+/**
+ * The same queries as `prefetch` entries: started if they aren't cached,
+ * never waited for, never failing the `load`, and never dropping a feed's
+ * pages someone may be reading.
+ */
+function asHints(entries: Readonly<Record<string, LoadEntry>>): Record<string, LoadEntry> {
+  return Object.fromEntries(
+    Object.entries(entries).map(([name, entry]) => [name, prefetch(entry.factory, entry.input)]),
+  );
+}
 
 export const Route = createFileRoute("/baby/$publicId")({
   component: BabyPageLayout,
@@ -103,11 +111,10 @@ export const Route = createFileRoute("/baby/$publicId")({
     const queryClient = opts.context.queryClient;
     const publicId = opts.params.publicId;
     // Start what the page reads now, beside the baby lookup the redirect
-    // below waits for, so a cold load makes one round of requests. The
-    // loader waits for the same entries, and an error surfaces there.
-    void load(queryClient, babyPageEntries({ item: opts.search.item ?? null, publicId })).catch(
-      ignoreUntilLoader,
-    );
+    // below waits for, so a cold load makes one round of requests. As
+    // hints: nothing here waits or fails, and a preload of another feed
+    // start leaves the pages on screen alone. The loader waits for them.
+    void load(queryClient, asHints(babyPageEntries({ item: opts.search.item ?? null, publicId })));
     const [, data] = await load(queryClient, {
       baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
     });
