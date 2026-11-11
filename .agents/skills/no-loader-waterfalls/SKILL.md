@@ -46,18 +46,26 @@ Do **not** duplicate `throw notFound()` in the loader when `beforeLoad` already 
 
 `beforeLoad` may fetch one record for routing, but **must not** be the only way the loader gets IDs for sibling prefetches. The loader passes **route params** (slug, id from URL) directly to every related query.
 
-A `beforeLoad` that waits for a record (the baby, for its 404 and redirect) also **starts** what the loader will wait for, so a cold load makes one round of requests instead of two. It starts them as `prefetch` hints: they never wait, never fail the `load`, and never drop a feed's pages a preload didn't ask to keep. Keep the entries in one function both call:
+A `beforeLoad` that waits for a record (the baby, for its 404 and redirect) starts what the loader will wait for in the **same** `load`, so a cold load makes one round of requests instead of two. Only the record is `swr`; the rest are `prefetch`, which never wait, never fail the `load`, and never drop a feed's pages. Keep the entries in one function both call, taking the verb:
 
 ```typescript
 beforeLoad: async (opts) => {
-  void load(queryClient, asHints(babyPageEntries({ item, publicId })));
-  const [, data] = await load(queryClient, { baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }) });
+  const [, data] = await load(queryClient, {
+    ...babyPageEntries(prefetch, { item, publicId }),
+    baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
+  });
   if (!data.baby) throw notFound();
 },
 loader: async (opts) => {
-  const [handles] = await load(queryClient, { ...babyPageEntries({ item, publicId }), /* entries that need the record */ });
+  const [handles] = await load(queryClient, {
+    ...babyPageEntries(swr, { item, publicId }),
+    baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
+    /* entries that need the record */
+  });
 },
 ```
+
+The queries started beside the record must answer plainly when it doesn't exist: `null`, a sentinel such as `FORBIDDEN`, or an empty page, not a thrown error.
 
 Only entries the URL names go in the shared function. Entries that need the fetched record, and ones that re-run on every `load` (`staleTime: 0`), stay in the loader.
 

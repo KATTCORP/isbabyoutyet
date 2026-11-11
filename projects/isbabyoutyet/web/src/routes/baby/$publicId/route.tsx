@@ -21,7 +21,7 @@ import {
   retainSearchParams,
   useMatchRoute,
 } from "@tanstack/react-router";
-import type { LoadEntry } from "@raf-query/react";
+import type { InputOf, LoadEntry, QueryFactory } from "@raf-query/react";
 import { getData, load, prefetch, swr, useQuery } from "@raf-query/react";
 import { use } from "react";
 import { z } from "zod";
@@ -58,42 +58,36 @@ export const babySearchSchema = z.object({
   item: z.coerce.string().optional(),
 });
 
+/** How an entry is started: `swr` to wait for it, `prefetch` to only start it. */
+type StartEntry = <TFactory extends QueryFactory>(
+  factory: TFactory,
+  input: InputOf<TFactory>,
+) => LoadEntry<TFactory>;
+
 /**
- * What the page reads that the URL alone names. `beforeLoad` starts these
- * beside the baby lookup, and the loader waits for them, so nothing here
- * waits for the baby first.
+ * What the page reads beside the baby, all named by the URL alone, so none
+ * of it waits for the baby. For a baby that doesn't exist each answers
+ * `null`, `FORBIDDEN` or an empty page.
  */
-function babyPageEntries(input: { item: string | null; publicId: string }) {
+function babyPageEntries(start: StartEntry, input: { item: string | null; publicId: string }) {
   const publicId = input.publicId;
   return {
-    baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
-    latestUpdate: swr(convexQuery(api.timeline.latestUpdate), { babyId: publicId }),
-    managerBaby: swr(convexQuery(api.baby.getManagerBaby), { babyId: publicId }),
-    me: swr(convexQuery(api.profile.get), {}),
-    myAccess: swr(convexQuery(api.coParents.myAccess), { babyId: publicId }),
-    onboarding: swr(convexQuery(api.onboarding.getMine), {}),
-    scheduledNotifications: swr(convexQuery(api.baby.getScheduledNotifications), {
+    latestUpdate: start(convexQuery(api.timeline.latestUpdate), { babyId: publicId }),
+    managerBaby: start(convexQuery(api.baby.getManagerBaby), { babyId: publicId }),
+    me: start(convexQuery(api.profile.get), {}),
+    myAccess: start(convexQuery(api.coParents.myAccess), { babyId: publicId }),
+    onboarding: start(convexQuery(api.onboarding.getMine), {}),
+    scheduledNotifications: start(convexQuery(api.baby.getScheduledNotifications), {
       babyId: publicId,
     }),
-    subscriptionCount: swr(convexQuery(api.pushSubscriptions.getSubscriptionCount), {
+    subscriptionCount: start(convexQuery(api.pushSubscriptions.getSubscriptionCount), {
       babyId: publicId,
     }),
     // The feed on screen stays while it has `?item=`, so following a
     // timestamp only moves the highlight.
-    timeline: swr(timelineQuery, timelineInput({ from: input.item, publicId })),
-    vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
+    timeline: start(timelineQuery, timelineInput({ from: input.item, publicId })),
+    vapidPublicKey: start(convexQuery(api.pushSubscriptions.getPublicKey), {}),
   } satisfies Readonly<Record<string, LoadEntry>>;
-}
-
-/**
- * The same queries as `prefetch` entries: started if they aren't cached,
- * never waited for, never failing the `load`, and never dropping a feed's
- * pages someone may be reading.
- */
-function asHints(entries: Readonly<Record<string, LoadEntry>>): Record<string, LoadEntry> {
-  return Object.fromEntries(
-    Object.entries(entries).map(([name, entry]) => [name, prefetch(entry.factory, entry.input)]),
-  );
 }
 
 export const Route = createFileRoute("/baby/$publicId")({
@@ -110,12 +104,11 @@ export const Route = createFileRoute("/baby/$publicId")({
   beforeLoad: async (opts) => {
     const queryClient = opts.context.queryClient;
     const publicId = opts.params.publicId;
-    // Start what the page reads now, beside the baby lookup the redirect
-    // below waits for, so a cold load makes one round of requests. As
-    // hints: nothing here waits or fails, and a preload of another feed
-    // start leaves the pages on screen alone. The loader waits for them.
-    void load(queryClient, asHints(babyPageEntries({ item: opts.search.item ?? null, publicId })));
+    // One round of requests: the page's queries start beside the baby
+    // lookup, and only the baby is waited for here. The loader waits for
+    // the rest.
     const [, data] = await load(queryClient, {
+      ...babyPageEntries(prefetch, { item: opts.search.item ?? null, publicId }),
       baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
     });
     const babyDoc = data.baby;
@@ -142,7 +135,8 @@ export const Route = createFileRoute("/baby/$publicId")({
       throw notFound();
     }
     const [handles] = await load(queryClient, {
-      ...babyPageEntries({ item: opts.deps.item, publicId }),
+      ...babyPageEntries(swr, { item: opts.deps.item, publicId }),
+      baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
       // This device's state, which only the browser knows (`ssr: false`):
       // the server returns its handle unstarted, and the browser runs it.
       browserPush: prefetch(browserPushCapabilityQuery, publicId),
