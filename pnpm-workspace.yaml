@@ -14,11 +14,6 @@ overrides:
   # @react-email/ui pins next@16.3.3, which is affected by GHSA-vcvr-r3jv-pc5j.
   # Drop once it depends on next >=16.3.6.
   next: ^16.3.8
-  # raf-query built from https://github.com/KATT/raf-query/pull/250, until it
-  # is released. Drop both, and `vendor/raf-query`, once the catalog can name
-  # the release. See vendor/raf-query/README.md.
-  "@raf-query/core": file:./vendor/raf-query/raf-query-core-0.14.0-parts.0.tgz
-  "@raf-query/react": file:./vendor/raf-query/raf-query-react-0.14.0-parts.0.tgz
 
 catalog:
   "@base-ui/react": ^1.8.0
@@ -32,8 +27,8 @@ catalog:
   "@inlang/paraglide-js": ^2.25.4
   "@oxlint/plugins": ^1.87.0
   "@phosphor-icons/react": ^2.1.10
-  "@raf-query/core": ^0.13.2
-  "@raf-query/react": ^0.13.2
+  "@raf-query/core": ^0.14.0
+  "@raf-query/react": ^0.14.0
   "@react-email/ui": ^6.11.0
   "@resvg/resvg-js": ^2.6.2
   "@sentry/tanstackstart-react": 11.11.0
