@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+import type { BabyOgImageHashInput } from "./babyOgImage";
 import {
   babyOgImageFileName,
   babyOgImageHash,
@@ -8,10 +9,10 @@ import {
 } from "./babyOgImage";
 import { DEFAULT_MILESTONE_VISIBILITY } from "./types";
 
-const waitingBaby = {
+const waitingBaby: BabyOgImageHashInput = {
   babyBorn: null,
   dueDate: "2026-09-01",
-  dueDateDisplayMode: "exact" as const,
+  dueDateDisplayMode: "exact",
   laborStarted: null,
   locale: "en-GB",
   milestoneVisibility: DEFAULT_MILESTONE_VISIBILITY,

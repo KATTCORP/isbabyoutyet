@@ -137,7 +137,7 @@ export const STATUS_ORDER = {
   gone_to_hospital: 2,
   labor_started: 1,
   not_yet: 0,
-} as const;
+} as const satisfies Record<BabyStatus["type"], number>;
 
 export type NotifiableStatus =
   | "labor_started"

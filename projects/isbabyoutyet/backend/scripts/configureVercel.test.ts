@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "@effect/vitest";
 import type { ConvexCliError } from "@workspace/convex-cli";
-import type { ConvexCliCall } from "@workspace/convex-cli/testing";
+import type { ConvexCliCall, FakeConvexCli } from "@workspace/convex-cli/testing";
 import { fakeConvexCli } from "@workspace/convex-cli/testing";
 import { ConfigProvider, Effect, Fiber, FileSystem, Layer, Result } from "effect";
 import { HttpClient } from "effect/http";
@@ -14,7 +14,7 @@ const SECRETS = {
   BETTER_AUTH_SECRET: "auth-secret-value",
   RESEND_API_KEY: "resend-secret-value",
   VAPID_PRIVATE_KEY: "vapid-secret-value",
-};
+} satisfies Record<string, string>;
 
 const productionEnv = {
   ...SECRETS,
@@ -24,14 +24,14 @@ const productionEnv = {
   VERCEL_ENV: "production",
   VERCEL_GIT_COMMIT_REF: "main",
   VERCEL_PROJECT_PRODUCTION_URL: "isbabyoutyet.com",
-};
+} satisfies Record<string, string>;
 
 const previewEnv = {
   ...productionEnv,
   VERCEL_BRANCH_URL: "isbabyoutyet-git-feat-demo.vercel.app",
   VERCEL_ENV: "preview",
   VERCEL_GIT_COMMIT_REF: "feat/demo",
-};
+} satisfies Record<string, string>;
 
 type Reply = (call: ConvexCliCall) => Effect.Effect<string, ConvexCliError>;
 
@@ -54,7 +54,12 @@ function subcommand(call: ConvexCliCall) {
   return call.args.slice(0, 2).join(" ");
 }
 
-function fakeConvex(overrides: Partial<Record<keyof typeof happyReplies, Reply>>) {
+type FakeConvex = FakeConvexCli & {
+  /** The `convex <subcommand>` of every call so far, oldest first. */
+  subcommands: () => Array<string>;
+};
+
+function fakeConvex(overrides: Partial<Record<keyof typeof happyReplies, Reply>>): FakeConvex {
   const replies = new Map(Object.entries({ ...happyReplies, ...overrides }));
   const convex = fakeConvexCli((call) => {
     const reply = replies.get(subcommand(call));

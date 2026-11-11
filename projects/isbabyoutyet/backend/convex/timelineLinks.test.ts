@@ -1,4 +1,4 @@
-import type { FunctionReturnType } from "convex/server";
+import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
 import { api } from "./_generated/api";
@@ -27,6 +27,9 @@ async function setup() {
 }
 
 type Harness = Awaited<ReturnType<typeof setup>>;
+
+/** Where a feed starts; each query adds the direction and the page to read. */
+type FeedStart = Pick<FunctionArgs<typeof api.timeline.listFeed>, "babyId" | "context" | "from">;
 
 type SeedRow = { kind: "encouragement" | "update"; label: string; postedAt: number };
 
@@ -257,7 +260,7 @@ test("each newer page says how many shown items are still above it", async () =>
   await harness.t.run(async (ctx) => {
     await ctx.db.patch(idOf(ids, "m9"), { deletedAt: 5000 });
   });
-  const args = { babyId: harness.babyId, context: 0, from: idOf(ids, "m3") };
+  const args: FeedStart = { babyId: harness.babyId, context: 0, from: idOf(ids, "m3") };
 
   const first = await harness.t.query(api.timeline.listFeed, {
     ...args,
@@ -266,7 +269,10 @@ test("each newer page says how many shown items are still above it", async () =>
   });
   // m4–m8: m9 is removed.
   expect(first.before).toEqual({ count: 5, more: false });
-  const newer = { ...args, direction: "backward" as const };
+  const newer: Omit<FunctionArgs<typeof api.timeline.listFeed>, "paginationOpts"> = {
+    ...args,
+    direction: "backward",
+  };
   const befores: Array<unknown> = [];
   let cursor: string | null = null;
   for (;;) {
@@ -365,7 +371,7 @@ test("a removed linked item is reported hidden but still holds the window in pla
 test("no link reads the latest feed, with nothing newer", async () => {
   await using harness = await setup();
   await seedFeed(harness, alternatingRows(5));
-  const args = { babyId: harness.babyId, context: 2, from: null };
+  const args: FeedStart = { babyId: harness.babyId, context: 2, from: null };
 
   const first = await harness.t.query(api.timeline.listFeed, {
     ...args,
@@ -404,7 +410,7 @@ test("unknown, malformed, and other pages' ids read the latest feed", async () =
   });
 
   for (const itemId of ["not-an-id", "", otherItem, deletedId, other.babyId]) {
-    const args = { babyId: harness.babyId, context: 2, from: itemId };
+    const args: FeedStart = { babyId: harness.babyId, context: 2, from: itemId };
     const first = await harness.t.query(api.timeline.listFeed, {
       ...args,
       direction: "forward",

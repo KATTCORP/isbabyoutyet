@@ -1,4 +1,11 @@
 import { vi } from "vitest";
+import type { Mock } from "vitest";
+
+/** The scroll spies `stubJsdomWindow` installs; disposing restores what they replaced. */
+export type JsdomWindowStub = Disposable & {
+  scrollIntoView: Mock<Element["scrollIntoView"]>;
+  scrollTo: Mock<typeof window.scrollTo>;
+};
 
 /**
  * jsdom leaves `window.scrollTo` (logs "Not implemented" per call) and
@@ -6,7 +13,7 @@ import { vi } from "vitest";
  * Router's scroll restoration and hash scrolling call both on navigation.
  * Stubs them until disposed; the returned spies let tests assert on scrolling.
  */
-export function stubJsdomWindow() {
+export function stubJsdomWindow(): JsdomWindowStub {
   const previousScrollIntoView = Object.getOwnPropertyDescriptor(
     Element.prototype,
     "scrollIntoView",

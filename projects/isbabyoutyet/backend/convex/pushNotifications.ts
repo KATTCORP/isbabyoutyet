@@ -67,15 +67,16 @@ async function sendNotificationToSubscription(
     requiredEnv("VAPID_PRIVATE_KEY", env.VAPID_PRIVATE_KEY),
   );
   try {
-    const pushSubscription = {
-      endpoint: opts.subscription.endpoint,
-      keys: {
-        auth: opts.subscription.auth,
-        p256dh: opts.subscription.p256dh,
+    await webPush.sendNotification(
+      {
+        endpoint: opts.subscription.endpoint,
+        keys: {
+          auth: opts.subscription.auth,
+          p256dh: opts.subscription.p256dh,
+        },
       },
-    };
-
-    await webPush.sendNotification(pushSubscription, JSON.stringify(opts.payload));
+      JSON.stringify(opts.payload),
+    );
     return true;
   } catch (error) {
     // Handle specific error types
@@ -198,7 +199,7 @@ export const sendNotification = internalAction({
 async function loadOwnerSubscriptionKeysPage(
   ctx: ActionCtx,
   opts: { babyId: Doc<"ownerPushSubscriptions">["babyId"]; cursor: string | null },
-) {
+): Promise<PaginationResult<PushSubscriptionKeys>> {
   const subscriptions: PaginationResult<Doc<"ownerPushSubscriptions">> = await ctx.runQuery(
     internal.pushSubscriptions.getOwnerSubscriptionsPage,
     {

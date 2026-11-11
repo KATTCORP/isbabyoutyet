@@ -1,4 +1,6 @@
+import type { PaginationResult } from "convex/server";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
+import type { Infer } from "convex/values";
 import { v } from "convex/values";
 import { components } from "./_generated/api";
 import { query } from "./_generated/server";
@@ -54,7 +56,7 @@ const userRowValidator = v.object({
   name: v.string(),
 });
 
-export function parseAuthUserPage<TResult>(result: TResult) {
+export function parseAuthUserPage<TResult>(result: TResult): PaginationResult<JsonObject> {
   if (!isJsonObjectValue(result) || !Array.isArray(result.page)) {
     throw new Error("Better Auth returned an invalid user page");
   }
@@ -71,7 +73,7 @@ export function parseAuthUserPage<TResult>(result: TResult) {
   };
 }
 
-function authUserRow(user: JsonObject) {
+function authUserRow(user: JsonObject): Omit<Infer<typeof userRowValidator>, "babies"> {
   return {
     _id: String(user._id),
     createdAt: Number(user.createdAt),

@@ -1,3 +1,4 @@
+import type { FunctionArgs, PaginationOptions } from "convex/server";
 import { convexTest } from "convex-test";
 import { expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
@@ -7,9 +8,9 @@ import { makeResource } from "./test.resource";
 import { createBabyArgs, modules, registerComponents } from "./test.setup";
 
 const USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15";
-const ALL = { cursor: null, numItems: 100 };
+const ALL: PaginationOptions = { cursor: null, numItems: 100 };
 
-function deviceKeys(endpoint: string) {
+function deviceKeys(endpoint: string): FunctionArgs<typeof api.adminPushSubscriptions.unsubscribe> {
   return { auth: `auth-${endpoint}`, endpoint, p256dh: `p256dh-${endpoint}` };
 }
 

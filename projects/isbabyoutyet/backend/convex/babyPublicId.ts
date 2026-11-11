@@ -1,3 +1,4 @@
+import type { Doc } from "./_generated/dataModel";
 import type { DatabaseReader, MutationCtx } from "./_generated/server";
 import { isHomepageDemoPublicId } from "../src/seedCredentials";
 import { isActive } from "./softDelete";
@@ -156,7 +157,9 @@ export async function transferBabyPublicId(
     motivation: string;
     toPublicId: string;
   },
-) {
+): Promise<
+  Pick<Doc<"babyPublicIdTransfers">, "displacedPublicId" | "fromPublicId" | "toPublicId">
+> {
   const fromPublicId = normalizePublicId(opts.fromPublicId);
   const toPublicId = normalizePublicId(opts.toPublicId);
   const motivation = normalizeTransferMotivation(opts.motivation);

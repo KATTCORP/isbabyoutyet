@@ -9,6 +9,7 @@ import {
   createRouter,
   useLocation,
 } from "@tanstack/react-router";
+import type { Router } from "@tanstack/react-router";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -21,6 +22,7 @@ import { filterSousVideEntries } from "@/lib/search";
 import { temperatureUnitSearchSchema } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
 import { stubJsdomWindow } from "@/test/stubJsdomWindow";
+import type { JsdomWindowStub } from "@/test/stubJsdomWindow";
 
 const ENTRIES = getSousVideEntries(createContentT("en-GB"));
 
@@ -35,6 +37,12 @@ const indexRoute = createRoute({
     unit: temperatureUnitSearchSchema,
   }),
 });
+const routeTree = rootRoute.addChildren([indexRoute]);
+
+type GuideRouter = Router<typeof routeTree>;
+
+/** The rendered guide's router and scroll spies; disposing unmounts it. */
+type RenderedGuide = JsdomWindowStub & { router: GuideRouter };
 
 function GuidePage() {
   const search = indexRoute.useSearch();
@@ -51,13 +59,13 @@ function GuidePage() {
   );
 }
 
-async function renderGuide(initialUrl: string) {
+async function renderGuide(initialUrl: string): Promise<RenderedGuide> {
   cleanup();
   const jsdomWindow = stubJsdomWindow();
   const router = createRouter({
     defaultHashScrollIntoView: hashScrollIntoViewOptions(),
     history: createMemoryHistory({ initialEntries: [initialUrl] }),
-    routeTree: rootRoute.addChildren([indexRoute]),
+    routeTree,
   });
   render(<RouterProvider router={router} />);
   // An open `#info-…` drawer aria-hides the page chrome; still wait on the field.
@@ -81,7 +89,7 @@ function cardById(id: string) {
   return card;
 }
 
-function currentQuery(router: Awaited<ReturnType<typeof renderGuide>>["router"]) {
+function currentQuery(router: GuideRouter) {
   return router.state.location.search.q ?? "";
 }
 

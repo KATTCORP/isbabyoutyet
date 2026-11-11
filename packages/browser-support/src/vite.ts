@@ -1,5 +1,6 @@
 import type { Plugin } from "vite";
 import { buildLegacyPolyfills, legacyPolyfillsLoader } from "./polyfills.ts";
+import type { LegacyPolyfillsBundle } from "./polyfills.ts";
 import { BUILD_TARGET } from "./targets.ts";
 
 /**
@@ -9,7 +10,7 @@ import { BUILD_TARGET } from "./targets.ts";
  * script in the root route.
  */
 export function legacyPolyfills(): Plugin {
-  let polyfills: Awaited<ReturnType<typeof buildLegacyPolyfills>> | undefined;
+  let polyfills: LegacyPolyfillsBundle | undefined;
   return {
     async config() {
       polyfills = await buildLegacyPolyfills();

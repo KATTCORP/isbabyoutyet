@@ -7,6 +7,8 @@ export function isActive(doc: { deletedAt?: number | null }): boolean {
   return doc.deletedAt == null;
 }
 
-export function softDeletePatch(now = Date.now()) {
+export type SoftDeletePatch = { deletedAt: number };
+
+export function softDeletePatch(now = Date.now()): SoftDeletePatch {
   return { deletedAt: now };
 }

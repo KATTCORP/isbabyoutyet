@@ -1,3 +1,4 @@
+import type { WithoutSystemFields } from "convex/server";
 import { v } from "convex/values";
 import type { Infer } from "convex/values";
 import { internal } from "./_generated/api";
@@ -250,7 +251,7 @@ async function ensureBabyDoc(ctx: MutationCtx, opts: { locale: SupportedLocale; 
     publicDueDateText: null,
     theme: HOMEPAGE_DEMO_THEME,
     userId: HOMEPAGE_DEMO_OWNER_USER_ID,
-  };
+  } satisfies Partial<WithoutSystemFields<Doc<"baby">>>;
   if (existing) {
     if (!isManagedHomepageDemo(existing)) {
       throw refuseNonDemo(demo.publicId);
@@ -298,7 +299,16 @@ async function deleteTimelineItem(ctx: MutationCtx, item: Doc<"timelineItems">) 
   }
 }
 
-async function clearFeedBatchForBaby(ctx: MutationCtx, babyId: Id<"baby">) {
+/** One pass of the feed wipe; `hasMore` asks the caller to run another. */
+type ClearedFeedBatch = {
+  deleted: number;
+  hasMore: boolean;
+};
+
+async function clearFeedBatchForBaby(
+  ctx: MutationCtx,
+  babyId: Id<"baby">,
+): Promise<ClearedFeedBatch> {
   await requireManagedDemoBaby(ctx, babyId);
 
   const items = await ctx.db
@@ -336,7 +346,7 @@ function slugAuthor(authorName: string) {
 async function insertFeedDocs(
   ctx: MutationCtx,
   opts: { babyId: Id<"baby">; locale: SupportedLocale; now: number; photos: DemoPhotos },
-) {
+): Promise<RefreshResult> {
   await requireManagedDemoBaby(ctx, opts.babyId);
 
   const babyId = opts.babyId;

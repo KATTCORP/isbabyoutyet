@@ -22,8 +22,14 @@ const jpeg = await sharp({
 
 type Reply = (args: ReadonlyArray<string>) => Effect.Effect<string, ConvexCliError>;
 
+type FakeConvex = {
+  calls: () => Array<ReadonlyArray<string>>;
+  callsTo: (functionName: string) => Array<ReadonlyArray<string>>;
+  layer: Layer.Layer<ConvexCli>;
+};
+
 /** A `ConvexCli` that answers `convex run <function>` from `replies`, recording every call's args. */
-function fakeConvexCli(replies: Partial<Record<string, Reply>>) {
+function fakeConvexCli(replies: Partial<Record<string, Reply>>): FakeConvex {
   const convex = fakeConvexCliFrom((call) => {
     const reply = replies[call.args[1] ?? ""];
     return reply ? reply(call.args) : Effect.die(`unexpected convex ${call.args.join(" ")}`);
@@ -64,8 +70,13 @@ function cliFailure(stderr: string) {
   });
 }
 
+type FakeUploads = {
+  layer: Layer.Layer<HttpClient.HttpClient>;
+  requests: Array<HttpClientRequest.HttpClientRequest>;
+};
+
 /** An `HttpClient` that answers each upload with `{ storageId: "stored:<photo index>/<render>" }`. */
-function fakeUploads(opts: { reachable: boolean }) {
+function fakeUploads(opts: { reachable: boolean }): FakeUploads {
   const requests: Array<HttpClientRequest.HttpClientRequest> = [];
   const layer = Layer.succeed(
     HttpClient.HttpClient,
@@ -101,7 +112,12 @@ function photoFiles(files: ReadonlyArray<Uint8Array>) {
   });
 }
 
-function fakeSpawner() {
+type FakeSpawner = {
+  commands: Array<ChildProcess.Command>;
+  layer: Layer.Layer<ChildProcessSpawner.ChildProcessSpawner>;
+};
+
+function fakeSpawner(): FakeSpawner {
   const commands: Array<ChildProcess.Command> = [];
   const layer = Layer.succeed(
     ChildProcessSpawner.ChildProcessSpawner,

@@ -18,7 +18,30 @@ import { isActive } from "./softDelete";
 import { findBabyByCurrentPublicId } from "./babyPublicId";
 import { internalMutationWithTriggers } from "./triggers";
 
-async function seedDemoDataHandler(ctx: MutationCtx) {
+type SeededBaby = {
+  id: Id<"baby">;
+  name: string;
+  publicId: string;
+  state: SeedBabySpec["state"];
+};
+
+type SeedDemoDataSummary = {
+  coParentUserEmail: string;
+  coParentUserId: string;
+  email: string;
+  emptyUserEmail: string;
+  emptyUserId: string;
+  message: string;
+  success: boolean;
+  userId: string;
+};
+
+/** A first run reports the babies it created; a repeat run counts the ones already there. */
+type SeedDemoDataResult =
+  | (SeedDemoDataSummary & { babies: Array<SeededBaby> })
+  | (SeedDemoDataSummary & { count: number });
+
+async function seedDemoDataHandler(ctx: MutationCtx): Promise<SeedDemoDataResult> {
   const userId = await ensureAuthUser(ctx, DEMO_USER);
   await ensureDemoProfile(ctx, userId);
 
@@ -361,12 +384,7 @@ const SEED_BABIES: Array<SeedBabySpec> = DEMO_BABIES.map((baby) => ({
 export async function seedBabiesForUser(ctx: MutationCtx, userId: string) {
   const ownerTokenIdentifier = tokenIdentifierForAuthUserId(userId);
   const now = new Date();
-  const created: Array<{
-    id: Id<"baby">;
-    name: string;
-    publicId: string;
-    state: SeedBabySpec["state"];
-  }> = [];
+  const created: Array<SeededBaby> = [];
 
   for (const spec of SEED_BABIES) {
     const dueDate = new Date(now);

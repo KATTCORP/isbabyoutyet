@@ -1,5 +1,6 @@
-import type { PaginationOptions } from "convex/server";
+import type { PaginationOptions, PaginationResult } from "convex/server";
 import { paginationOptsValidator } from "convex/server";
+import type { PropertyValidators } from "convex/values";
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
@@ -34,6 +35,40 @@ async function findEncouragementByTimelineItem(ctx: QueryCtx, timelineItemId: Id
     .first();
 }
 
+type UpdateTimelineItem = {
+  _id: Id<"timelineItems">;
+  kind: "update";
+  postedAt: number;
+  update: {
+    _id: Id<"updates">;
+    blurDataUrl: string | null;
+    /** Whether this update's photo is the baby's current page photo. */
+    isCurrentPagePhoto: boolean;
+    message: string | null;
+    milestone: Milestone | null;
+    occurredAt: number | null;
+    photoUrl: string | null;
+    thumbnailUrl: string | null;
+  };
+};
+
+type PublicEncouragement = Pick<
+  Doc<"encouragements">,
+  "_id" | "authorName" | "createdAt" | "message"
+> & {
+  isMine: boolean;
+  visitorTag: string;
+};
+
+type EncouragementTimelineItem = {
+  _id: Id<"timelineItems">;
+  encouragement: PublicEncouragement;
+  kind: "encouragement";
+  postedAt: number;
+};
+
+export type TimelineItem = UpdateTimelineItem | EncouragementTimelineItem;
+
 async function hydrateUpdate(
   ctx: QueryCtx,
   opts: {
@@ -41,7 +76,7 @@ async function hydrateUpdate(
     item: Doc<"timelineItems">;
     update: Doc<"updates">;
   },
-) {
+): Promise<UpdateTimelineItem> {
   const milestone = opts.update.milestone ?? null;
   const photoUrl = opts.update.photoId ? await ctx.storage.getUrl(opts.update.photoId) : null;
   const thumbnailUrl = opts.update.thumbnailId
@@ -49,7 +84,7 @@ async function hydrateUpdate(
     : null;
   return {
     _id: opts.item._id,
-    kind: "update" as const,
+    kind: "update",
     postedAt: opts.item.postedAt,
     update: {
       _id: opts.update._id,
@@ -76,7 +111,7 @@ async function hydrateUpdate(
 async function toPublicEncouragement(
   encouragement: Doc<"encouragements">,
   author: EncouragementAuthor | null,
-) {
+): Promise<PublicEncouragement> {
   return {
     _id: encouragement._id,
     authorName: encouragement.authorName,
@@ -97,7 +132,7 @@ async function hydrateTimelineItem(
     currentPhotoId: Id<"_storage"> | null;
     item: Doc<"timelineItems">;
   },
-) {
+): Promise<TimelineItem | null> {
   if (!isActive(opts.item)) {
     return null;
   }
@@ -122,14 +157,12 @@ async function hydrateTimelineItem(
       return {
         _id: opts.item._id,
         encouragement: await toPublicEncouragement(encouragement, opts.author),
-        kind: "encouragement" as const,
+        kind: "encouragement",
         postedAt: opts.item.postedAt,
       };
     }
   }
 }
-
-export type TimelineItem = NonNullable<Awaited<ReturnType<typeof hydrateTimelineItem>>>;
 
 async function hydratePage(
   ctx: QueryCtx,
@@ -151,7 +184,7 @@ async function hydratePage(
 async function readLatestPage(
   ctx: QueryCtx,
   args: { babyId: string; paginationOpts: PaginationOptions },
-) {
+): Promise<PaginationResult<TimelineItem>> {
   const baby = await findBabyByIdOrPublicId(ctx.db, args.babyId);
   if (!baby || !isActive(baby)) {
     return { continueCursor: "", isDone: true, page: [] };
@@ -185,7 +218,15 @@ export const listByBaby = query({
  * unknown, another baby's) resolves to `null`, indistinguishable from each
  * other, so a link can't probe for items outside this page.
  */
-async function findLinkedItem(ctx: QueryCtx, opts: { babyRef: string; itemId: string }) {
+type LinkedItem = {
+  baby: Doc<"baby">;
+  item: Doc<"timelineItems">;
+};
+
+async function findLinkedItem(
+  ctx: QueryCtx,
+  opts: { babyRef: string; itemId: string },
+): Promise<LinkedItem | null> {
   const baby = await findBabyByIdOrPublicId(ctx.db, opts.babyRef);
   if (!baby || !isActive(baby)) {
     return null;
@@ -201,14 +242,20 @@ async function findLinkedItem(ctx: QueryCtx, opts: { babyRef: string; itemId: st
 /** Reads at most this many rows to count what's above a linked feed. */
 export const NEWER_THAN_ITEM_COUNT_CAP = 100;
 
-const NO_NEWER_ITEMS = { count: 0, more: false };
+/** Shown feed items above a page that aren't loaded; `more` when `count` hit the cap. */
+type NewerItems = {
+  count: number;
+  more: boolean;
+};
+
+const NO_NEWER_ITEMS: NewerItems = { count: 0, more: false };
 
 /**
  * How many shown feed items are newer than `start`, for the divider above
  * a feed's top page. Capped so a link deep in a busy feed stays a bounded read:
  * past the cap, `count` is the cap and `more` is true.
  */
-async function countNewerThan(ctx: QueryCtx, start: Doc<"timelineItems">) {
+async function countNewerThan(ctx: QueryCtx, start: Doc<"timelineItems">): Promise<NewerItems> {
   const rows = await newerThan(ctx, start)
     .filter((q) => q.or(q.eq(q.field("deletedAt"), null), q.eq(q.field("deletedAt"), undefined)))
     .take(NEWER_THAN_ITEM_COUNT_CAP + 1);
@@ -217,6 +264,8 @@ async function countNewerThan(ctx: QueryCtx, start: Doc<"timelineItems">) {
     more: rows.length > NEWER_THAN_ITEM_COUNT_CAP,
   };
 }
+
+type LinkedWindow = LinkedItem & { start: Doc<"timelineItems"> };
 
 /**
  * Where a linked feed starts: `context` rows above the linked item, or the
@@ -227,7 +276,7 @@ async function countNewerThan(ctx: QueryCtx, start: Doc<"timelineItems">) {
 async function findLinkedWindow(
   ctx: QueryCtx,
   opts: { babyRef: string; context: number; itemId: string | null },
-) {
+): Promise<LinkedWindow | null> {
   if (opts.itemId === null) {
     return null;
   }
@@ -251,10 +300,15 @@ const feedArgs = {
   /** The linked item (`?item=`) the feed starts at, or `null` for the latest. */
   from: v.union(v.string(), v.null()),
   paginationOpts: paginationOptsValidator,
+} satisfies PropertyValidators;
+
+type FeedPage = PaginationResult<TimelineItem> & {
+  before: NewerItems | null;
+  linkUnavailable: boolean;
 };
 
 /** A page that reads nothing: past the end, or for a link that doesn't resolve. */
-const EMPTY_FEED_PAGE = {
+const EMPTY_FEED_PAGE: FeedPage = {
   before: NO_NEWER_ITEMS,
   continueCursor: "",
   isDone: true,
@@ -456,6 +510,11 @@ async function advanceBabyActivity(
   }
 }
 
+export type InsertedUpdate = {
+  timelineItemId: Id<"timelineItems">;
+  updateId: Id<"updates">;
+};
+
 /**
  * Inserts an owner update together with its timeline row.
  * `postedAt` is the feed sort key (when announced). `occurredAt` is the
@@ -475,7 +534,7 @@ export async function insertUpdateWithTimelineItem(
     pushImageId?: Id<"_storage"> | null;
     thumbnailId?: Id<"_storage"> | null;
   },
-) {
+): Promise<InsertedUpdate> {
   const timelineItemId = await ctx.db.insert("timelineItems", {
     babyId: opts.babyId,
     kind: "update",

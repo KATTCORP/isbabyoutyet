@@ -1,7 +1,8 @@
 import { expect, test } from "vitest";
+import type { MigrationRunnerReport } from "./migrations";
 import { parseMigrationRunnerReport } from "./migrations";
 
-const validReport = {
+const validReport: MigrationRunnerReport = {
   lastFinished: "2026-01-01",
   lastStarted: "2026-01-01",
   Name: "runTableMigrations",

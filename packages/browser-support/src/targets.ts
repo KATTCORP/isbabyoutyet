@@ -1,3 +1,5 @@
+import type { Target, TargetVersion } from "core-js-compat/shared";
+
 /**
  * The oldest browsers the web apps support. Chrome and Edge 109 are the last
  * releases for Windows 7 and 8. iOS 15 is the last release for the iPhone 6s
@@ -10,7 +12,7 @@ export const BROWSER_FLOOR = {
   firefox: "115",
   ios: "15.4",
   safari: "15.4",
-} as const;
+} as const satisfies Partial<Record<Target, TargetVersion>>;
 
 /** `BROWSER_FLOOR` as Vite `build.target` entries, so syntax is lowered to the same floor. */
 export const BUILD_TARGET = Object.entries(BROWSER_FLOOR).map(

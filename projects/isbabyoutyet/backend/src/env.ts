@@ -12,6 +12,9 @@ export const convexEnvSchema = z.object({
   VERCEL_ENV: z.enum(["production", "preview"]).optional(),
 });
 
+/** The environment variables a Convex deployment is given, before the schema's defaults. */
+export type ConvexEnvInput = z.input<typeof convexEnvSchema>;
+
 export const convexEnv = lazyGetter(() => {
   return convexEnvSchema.parse(process.env);
 });

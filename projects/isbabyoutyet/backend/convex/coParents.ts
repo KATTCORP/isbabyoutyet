@@ -6,6 +6,7 @@ import type { Id } from "./_generated/dataModel";
 import type { AppIdentity } from "./authIdentity";
 import { authComponent } from "./auth";
 import { appIdentity, tokenIdentifierForAuthUserId } from "./authIdentity";
+import type { AuthUserProfile } from "./coParentInviteClaims";
 import { claimPendingInvitesForAuthUser } from "./coParentInviteClaims";
 import { findActiveCoParent, findBabyManager, requireBabyOwner } from "./babyAccess";
 import { FORBIDDEN } from "../src/types";
@@ -26,7 +27,10 @@ async function findUserByEmail(ctx: QueryCtx | MutationCtx, email: string) {
   });
 }
 
-async function resolveCallerProfile(ctx: QueryCtx | MutationCtx, userId: string) {
+async function resolveCallerProfile(
+  ctx: QueryCtx | MutationCtx,
+  userId: string,
+): Promise<AuthUserProfile | null> {
   const user = await authComponent.getAnyUserById(ctx, userId);
   if (!user) {
     return null;

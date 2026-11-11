@@ -15,12 +15,16 @@ test("lazyGetter creates its value once on the first property read", () => {
 });
 
 test("lazyGetter reads prototype getters and missing keys", () => {
-  const proto = {
-    get label() {
-      return "via-getter";
-    },
-  };
-  const value = lazyGetter(() => Object.create(proto, { own: { value: 1 } }));
+  const value = lazyGetter(() =>
+    Object.create(
+      {
+        get label() {
+          return "via-getter";
+        },
+      },
+      { own: { value: 1 } },
+    ),
+  );
   expect(value.own).toBe(1);
   expect(value.label).toBe("via-getter");
   expect(value.missing).toBeUndefined();
