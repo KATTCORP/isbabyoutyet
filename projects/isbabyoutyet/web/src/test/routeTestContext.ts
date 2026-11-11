@@ -33,7 +33,6 @@ export async function runRouteBeforeLoad(opts: {
     | ((routeOpts: {
         context: RouteTestContext;
         params: Record<string, string>;
-        search: Record<string, never>;
       }) => Promise<RouteBeforeLoadResult>)
     | undefined;
   if (!beforeLoad) {
@@ -42,7 +41,6 @@ export async function runRouteBeforeLoad(opts: {
   return await beforeLoad({
     context: routeContextFromHarness(opts.harness),
     params: opts.params,
-    search: {},
   });
 }
 

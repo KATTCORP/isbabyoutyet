@@ -376,11 +376,7 @@ const loader: (
 
 // @ts-expect-error — stub opts are the fields beforeLoad reads
 const beforeLoad: (
-  opts: RouteContextStub & {
-    location: { href: string };
-    params: { publicId: string };
-    search: Partial<Record<"item", string>>;
-  },
+  opts: RouteContextStub & { location: { href: string }; params: { publicId: string } },
 ) => Promise<object | void | null> = routeModule.Route.options.beforeLoad;
 
 async function runBabyLoader(
@@ -472,7 +468,6 @@ test("beforeLoad 404s unknown babies", async () => {
     context: { queryClient: stub.queryClient },
     location: { href: "/baby/baby-smith" },
     params: { publicId: "baby-smith" },
-    search: {},
   });
 
   await expect(pending).rejects.toMatchObject({ isNotFound: true });
@@ -488,47 +483,8 @@ test("beforeLoad uses the baby's resolved locale", async () => {
       context: { queryClient: stub.queryClient },
       location: { href: "/baby/test-baby-4" },
       params: { publicId: "test-baby-4" },
-      search: {},
     }),
   ).resolves.toEqual({ locale: "sv" });
-});
-
-test("beforeLoad starts the page's queries beside the baby lookup", async () => {
-  const read: Array<string> = [];
-  await using stub = loaderQueryClientResource(
-    {
-      "baby:getByPublicId": BABY_DOC,
-      "baby:getManagerBaby": "forbidden",
-      "baby:getScheduledNotifications": "forbidden",
-      "coParents:myAccess": { canManage: false, isOwner: false },
-      "pushSubscriptions:getSubscriptionCount": "forbidden",
-      "timeline:listFeed": EMPTY_PAGE,
-    },
-    read,
-  );
-
-  await expect(
-    beforeLoad({
-      context: { queryClient: stub.queryClient },
-      location: { href: "/baby/baby-smith" },
-      params: { publicId: "baby-smith" },
-      search: {},
-    }),
-  ).resolves.toEqual({ locale: BABY_DOC.resolvedLocale });
-
-  // One round: everything the URL names was asked for with the baby.
-  expect(read.toSorted()).toEqual([
-    "baby:getByPublicId",
-    "baby:getManagerBaby",
-    "baby:getScheduledNotifications",
-    "coParents:myAccess",
-    "onboarding:getMine",
-    "profile:get",
-    "pushSubscriptions:getPublicKey",
-    "pushSubscriptions:getSubscriptionCount",
-    "timeline:latestUpdate",
-    "timeline:listFeed",
-  ]);
 });
 
 test("beforeLoad rewrites a stale public id and keeps the subpath", async () => {
@@ -539,7 +495,6 @@ test("beforeLoad rewrites a stale public id and keeps the subpath", async () => 
       context: { queryClient: stub.queryClient },
       location: { href: "/baby/old-slug/settings" },
       params: { publicId: "old-slug" },
-      search: {},
     }),
   ).rejects.toMatchObject({
     options: {
