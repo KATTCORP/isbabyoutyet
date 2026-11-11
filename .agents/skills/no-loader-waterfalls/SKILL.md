@@ -46,6 +46,22 @@ Do **not** duplicate `throw notFound()` in the loader when `beforeLoad` already 
 
 `beforeLoad` may fetch one record for routing, but **must not** be the only way the loader gets IDs for sibling prefetches. The loader passes **route params** (slug, id from URL) directly to every related query.
 
+A `beforeLoad` that waits for a record (the baby, for its 404 and redirect) also **starts** what the loader will wait for, without waiting for it, so a cold load makes one round of requests instead of two. Keep the entries in one function both call:
+
+```typescript
+beforeLoad: async (opts) => {
+  // Not awaited: the loader waits for the same entries and reports a failure.
+  void load(queryClient, babyPageEntries({ item, publicId })).catch(ignoreUntilLoader);
+  const [, data] = await load(queryClient, { baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }) });
+  if (!data.baby) throw notFound();
+},
+loader: async (opts) => {
+  const [handles] = await load(queryClient, { ...babyPageEntries({ item, publicId }), /* entries that need the record */ });
+},
+```
+
+Only entries the URL names go in the shared function. Entries that need the fetched record, and ones that re-run on every `load` (`staleTime: 0`), stay in the loader.
+
 ### beforeLoad blocks every navigation
 
 `beforeLoad` re-runs serially (root → leaf) on **every** navigation, back button

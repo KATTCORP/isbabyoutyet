@@ -21,6 +21,7 @@ import {
   retainSearchParams,
   useMatchRoute,
 } from "@tanstack/react-router";
+import type { LoadEntry } from "@raf-query/react";
 import { getData, load, prefetch, swr, useQuery } from "@raf-query/react";
 import { use } from "react";
 import { z } from "zod";
@@ -57,6 +58,36 @@ export const babySearchSchema = z.object({
   item: z.coerce.string().optional(),
 });
 
+/**
+ * What the page reads that the URL alone names. `beforeLoad` starts these
+ * beside the baby lookup, and the loader waits for them, so nothing here
+ * waits for the baby first.
+ */
+function babyPageEntries(input: { item: string | null; publicId: string }) {
+  const publicId = input.publicId;
+  return {
+    baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
+    latestUpdate: swr(convexQuery(api.timeline.latestUpdate), { babyId: publicId }),
+    managerBaby: swr(convexQuery(api.baby.getManagerBaby), { babyId: publicId }),
+    me: swr(convexQuery(api.profile.get), {}),
+    myAccess: swr(convexQuery(api.coParents.myAccess), { babyId: publicId }),
+    onboarding: swr(convexQuery(api.onboarding.getMine), {}),
+    scheduledNotifications: swr(convexQuery(api.baby.getScheduledNotifications), {
+      babyId: publicId,
+    }),
+    subscriptionCount: swr(convexQuery(api.pushSubscriptions.getSubscriptionCount), {
+      babyId: publicId,
+    }),
+    // The feed on screen stays while it has `?item=`, so following a
+    // timestamp only moves the highlight.
+    timeline: swr(timelineQuery, timelineInput({ from: input.item, publicId })),
+    vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
+  } satisfies Readonly<Record<string, LoadEntry>>;
+}
+
+/** `beforeLoad` only starts the page's entries: the loader's own `load` reports a failure. */
+function ignoreUntilLoader() {}
+
 export const Route = createFileRoute("/baby/$publicId")({
   component: BabyPageLayout,
   validateSearch: babySearchSchema,
@@ -69,8 +100,16 @@ export const Route = createFileRoute("/baby/$publicId")({
   loaderDeps: (opts) => ({ item: opts.search.item ?? null }),
 
   beforeLoad: async (opts) => {
-    const [, data] = await load(opts.context.queryClient, {
-      baby: swr(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId }),
+    const queryClient = opts.context.queryClient;
+    const publicId = opts.params.publicId;
+    // Start what the page reads now, beside the baby lookup the redirect
+    // below waits for, so a cold load makes one round of requests. The
+    // loader waits for the same entries, and an error surfaces there.
+    void load(queryClient, babyPageEntries({ item: opts.search.item ?? null, publicId })).catch(
+      ignoreUntilLoader,
+    );
+    const [, data] = await load(queryClient, {
+      baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
     });
     const babyDoc = data.baby;
     if (!babyDoc) {
@@ -96,25 +135,10 @@ export const Route = createFileRoute("/baby/$publicId")({
       throw notFound();
     }
     const [handles] = await load(queryClient, {
-      baby: swr(convexQuery(api.baby.getByPublicId), { id: publicId }),
+      ...babyPageEntries({ item: opts.deps.item, publicId }),
       // This device's state, which only the browser knows (`ssr: false`):
       // the server returns its handle unstarted, and the browser runs it.
       browserPush: prefetch(browserPushCapabilityQuery, publicId),
-      latestUpdate: swr(convexQuery(api.timeline.latestUpdate), { babyId: publicId }),
-      managerBaby: swr(convexQuery(api.baby.getManagerBaby), { babyId: publicId }),
-      me: swr(convexQuery(api.profile.get), {}),
-      myAccess: swr(convexQuery(api.coParents.myAccess), { babyId: publicId }),
-      onboarding: swr(convexQuery(api.onboarding.getMine), {}),
-      scheduledNotifications: swr(convexQuery(api.baby.getScheduledNotifications), {
-        babyId: publicId,
-      }),
-      subscriptionCount: swr(convexQuery(api.pushSubscriptions.getSubscriptionCount), {
-        babyId: publicId,
-      }),
-      // The feed on screen stays while it has `?item=`, so following a
-      // timestamp only moves the highlight.
-      timeline: swr(timelineQuery, timelineInput({ from: opts.deps.item, publicId })),
-      vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
       visitorTag: prefetch(visitorTagQuery, babyDoc._id),
     });
 
