@@ -3,14 +3,14 @@ import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import type { AnyQueryReference, ConvexReader } from "./reader.ts";
 
 /**
- * What the `convex` part declares: every `queryFn` on its client gets the
+ * What the `convex` plugin declares: every `queryFn` on its client gets the
  * client's {@link ConvexReader} as `context.convex`.
  */
 export interface Convex {
   readonly context: { readonly convex: ConvexReader };
 }
 
-/** A raf-query client that has the `convex` part: it runs this package's factories. */
+/** A raf-query client that has the `convex` plugin: it runs this package's factories. */
 export type ConvexQueryClient = QueryClient<RootOf<Convex>>;
 
 /** What {@link readConvexQuery} reads from a `queryFn`'s context. */

@@ -44,17 +44,17 @@ function memoized(key: string, make: () => object) {
 }
 
 /**
- * What this package's factories need of a client: the `convex` part, whose
+ * What this package's factories need of a client: the `convex` plugin, whose
  * reader their `queryFn`s read through. They also set `retry` where the
  * client retries, without needing it to.
  */
-type Parts = Convex & Optional<Retry>;
+type Plugins = Convex & Optional<Retry>;
 
-const queryOptions = bindQueryOptions<Parts>();
-const infiniteQueryOptions = bindInfiniteQueryOptions<Parts>();
+const queryOptions = bindQueryOptions<Plugins>();
+const infiniteQueryOptions = bindInfiniteQueryOptions<Plugins>();
 
 /** Convex data is live (see `convex`), so it never goes stale, and its errors are deterministic. */
-const LIVE_OPTIONS = { retry: false, staleTime: Infinity } satisfies OptionsOf<Parts>;
+const LIVE_OPTIONS = { retry: false, staleTime: Infinity } satisfies OptionsOf<Plugins>;
 
 /** A public Convex query. */
 export type QueryReference = FunctionReference<"query", "public">;
@@ -139,7 +139,7 @@ export interface TwoWayPageParam {
 export type PaginatedPageParam<TQuery extends PaginatedQueryReference> =
   TQuery extends TwoWayPaginatedQueryReference ? TwoWayPageParam : PaginationOptions;
 
-/** The root of this package's factories: they run on the clients that have the `convex` part. */
+/** The root of this package's factories: they run on the clients that have the `convex` plugin. */
 type ConvexRoot = RootOf<Convex>;
 
 /** The raf-query factory {@link convexQuery} returns for `TQuery`. */
@@ -154,7 +154,7 @@ export type ConvexQueryFactory<TQuery extends QueryReference> = (
 
 /**
  * The raf-query factory for a Convex query: its input is the function's args.
- * Data stays live through the `convex` part, so it never goes stale. Call it
+ * Data stays live through the `convex` plugin, so it never goes stale. Call it
  * inline: every call for the same query returns the same factory, and
  * entries are keyed by function name and args.
  *
@@ -340,7 +340,7 @@ function asTwoWay(query: QueryReference) {
 
 /**
  * The raf-query factory for a cursor-paginated Convex query. Pages load with
- * `fetchNextPage`; every loaded page stays live through the `convex` part, and
+ * `fetchNextPage`; every loaded page stays live through the `convex` plugin, and
  * every page but the last is pinned to end where the next starts. Like
  * {@link convexQuery}, call it inline.
  *

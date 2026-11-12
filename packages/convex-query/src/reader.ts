@@ -70,7 +70,7 @@ interface ConvexRead<TQuery extends AnyQueryReference> {
 
 /**
  * Reads Convex queries for raf-query `queryFn`s. Each `QueryClient` gets its
- * own through the `convex` part, so a server request's authenticated HTTP
+ * own through the `convex` plugin, so a server request's authenticated HTTP
  * client can't serve another request. A read rejects with a
  * {@link ConvexQueryError}.
  */

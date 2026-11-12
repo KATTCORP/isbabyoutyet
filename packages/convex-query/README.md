@@ -2,7 +2,7 @@
 
 Convex queries as [raf-query](https://raf-query.katt.dev) query factories:
 loaders `load` them for SSR and instant client navigation, and the `convex`
-part keeps every cached entry subscribed, so components read plain `useQuery`
+plugin keeps every cached entry subscribed, so components read plain `useQuery`
 data that Convex keeps current.
 
 - [Wiring](#wiring)
@@ -22,7 +22,7 @@ data that Convex keeps current.
 
 ```tsx
 const queryClient = createQueryClient({
-  parts: [
+  plugins: [
     ...recommended(),
     isServer
       ? // One consistent snapshot per request; features never run on a server.
@@ -33,10 +33,12 @@ const queryClient = createQueryClient({
 });
 ```
 
-The factories are bound to the part, so they run on any client that has it,
+The factories are bound to the plugin, so they run on any client that has it,
 whatever else the client has. A client without it is a type error where it
 meets a factory: in `load`, `setData` and the other verbs. `ConvexQueryClient`
-is the type of a client that has the part.
+is the type of a client that has the plugin. What a plugin is, and how a
+library binds its factories to one, is in raf-query's
+[Plugins](https://raf-query.katt.dev/docs/plugins) guide.
 
 An app's own queries that read Convex are built with `queryOptions` bound to
 the app's client (`bindQueryOptions<typeof makeQueryClient>()`), which types
@@ -96,10 +98,10 @@ use Effect.
 
 ```
 reader.ts   ConvexReader: subscribingReader for the browser, snapshotReader for a server request
-context.ts  Convex: what the part declares, the reader in every queryFn's context
+context.ts  Convex: what the plugin declares, the reader in every queryFn's context
             readConvexQuery: read a query from a queryFn, through the client's reader
-part.ts     convex: the client's part, its reader and (in the browser) the live sync
-queries.ts  convexQuery / convexPaginatedQuery factories, bound to the part
+plugin.ts   convex: the client's plugin, its reader and (in the browser) the live sync
+queries.ts  convexQuery / convexPaginatedQuery factories, bound to the plugin
 live.ts     the live sync: subscribes cached entries and writes results into the cache
             watchConvexQuery: one entry's values, as they change
 entries.ts  key constants, and decoding a cache entry's key and page params
@@ -112,7 +114,7 @@ flowchart TB
 
   subgraph read["Read path: once, when the entry is first needed"]
     queryFn["queryFn<br/>readConvexQuery(context, { args, query })"]
-    reader["ConvexReader<br/>context.convex, from the convex part"]
+    reader["ConvexReader<br/>context.convex, from the convex plugin"]
     queryFn --> reader
   end
 
@@ -120,7 +122,7 @@ flowchart TB
   cache[("raf-query cache<br/>one entry per function and args")]
 
   subgraph livePath["Live path: while the entry is cached, in the browser"]
-    live["Live sync<br/>the convex part's feature"]
+    live["Live sync<br/>the convex plugin's feature"]
   end
 
   component["Component<br/>useQuery(convexQuery(ref), handle)"]
@@ -200,15 +202,15 @@ sync has kept it current.
   one entry serves every start ([below](#two-way-paginated-queries)).
 - Every factory sets `staleTime: Infinity` and `retry: false`. Its builder is
   bound with `bindQueryOptions<Convex & Optional<Retry>>()`: it needs the
-  `convex` part, and sets `retry` only where the client has `retry()`.
+  `convex` plugin, and sets `retry` only where the client has `retry()`.
 
 ### Readers
 
 A `ConvexReader` has one method, `query({ args, query, signal })`, which
 resolves with the result or rejects with a `ConvexQueryError`. The `convex`
-part puts the client's reader in every `queryFn`'s context as
+plugin puts the client's reader in every `queryFn`'s context as
 `context.convex`, and `readConvexQuery` passes it the request's `signal`.
-Each `QueryClient` takes its own part, which keeps a server request's
+Each `QueryClient` takes its own plugin, which keeps a server request's
 authenticated `ConvexHttpClient` scoped to the request.
 
 | Reader                                 | For              | How it reads                                                                       |
@@ -224,7 +226,7 @@ removed), the reader unsubscribes and rejects with the signal's reason.
 
 ### The live sync
 
-The `convex` part's feature. Like every raf-query feature it runs while a
+The `convex` plugin's feature. Like every raf-query feature it runs while a
 `QueryClientProvider` has the client mounted, so never on a server.
 
 ```mermaid
@@ -364,7 +366,7 @@ const stop = watchConvexQuery(
 ## Testing
 
 `makeTestConvexClient(run)` returns `{ client, refresh, subscriptions }`. Pass
-`client` to `subscribingReader` and as the part's `live`, and call `refresh()`
+`client` to `subscribingReader` and as the plugin's `live`, and call `refresh()`
 after a write so live entries re-run, as the server would after a mutation.
 `subscriptions()` lists the queries and args currently subscribed. Outside
 React, `mount(queryClient)` from `@raf-query/core/internal` starts the
