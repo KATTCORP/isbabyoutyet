@@ -48,6 +48,50 @@ finishes and skip the guard. Controls that persist immediately (language
 select, notification switches) are not forms. Library internals are in
 [`packages/form-guard`](../../../packages/form-guard/README.md).
 
+### Forms without JS (`@/lib/form-post`)
+
+A form on a public page should still work while the page's JS is not running:
+blocked, still loading, or broken. Describe what it sends once, with
+`formPost`, and both ways of sending it read that description:
+
+|            | With JS                                  | Without JS                                                           |
+| ---------- | ---------------------------------------- | -------------------------------------------------------------------- |
+| Sent by    | `post.send`, over the Convex client      | the browser, to the form's server function                           |
+| Checked by | `fields`, as the visitor types           | `required` / `maxLength` read off `fields`, then `fields` on arrival |
+| Arguments  | `args`, with `request: null`             | `args`, with the browser's `request`                                 |
+| Afterwards | `handleSubmit` carries on (toast, reset) | a redirect to `landing`, or back to `page` at the form's notice      |
+
+The encouragement form
+([`encouragements.tsx`](src/components/baby/encouragements.tsx)) is the one to
+copy. A form has four parts, in one file:
+
+1. `formPost({ … })`: the mutation, the `fields` the visitor types (a named
+   function, so its type is known before `args` is read), what the page
+   sends along in hidden inputs (`carried`), and `args`, which turns those
+   into the mutation's arguments. Where the two senders know different things
+   (a header, `localStorage`), `args` decides, with both cases side by side.
+2. Its server function, which only hands the post to `answerFormPost`. It
+   has to be a `createServerFn` of its own, at the top of the module, for the
+   compiler to find it.
+3. `useFormPost(post, { action, carried, defaultValues })` in the component.
+4. `<PostForm>` around the fields, with `{...post.native("name")}` on each
+   input.
+
+Three things follow from the page being shared by the CDN:
+
+- **`landing` is a URL the CDN has no copy of**, like a new item's permalink.
+  The redirect arrives before the purge does, and a shared copy would not
+  have what the visitor just did.
+- **A failed post shows the form's notice with `:target`.** The notice is
+  always in the HTML and the redirect only adds `#<id>-failed`, so nothing is
+  rendered for one visitor. What the visitor typed is not kept.
+- **The server function takes posts from this site only.** It runs the
+  mutation with the visitor's session.
+
+Test the path without JS in jsdom: render the form, read its `FormData`, and
+give that to `formPostResponse` with the harness's mutation. A field that is
+renamed in one place and not the other fails there.
+
 ## i18n
 
 UI copy uses English literals as catalog keys: `useI18n().t("…")`, with base

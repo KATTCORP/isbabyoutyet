@@ -20,7 +20,9 @@ import { isPlainObject } from "@workspace/runtime/guards";
 import { LocaleProvider } from "@/lib/i18n";
 import { timelineInput, timelineQuery } from "@/lib/timeline-feed";
 import { TimelineFeed, TimelineFeedView, UpdateComposer } from "@/components/baby/timeline";
-import { EncouragementForm } from "@/components/baby/encouragements";
+import { EncouragementForm, encouragementPost } from "@/components/baby/encouragements";
+import { formPostResponse } from "@/lib/form-post";
+import { translate } from "@/lib/i18n";
 import { createConvexTestHarness, type ConvexTestHarness } from "@/test/convexTestHarness";
 import {
   seedOwnedBaby,
@@ -862,7 +864,14 @@ test("EncouragementForm mounts through the Convex provider", async () => {
 
   await using view = await renderWithConvexTest({
     harness,
-    ui: <EncouragementForm accountName={null} babyId={baby.babyId} babyName={notYetBaby.name} />,
+    ui: (
+      <EncouragementForm
+        accountName={null}
+        babyId={baby.babyId}
+        babyName={notYetBaby.name}
+        publicId={baby.publicId}
+      />
+    ),
     wrap: null,
   });
 
@@ -885,7 +894,14 @@ test("EncouragementForm restores a session draft silently", async () => {
 
   await using view = await renderWithConvexTest({
     harness,
-    ui: <EncouragementForm accountName={null} babyId={baby.babyId} babyName={notYetBaby.name} />,
+    ui: (
+      <EncouragementForm
+        accountName={null}
+        babyId={baby.babyId}
+        babyName={notYetBaby.name}
+        publicId={baby.publicId}
+      />
+    ),
     wrap: null,
   });
 
@@ -908,7 +924,14 @@ test("EncouragementForm prefers a session name draft over committed localStorage
 
   await using view = await renderWithConvexTest({
     harness,
-    ui: <EncouragementForm accountName={null} babyId={baby.babyId} babyName={notYetBaby.name} />,
+    ui: (
+      <EncouragementForm
+        accountName={null}
+        babyId={baby.babyId}
+        babyName={notYetBaby.name}
+        publicId={baby.publicId}
+      />
+    ),
     wrap: null,
   });
 
@@ -928,6 +951,7 @@ test("EncouragementForm prefills the account name when localStorage is empty", a
         accountName="Ada Lovelace"
         babyId={baby.babyId}
         babyName={notYetBaby.name}
+        publicId={baby.publicId}
       />
     ),
     wrap: null,
@@ -950,7 +974,14 @@ test("a first-time visitor's new encouragement is marked as theirs", async () =>
   });
   await using form = await renderWithConvexTest({
     harness,
-    ui: <EncouragementForm accountName={null} babyId={baby.babyId} babyName={notYetBaby.name} />,
+    ui: (
+      <EncouragementForm
+        accountName={null}
+        babyId={baby.babyId}
+        babyName={notYetBaby.name}
+        publicId={baby.publicId}
+      />
+    ),
     wrap: null,
   });
 
@@ -974,7 +1005,14 @@ test("EncouragementForm submit reaches the Convex mutation", async () => {
 
   await using view = await renderWithConvexTest({
     harness,
-    ui: <EncouragementForm accountName={null} babyId={baby.babyId} babyName={notYetBaby.name} />,
+    ui: (
+      <EncouragementForm
+        accountName={null}
+        babyId={baby.babyId}
+        babyName={notYetBaby.name}
+        publicId={baby.publicId}
+      />
+    ),
     wrap: null,
   });
 
@@ -1000,6 +1038,77 @@ test("EncouragementForm submit reaches the Convex mutation", async () => {
     ),
   ).toBe(true);
   expect(sessionStorage.getItem(`encouragement-message-draft:${baby.babyId}`)).toBeNull();
+});
+
+test("an encouragement the browser posts by itself reaches the feed, and lands on the message", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+  const baby = await seedOwnerBaby(harness);
+  await harness.withIdentity(null);
+  await using view = await renderWithConvexTest({
+    harness,
+    ui: (
+      <EncouragementForm
+        accountName={null}
+        babyId={baby.babyId}
+        babyName={notYetBaby.name}
+        publicId={baby.publicId}
+      />
+    ),
+    wrap: null,
+  });
+  fireEvent.change(view.getByLabelText("Your name"), { target: { value: "Auntie Jo" } });
+  fireEvent.change(view.getByLabelText("Message"), { target: { value: "No script needed" } });
+
+  // What a browser sends from this form: its inputs, by name.
+  const data = new FormData(view.container.querySelector("form") ?? undefined);
+  const response = await formPostResponse(encouragementPost, {
+    data,
+    mutate: (args) => harness.client.mutation(api.encouragements.create, args),
+    report: (error) => {
+      throw error;
+    },
+    request: new Request("https://isbabyoutyet.test/_serverFn/post", {
+      headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
+    }),
+    t: (key, ...args) => translate("en-GB", key, ...args),
+  });
+
+  const feed = await harness.client.query(api.timeline.listByBaby, {
+    babyId: baby.publicId,
+    paginationOpts: { cursor: null, numItems: 20 },
+  });
+  const sent = feed.page.find(
+    (item) => item.kind === "encouragement" && item.encouragement?.message === "No script needed",
+  );
+  expect(sent?.kind === "encouragement" ? sent.encouragement?.authorName : null).toBe("Auntie Jo");
+  expect(response.status).toBe(303);
+  expect(response.headers.get("location")).toBe(
+    `/baby/${baby.publicId}?item=${sent?._id}#item-${sent?._id}`,
+  );
+});
+
+test("an encouragement posted without JS says what the request tells about its sender", () => {
+  const args = encouragementPost.args({
+    // SAFETY: A stand-in id; nothing here reads the baby.
+    carried: { babyId: "baby-id" as Id<"baby">, publicId: "baby-smith" },
+    fields: { authorName: "Auntie Jo", message: "Hello" },
+    request: new Request("https://isbabyoutyet.test/_serverFn/post", {
+      headers: { "accept-language": "sv-SE,sv;q=0.9,en;q=0.8", "user-agent": "Lynx/2.9" },
+      method: "POST",
+    }),
+  });
+
+  expect(args).toMatchObject({
+    authorName: "Auntie Jo",
+    babyId: "baby-id",
+    locale: "sv-SE",
+    message: "Hello",
+    timezone: null,
+    userAgent: "Lynx/2.9",
+  });
+  // Made up for this one post: no browser holds it, so nobody can edit the message.
+  expect(args.visitorId).toMatch(/^[\da-f-]{36}$/);
 });
 
 // --- Infinite scroll: the skeleton is the sentinel ---
