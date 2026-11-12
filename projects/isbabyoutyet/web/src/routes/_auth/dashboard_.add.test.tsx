@@ -1,5 +1,6 @@
 import { fireEvent } from "@testing-library/react";
 import type { NavigateOptions } from "@tanstack/react-router";
+import type { ComponentProps } from "react";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { toast } from "sonner";
@@ -16,7 +17,7 @@ type SubscribeOwnerMessages = (babyId: Id<"baby">) => Promise<void>;
 // SAFETY: Seeded convex-test document id.
 const TEST_BABY_ID = "jd7baby000000000000000000" as Id<"baby">;
 
-function createAddBabyMocks() {
+function createAddBabyMocks(): ComponentProps<typeof AddBabyPageView> {
   return {
     createBaby: vi.fn<CreateBaby>().mockResolvedValue(
       /* SAFETY: createBaby tests read publicId and babyId from the result. */ {

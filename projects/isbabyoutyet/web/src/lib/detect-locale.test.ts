@@ -1,6 +1,5 @@
 import { expect, test } from "vitest";
 import { resolveAcceptLanguage } from "./accept-language";
-import { detectRequestLocale } from "./detect-locale";
 import { getLanguageName, translate } from "./i18n";
 import { detectLocaleFromRequestHeaders } from "./locale-request-handler";
 
@@ -43,7 +42,7 @@ test("American English falls back to the British copy it doesn't override", () =
 
 test("reads Accept-Language from the current request", () => {
   expect(
-    detectLocaleFromRequestHeaders(undefined, {
+    detectLocaleFromRequestHeaders({
       readCookie: () => undefined,
       readHeader: () => "es-ES,es;q=0.9",
     }),
@@ -52,13 +51,9 @@ test("reads Accept-Language from the current request", () => {
 
 test("a saved locale takes precedence over Accept-Language", () => {
   expect(
-    detectLocaleFromRequestHeaders(undefined, {
+    detectLocaleFromRequestHeaders({
       readCookie: () => "sv",
       readHeader: () => "en-GB,en;q=0.9",
     }),
   ).toBe("sv");
-});
-
-test("registers the request locale server function", () => {
-  expect(detectRequestLocale).toEqual(expect.any(Function));
 });

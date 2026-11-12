@@ -35,10 +35,9 @@ const rootSearchSchema = z.object({
 });
 
 export const Route = createRootRouteWithContext<{ locale: Locale }>()({
-  beforeLoad: async () => {
-    // Locale is ALS-scoped by paraglideMiddleware + custom Accept-Language strategy.
-    return { locale: getLocale() };
-  },
+  // Synchronous, so no loader waits on it. Locale is ALS-scoped by
+  // paraglideMiddleware + custom Accept-Language strategy.
+  beforeLoad: () => ({ locale: getLocale() }),
   component: RootComponent,
   head: (ctx) => {
     const locale = ctx.match.context.locale;

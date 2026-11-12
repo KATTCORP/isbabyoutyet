@@ -1,3 +1,4 @@
+import type { NavigateOptions } from "@tanstack/react-router";
 import { CANONICAL_ORIGIN } from "@/lib/site-url";
 
 /**
@@ -19,5 +20,5 @@ export function replaceBabyPublicId(opts: {
   return {
     href: `${url.pathname}${url.search}${url.hash}`,
     replace: true as const,
-  };
+  } satisfies NavigateOptions;
 }

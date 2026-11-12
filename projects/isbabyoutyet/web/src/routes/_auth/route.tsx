@@ -1,63 +1,39 @@
-import { authServer } from "@/lib/auth-server";
-import { loadSignedInProfile } from "@/lib/signed-in-profile";
-import type { SignedInProfileContext } from "@/lib/signed-in-profile";
+import { load, swr } from "@raf-query/react";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
+import { convexQuery } from "@workspace/convex-query";
+import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { noIndexHeaders } from "@/lib/robots";
-
-// Server function to check authentication
-const getAuthToken = createServerFn({ method: "GET" }).handler(async () => {
-  return await authServer.getToken();
-});
-
-function redirectToLogin(pathname: string): never {
-  throw redirect({
-    replace: true,
-    search: { redirect: pathname },
-    to: "/auth/login",
-  });
-}
-
-/**
- * The `/_auth` guard, with the auth-token round-trip taken as a dependency
- * (defaulted to the real `createServerFn` one by the route) so tests can drive
- * both the SSR and client branches — the real server function throws outside
- * an actual TanStack Start request.
- *
- * @internal exported for tests
- */
-export async function resolveAuthGuard(opts: {
-  context: SignedInProfileContext;
-  fetchToken: () => Promise<string | null>;
-  pathname: string;
-}) {
-  const session = await loadSignedInProfile({
-    context: opts.context,
-    fetchToken: opts.fetchToken,
-  });
-  if (!session) {
-    redirectToLogin(opts.pathname);
-  }
-  return session;
-}
 
 export const Route = createFileRoute("/_auth")({
   headers() {
     return {
       "Cache-Control": "private, no-store, no-cache, max-age=0, must-revalidate",
       Vary: "Cookie",
-      // Prefer header over route `head` — TanStack's head+beforeLoad typing
-      // currently collapses child beforeLoad to `never` when the layout sets head.
       ...noIndexHeaders(),
     };
   },
-
-  beforeLoad: async (opts) => {
-    return await resolveAuthGuard({
-      context: opts.context,
-      fetchToken: async () => (await getAuthToken()) ?? null,
-      pathname: opts.location.pathname,
+  // Signed-in pages only. In the browser `profile.get` is cached and live:
+  // login, signup and sign-out wait for it to settle (`waitForMe`) before
+  // they navigate here, and an expired session flips it to `null`, so this
+  // waits for nothing there.
+  //
+  // Child loaders start beside this one. Signed out, their queries answer
+  // `null` or fail, and the router lets this redirect win over both.
+  loader: async (opts) => {
+    const [, data] = await load(opts.context.queryClient, {
+      me: swr(convexQuery(api.profile.get), {}),
     });
+    if (!data.me) {
+      throw redirect({
+        replace: true,
+        search: { redirect: opts.location.pathname },
+        to: "/auth/login",
+      });
+    }
+    // The dashboard is in the profile's language. The root document reads it
+    // (`documentLocale`), which this file can't show.
+    // oxlint-disable-next-line workspace/no-unused-loader-data
+    return { locale: data.me.locale };
   },
   component: AuthLayout,
 });

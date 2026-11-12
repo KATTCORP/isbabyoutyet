@@ -16,8 +16,14 @@ export function legacyPolyfillModules() {
   return compat({ modules: [/^es\./, /^web\./], targets: BROWSER_FLOOR }).list;
 }
 
+/** The polyfill script and the path it is served from. */
+export interface LegacyPolyfillsBundle {
+  code: string;
+  fileName: string;
+}
+
 /** Bundles `legacyPolyfillModules()` into one minified classic script. */
-export async function buildLegacyPolyfills() {
+export async function buildLegacyPolyfills(): Promise<LegacyPolyfillsBundle> {
   const entry = legacyPolyfillModules()
     .map((name) => `import "core-js/modules/${name}.js";`)
     .join("\n");

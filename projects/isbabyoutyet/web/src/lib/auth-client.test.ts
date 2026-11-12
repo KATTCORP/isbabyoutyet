@@ -2,7 +2,7 @@ import { getData, setData } from "@raf-query/react";
 import type { AuthTokenFetcher } from "convex/browser";
 import { ConvexReactClient } from "convex/react";
 import { getFunctionName } from "convex/server";
-import type { FunctionReference } from "convex/server";
+import type { FunctionReference, FunctionReturnType } from "convex/server";
 import { expect, test, vi } from "vitest";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { TIME_ZONE_HINT_HEADER } from "@isbabyoutyet/backend/src/timeZone";
@@ -22,6 +22,8 @@ import type { ConvexTestHarness } from "@/test/convexTestHarness";
 import { signUpTestUser } from "@/test/convexTestSeed";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 
+type Profile = NonNullable<FunctionReturnType<typeof api.profile.get>>;
+
 const signedInProfile = {
   email: "ada@example.com",
   emailVerified: true,
@@ -29,14 +31,13 @@ const signedInProfile = {
   locale: "en-GB",
   name: "Ada",
   timeZone: "Europe/London",
-} as const;
+} as const satisfies Profile;
 
 function makeClients() {
   const setAuth =
     vi.fn<(fetchToken: (opts: { forceRefreshToken: boolean }) => Promise<string | null>) => void>();
-  const convexClient = { setAuth };
   const stub = stubQueryClientResource(async () => null);
-  return Object.assign(stub, { convexClient, setAuth });
+  return Object.assign(stub, { convexClient: { setAuth }, setAuth });
 }
 
 test("getBrowserAuthHeaders includes the stored visitor id when present", () => {
@@ -59,9 +60,14 @@ test("getBrowserAuthHeaders omits visitor id when none is stored", () => {
   expect(VISITOR_ID_HINT_HEADER in headers).toBe(false);
 });
 
+/** What the backend's `profile.get` answers with; a test swaps `current`. */
+type ServerProfile = {
+  current: Profile | null;
+};
+
 /** A Convex backend whose `profile.get` answers with `serverProfile.current`. */
 function profileBackendResource(initial: typeof signedInProfile | null) {
-  const serverProfile = { current: initial };
+  const serverProfile: ServerProfile = { current: initial };
   const stub = stubQueryClientResource(async (query) => {
     if (getFunctionName(query) === getFunctionName(api.profile.get)) {
       return serverProfile.current;

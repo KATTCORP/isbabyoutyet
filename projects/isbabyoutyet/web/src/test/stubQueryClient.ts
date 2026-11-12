@@ -1,5 +1,5 @@
 import { removeAll } from "@raf-query/react";
-import { ConvexReader } from "@workspace/convex-query";
+import { subscribingReader } from "@workspace/convex-query";
 import { makeTestConvexClient } from "@workspace/convex-query/testing";
 import { makeAsyncResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { makeQueryClient } from "@/lib/query-client";
@@ -20,7 +20,7 @@ export function stubQueryClientResource(
   const queryClient = makeQueryClient({
     isServer: opts.isServer,
     live: null,
-    reader: ConvexReader.subscribing(backend.client),
+    reader: subscribingReader(backend.client),
   });
   return makeAsyncResource({ backend, queryClient }, async () => {
     removeAll(queryClient);

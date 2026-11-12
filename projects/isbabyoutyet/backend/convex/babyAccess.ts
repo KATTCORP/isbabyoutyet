@@ -37,11 +37,21 @@ export async function canManageBaby(
   return coParent != null;
 }
 
+/** A baby and the caller who may manage it, as the owner or a co-parent. */
+export type BabyManagerAccess = {
+  baby: Doc<"baby">;
+  identity: AppIdentity;
+  isOwner: boolean;
+};
+
 /**
  * Authenticated caller who may manage baby content (owner or co-parent).
  * Does not allow soft-deleted babies.
  */
-export async function requireBabyManager(ctx: DbCtx, babyRef: BabyIdOrPublicId) {
+export async function requireBabyManager(
+  ctx: DbCtx,
+  babyRef: BabyIdOrPublicId,
+): Promise<BabyManagerAccess> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
     throw new Error("Not authenticated");
@@ -74,7 +84,10 @@ export async function requireBabyManager(ctx: DbCtx, babyRef: BabyIdOrPublicId) 
  * return a FORBIDDEN sentinel so route loaders can fetch the same queries
  * for every visitor.
  */
-export async function findBabyManager(ctx: DbCtx, babyRef: BabyIdOrPublicId) {
+export async function findBabyManager(
+  ctx: DbCtx,
+  babyRef: BabyIdOrPublicId,
+): Promise<BabyManagerAccess | null> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
     return null;

@@ -1,14 +1,24 @@
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { authComponent } from "./auth";
+import type { AppIdentity } from "./authIdentity";
 import { tokenIdentifierForAuthUserId } from "./authIdentity";
 import { findActiveCoParent } from "./babyAccess";
 import { isActive, softDeletePatch } from "./softDelete";
+
+/** What a Better Auth user contributes to a co-parent row: normalized email and display name. */
+export type AuthUserProfile = {
+  email: string;
+  name: string | null;
+};
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
-async function resolveAuthUserProfile(ctx: QueryCtx | MutationCtx, userId: string) {
+async function resolveAuthUserProfile(
+  ctx: QueryCtx | MutationCtx,
+  userId: string,
+): Promise<AuthUserProfile | null> {
   const user = await authComponent.getAnyUserById(ctx, userId);
   if (!user) {
     return null;
@@ -28,7 +38,7 @@ export async function claimPendingInvitesForAuthUser(
   opts: { email: string; name: string | null; userId: string },
 ) {
   const email = normalizeEmail(opts.email);
-  const caller = {
+  const caller: AppIdentity = {
     authUserId: opts.userId,
     tokenIdentifier: tokenIdentifierForAuthUserId(opts.userId),
   };

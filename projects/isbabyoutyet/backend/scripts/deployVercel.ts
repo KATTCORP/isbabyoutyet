@@ -42,6 +42,12 @@ const convexPackageDir = path.resolve(import.meta.dirname, "..");
 /** @internal Exported for tests. */
 export const webEnvFile = path.resolve(convexPackageDir, "../web/.env.production.local");
 
+/** Where the web app reaches a Convex deployment. */
+type ConvexUrls = {
+  convexSiteUrl: string;
+  convexUrl: string;
+};
+
 /**
  * Convex custom domains for the production deployment: `convexUrl` serves the
  * Convex API (websocket, queries, mutations) and `convexSiteUrl` serves the
@@ -49,7 +55,7 @@ export const webEnvFile = path.resolve(convexPackageDir, "../web/.env.production
  * `CONVEX_SITE_URL` on `.convex.site`: it is the JWT issuer, and every stored
  * `tokenIdentifier` starts with it.
  */
-const PRODUCTION_CONVEX_DOMAINS = {
+const PRODUCTION_CONVEX_DOMAINS: ConvexUrls = {
   convexSiteUrl: "https://actions.isbabyoutyet.com",
   convexUrl: "https://socket.isbabyoutyet.com",
 };
@@ -90,17 +96,16 @@ const writeWebEnv = Effect.fn("writeWebEnv")(function* (opts: {
   isPreview: boolean;
   siteUrl: string;
 }) {
-  const env = {
-    VITE_CONVEX_SITE_URL: opts.convexSiteUrl,
-    VITE_CONVEX_URL: opts.convexUrl,
-    // Previews are seeded with the demo login, so the login form prefills it.
-    VITE_HAS_DEMO_LOGIN: String(opts.isPreview),
-    VITE_SITE_URL: opts.siteUrl,
-  };
   const fs = yield* FileSystem.FileSystem;
   yield* fs.writeFileString(
     webEnvFile,
-    Object.entries(env)
+    Object.entries({
+      VITE_CONVEX_SITE_URL: opts.convexSiteUrl,
+      VITE_CONVEX_URL: opts.convexUrl,
+      // Previews are seeded with the demo login, so the login form prefills it.
+      VITE_HAS_DEMO_LOGIN: String(opts.isPreview),
+      VITE_SITE_URL: opts.siteUrl,
+    })
       .map(([name, value]) => `${name}=${value}\n`)
       .join(""),
   );

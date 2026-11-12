@@ -39,7 +39,7 @@ function readRawDraft(babyId: Id<"baby">) {
       sessionStorage.removeItem(key);
       return null;
     }
-    return { key, record };
+    return record;
   } catch {
     sessionStorage.removeItem(key);
     return null;
@@ -54,9 +54,9 @@ export function readEncouragementFormDraft(babyId: Id<"baby">): EncouragementFor
     return { authorName: "", hasDraft: false, message: "" };
   }
   return {
-    authorName: raw.record.authorName ?? "",
+    authorName: raw.authorName ?? "",
     hasDraft: true,
-    message: raw.record.message,
+    message: raw.message,
   };
 }
 

@@ -1,5 +1,5 @@
 import { mount } from "@raf-query/core/internal";
-import type { InputOf, LoadEntryOptions, QueryClient, QueryFactory } from "@raf-query/react";
+import type { InputOf, LoadEntry, LoadEntryOptions, QueryFactory } from "@raf-query/react";
 import {
   createQueryClient,
   fetchNextPage,
@@ -16,15 +16,17 @@ import {
 } from "@raf-query/react";
 import type { PaginationOptions, PaginationResult } from "convex/server";
 import { getFunctionName, makeFunctionReference } from "convex/server";
-import { Effect, Fiber, Option, Stream } from "effect";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { isInvalidatedEntry } from "./test-cache.ts";
-import { convexLink } from "./link.ts";
-import { convexLive, watchConvexQuery } from "./live.ts";
+import type { ConvexQueryClient } from "./context.ts";
+import type { ConvexWatchClient } from "./reader.ts";
+import { watchConvexQuery } from "./live.ts";
+import { convex } from "./part.ts";
 import { CONVEX_PAGINATED_QUERY_KEY, CONVEX_QUERY_KEY } from "./entries.ts";
-import type { PageBefore, PageDirection } from "./queries.ts";
+import type { PageBefore, PageDirection, PaginationArgs } from "./queries.ts";
 import { convexPaginatedQuery, convexQuery } from "./queries.ts";
-import { ConvexReader } from "./reader.ts";
+import { subscribingReader } from "./reader.ts";
+import type { TestConvexClient } from "./testing.ts";
 import { makeTestConvexClient } from "./testing.ts";
 
 /**
@@ -32,7 +34,7 @@ import { makeTestConvexClient } from "./testing.ts";
  * queries never go stale, so `revalidate` alone would keep the cached pages.
  */
 async function refetchAll(
-  queryClient: QueryClient,
+  queryClient: ConvexQueryClient,
   query: { factory: typeof messageList; input: InputOf<typeof messageList> },
 ) {
   await invalidateOne(queryClient, query.factory, query.input);
@@ -66,7 +68,7 @@ const messageList = convexPaginatedQuery(listMessages);
 const messageFeed = convexPaginatedQuery(listFeed);
 
 /** A feed's page of `ids`, as items. */
-function feedPage(result: PaginationResult<string>) {
+function feedPage(result: PaginationResult<string>): PaginationResult<{ _id: string }> {
   return { ...result, page: result.page.map((id) => ({ _id: id })) };
 }
 
@@ -89,7 +91,41 @@ function paginate(items: ReadonlyArray<string>, opts: PaginationOptions): Pagina
   };
 }
 
-function setup() {
+/** A read of a page, held until the test releases it. */
+interface HeldRead {
+  /** Resolves once a read is held. */
+  readonly reached: Promise<void>;
+  release(): void;
+}
+
+/** A mounted query client over a fake backend the test edits and refreshes. */
+interface Setup {
+  readonly backend: TestConvexClient;
+  readonly client: ConvexWatchClient;
+  /** Stop the live sync, as unmounting the provider does. */
+  disconnect(): void;
+  /** Make every later read fail. */
+  fail(): void;
+  /**
+   * Hold the response to reads of the unpinned page starting after `cursor`
+   * (`"null"` for the first) until `release` is called. The page is read
+   * before it is held; `reached` resolves once a read is held.
+   */
+  hold(cursor: string): HeldRead;
+  readonly items: Array<string>;
+  /** A loader's `swr`: resolves once the entry has data, read now unless cached. */
+  load<TFactory extends QueryFactory>(
+    factory: TFactory,
+    ...args: [input?: Parameters<TFactory>[0], options?: LoadEntryOptions]
+  ): Promise<void>;
+  readonly messages: Map<string, string>;
+  readonly newer: Array<string>;
+  readonly queryClient: ConvexQueryClient;
+  /** How many times the backend ran a query. */
+  runs(): number;
+}
+
+function setup(): Setup {
   vi.useFakeTimers();
   const messages = new Map([["a", "hello"]]);
   const items = ["a", "b", "c", "d", "e"];
@@ -134,10 +170,9 @@ function setup() {
     }
   });
   const queryClient = createQueryClient({
-    features: [convexLive(backend.client)],
-    gcTime: Infinity,
+    defaults: { gcTime: Infinity },
     isServer: false,
-    links: [convexLink(ConvexReader.subscribing(backend.client))],
+    parts: [convex({ live: backend.client, reader: subscribingReader(backend.client) })],
   });
   // What `QueryClientProvider` does while mounted.
   const disconnect = mount(queryClient);
@@ -176,7 +211,8 @@ function setup() {
       ...args: [input?: Parameters<TFactory>[0], options?: LoadEntryOptions]
     ) => {
       // SAFETY: `swr` takes the factory's input, which `args` passes on.
-      await load(queryClient, { entry: swr(factory, ...(args as [never])) });
+      const entry: LoadEntry = swr(factory, ...(args as [never]));
+      await load(queryClient, { entry });
     },
     messages,
     newer,
@@ -186,7 +222,7 @@ function setup() {
   };
 }
 
-describe("convexLive", () => {
+describe("the convex part's live sync", () => {
   it("writes every result of a cached query into the cache", async () => {
     const live = setup();
     await live.load(message, { id: "a" });
@@ -211,7 +247,7 @@ describe("convexLive", () => {
   it("pins every page but the last, so items added inside a page stay on it", async () => {
     const live = setup();
     const factory = messageList;
-    const input = { args: { room: "lobby" }, numItems: 2 };
+    const input: InputOf<typeof messageList> = { args: { room: "lobby" }, numItems: 2 };
     await live.load(factory, input, { pages: 2 });
     vi.advanceTimersByTime(5000);
     expect(live.backend.subscriptions().map((subscription) => subscription.args)).toEqual(
@@ -238,7 +274,7 @@ describe("convexLive", () => {
   it("subscribes a page once it loads, and re-pins the page before it", async () => {
     const live = setup();
     const factory = messageList;
-    const input = { args: { room: "lobby" }, numItems: 2 };
+    const input: InputOf<typeof messageList> = { args: { room: "lobby" }, numItems: 2 };
     await live.load(factory, input);
     vi.advanceTimersByTime(5000);
     expect(live.backend.subscriptions().map((subscription) => subscription.args)).toEqual([
@@ -258,7 +294,7 @@ describe("convexLive", () => {
 
   it("keeps a page update that lands while the next page loads", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, numItems: 2 };
+    const input: InputOf<typeof messageList> = { args: { room: "lobby" }, numItems: 2 };
     await live.load(messageList, input, { pages: 2 });
 
     const { release } = live.hold("d");
@@ -285,7 +321,7 @@ describe("convexLive", () => {
 
   it("keeps a page update that lands while every page refetches", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, numItems: 2 };
+    const input: InputOf<typeof messageList> = { args: { room: "lobby" }, numItems: 2 };
     await live.load(messageList, input, { pages: 2 });
     // The reads' own subscriptions lapse, so the refetch reads the backend.
     vi.advanceTimersByTime(5000);
@@ -315,7 +351,7 @@ describe("convexLive", () => {
 
   it("follows the page boundaries a refetch moves", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, numItems: 2 };
+    const input: InputOf<typeof messageList> = { args: { room: "lobby" }, numItems: 2 };
     await live.load(messageList, input, { pages: 2 });
     vi.advanceTimersByTime(5000);
 
@@ -337,7 +373,7 @@ describe("convexLive", () => {
 
   it("pins both directions of a two-way query, writing each page where it sits", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, from: null, numItems: 2 };
+    const input: InputOf<typeof messageFeed> = { args: { room: "lobby" }, from: null, numItems: 2 };
     await live.load(messageFeed, input, { pages: 2 });
     await fetchPreviousPage(live.queryClient, messageFeed, input);
     await fetchPreviousPage(live.queryClient, messageFeed, input);
@@ -405,7 +441,7 @@ describe("convexLive", () => {
   it("follows what's before a two-way query's top page as it changes", async () => {
     const live = setup();
     live.newer.length = 0;
-    const input = { args: { room: "lobby" }, from: null, numItems: 2 };
+    const input: InputOf<typeof messageFeed> = { args: { room: "lobby" }, from: null, numItems: 2 };
     await live.load(messageFeed, input);
     vi.advanceTimersByTime(5000);
     expect(hasPreviousPage(live.queryClient, messageFeed, input)).toBe(false);
@@ -423,7 +459,7 @@ describe("convexLive", () => {
 
   it("subscribes a two-way query's pages from where they start, whatever start reads it", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, from: "b", numItems: 2 };
+    const input: InputOf<typeof messageFeed> = { args: { room: "lobby" }, from: "b", numItems: 2 };
     await live.load(messageFeed, input);
     // Another start it shows reads the same entry: the key leaves `from` out.
     await live.load(messageFeed, { ...input, from: "a" });
@@ -452,7 +488,7 @@ describe("convexLive", () => {
 
   it("invalidates a paged entry when a page subscription fails", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, numItems: 2 };
+    const input: InputOf<typeof messageList> = { args: { room: "lobby" }, numItems: 2 };
     await live.load(messageList, input);
     live.fail();
     await live.backend.refresh();
@@ -462,7 +498,7 @@ describe("convexLive", () => {
 
   it("invalidates a two-way entry when a page subscription fails", async () => {
     const live = setup();
-    const input = { args: { room: "lobby" }, from: null, numItems: 2 };
+    const input: InputOf<typeof messageFeed> = { args: { room: "lobby" }, from: null, numItems: 2 };
     await live.load(messageFeed, input);
     await fetchPreviousPage(live.queryClient, messageFeed, input);
     live.fail();
@@ -484,8 +520,12 @@ describe("convexLive", () => {
 
   it("leaves entries with malformed Convex keys or page params alone", async () => {
     const live = setup();
-    const args = { room: "lobby" };
-    const page = { continueCursor: "b", isDone: false, page: ["a", "b"] };
+    const args: PaginationArgs<typeof listMessages> = { room: "lobby" };
+    const page: PaginationResult<string> = {
+      continueCursor: "b",
+      isDone: false,
+      page: ["a", "b"],
+    };
     const entries: ReadonlyArray<{ data: unknown; key: ReadonlyArray<unknown> }> = [
       { data: "x", key: [CONVEX_QUERY_KEY, 1, args] },
       { data: "x", key: ["other", "messages:get", args] },
@@ -541,28 +581,30 @@ describe("convexLive", () => {
   });
 });
 
-/** Await `promise` while `vi.waitFor` advances the fake timers Effect schedules on. */
-async function settle<A>(promise: Promise<A>) {
-  let result: { value: A } | undefined;
-  void promise.then((value) => {
-    result = { value };
-  });
-  return await vi.waitFor(() => {
-    if (!result) {
-      throw new Error("still pending");
-    }
-    return result.value;
-  });
-}
-
 describe("watchConvexQuery", () => {
-  const watchMessage = (live: ReturnType<typeof setup>) =>
-    watchConvexQuery(live, { args: { id: "a" }, query: getMessage });
+  /** A watch of message "a": the values it has reported, and the function that stops it. */
+  interface Watching {
+    stop(): void;
+    readonly values: Array<string>;
+  }
 
-  it("subscribes itself and streams each new result", async () => {
+  /** Watch message "a", collecting its values until the test stops it. */
+  function watchMessage(live: Setup): Watching {
+    const values: Array<string> = [];
+    const stop = watchConvexQuery(live, {
+      args: { id: "a" },
+      onValue: (value) => {
+        values.push(value);
+      },
+      query: getMessage,
+    });
+    return { stop, values };
+  }
+
+  it("subscribes itself and reports each new result", async () => {
     const live = setup();
     live.disconnect();
-    const values = Effect.runPromise(watchMessage(live).pipe(Stream.take(2), Stream.runCollect));
+    const watching = watchMessage(live);
     await vi.waitFor(() => {
       expect(getData(live.queryClient, message, { id: "a" })).toBe("hello");
     });
@@ -570,42 +612,47 @@ describe("watchConvexQuery", () => {
     await live.backend.refresh();
     live.messages.set("a", "edited");
     await live.backend.refresh();
-    expect(await settle(values)).toEqual(["hello", "edited"]);
+    expect(watching.values).toEqual(["hello", "edited"]);
     expect(getData(live.queryClient, message, { id: "a" })).toBe("edited");
+    watching.stop();
     vi.advanceTimersByTime(5000);
     expect(live.backend.subscriptions()).toEqual([]);
   });
 
   it("shares the entry and its read with a loader's load", async () => {
     const live = setup();
-    const first = Effect.runPromise(Stream.runHead(watchMessage(live)));
+    const watching = watchMessage(live);
     await live.load(message, { id: "a" });
     expect(live.queryClient["~entries"].size).toBe(1);
 
-    expect(await settle(first)).toEqual(Option.some("hello"));
+    await vi.waitFor(() => {
+      expect(watching.values).toEqual(["hello"]);
+    });
     expect(live.runs()).toBe(1);
+    watching.stop();
   });
 
-  it("starts with the cached value", async () => {
+  it("starts with the cached value", () => {
     const live = setup();
     live.disconnect();
     setData(live.queryClient, message, { id: "a" }, "cached");
 
-    const first = Effect.runPromise(Stream.runHead(watchMessage(live)));
+    const watching = watchMessage(live);
 
-    expect(await settle(first)).toEqual(Option.some("cached"));
+    expect(watching.values).toEqual(["cached"]);
+    watching.stop();
     expect(live.backend.subscriptions()).toEqual([]);
   });
 
-  it("unsubscribes when interrupted", async () => {
+  it("unsubscribes when stopped", async () => {
     const live = setup();
     live.disconnect();
-    const fiber = Effect.runFork(Stream.runDrain(watchMessage(live)));
+    const watching = watchMessage(live);
     await vi.waitFor(() => {
       expect(getData(live.queryClient, message, { id: "a" })).toBe("hello");
     });
 
-    await Effect.runPromise(Fiber.interrupt(fiber));
+    watching.stop();
     vi.advanceTimersByTime(5000);
     expect(live.backend.subscriptions()).toEqual([]);
   });

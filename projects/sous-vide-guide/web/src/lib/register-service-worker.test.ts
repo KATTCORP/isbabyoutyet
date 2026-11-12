@@ -35,10 +35,9 @@ function reportErrorResource(reportError: typeof globalThis.reportError) {
 }
 
 test("registers the service worker during client bootstrap", async () => {
-  const registration = { scope: "/" };
   const register = vi
     .fn<() => Promise<ServiceWorkerRegistrationLike>>()
-    .mockResolvedValue(registration);
+    .mockResolvedValue({ scope: "/" });
   await using _serviceWorker = serviceWorkerResource(register);
   vi.resetModules();
 

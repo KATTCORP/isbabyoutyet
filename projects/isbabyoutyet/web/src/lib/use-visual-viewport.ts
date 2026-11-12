@@ -1,11 +1,18 @@
 import { useSyncExternalStore } from "react";
 import type { CSSProperties } from "react";
 
+type VisualViewportMetrics = {
+  bottom: number;
+  left: number;
+  style: CSSProperties & Record<"--visual-viewport-bottom", string>;
+  width: number;
+};
+
 /**
  * Subscribes to visualViewport + window resize so mobile chrome (keyboard,
  * browser UI) can offset fixed docks. Audited lib seam for feature UI.
  */
-export function useVisualViewportMetrics() {
+export function useVisualViewportMetrics(): VisualViewportMetrics {
   const snapshot = useSyncExternalStore(
     subscribeToVisualViewport,
     getVisualViewportSnapshot,
@@ -15,7 +22,7 @@ export function useVisualViewportMetrics() {
   const bottom = Number(bottomText);
   const width = Number(widthText);
   const left = Number(leftText);
-  const style: CSSProperties & Record<"--visual-viewport-bottom", string> = {
+  const style: VisualViewportMetrics["style"] = {
     "--visual-viewport-bottom": `${bottom}px`,
   };
   return { bottom, left, style, width };

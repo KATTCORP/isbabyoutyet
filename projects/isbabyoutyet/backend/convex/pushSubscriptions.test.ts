@@ -1,5 +1,5 @@
 import { convexTest } from "convex-test";
-import type { PaginationResult } from "convex/server";
+import type { FunctionArgs, PaginationResult } from "convex/server";
 import { expect, test } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
@@ -147,7 +147,7 @@ test("resubscribe rotates credentials and deleted babies reject new subscription
       name: "Rotating Push Baby",
     }),
   );
-  const args = {
+  const args: FunctionArgs<typeof api.pushSubscriptions.subscribe> = {
     auth: "first-secret",
     babyId: created.babyId,
     endpoint: "https://push.example/rotating",
@@ -220,7 +220,7 @@ test("managers can opt into message alerts without changing the family subscribe
       name: "Owner Push Baby",
     }),
   );
-  const ownerArgs = {
+  const ownerArgs: FunctionArgs<typeof api.pushSubscriptions.subscribeAsOwner> = {
     auth: "owner-secret",
     babyId: created.babyId,
     endpoint: "https://push.example/owner",

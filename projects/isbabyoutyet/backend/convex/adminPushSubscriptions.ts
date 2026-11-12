@@ -1,5 +1,7 @@
+import type { WithoutSystemFields } from "convex/server";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import { internalQuery, mutation, query } from "./_generated/server";
 import { getUserAdminFlag, requireAdmin } from "./adminAccess";
 import { appIdentity } from "./authIdentity";
@@ -22,7 +24,7 @@ export const subscribe = mutation({
       tokenIdentifier: caller.tokenIdentifier,
       userAgent: args.userAgent,
       userId: caller.authUserId,
-    };
+    } satisfies Partial<WithoutSystemFields<Doc<"adminPushSubscriptions">>>;
     const existing = await ctx.db
       .query("adminPushSubscriptions")
       .withIndex("by_endpoint", (q) => q.eq("endpoint", args.endpoint))

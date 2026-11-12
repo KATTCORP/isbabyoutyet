@@ -1,9 +1,9 @@
-import { queryOptions } from "@raf-query/react";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import type { ConvexReader } from "@workspace/convex-query";
-import { readConvexQuery, runConvexEffect } from "@workspace/convex-query";
+import type { ConvexRequest } from "@workspace/convex-query";
+import { readConvexQuery } from "@workspace/convex-query";
 import { isFunction } from "@workspace/runtime/guards";
-import { Effect, Option } from "effect";
+import type { FunctionReturnType } from "convex/server";
+import { queryOptions } from "@/lib/raf";
 
 export type BrowserPushCapability =
   | { kind: "unsupported" }
@@ -29,9 +29,9 @@ const SERVICE_WORKER_READY_TIMEOUT_MS = 5000;
  */
 export function browserPushCapabilityQuery(babyRef: string) {
   return queryOptions({
-    meta: { retry: false },
-    queryFn: (context) => runConvexEffect(context, resolveBrowserPushCapability(babyRef)),
+    queryFn: (context) => resolveBrowserPushCapability(context, babyRef),
     queryKey: [BROWSER_PUSH_CAPABILITY_KEY, babyRef],
+    retry: false,
     ssr: false,
     staleTime: 0,
   });
@@ -47,7 +47,12 @@ function hasStandaloneFlag(
   return "standalone" in value;
 }
 
-function getIOSStatus() {
+type IOSStatus = {
+  isIOS: boolean;
+  isStandalone: boolean;
+};
+
+function getIOSStatus(): IOSStatus {
   if (globalThis.window === undefined) {
     return { isIOS: false, isStandalone: false };
   }
@@ -80,14 +85,21 @@ function isPushSupported() {
   );
 }
 
-function readSubscriptionFlags(args: { babyId: string; endpoint: string }) {
-  return Effect.all(
-    {
-      family: readConvexQuery(api.pushSubscriptions.isSubscribed, args),
-      messages: readConvexQuery(api.pushSubscriptions.isOwnerSubscribed, args),
-    },
-    { concurrency: "unbounded" },
-  );
+/** What this device is subscribed to for a baby. */
+type SubscriptionFlags = {
+  family: FunctionReturnType<typeof api.pushSubscriptions.isSubscribed>;
+  messages: FunctionReturnType<typeof api.pushSubscriptions.isOwnerSubscribed>;
+};
+
+async function readSubscriptionFlags(
+  request: ConvexRequest,
+  args: { babyId: string; endpoint: string },
+): Promise<SubscriptionFlags> {
+  const [family, messages] = await Promise.all([
+    readConvexQuery(request, { args, query: api.pushSubscriptions.isSubscribed }),
+    readConvexQuery(request, { args, query: api.pushSubscriptions.isOwnerSubscribed }),
+  ]);
+  return { family, messages };
 }
 
 /** This device's push subscription, before Convex says what it is for. */
@@ -98,39 +110,49 @@ type DevicePushState =
   | { kind: "unsubscribed" }
   | { kind: "subscription"; subscription: PushSubscription };
 
-function resolveDevicePushState(): Effect.Effect<DevicePushState> {
+/** The service worker registration, or `null` if it isn't ready in time. */
+async function readyServiceWorker() {
+  const timedOut = Promise.withResolvers<null>();
+  const timer = setTimeout(() => {
+    timedOut.resolve(null);
+  }, SERVICE_WORKER_READY_TIMEOUT_MS);
+  const registration = await Promise.race([navigator.serviceWorker.ready, timedOut.promise]);
+  clearTimeout(timer);
+  return registration;
+}
+
+async function resolveDevicePushState(): Promise<DevicePushState> {
   if (needsIosPushInstall()) {
-    return Effect.succeed({ kind: "needsIosInstall" });
+    return { kind: "needsIosInstall" };
   }
   if (!isPushSupported()) {
-    return Effect.succeed({ kind: "unsupported" });
+    return { kind: "unsupported" };
   }
-  return Effect.gen(function* () {
-    const registration = yield* Effect.tryPromise(() => navigator.serviceWorker.ready).pipe(
-      Effect.timeoutOption(SERVICE_WORKER_READY_TIMEOUT_MS),
-    );
-    if (Option.isNone(registration)) {
-      return { kind: "serviceWorkerTimeout" } as const;
-    }
-    const subscription = yield* Effect.tryPromise(() =>
-      registration.value.pushManager.getSubscription(),
-    );
-    if (!subscription) {
-      return { kind: "unsubscribed" } as const;
-    }
-    return { kind: "subscription", subscription } as const;
-  }).pipe(Effect.catch(() => Effect.succeed({ kind: "unsubscribed" } as const)));
+  const registration = await readyServiceWorker();
+  if (!registration) {
+    return { kind: "serviceWorkerTimeout" };
+  }
+  const subscription = await registration.pushManager.getSubscription();
+  return subscription ? { kind: "subscription", subscription } : { kind: "unsubscribed" };
+}
+
+/** A capability that couldn't be detected reads as not subscribed. */
+async function orUnsubscribed<TCapability>(
+  detect: Promise<TCapability>,
+): Promise<TCapability | { kind: "unsubscribed" }> {
+  return await detect.catch(() => ({ kind: "unsubscribed" }) as const);
 }
 
 function resolveBrowserPushCapability(
+  request: ConvexRequest,
   babyRef: string,
-): Effect.Effect<BrowserPushCapability, never, ConvexReader> {
-  return Effect.gen(function* () {
-    const device = yield* resolveDevicePushState();
+): Promise<BrowserPushCapability> {
+  const detect = async (): Promise<BrowserPushCapability> => {
+    const device = await resolveDevicePushState();
     if (device.kind !== "subscription") {
       return device;
     }
-    const flags = yield* readSubscriptionFlags({
+    const flags = await readSubscriptionFlags(request, {
       babyId: babyRef,
       endpoint: device.subscription.endpoint,
     });
@@ -139,8 +161,9 @@ function resolveBrowserPushCapability(
       kind: "subscribed",
       messages: Boolean(flags.messages),
       subscription: device.subscription,
-    } as const;
-  }).pipe(Effect.catch(() => Effect.succeed({ kind: "unsubscribed" } as const)));
+    };
+  };
+  return orUnsubscribed(detect());
 }
 
 export type AdminBrowserPushCapability =
@@ -152,21 +175,21 @@ export type AdminBrowserPushCapability =
 
 const ADMIN_BROWSER_PUSH_CAPABILITY_KEY = "adminBrowserPushCapability";
 
-function resolveAdminBrowserPushCapability(): Effect.Effect<
-  AdminBrowserPushCapability,
-  never,
-  ConvexReader
-> {
-  return Effect.gen(function* () {
-    const device = yield* resolveDevicePushState();
+function resolveAdminBrowserPushCapability(
+  request: ConvexRequest,
+): Promise<AdminBrowserPushCapability> {
+  const detect = async (): Promise<AdminBrowserPushCapability> => {
+    const device = await resolveDevicePushState();
     if (device.kind !== "subscription") {
       return device;
     }
-    const subscribed = yield* readConvexQuery(api.adminPushSubscriptions.isSubscribed, {
-      endpoint: device.subscription.endpoint,
+    const subscribed = await readConvexQuery(request, {
+      args: { endpoint: device.subscription.endpoint },
+      query: api.adminPushSubscriptions.isSubscribed,
     });
-    return subscribed ? ({ kind: "subscribed" } as const) : ({ kind: "unsubscribed" } as const);
-  }).pipe(Effect.catch(() => Effect.succeed({ kind: "unsubscribed" } as const)));
+    return subscribed ? { kind: "subscribed" } : { kind: "unsubscribed" };
+  };
+  return orUnsubscribed(detect());
 }
 
 /**
@@ -175,9 +198,9 @@ function resolveAdminBrowserPushCapability(): Effect.Effect<
  */
 export function adminBrowserPushCapabilityQuery() {
   return queryOptions({
-    meta: { retry: false },
-    queryFn: (context) => runConvexEffect(context, resolveAdminBrowserPushCapability()),
+    queryFn: (context) => resolveAdminBrowserPushCapability(context),
     queryKey: [ADMIN_BROWSER_PUSH_CAPABILITY_KEY],
+    retry: false,
     ssr: false,
     staleTime: 0,
   });

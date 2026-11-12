@@ -8,6 +8,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
+import type { Router } from "@tanstack/react-router";
 import { ThemeProvider } from "next-themes";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -18,6 +19,7 @@ import { temperatureUnitSearchSchema, unitSearchMiddleware } from "@/lib/tempera
 import { m } from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
 import { stubJsdomWindow } from "@/test/stubJsdomWindow";
+import type { JsdomWindowStub } from "@/test/stubJsdomWindow";
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 
 function usingCleanup(dispose: () => void): Disposable {
@@ -72,13 +74,18 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
 });
+const routeTree = rootRoute.addChildren([indexRoute]);
 
-async function renderHeader(initialUrl = "/") {
+/** The rendered header's router and `scrollTo` spy; disposing unmounts it. */
+type RenderedHeader = Disposable &
+  Pick<JsdomWindowStub, "scrollTo"> & { router: Router<typeof routeTree> };
+
+async function renderHeader(initialUrl = "/"): Promise<RenderedHeader> {
   cleanup();
   const jsdomWindow = stubJsdomWindow();
   const router = createRouter({
     history: createMemoryHistory({ initialEntries: [initialUrl] }),
-    routeTree: rootRoute.addChildren([indexRoute]),
+    routeTree,
   });
   render(<RouterProvider router={router} />);
   await screen.findByRole("banner");

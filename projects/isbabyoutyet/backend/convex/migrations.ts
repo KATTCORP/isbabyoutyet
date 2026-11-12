@@ -156,6 +156,14 @@ function authUserEmail<TUser>(user: TUser) {
   return null;
 }
 
+/** One page of the Better Auth user walk; `alreadyRan` means the sentinel stopped it. */
+export type SkipTourPage = {
+  alreadyRan: boolean;
+  continueCursor: string;
+  isDone: boolean;
+  processed: number;
+};
+
 /**
  * Grandfathers every Better Auth user that existed when the guided tour
  * shipped: they skip the welcome carousel and checklist. New signups after
@@ -168,7 +176,10 @@ function authUserEmail<TUser>(user: TUser) {
  * Idempotent: a sentinel `userOnboarding` row is written on the last page,
  * so later `runAll` deploys are a no-op.
  */
-export async function skipTourForExistingUsersPage(ctx: MutationCtx, cursor: string | null) {
+export async function skipTourForExistingUsersPage(
+  ctx: MutationCtx,
+  cursor: string | null,
+): Promise<SkipTourPage> {
   const sentinel = await ctx.db
     .query("userOnboarding")
     .withIndex("by_userId", (q) => q.eq("userId", SKIP_TOUR_FOR_EXISTING_USERS_SENTINEL))
@@ -830,7 +841,16 @@ const TABLE_MIGRATION_NAMES = [
   "migrations:backfillCoParentInviteOptionalKeys",
 ] as const;
 
-async function migrationDeploymentStatus(ctx: QueryCtx, names: ReadonlyArray<string>) {
+/** What `configure:vercel` polls: the migrations that failed, and whether all have finished. */
+type MigrationDeploymentStatus = {
+  failed: Array<string>;
+  isDone: boolean;
+};
+
+async function migrationDeploymentStatus(
+  ctx: QueryCtx,
+  names: ReadonlyArray<string>,
+): Promise<MigrationDeploymentStatus> {
   const statuses = await migrations.getStatus(ctx, {
     migrations: [...names],
   });
@@ -860,7 +880,7 @@ export const deploymentStatus = internalQuery({
 // skipTourForExistingUsers is not a table walker (users live in the Better
 // Auth component), so it is kicked off alongside the serial table series.
 /** CLI-oriented report returned by `@convex-dev/migrations` runners. */
-type MigrationRunnerReport = {
+export type MigrationRunnerReport = {
   readonly lastFinished: string;
   readonly lastStarted: string;
   readonly Name: string;

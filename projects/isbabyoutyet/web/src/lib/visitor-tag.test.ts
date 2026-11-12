@@ -25,20 +25,35 @@ const rejectConvexQueries: Parameters<typeof stubQueryClientResource>[0] = async
   throw new Error(`unexpected query ${getFunctionName(query)}`);
 };
 
-test("the browser hashes its stored visitor id with the baby id", async () => {
-  using _visitor = storedVisitorIdResource("visitor-1");
-  await using stub = stubQueryClientResource(rejectConvexQueries, { isServer: false });
+/** The page's baby query, answering one baby under its public id. */
+const answerBaby: Parameters<typeof stubQueryClientResource>[0] = async (query) => {
+  if (getFunctionName(query) !== "baby:getByPublicId") {
+    throw new Error(`unexpected query ${getFunctionName(query)}`);
+  }
+  return { _id: "baby-1" };
+};
 
-  const tag = await fetchQueryData(stub.queryClient, visitorTagQuery, "baby-1");
+test("the browser hashes its stored visitor id with the baby's id", async () => {
+  using _visitor = storedVisitorIdResource("visitor-1");
+  await using stub = stubQueryClientResource(answerBaby, { isServer: false });
+
+  const tag = await fetchQueryData(stub.queryClient, visitorTagQuery, "baby-smith");
 
   expect(tag).toBe(await visitorTag({ babyId: "baby-1", visitorId: "visitor-1" }));
 });
 
-test("a visitor who has never posted has no tag", async () => {
+test("a visitor who has never posted has no tag, and the baby isn't read for one", async () => {
   using _visitor = storedVisitorIdResource(null);
   await using stub = stubQueryClientResource(rejectConvexQueries, { isServer: false });
 
-  expect(await fetchQueryData(stub.queryClient, visitorTagQuery, "baby-1")).toBeNull();
+  expect(await fetchQueryData(stub.queryClient, visitorTagQuery, "baby-smith")).toBeNull();
+});
+
+test("a baby that doesn't exist has no tag", async () => {
+  using _visitor = storedVisitorIdResource("visitor-1");
+  await using stub = stubQueryClientResource(() => Promise.resolve(null), { isServer: false });
+
+  expect(await fetchQueryData(stub.queryClient, visitorTagQuery, "no-such-baby")).toBeNull();
 });
 
 test("the server never hashes, so the tag stays pending through SSR", async () => {
@@ -46,8 +61,8 @@ test("the server never hashes, so the tag stays pending through SSR", async () =
   using _window = stubNoWindowResource();
   await using stub = stubQueryClientResource(rejectConvexQueries, { isServer: true });
 
-  await prefetchQuery(stub.queryClient, visitorTagQuery, "baby-1");
+  await prefetchQuery(stub.queryClient, visitorTagQuery, "baby-smith");
   await new Promise((resolve) => setTimeout(resolve, 10));
 
-  expect(getData(stub.queryClient, visitorTagQuery, "baby-1")).toBeUndefined();
+  expect(getData(stub.queryClient, visitorTagQuery, "baby-smith")).toBeUndefined();
 });

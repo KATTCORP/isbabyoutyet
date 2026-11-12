@@ -1,6 +1,6 @@
 import { BabyIcon, ShieldIcon, SignOutIcon } from "@phosphor-icons/react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import type { QueryClient } from "@raf-query/react";
+import type { AppQueryClient } from "@/lib/query-client";
 import { load, prefetch, swr, useQuery } from "@raf-query/react";
 import type { ConvexQueryHandle } from "@workspace/convex-query";
 import type { ConvexReactClient } from "convex/react";
@@ -46,16 +46,18 @@ import { ensureWebPushSubscription, readWebPushSubscription } from "@/lib/web-pu
 
 export const Route = createFileRoute("/_auth/dashboard/settings")({
   loader: async (opts) => {
-    if (!opts.context.isAdmin) {
-      return { adminPush: null };
-    }
-    const queryClient = opts.context.queryClient;
-    const [handles] = await load(queryClient, {
+    // One round: the push key is public and the device's push state is read
+    // in the browser, so neither waits to learn whether this is an admin.
+    const [handles, data] = await load(opts.context.queryClient, {
       browserPush: prefetch(adminBrowserPushCapabilityQuery),
+      profile: swr(convexQuery(api.profile.get), {}),
       vapidPublicKey: swr(convexQuery(api.pushSubscriptions.getPublicKey), {}),
     });
     return {
-      adminPush: { browserPush: handles.browserPush, vapidPublicKey: handles.vapidPublicKey },
+      adminPush: data.profile?.isAdmin
+        ? { browserPush: handles.browserPush, vapidPublicKey: handles.vapidPublicKey }
+        : null,
+      profile: handles.profile,
     };
   },
   component: DashboardSettingsRoute,
@@ -69,7 +71,7 @@ export function DashboardSettingsRoute() {
     <DashboardSettingsSheet
       adminPush={loaderData.adminPush}
       convexClient={context.convexClient}
-      profile={context.me}
+      profile={loaderData.profile}
       queryClient={context.queryClient}
     />
   );
@@ -104,7 +106,7 @@ export function DashboardSettingsSheet(props: {
   adminPush: AdminPushLoaderData | null;
   convexClient: ConvexReactClient;
   profile: ConvexQueryHandle<typeof api.profile.get>;
-  queryClient: QueryClient;
+  queryClient: AppQueryClient;
 }) {
   const [profileThenable] = useQuery(convexQuery(api.profile.get), props.profile);
   const profile = use(profileThenable);

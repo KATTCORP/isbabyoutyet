@@ -9,6 +9,7 @@ const adminIndexSearchSchema = z.object({
 
 export const Route = createFileRoute("/_auth/dashboard_/admin/")({
   validateSearch: adminIndexSearchSchema,
+  // Synchronous: the redirect is decided by the URL, before any loader starts.
   beforeLoad: (opts) => {
     throw redirect({ replace: true, to: `/dashboard/admin/${opts.search.tab}` });
   },

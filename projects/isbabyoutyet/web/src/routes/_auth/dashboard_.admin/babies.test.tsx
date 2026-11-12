@@ -1,6 +1,6 @@
-import type { QueryClient } from "@raf-query/react";
+import type { AppQueryClient } from "@/lib/query-client";
 import { getFunctionName } from "convex/server";
-import type { ReactElement } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import { expect, test } from "vitest";
 import { LocaleProvider } from "@/lib/i18n";
 import type { TranslationFunction } from "@/lib/i18n";
@@ -17,14 +17,14 @@ import {
 // SAFETY: Test fixture is a subset of the production type.
 const t = ((key: string) => key) as TranslationFunction;
 
-const sampleBaby = {
+const sampleBaby: ComponentProps<typeof BabiesSection>["babies"][number] = {
   _id: "baby-1",
   createdAt: 1,
   demo: true,
   managerEmails: ["owner@example.com", "co@example.com"],
   name: "Avery",
   publicId: "baby-waiting",
-  status: "not_yet" as const,
+  status: "not_yet",
   updatedAt: 2,
 };
 
@@ -126,7 +126,7 @@ test("babies loader prefetches only the babies page for the URL's sort and filte
   });
   // @ts-expect-error — stub loader opts are the fields this route reads
   const loader: (opts: {
-    context: { queryClient: QueryClient };
+    context: { queryClient: AppQueryClient };
     deps: { hideDemo: boolean; order: string; sort: string };
   }) => Promise<object> = AdminBabiesRoute.options.loader;
 

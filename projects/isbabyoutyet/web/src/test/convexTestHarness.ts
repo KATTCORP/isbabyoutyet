@@ -1,4 +1,4 @@
-import type { QueryClient } from "@raf-query/react";
+import type { AppQueryClient } from "@/lib/query-client";
 import { removeAll } from "@raf-query/react";
 import type { ConvexWatchClient } from "@workspace/convex-query";
 import { makeTestConvexClient } from "@workspace/convex-query/testing";
@@ -34,7 +34,7 @@ export type IntegrationConvexClient = ConvexWatchClient & {
 export type ConvexTestHarness = {
   client: ConvexTestCaller;
   convexClient: IntegrationConvexClient;
-  queryClient: QueryClient;
+  queryClient: AppQueryClient;
   /** Re-run every live query, as the server would after a write made through `client`. */
   refresh: () => Promise<void>;
   t: ConvexTestRoot;

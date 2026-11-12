@@ -2,6 +2,7 @@
  * Same-origin paths for `/auth/login?redirect=` so auth-guard bounces and the
  * PWA logo escape hatch can return without becoming an open redirect.
  */
+import type { LinkProps, NavigateOptions } from "@tanstack/react-router";
 
 function parseBabyLoginPublicId(redirect: string | undefined): string | null {
   if (redirect === undefined) {
@@ -42,13 +43,13 @@ function parseSameOriginPath(redirect: string | undefined): string | null {
 export function babyLoginHomeLink(redirect: string | undefined) {
   const publicId = parseBabyLoginPublicId(redirect);
   if (publicId === null) {
-    return { to: "/" as const };
+    return { to: "/" as const } satisfies LinkProps;
   }
-  return { params: { publicId }, to: "/baby/$publicId" as const };
+  return { params: { publicId }, to: "/baby/$publicId" as const } satisfies LinkProps;
 }
 
 export function loginSuccessTarget(redirect: string | undefined) {
-  return { href: parseSameOriginPath(redirect) ?? "/dashboard" };
+  return { href: parseSameOriginPath(redirect) ?? "/dashboard" } satisfies NavigateOptions;
 }
 
 /**
@@ -60,5 +61,5 @@ export function overlayLoginSuccessTarget(redirect: string | undefined) {
   if (path === null) {
     return null;
   }
-  return { href: path };
+  return { href: path } satisfies NavigateOptions;
 }

@@ -17,6 +17,14 @@ function escapeRegExp(value: string) {
   return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
+/**
+ * A Build Output API `has` / `missing` condition: the locale cookie holds
+ * exactly one locale.
+ *
+ * @internal Exported for tests.
+ */
+export type LocaleCookieMatch = { key: string; type: "cookie"; value: string };
+
 type LocaleCacheKeyRoutesOptions = {
   cookieName: string;
   locales: ReadonlyArray<string>;
@@ -37,7 +45,11 @@ type LocaleCacheKeyRoutesOptions = {
 export function localeCacheKeyRoutes(opts: LocaleCacheKeyRoutesOptions) {
   const localeCookies = opts.locales.map((locale) => ({
     locale,
-    match: { key: opts.cookieName, type: "cookie", value: `^${escapeRegExp(locale)}$` },
+    match: {
+      key: opts.cookieName,
+      type: "cookie",
+      value: `^${escapeRegExp(locale)}$`,
+    } satisfies LocaleCookieMatch,
   }));
   return [
     ...localeCookies.map((cookie) => ({
@@ -56,11 +68,15 @@ export function localeCacheKeyRoutes(opts: LocaleCacheKeyRoutesOptions) {
   ];
 }
 
-/**
- * Splits the cache-key param off a request. `locale` is the locale the CDN
- * keyed the request under, or `null` when it is keyed on `Accept-Language`.
- */
-export function takeLocaleCacheKey(request: Request) {
+export type LocaleCacheKey = {
+  /** The locale the CDN keyed the request under, or `null` when it is keyed on `Accept-Language`. */
+  locale: string | null;
+  /** The request without the cache-key param. */
+  request: Request;
+};
+
+/** Splits the cache-key param off a request. */
+export function takeLocaleCacheKey(request: Request): LocaleCacheKey {
   const url = new URL(request.url);
   const locale = url.searchParams.get(LOCALE_CACHE_KEY_PARAM);
   if (locale === null) {

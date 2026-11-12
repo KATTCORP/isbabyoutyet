@@ -96,7 +96,12 @@ export function translate<TKey extends TranslationKey>(
   return message;
 }
 
-export function useI18n() {
+type I18n = {
+  locale: SupportedLocale;
+  t: TranslationFunction;
+};
+
+export function useI18n(): I18n {
   const locale = useContext(LocaleContext);
   return {
     locale,

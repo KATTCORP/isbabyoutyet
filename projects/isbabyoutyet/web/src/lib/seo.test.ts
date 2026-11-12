@@ -22,7 +22,9 @@ function useFakeTimersResource(now: Date) {
   });
 }
 
-function seoBaby<T extends object>(baby: T) {
+type BabySeoInput = Parameters<typeof babySeoHead>[0];
+
+function seoBaby<T extends object>(baby: T): Pick<BabySeoInput, "ogImageHash" | "timeZone"> & T {
   return { ogImageHash: "testoghash", timeZone: "Europe/London", ...baby };
 }
 
@@ -446,7 +448,7 @@ const publicBabyBase = {
   thumbnailUrl: null,
   timeZone: "Europe/London",
   wentToHospital: null,
-};
+} satisfies Omit<PublicBabyDoc, "dueDate" | "dueDateDisplayMode" | "publicDueDateText">;
 
 test("getBabySeo maps exact mode onto the canonical route slug", async () => {
   await using _timers = useFakeTimersResource(new Date("2026-08-11T12:00:00.000Z"));

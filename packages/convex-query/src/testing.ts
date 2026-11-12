@@ -14,6 +14,15 @@ interface Subscription {
   readonly query: AnyQueryReference;
 }
 
+/** What {@link makeTestConvexClient} returns. */
+export interface TestConvexClient {
+  readonly client: ConvexWatchClient;
+  /** Re-run every live subscription and notify its watchers. */
+  refresh(): Promise<void>;
+  /** The queries and args currently subscribed. */
+  subscriptions(): Array<Pick<Subscription, "args" | "name">>;
+}
+
 /**
  * A {@link ConvexWatchClient} over any async query runner (an in-memory
  * backend such as `convex-test`), for tests. Like `ConvexReactClient`, one
@@ -26,7 +35,7 @@ export function makeTestConvexClient(
     query: AnyQueryReference,
     args: FunctionArgs<AnyQueryReference>,
   ) => Promise<FunctionReturnType<AnyQueryReference>>,
-) {
+): TestConvexClient {
   const subscriptions = new Map<string, Subscription>();
 
   const load = async (subscription: Subscription) => {
@@ -77,11 +86,9 @@ export function makeTestConvexClient(
 
   return {
     client,
-    /** Re-run every live subscription and notify its watchers. */
     refresh: async () => {
       await Promise.all([...subscriptions.values()].map(load));
     },
-    /** The queries and args currently subscribed. */
     subscriptions: () =>
       [...subscriptions.values()].map((subscription) => ({
         args: subscription.args,

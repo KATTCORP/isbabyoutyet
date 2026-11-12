@@ -1,4 +1,4 @@
-import type { InfiniteData, QueryHandle } from "@raf-query/react";
+import type { InfiniteData, InputOf, QueryHandle } from "@raf-query/react";
 import {
   createQueryClient,
   fetchPreviousPage,
@@ -9,13 +9,14 @@ import {
   invalidateOne,
   isFetching,
   load,
+  retry,
   revalidate,
   swr,
 } from "@raf-query/react";
 import type { PaginationOptions, PaginationResult } from "convex/server";
 import { getFunctionName, makeFunctionReference } from "convex/server";
 import { expect, expectTypeOf, test } from "vitest";
-import { convexLink } from "./link.ts";
+import { convex } from "./part.ts";
 import type {
   ConvexPaginatedQueryHandle,
   ConvexQueryHandle,
@@ -24,16 +25,17 @@ import type {
   TwoWayPageParam,
 } from "./queries.ts";
 import { convexPaginatedQuery, convexQuery } from "./queries.ts";
+import type { ConvexQueryClient } from "./context.ts";
 import type { ConvexWatchClient } from "./reader.ts";
-import { ConvexReader } from "./reader.ts";
+import { subscribingReader } from "./reader.ts";
 import { makeTestConvexClient } from "./testing.ts";
 
 /** A browser client reading through `client`, without gc timers. */
 function makeQueryClient(client: ConvexWatchClient) {
   return createQueryClient({
-    gcTime: Infinity,
+    defaults: { gcTime: Infinity },
     isServer: false,
-    links: [convexLink(ConvexReader.subscribing(client))],
+    parts: [convex({ live: null, reader: subscribingReader(client) })],
   });
 }
 
@@ -59,7 +61,16 @@ const listFeed = makeFunctionReference<
 >("messages:feed");
 const messageFeed = convexPaginatedQuery(listFeed);
 
-function setup() {
+/** A query client over a fake backend, and what the backend was asked. */
+interface Setup {
+  /** Every paged watch, including ones a live subscription answers. */
+  readonly pageReads: Array<string>;
+  readonly queryClient: ConvexQueryClient;
+  /** The name of every query the backend ran. */
+  readonly reads: Array<string>;
+}
+
+function setup(): Setup {
   const reads: Array<string> = [];
   const pageReads: Array<string> = [];
   const backend = makeTestConvexClient(async (query, args) => {
@@ -142,12 +153,20 @@ test("a factory target reaches entries other calls of the factory created", asyn
   await reloading;
 });
 
-test("a client without the reader link fails its Convex queries with a hint", async () => {
-  const queryClient = createQueryClient({ gcTime: Infinity, isServer: false });
-
-  await expect(
-    load(queryClient, { message: swr(convexQuery(getMessage), { id: "a" }) }),
-  ).rejects.toThrow("create its QueryClient with the convexLink link");
+test("a client without the convex part doesn't type-check where it meets a factory", () => {
+  const queryClient = createQueryClient({ parts: [retry()] });
+  const wrong = () => {
+    void load(queryClient, {
+      // @ts-expect-error — this client has no `convex` part, so no reader for the queryFn
+      message: swr(convexQuery(getMessage), { id: "a" }),
+    });
+    // @ts-expect-error — the verbs check it too
+    void invalidateMany(queryClient, convexQuery(getMessage));
+  };
+  expectTypeOf(wrong).toBeFunction();
+  // `retry` is optional: a client with the part alone runs the factories.
+  const withoutRetry = makeQueryClient(makeTestConvexClient(async () => null).client);
+  expectTypeOf(invalidateMany(withoutRetry, convexQuery(getMessage))).resolves.toBeVoid();
 });
 
 test("inline paginated factories infer pages and take the args without paginationOpts", async () => {
@@ -183,7 +202,7 @@ function feedIds(
 test("two-way factories load pages before the first only on fetchPreviousPage, prepending them", async () => {
   const ctx = setup();
   const queryClient = ctx.queryClient;
-  const input = { args: { room: "lobby" }, from: null, numItems: 10 };
+  const input: InputOf<typeof messageFeed> = { args: { room: "lobby" }, from: null, numItems: 10 };
 
   const [handles] = await load(queryClient, { feed: swr(messageFeed, input) });
   expectTypeOf(handles.feed).toEqualTypeOf<ConvexPaginatedQueryHandle<typeof listFeed>>();
@@ -220,14 +239,14 @@ test("two-way factories load pages before the first only on fetchPreviousPage, p
     from: null,
     next: null,
     numItems: 10,
-  } as const;
+  } as const satisfies TwoWayPageParam;
   const newer = {
     cursor: null,
     direction: "backward",
     from: null,
     next: first,
     numItems: 10,
-  } as const;
+  } as const satisfies TwoWayPageParam;
   expect(data?.pageParams).toEqual([
     { cursor: "newer-1", direction: "backward", from: null, next: newer, numItems: 10 },
     newer,
@@ -239,7 +258,7 @@ test("two-way factories load pages before the first only on fetchPreviousPage, p
 
 test("a two-way query whose first page has nothing before it has no previous page", async () => {
   const ctx = setup();
-  const input = { args: { room: "quiet" }, from: "m3", numItems: 10 };
+  const input: InputOf<typeof messageFeed> = { args: { room: "quiet" }, from: "m3", numItems: 10 };
 
   await load(ctx.queryClient, { feed: swr(messageFeed, input) });
 
@@ -251,14 +270,14 @@ test("a two-way query whose first page has nothing before it has no previous pag
 test("a two-way refetch retraces backward pages backward, then forward, from its start", async () => {
   const ctx = setup();
   const queryClient = ctx.queryClient;
-  const input = { args: { room: "lobby" }, from: "m7", numItems: 10 };
+  const input: InputOf<typeof messageFeed> = { args: { room: "lobby" }, from: "m7", numItems: 10 };
   await load(queryClient, { feed: swr(messageFeed, input) });
   await fetchPreviousPage(queryClient, messageFeed, input);
   await fetchPreviousPage(queryClient, messageFeed, input);
   ctx.pageReads.length = 0;
 
   // Read through another start it shows: the entry keeps its own.
-  const other = { ...input, from: "lobby:older" };
+  const other: InputOf<typeof messageFeed> = { ...input, from: "lobby:older" };
   await invalidateOne(queryClient, messageFeed, other);
   await load(queryClient, { feed: revalidate(messageFeed, other) });
 
@@ -277,7 +296,11 @@ test("a two-way refetch retraces backward pages backward, then forward, from its
 test("a load keeps a feed that shows the item, and starts it over at one it doesn't", async () => {
   const ctx = setup();
   const queryClient = ctx.queryClient;
-  const at = (from: string | null) => ({ args: { room: "lobby" }, from, numItems: 10 });
+  const at = (from: string | null): InputOf<typeof messageFeed> => ({
+    args: { room: "lobby" },
+    from,
+    numItems: 10,
+  });
   await load(queryClient, { feed: swr(messageFeed, at(null)) });
   ctx.reads.length = 0;
 

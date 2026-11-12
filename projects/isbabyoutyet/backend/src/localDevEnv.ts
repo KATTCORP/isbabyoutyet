@@ -1,3 +1,4 @@
+import type { ConvexEnvInput } from "./env";
 import { convexEnvSchema } from "./env";
 
 /**
@@ -10,21 +11,17 @@ export const LOCAL_DEV_CONVEX_ENV = {
   EMAIL_FROM: "noreply@example.com",
   RESEND_API_KEY: "placeholder",
   SITE_URL: "http://localhost:3000",
-} as const;
-
-const LOCAL_DEV_PARSE_PLACEHOLDERS = {
-  ...LOCAL_DEV_CONVEX_ENV,
-  VAPID_PRIVATE_KEY: "local-dev-vapid-private",
-  VAPID_PUBLIC_KEY: "local-dev-vapid-public",
-};
+} as const satisfies Partial<ConvexEnvInput>;
 
 const VAPID_PUBLIC_KEY = "VAPID_PUBLIC_KEY";
 const VAPID_PRIVATE_KEY = "VAPID_PRIVATE_KEY";
 
 function localFieldNeedsSet(key: keyof typeof LOCAL_DEV_CONVEX_ENV, existing: string | undefined) {
   return !convexEnvSchema.safeParse({
-    ...LOCAL_DEV_PARSE_PLACEHOLDERS,
+    ...LOCAL_DEV_CONVEX_ENV,
     [key]: existing,
+    VAPID_PRIVATE_KEY: "local-dev-vapid-private",
+    VAPID_PUBLIC_KEY: "local-dev-vapid-public",
   }).success;
 }
 

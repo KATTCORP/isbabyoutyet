@@ -1,3 +1,4 @@
+import type { PaginationOptions } from "convex/server";
 import { convexTest } from "convex-test";
 import { expect, test, vi } from "vitest";
 import { api } from "./_generated/api";
@@ -15,7 +16,7 @@ import {
 import { insertUpdateWithTimelineItem } from "./timeline";
 import { visitorTag } from "../src/visitorId";
 
-const FIRST_PAGE = { cursor: null, numItems: 20 };
+const FIRST_PAGE: PaginationOptions = { cursor: null, numItems: 20 };
 
 async function setup() {
   const t = convexTest(schema, modules);

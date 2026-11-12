@@ -5,13 +5,12 @@ import {
   Outlet,
   Scripts,
   createRootRouteWithContext,
-  useMatches,
+  useMatch,
   useRouteContext,
   useRouterState,
 } from "@tanstack/react-router";
 import { legacyPolyfillsHeadScripts } from "@workspace/browser-support/head";
-import type { QueryClient } from "@raf-query/react";
-import type { ConvexHttpClient } from "convex/browser";
+import type { AppQueryClient } from "@/lib/query-client";
 import type { ConvexReactClient } from "convex/react";
 import type { ReactNode } from "react";
 import { ThemeProvider } from "next-themes";
@@ -27,56 +26,23 @@ import { Button } from "@workspace/ui/components/button";
 import { cn } from "@workspace/ui/lib/utils";
 import { BabyIcon, IconContext } from "@phosphor-icons/react";
 import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
-import { isSupportedLocale } from "@isbabyoutyet/backend/src/i18n";
-import { isPlainObject, isString } from "@workspace/runtime/guards";
 import { LocaleProvider, getDetectedLocale, translate, useI18n } from "@/lib/i18n";
-import { detectRequestLocale } from "@/lib/detect-locale";
 import { DevBar } from "@/components/dev-bar";
 import { TanStackAppDevtools } from "@/components/tanstack-devtools";
 import { m } from "@/paraglide/messages";
 import "@/lib/register-service-worker";
 import { privateCacheHeaders } from "@/lib/cachePolicy";
 import { useDelayedBoolean } from "@/lib/use-delayed-action";
-import { createServerFn } from "@tanstack/react-start";
-import { authServer } from "@/lib/auth-server";
 
-// Get auth information for SSR using available cookies
-export const getAuth = createServerFn({ method: "GET" }).handler(async () => {
-  return await authServer.getToken();
-});
-
-export const Route = createRootRouteWithContext<{
+/** What the router gives every route (`getRouter`). */
+export type RouterContext = {
   convexClient: ConvexReactClient;
-  /** The server request's Convex client; `null` in the browser. */
-  convexHttpClient: ConvexHttpClient | null;
+  /** The visitor's language (`visitorLocale`); in the browser, the one the server rendered. */
   locale: SupportedLocale;
-  queryClient: QueryClient;
-  token: string | undefined;
-}>()({
-  beforeLoad: async (ctx) => {
-    // Client navigation: zero network. beforeLoad re-runs on every navigation
-    // (back button included) and the router blocks on it, so a server-function
-    // hop here would waterfall into every cached click and flash the top
-    // progress bar. The browser Convex client already has its token fetcher
-    // from router `hydrate` / login / signup (`setClientToken`).
-    if (globalThis.window !== undefined) {
-      return {
-        locale: getDetectedLocale(),
-        token: undefined,
-      };
-    }
-    // SSR: cookie JWT for Convex plus the request locale (PARAGLIDE_LOCALE
-    // cookie, then Accept-Language) so the document renders in the visitor's
-    // language instead of the base locale and re-rendering on the client.
-    const [token, locale] = await Promise.all([getAuth(), detectRequestLocale()]);
-    if (token) {
-      ctx.context.convexHttpClient?.setAuth(token);
-    }
-    return {
-      locale,
-      token,
-    };
-  },
+  queryClient: AppQueryClient;
+};
+
+export const Route = createRootRouteWithContext<RouterContext>()({
   head: (opts) => {
     const locale = opts.match.context.locale ?? getDetectedLocale();
     const description = translate(
@@ -179,26 +145,19 @@ export const Route = createRootRouteWithContext<{
   notFoundComponent: NotFoundComponent,
 });
 
-/** Loose match-context bag before locale/token narrowing. */
-export function contextLocale<TContext>(context: TContext): SupportedLocale | undefined {
-  if (!isPlainObject(context) || !("locale" in context)) {
-    return undefined;
-  }
-  const locale = context.locale;
-  if (!isString(locale) || !isSupportedLocale(locale)) {
-    return undefined;
-  }
-  return locale;
-}
-
-/** Last match that set a supported locale wins; matches without one keep the previous. */
-export function localeFromMatches(
-  matches: ReadonlyArray<{ context: unknown }>,
-  fallback: SupportedLocale,
-) {
-  return matches.reduce((currentLocale, match) => {
-    return contextLocale(match.context) ?? currentLocale;
-  }, fallback);
+/**
+ * The document's language: the baby's on a baby page, the signed-in
+ * profile's on the dashboard, the visitor's everywhere else. A baby page's
+ * manager overlays keep the baby's.
+ *
+ * @internal exported for tests
+ */
+export function documentLocale(locales: {
+  baby: SupportedLocale | undefined;
+  profile: SupportedLocale | undefined;
+  visitor: SupportedLocale;
+}) {
+  return locales.baby ?? locales.profile ?? locales.visitor;
 }
 
 // Convex auth on the browser client is owned by `setClientToken` (router
@@ -208,8 +167,19 @@ export function localeFromMatches(
 // session store settles on every signed-in page load.
 function RootComponent() {
   const context = useRouteContext({ from: Route.id });
-  const matches = useMatches();
-  const locale = localeFromMatches(matches, context.locale);
+  const locale = documentLocale({
+    baby: useMatch({
+      from: "/baby/$publicId",
+      select: (match) => match.loaderData?.babyDoc.resolvedLocale,
+      shouldThrow: false,
+    }),
+    profile: useMatch({
+      from: "/_auth",
+      select: (match) => match.loaderData?.locale,
+      shouldThrow: false,
+    }),
+    visitor: context.locale,
+  });
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

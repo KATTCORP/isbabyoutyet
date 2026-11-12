@@ -5,6 +5,7 @@ import { fakeConvexCli } from "@workspace/convex-cli/testing";
 import dotenv from "dotenv";
 import { Effect } from "effect";
 import { TestConsole } from "effect/testing";
+import type { ConvexEnvInput } from "../src/env";
 import { LOCAL_DEV_CONVEX_ENV } from "../src/localDevEnv";
 import { ensureLocalConvexEnv } from "./ensureLocalEnv";
 
@@ -12,7 +13,7 @@ const completeEnv = {
   ...LOCAL_DEV_CONVEX_ENV,
   VAPID_PRIVATE_KEY: "private",
   VAPID_PUBLIC_KEY: "public",
-};
+} satisfies ConvexEnvInput;
 
 /** A Convex deployment whose `env list` prints `env`. */
 function convexWithEnv(env: Record<string, string>) {

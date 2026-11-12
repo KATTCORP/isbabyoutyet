@@ -1,7 +1,14 @@
 import sharp from "sharp";
+import type { ResizeOptions } from "sharp";
+
+/** Pixel size of a rendered photo derivative. */
+export type DerivativeSize = {
+  height: number;
+  width: number;
+};
 
 /** Square crop used on the baby page and timeline. */
-export const PAGE_THUMBNAIL = { height: 900, width: 900 } as const;
+export const PAGE_THUMBNAIL = { height: 900, width: 900 } as const satisfies DerivativeSize;
 
 /**
  * Chromium `Notification.image` (Chrome on Android / Windows). iOS Safari
@@ -12,16 +19,16 @@ export const PAGE_THUMBNAIL = { height: 900, width: 900 } as const;
  * the center. Keep the file small (typically well under 200KB) — the image
  * is fetched on the notification’s critical path.
  */
-export const PUSH_IMAGE = { height: 675, width: 1350 } as const;
+export const PUSH_IMAGE = { height: 675, width: 1350 } as const satisfies DerivativeSize;
 
 /**
  * Tiny square JPEG inlined as a `data:` URL (Next.js `blurDataURL`).
  * The page thumbnail is the same center-cover crop, so the placeholder
  * matches the inline photo while CSS blurs it up.
  */
-export const BLUR_PLACEHOLDER = { height: 8, width: 8 } as const;
+export const BLUR_PLACEHOLDER = { height: 8, width: 8 } as const satisfies DerivativeSize;
 
-const PAGE_CROP = { fit: "cover", position: "center" } as const;
+const PAGE_CROP = { fit: "cover", position: "center" } as const satisfies ResizeOptions;
 
 export async function renderPageThumbnail(bytes: Buffer) {
   return await sharp(bytes)

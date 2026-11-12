@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+import type { ConvexEnvInput } from "./env";
 import { convexEnvSchema } from "./env";
 import {
   GENERATED_LOCAL_DEV_CONVEX_ENV_KEYS,
@@ -12,7 +13,7 @@ test("local placeholders plus generated VAPID keys satisfy the Convex env schema
     ...LOCAL_DEV_CONVEX_ENV,
     VAPID_PRIVATE_KEY: "private",
     VAPID_PUBLIC_KEY: "public",
-  };
+  } satisfies ConvexEnvInput;
   for (const key of GENERATED_LOCAL_DEV_CONVEX_ENV_KEYS) {
     expect(key in localEnv).toBe(true);
   }

@@ -1,3 +1,4 @@
+import type { PaginationOptions } from "convex/server";
 import { convexTest } from "convex-test";
 import { expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
@@ -19,7 +20,7 @@ import {
 } from "../src/homepageDemoFeed";
 import { SUPPORTED_LOCALES } from "../src/i18n";
 
-const FIRST_PAGE = { cursor: null, numItems: 50 };
+const FIRST_PAGE: PaginationOptions = { cursor: null, numItems: 50 };
 const HOMEPAGE_DEMO_FEED = homepageDemoFeedFor("en-GB");
 
 const FIXTURE_UPDATES = HOMEPAGE_DEMO_FEED.filter((item) => item.kind === "update");

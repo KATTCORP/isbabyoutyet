@@ -36,11 +36,14 @@ function withEffectiveSteps(
   };
 }
 
-export function optimisticallySetMinimized(progress: OnboardingProgress, minimized: boolean) {
+export function optimisticallySetMinimized(
+  progress: OnboardingProgress,
+  minimized: boolean,
+): OnboardingProgress {
   return { ...progress, minimized };
 }
 
-export function optimisticallyDismissChecklist(progress: OnboardingProgress) {
+export function optimisticallyDismissChecklist(progress: OnboardingProgress): OnboardingProgress {
   return {
     ...progress,
     activeCoachmarkStepId: null,
@@ -53,18 +56,21 @@ export function optimisticallyDismissChecklist(progress: OnboardingProgress) {
 export function optimisticallySetActiveCoachmarkStepId(
   progress: OnboardingProgress,
   stepId: OnboardingStepId | null,
-) {
+): OnboardingProgress {
   return { ...progress, activeCoachmarkStepId: stepId };
 }
 
 export function optimisticallySetRestartHintVisible(
   progress: OnboardingProgress,
   visible: boolean,
-) {
+): OnboardingProgress {
   return { ...progress, restartHintVisible: visible };
 }
 
-export function optimisticallyCompleteStep(progress: OnboardingProgress, stepId: OnboardingStepId) {
+export function optimisticallyCompleteStep(
+  progress: OnboardingProgress,
+  stepId: OnboardingStepId,
+): OnboardingProgress {
   if (progress.completedSteps.includes(stepId)) {
     return progress;
   }

@@ -7,8 +7,7 @@ import {
   NAVIGATION_PROGRESS_DELAY_MS,
   NavigationProgressBar,
   NotFoundComponent,
-  contextLocale,
-  localeFromMatches,
+  documentLocale,
   RootDocument,
   RootErrorComponent,
 } from "@/routes/__root";
@@ -40,34 +39,17 @@ function renderProgress(ui: ReactElement) {
   return renderResource(<LocaleProvider locale="en-GB">{ui}</LocaleProvider>);
 }
 
-test("route context locales are narrowed to supported values", () => {
-  expect(contextLocale({ locale: "sv" })).toBe("sv");
-  expect(contextLocale({ locale: "unsupported" })).toBeUndefined();
-  expect(contextLocale({ locale: 1 })).toBeUndefined();
-  expect(contextLocale({ locale: true })).toBeUndefined();
-  expect(contextLocale({ locale: null })).toBeUndefined();
-  expect(contextLocale({})).toBeUndefined();
-  expect(contextLocale(null)).toBeUndefined();
-  expect(contextLocale(["sv"])).toBeUndefined();
+test("the document is in the visitor's language off baby pages and the dashboard", () => {
+  expect(documentLocale({ baby: undefined, profile: undefined, visitor: "en-US" })).toBe("en-US");
 });
 
-test("document locale uses the last route that set one", () => {
-  expect(
-    localeFromMatches([{ context: { locale: "en-GB" } }, { context: { locale: "sv" } }], "en-US"),
-  ).toBe("sv");
+test("the dashboard is in the signed-in profile's language", () => {
+  expect(documentLocale({ baby: undefined, profile: "sv", visitor: "en-GB" })).toBe("sv");
 });
 
-test("document locale keeps the baby page when a later match has no locale", () => {
-  expect(
-    localeFromMatches(
-      [
-        { context: { locale: "en-GB" } },
-        { context: { locale: "sv" } },
-        { context: { token: "session" } },
-      ],
-      "en-GB",
-    ),
-  ).toBe("sv");
+test("a baby page is in the baby's language, whoever is looking", () => {
+  expect(documentLocale({ baby: "sv", profile: undefined, visitor: "en-GB" })).toBe("sv");
+  expect(documentLocale({ baby: "sv", profile: "es", visitor: "en-GB" })).toBe("sv");
 });
 
 test("the root document shell sets the html lang attribute", async () => {

@@ -17,11 +17,16 @@ import { useDashboardSettingsOverlayLinks } from "@/lib/overlay-nav";
 export const Route = createFileRoute("/_auth/dashboard")({
   component: DashboardPageLayout,
   loader: async (opts) => {
-    const [handles] = await load(opts.context.queryClient, {
+    const [handles, data] = await load(opts.context.queryClient, {
       babies: swr(convexQuery(api.baby.listByUser), {}),
+      me: swr(convexQuery(api.profile.get), {}),
       onboarding: swr(convexQuery(api.onboarding.getMine), {}),
     });
-    return { ...handles, isAdmin: opts.context.isAdmin };
+    return {
+      babies: handles.babies,
+      isAdmin: data.me?.isAdmin === true,
+      onboarding: handles.onboarding,
+    };
   },
   // iOS only delivers Web Push to Home Screen apps, and baby-page manifests
   // are scoped to `/baby/`, so admins install the dashboard for new-baby alerts.

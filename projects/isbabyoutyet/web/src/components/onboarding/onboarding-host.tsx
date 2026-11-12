@@ -1,4 +1,5 @@
 import { useMutation } from "convex/react";
+import type { ReactMutation } from "convex/react";
 import { useQuery } from "@raf-query/react";
 import { use } from "react";
 import { convexQuery } from "@workspace/convex-query";
@@ -48,7 +49,15 @@ function scrollToTourTarget(targetId: string) {
   el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
 }
 
-function useOnboardingMutations() {
+type OnboardingMutations = {
+  completeStep: ReactMutation<typeof api.onboarding.completeStep>;
+  dismissChecklist: ReactMutation<typeof api.onboarding.dismissChecklist>;
+  setActiveCoachmarkStepId: ReactMutation<typeof api.onboarding.setActiveCoachmarkStepId>;
+  setMinimized: ReactMutation<typeof api.onboarding.setMinimized>;
+  setRestartHintVisible: ReactMutation<typeof api.onboarding.setRestartHintVisible>;
+};
+
+function useOnboardingMutations(): OnboardingMutations {
   const setMinimized = useMutation(api.onboarding.setMinimized).withOptimisticUpdate(
     (localStore, args) => {
       patchOnboardingMine(localStore, (progress) =>

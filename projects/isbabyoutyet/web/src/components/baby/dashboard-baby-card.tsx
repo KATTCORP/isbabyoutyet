@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Badge } from "@workspace/ui/components/badge";
 import type { FunctionReturnType } from "convex/server";
 import { getCurrentStatus } from "@isbabyoutyet/backend/src/types";
+import type { BabyStatus } from "@isbabyoutyet/backend/src/types";
 import type { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { formatDueDate, getDaysUntilDueDate, getOverdueDays } from "./utils";
 import { useI18n } from "@/lib/i18n";
@@ -34,7 +35,7 @@ const STATUS_EMOJI = {
   gone_to_hospital: "🏥",
   labor_started: "💫",
   not_yet: "👶",
-} as const;
+} as const satisfies Record<BabyStatus["type"], string>;
 
 function StatusBadge(props: { baby: DashboardBabyCardBaby }) {
   const { t } = useI18n();

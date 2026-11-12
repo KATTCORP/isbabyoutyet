@@ -2,10 +2,39 @@ import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { babyOgImageHash } from "../src/babyOgImage";
 import { milestoneVisibilityForPreset } from "../src/types";
+import type { MilestoneDates, MilestoneVisibility } from "../src/types";
 import { loadMilestoneDates } from "./timeline";
 import { resolveBabyPreferences } from "./babyPreferences";
+import type { BabyPreferences } from "./babyPreferences";
 
-async function toBabyBaseDto(ctx: QueryCtx, baby: Doc<"baby">) {
+/** What every projection shares: no owner identity, counters, or due-date fields. */
+type BabyBaseDto = Omit<
+  Doc<"baby">,
+  | "birthJourney"
+  | "dueDate"
+  | "dueDateDisplayMode"
+  | "lastActivityAt"
+  | "ownerTokenIdentifier"
+  | "publicDueDateText"
+  | "subscriptionCount"
+  | "userId"
+> &
+  MilestoneDates &
+  BabyPreferences & { milestoneVisibility: MilestoneVisibility };
+
+type ExactDueDateBabyDto = BabyBaseDto & { dueDate: string; dueDateDisplayMode: "exact" };
+
+type MessageDueDateBabyDto = BabyBaseDto & {
+  dueDateDisplayMode: "message";
+  publicDueDateText: string | undefined;
+};
+
+export type BabyDto = (ExactDueDateBabyDto | MessageDueDateBabyDto) & { ogImageHash: string };
+
+export type ManagerBabyDto = BabyBaseDto &
+  Pick<Doc<"baby">, "birthJourney" | "dueDate" | "dueDateDisplayMode" | "publicDueDateText">;
+
+async function toBabyBaseDto(ctx: QueryCtx, baby: Doc<"baby">): Promise<BabyBaseDto> {
   const [milestoneDates, preferences] = await Promise.all([
     loadMilestoneDates(ctx, baby._id),
     resolveBabyPreferences(ctx.db, baby),
@@ -29,13 +58,7 @@ async function toBabyBaseDto(ctx: QueryCtx, baby: Doc<"baby">) {
   };
 }
 
-function ogImageHashForPublicBaby(
-  baby: Awaited<ReturnType<typeof toBabyBaseDto>> &
-    (
-      | { dueDate: string; dueDateDisplayMode: "exact" }
-      | { dueDateDisplayMode: "message"; publicDueDateText: string | undefined }
-    ),
-) {
+function ogImageHashForPublicBaby(baby: ExactDueDateBabyDto | MessageDueDateBabyDto) {
   return babyOgImageHash({
     babyBorn: baby.babyBorn,
     dueDate: baby.dueDateDisplayMode === "exact" ? baby.dueDate : null,
@@ -53,24 +76,24 @@ function ogImageHashForPublicBaby(
 }
 
 /** Public projection physically omits whichever due-date field is inactive. */
-export async function toBabyDto(ctx: QueryCtx, baby: Doc<"baby">) {
+export async function toBabyDto(ctx: QueryCtx, baby: Doc<"baby">): Promise<BabyDto> {
   const publicBaby = await toBabyBaseDto(ctx, baby);
   switch (baby.dueDateDisplayMode) {
     case "exact": {
       if (!baby.dueDate) {
         throw new Error("Exact due date display requires a due date");
       }
-      const dto = {
+      const dto: ExactDueDateBabyDto = {
         ...publicBaby,
         dueDate: baby.dueDate,
-        dueDateDisplayMode: "exact" as const,
+        dueDateDisplayMode: "exact",
       };
       return { ...dto, ogImageHash: ogImageHashForPublicBaby(dto) };
     }
     case "message": {
-      const dto = {
+      const dto: MessageDueDateBabyDto = {
         ...publicBaby,
-        dueDateDisplayMode: "message" as const,
+        dueDateDisplayMode: "message",
         publicDueDateText: baby.publicDueDateText?.trim(),
       };
       return { ...dto, ogImageHash: ogImageHashForPublicBaby(dto) };
@@ -82,7 +105,7 @@ export async function toBabyDto(ctx: QueryCtx, baby: Doc<"baby">) {
   }
 }
 
-export async function toManagerBabyDto(ctx: QueryCtx, baby: Doc<"baby">) {
+export async function toManagerBabyDto(ctx: QueryCtx, baby: Doc<"baby">): Promise<ManagerBabyDto> {
   return {
     ...(await toBabyBaseDto(ctx, baby)),
     birthJourney: baby.birthJourney,

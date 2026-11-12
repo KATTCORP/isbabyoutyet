@@ -43,7 +43,7 @@ test.each([
   },
 ])("renders the $heading status selected by the journey", async (testCase) => {
   await using _timers = useFakeTimersResource(new Date("2026-08-18T08:00:00.000Z"));
-  const currentBaby = { ...baby, ...testCase.dates };
+  const currentBaby: BabyData = { ...baby, ...testCase.dates };
   await using view = await renderWithTestRouter(
     <StatusDisplay
       baby={currentBaby}
@@ -103,7 +103,7 @@ test.each([
   { dueDate: "2026-08-19", expected: "1 day until due date" },
 ])("renders singular countdown copy: $expected", async (testCase) => {
   await using _timers = useFakeTimersResource(new Date("2026-08-18T08:00:00.000Z"));
-  const currentBaby = { ...baby, dueDate: testCase.dueDate };
+  const currentBaby: BabyData = { ...baby, dueDate: testCase.dueDate };
   await using view = await renderWithTestRouter(
     <StatusDisplay
       baby={currentBaby}

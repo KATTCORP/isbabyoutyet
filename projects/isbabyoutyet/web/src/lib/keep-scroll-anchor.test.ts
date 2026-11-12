@@ -2,11 +2,15 @@ import { expect, test, vi } from "vitest";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { keepScrollAnchor } from "./keep-scroll-anchor";
 
+type AnchorPosition = {
+  top: number;
+};
+
 /** An attached element whose on-screen top the test moves, and a spied `scrollBy` that moves it back. */
 function anchorResource() {
   const anchor = document.createElement("div");
   document.body.append(anchor);
-  const position = { top: 100 };
+  const position: AnchorPosition = { top: 100 };
   vi.spyOn(anchor, "getBoundingClientRect").mockImplementation(() =>
     DOMRect.fromRect({ height: 50, width: 300, x: 0, y: position.top }),
   );

@@ -250,7 +250,6 @@ export const homepageDemoSeedLayer = Layer.mergeAll(
 
 const isCli = process.argv[1] && path.resolve(process.argv[1]) === import.meta.filename;
 if (isCli) {
-  const seeds = { content: seedHomepageDemoContent, photos: seedHomepageDemoPhotos };
   Command.make(
     "seed-homepage-demo",
     {
@@ -266,7 +265,17 @@ if (isCli) {
     (flags) =>
       Option.match(flags.only, {
         onNone: () => seedHomepageDemo({ photos: "required" }),
-        onSome: (only) => seeds[only],
+        onSome: (only) => {
+          // No default: a new `--only` value fails to compile until it has a seed.
+          switch (only) {
+            case "content": {
+              return seedHomepageDemoContent;
+            }
+            case "photos": {
+              return seedHomepageDemoPhotos;
+            }
+          }
+        },
       }).pipe(Effect.provideService(ConvexPreviewName, flags.previewName)),
   ).pipe(
     Command.run({ version: "0.0.0" }),

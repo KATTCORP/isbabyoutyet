@@ -1,4 +1,4 @@
-import type { QueryClient } from "@raf-query/react";
+import type { AppQueryClient } from "@/lib/query-client";
 import { setData } from "@raf-query/react";
 import { prefetchQuery } from "@/test/loadQuery";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
@@ -18,7 +18,7 @@ import {
  * against the stubbed browser.
  */
 export async function seedBrowserPushCapability(
-  queryClient: QueryClient,
+  queryClient: AppQueryClient,
   opts: { babyRef: string; capability: BrowserPushCapability },
 ) {
   // The loader's prefetch starts detection (never fresh); the seed, written
@@ -30,7 +30,7 @@ export async function seedBrowserPushCapability(
 
 /** {@link seedBrowserPushCapability} for the dashboard's admin new-baby push. */
 export async function seedAdminBrowserPushCapability(
-  queryClient: QueryClient,
+  queryClient: AppQueryClient,
   capability: AdminBrowserPushCapability,
 ) {
   const handle = await prefetchQuery(queryClient, adminBrowserPushCapabilityQuery);

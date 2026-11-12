@@ -85,6 +85,12 @@ function GithubIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+type HeroHeadline = {
+  after: string;
+  before: string;
+  words: Array<string>;
+};
+
 /**
  * Hero headline from the translation catalog (`Hero before` / `Hero names` /
  * `Hero after`). `Hero names` is a comma-separated list: the generic "baby"
@@ -92,7 +98,7 @@ function GithubIcon(props: React.SVGProps<SVGSVGElement>) {
  * the language needs one (pt-BR), so the sentence stays grammatical for every
  * name.
  */
-function heroHeadlineFromCatalog(t: (key: TranslationKey) => string) {
+function heroHeadlineFromCatalog(t: (key: TranslationKey) => string): HeroHeadline {
   return {
     after: t("Hero after"),
     before: t("Hero before"),
@@ -155,12 +161,17 @@ function fitLine(chars: number) {
   return 100 / (chars * 0.62 + 1);
 }
 
+type HeroHeadlineLayout = {
+  fontSize: string;
+  stackBefore: boolean;
+};
+
 /**
  * Lay the headline out so its longest line stays on one line in its column.
  * Short lead-ins ("Is", "Är") share the name's line; a long one ("¿Ya nació")
  * gets its own line when that lets the headline be noticeably bigger.
  */
-function heroHeadlineLayout(headline: ReturnType<typeof heroHeadlineFromCatalog>) {
+function heroHeadlineLayout(headline: HeroHeadline): HeroHeadlineLayout {
   const longestWord = Math.max(...headline.words.map((word) => [...word].length), 0);
   const before = [...headline.before].length;
   const after = [...headline.after].length;

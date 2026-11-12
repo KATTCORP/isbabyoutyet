@@ -12,9 +12,11 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 export const Route = createFileRoute("/baby/$publicId/updates/$updateId/photo")({
   loader: async (opts) => {
     const queryClient = opts.context.queryClient;
-    const input = { babyId: opts.params.publicId, updateId: opts.params.updateId };
     const [handles, data] = await load(queryClient, {
-      updatePhoto: swr(convexQuery(api.timeline.getUpdatePhoto), input),
+      updatePhoto: swr(convexQuery(api.timeline.getUpdatePhoto), {
+        babyId: opts.params.publicId,
+        updateId: opts.params.updateId,
+      }),
     });
     if (!data.updatePhoto) {
       throw notFound();

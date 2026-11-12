@@ -10,7 +10,10 @@ import { filterSousVideEntries } from "@/lib/search";
 import { defaultTemperatureUnit, temperatureUnitSearchSchema } from "@/lib/temperature";
 import { m } from "@/paraglide/messages";
 
-const SEARCH_DEFAULTS = { info: "", q: "" } as const;
+/** Search params the URL leaves out while they hold their default. */
+type SearchDefaults = { info: string; q: string };
+
+const SEARCH_DEFAULTS = { info: "", q: "" } as const satisfies SearchDefaults;
 
 const sousVideSearchSchema = z.object({
   /** Legacy `?info=<cutId>` share links; redirected to `#info-<cutId>`. */

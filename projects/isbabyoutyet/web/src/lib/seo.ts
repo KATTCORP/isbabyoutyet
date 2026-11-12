@@ -180,8 +180,21 @@ export function openGraphImageMeta(opts: { alt: string; imageUrl: string }) {
 
 type PublicBabyDoc = NonNullable<FunctionReturnType<typeof api.baby.getByPublicId>>;
 
+/** What a baby page's `head` is built from. */
+type BabySeoHead = {
+  canonical: string;
+  description: string;
+  imageAlt: string;
+  imageUrl: string;
+  indexable: boolean;
+  locale: SupportedLocale;
+  ogUrl: string;
+  themeColor: string;
+  title: string;
+};
+
 /** @internal Exported for tests; production uses {@link getBabySeo}. */
-export function babySeoHead(baby: BabySeoInput) {
+export function babySeoHead(baby: BabySeoInput): BabySeoHead {
   const title = babyPageTitle(baby);
   const description = babyPageDescription(baby);
   const pagePath = `/baby/${baby.publicId}`;
@@ -214,7 +227,7 @@ export function getBabySeo(doc: PublicBabyDoc, routePublicId: string) {
           dueDateDisplayMode: "message" as const,
           publicDueDateText: doc.publicDueDateText ?? "",
         }),
-    // beforeLoad canonicalizes this route parameter. During same-route
+    // The loader canonicalizes this route parameter. During same-route
     // navigation, reactive query data can briefly belong to the prior slug.
     babyBorn: doc.babyBorn,
     laborStarted: doc.laborStarted,

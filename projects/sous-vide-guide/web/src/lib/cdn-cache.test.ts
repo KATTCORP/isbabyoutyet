@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { withCdnCache } from "@/lib/cdn-cache";
+import type { CdnCacheOptions } from "@/lib/cdn-cache";
 
 function html(init: ResponseInit = {}) {
   return new Response("<!doctype html>", {
@@ -13,7 +14,13 @@ function request(headers: Record<string, string>, method = "GET") {
   return new Request("https://guide.test/", { headers, method });
 }
 
-function cacheHeaders(response: Response) {
+type CacheHeaders = {
+  cacheControl: string | null;
+  cdnCacheControl: string | null;
+  vary: string | null;
+};
+
+function cacheHeaders(response: Response): CacheHeaders {
   return {
     cacheControl: response.headers.get("cache-control"),
     cdnCacheControl: response.headers.get("vercel-cdn-cache-control"),
@@ -21,7 +28,7 @@ function cacheHeaders(response: Response) {
   };
 }
 
-const notCached = { cacheControl: null, cdnCacheControl: null, vary: null };
+const notCached: CacheHeaders = { cacheControl: null, cdnCacheControl: null, vary: null };
 
 describe("withCdnCache", () => {
   it("caches a cookieless page per Accept-Language", async () => {
@@ -102,8 +109,8 @@ describe("withCdnCache", () => {
   });
 
   it("only caches successful HTML responses to GET and HEAD", () => {
-    const sv = { "accept-language": "sv" };
-    const options = { keyedLocale: null, locale: "sv" };
+    const sv = { "accept-language": "sv" } satisfies HeadersInit;
+    const options = { keyedLocale: null, locale: "sv" } satisfies Omit<CdnCacheOptions, "request">;
 
     expect(
       cacheHeaders(withCdnCache(html(), { ...options, request: request(sv, "HEAD") })).vary,

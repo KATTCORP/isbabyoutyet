@@ -9,6 +9,7 @@ import {
   formatDueDate,
 } from "./utils";
 import { useI18n } from "@/lib/i18n";
+import type { TranslationKey } from "@/lib/i18n";
 import { useBabyPhotoOverlayLinks } from "@/lib/overlay-nav";
 import { BlurImage } from "@/components/blur-image";
 
@@ -139,7 +140,10 @@ const STATUS_META = {
     sublineKey: "Not gone to hospital yet",
   },
   not_yet: { answerKey: "Not yet", emoji: "👶", sublineKey: "Baby is still on the way" },
-} as const;
+} as const satisfies Record<
+  BabyStatus["type"],
+  { answerKey: TranslationKey; emoji: string; sublineKey: TranslationKey }
+>;
 
 export function StatusDisplay(props: StatusDisplayProps) {
   const { locale, t } = useI18n();

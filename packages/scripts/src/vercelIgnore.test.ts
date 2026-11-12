@@ -289,8 +289,14 @@ describe("parseWorkspacePackage", () => {
 
 type GitScript = ReadonlyArray<readonly [string, ReadonlyArray<string | null>]>;
 
+interface ScriptedGit {
+  /** Every command run so far, oldest first, as its space-joined args. */
+  readonly calls: Array<string>;
+  readonly layer: Layer.Layer<Git>;
+}
+
 /** Replays canned outputs per command (`null` fails; the last repeats) and records every call. */
-function scriptedGit(script: GitScript) {
+function scriptedGit(script: GitScript): ScriptedGit {
   const outputs = new Map(script.map((entry) => [entry[0], [...entry[1]]]));
   const calls: Array<string> = [];
   const layer = Layer.succeed(
@@ -329,7 +335,7 @@ function fetches(calls: ReadonlyArray<string>) {
   return calls.filter((call) => call.startsWith("fetch"));
 }
 
-function resolve(deploy: VercelDeploy, git: ReturnType<typeof scriptedGit>) {
+function resolve(deploy: VercelDeploy, git: ScriptedGit) {
   return resolveDiffBase(deploy).pipe(Effect.result, Effect.provide(git.layer));
 }
 
@@ -374,7 +380,7 @@ describe("resolveDiffBase", () => {
         ["rev-parse HEAD", ["head"]],
         [SHALLOW, ["true"]],
       ]);
-      const deploy = { ...PREVIEW, provider: Option.some("gitlab") };
+      const deploy: VercelDeploy = { ...PREVIEW, provider: Option.some("gitlab") };
       expect(Result.isFailure(yield* resolve(deploy, git))).toBe(true);
       expect(
         Result.isFailure(yield* resolve({ ...deploy, previousSha: Option.some("abc") }, git)),
@@ -514,8 +520,11 @@ function runIgnore(opts: {
   );
 }
 
-const PREVIEW_ENV = { VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "cursor/feature" };
-const PREVIOUS_ENV = { ...PREVIEW_ENV, VERCEL_GIT_PREVIOUS_SHA: "abc" };
+const PREVIEW_ENV = {
+  VERCEL_ENV: "preview",
+  VERCEL_GIT_COMMIT_REF: "cursor/feature",
+} satisfies NodeJS.ProcessEnv;
+const PREVIOUS_ENV = { ...PREVIEW_ENV, VERCEL_GIT_PREVIOUS_SHA: "abc" } satisfies NodeJS.ProcessEnv;
 const HAS_ABC = ["cat-file -e abc^{commit}", [""]] as const;
 
 function diffSince(base: string, files: ReadonlyArray<string>) {

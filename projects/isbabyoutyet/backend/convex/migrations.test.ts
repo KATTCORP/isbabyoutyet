@@ -205,11 +205,10 @@ test("sanitizeOnboardingSteps strips unknown retired step ids", async () => {
     if (!onboarding) {
       throw new Error("Fixture missing");
     }
-    const legacyOnboarding = {
+    await sanitizeOnboardingStepsDoc(ctx, {
       ...onboarding,
       completedSteps: ["add_baby", "retired_step", "share_link", "learn_encouragements"],
-    };
-    await sanitizeOnboardingStepsDoc(ctx, legacyOnboarding);
+    });
     const updated = await ctx.db.get(onboardingId);
     if (!updated) {
       throw new Error("Fixture missing");
@@ -383,8 +382,7 @@ test("removeEncouragementUserId strips the retired userId key", async () => {
     if (!encouragement) {
       throw new Error("Fixture missing");
     }
-    const legacy = { ...encouragement, userId: "bob" };
-    await removeEncouragementUserIdDoc(ctx, legacy);
+    await removeEncouragementUserIdDoc(ctx, { ...encouragement, userId: "bob" });
     const updated = await ctx.db.get(encouragementId);
     if (!updated) {
       throw new Error("Fixture missing");
@@ -421,8 +419,7 @@ test("removeBabyEncouragementsDisabled strips the retired flag from baby docs", 
     if (!baby) {
       throw new Error("Fixture missing");
     }
-    const legacyBaby = { ...baby, encouragementsDisabled: true };
-    await removeBabyEncouragementsDisabledDoc(ctx, legacyBaby);
+    await removeBabyEncouragementsDisabledDoc(ctx, { ...baby, encouragementsDisabled: true });
     const updated = await ctx.db.get(babyId);
     if (!updated) {
       throw new Error("Fixture missing");

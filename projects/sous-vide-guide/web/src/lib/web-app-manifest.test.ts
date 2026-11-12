@@ -19,7 +19,9 @@ const webAppManifestSchema = z.object({
   start_url: z.literal("/"),
 });
 
-function readPngSize(path: string) {
+type PngSize = { height: number; width: number };
+
+function readPngSize(path: string): PngSize {
   const png = readFileSync(path);
   return {
     height: png.readUInt32BE(20),

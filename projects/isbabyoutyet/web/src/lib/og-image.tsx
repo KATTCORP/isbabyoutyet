@@ -1,6 +1,6 @@
 import satori from "satori";
 import { Resvg } from "@resvg/resvg-js";
-import type { ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import { getCurrentStatus, getMilestonePolicy } from "@isbabyoutyet/backend/src/types";
 import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
 import type { BabyStatus, MilestoneVisibility } from "@isbabyoutyet/backend/src/types";
@@ -124,8 +124,16 @@ async function resolvePhotoDataUrl(photoUrl: string | null) {
   }
 }
 
+type BabyOgStatusCopy = {
+  answer: string;
+  detail: string;
+  /** Whether the answer is drawn in the theme's primary colour. */
+  highlight: boolean;
+  note: string | null;
+};
+
 /** Same answer and subline copy the baby page's status card shows. */
-function babyOgStatusCopy(opts: { baby: BabyOgImageInput; status: BabyStatus }) {
+function babyOgStatusCopy(opts: { baby: BabyOgImageInput; status: BabyStatus }): BabyOgStatusCopy {
   const locale = opts.baby.locale;
   const timeZone = opts.baby.timeZone ?? DEFAULT_TIME_ZONE;
   const since = (key: "Born" | "Since" | "Started", date: string) =>
@@ -214,7 +222,7 @@ function BabyOgAvatar(props: {
     position: "absolute",
     top: OG_AVATAR.cy - height / 2 - (arch ? 10 : 0),
     width,
-  } as const;
+  } as const satisfies CSSProperties;
   if (props.photoDataUrl) {
     return (
       <img
@@ -467,7 +475,7 @@ const HOMEPAGE_OG_COLORS = {
   muted: "#f3ece2",
   mutedForeground: "#6c6158",
   primary: "#f1840b",
-} as const;
+} as const satisfies Record<string, `#${string}`>;
 
 function primaryTint(alpha: number) {
   return withAlpha(HOMEPAGE_OG_COLORS.primary, alpha);

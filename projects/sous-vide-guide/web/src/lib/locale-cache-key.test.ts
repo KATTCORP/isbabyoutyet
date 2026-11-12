@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { localeCacheKeyRoutes, takeLocaleCacheKey } from "@/lib/locale-cache-key";
+import type { LocaleCookieMatch } from "@/lib/locale-cache-key";
 
 describe("localeCacheKeyRoutes", () => {
   it("keys the page on each exact locale cookie, then on any other cookie value", () => {
-    const sv = { key: "LOCALE", type: "cookie", value: "^sv$" };
-    const enUS = { key: "LOCALE", type: "cookie", value: "^en-US$" };
+    const sv: LocaleCookieMatch = { key: "LOCALE", type: "cookie", value: "^sv$" };
+    const enUS: LocaleCookieMatch = { key: "LOCALE", type: "cookie", value: "^en-US$" };
 
     expect(localeCacheKeyRoutes({ cookieName: "LOCALE", locales: ["sv", "en-US"] })).toEqual([
       { check: true, dest: "/?__locale=sv", has: [sv], src: "^/$" },

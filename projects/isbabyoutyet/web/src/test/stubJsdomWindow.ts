@@ -82,12 +82,20 @@ class StubObserver {
   }
 }
 
+type MatchMediaStub = Pick<
+  MediaQueryList,
+  "addEventListener" | "dispatchEvent" | "matches" | "media" | "onchange" | "removeEventListener"
+> & {
+  addListener: (listener: (event: MediaQueryListEvent) => void) => void;
+  removeListener: (listener: (event: MediaQueryListEvent) => void) => void;
+};
+
 /**
  * jsdom matchMedia stand-in. next-themes still calls the deprecated
  * `addListener` / `removeListener` pair, so the stub implements those
  * methods on a local type instead of `MediaQueryList`.
  */
-export function createMatchMediaStub(query: string, matches = false) {
+export function createMatchMediaStub(query: string, matches = false): MatchMediaStub {
   return {
     addEventListener(_type: string, _listener: EventListenerOrEventListenerObject) {},
     addListener(_listener: (event: MediaQueryListEvent) => void) {},

@@ -9,7 +9,13 @@ import type { BabyStatus } from "@isbabyoutyet/backend/src/types";
  * text.
  */
 
-export const OG_AVATAR = { cx: 930, cy: 300, r: 150 } as const;
+type OgCircle = {
+  cx: number;
+  cy: number;
+  r: number;
+};
+
+export const OG_AVATAR = { cx: 930, cy: 300, r: 150 } as const satisfies OgCircle;
 
 type StatusType = BabyStatus["type"];
 
@@ -753,7 +759,7 @@ const LATTE = {
   sky: "#04a5e5",
   teal: "#179299",
   yellow: "#df8e1d",
-} as const;
+} as const satisfies Record<string, `#${string}`>;
 
 const CATPPUCCIN: OgBabyPalette = {
   background: "#eff1f5",

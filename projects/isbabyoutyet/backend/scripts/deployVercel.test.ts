@@ -19,14 +19,14 @@ const productionEnv = {
   VERCEL_ENV: "production",
   VERCEL_GIT_COMMIT_REF: "main",
   VERCEL_PROJECT_PRODUCTION_URL: "isbabyoutyet.com",
-};
+} satisfies Record<string, string>;
 
 const previewEnv = {
   ...productionEnv,
   VERCEL_BRANCH_URL: "isbabyoutyet-git-feat-demo.vercel.app",
   VERCEL_ENV: "preview",
   VERCEL_GIT_COMMIT_REF: "feat/demo",
-};
+} satisfies Record<string, string>;
 
 function cliFailure(stderr: string) {
   return new ConvexCliError({ command: "deploy", exitCode: 1, stderr, stdout: "" });
@@ -47,10 +47,17 @@ function fakeConvex(deploy: () => Effect.Effect<string, ConvexCliError>) {
   );
 }
 
+type Deploy = {
+  /** `deployVercel` against the fakes. */
+  run: Effect.Effect<void, Effect.Error<typeof deployVercel>>;
+  /** Every file `run` wrote, by path. */
+  written: Map<string, string>;
+};
+
 function deployWith(services: {
   convex: ReturnType<typeof fakeConvex>;
   env: Record<string, string>;
-}) {
+}): Deploy {
   const written = new Map<string, string>();
   const run = deployVercel.pipe(
     Effect.provide(

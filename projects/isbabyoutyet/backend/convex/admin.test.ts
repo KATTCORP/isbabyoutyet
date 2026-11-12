@@ -1,3 +1,4 @@
+import type { PaginationOptions } from "convex/server";
 import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
 import { api, components, internal } from "./_generated/api";
@@ -6,7 +7,7 @@ import { DEMO_EMPTY_USER, DEMO_USER, HOMEPAGE_DEMO_OWNER_USER_ID } from "../src/
 import { modules, registerComponents, createBabyArgs } from "./test.setup";
 import { parseAuthUserPage } from "./admin";
 
-const FIRST_PAGE = { cursor: null, numItems: 20 };
+const FIRST_PAGE: PaginationOptions = { cursor: null, numItems: 20 };
 
 async function setup() {
   const t = convexTest(schema, modules);

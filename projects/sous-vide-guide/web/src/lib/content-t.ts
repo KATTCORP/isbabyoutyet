@@ -9,6 +9,7 @@
 import enGBMessages from "../../messages/en-GB.json";
 import enUSMessages from "../../messages/en-US.json";
 import svMessages from "../../messages/sv.json";
+import type { Locale } from "@/paraglide/runtime";
 
 type MessageCatalogFile = {
   readonly [key: string]: string;
@@ -32,7 +33,7 @@ const catalogs = {
   "en-GB": enGB,
   "en-US": withoutSchema(enUSMessages),
   sv: withoutSchema(svMessages),
-} as const;
+} as const satisfies Record<Locale, Record<string, string>>;
 
 type SchemaKey = "$schema";
 type ContentKey = Exclude<keyof typeof enGBMessages, SchemaKey>;

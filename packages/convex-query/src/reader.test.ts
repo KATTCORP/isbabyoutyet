@@ -1,24 +1,20 @@
-import { describe, expect, it } from "@effect/vitest";
 import { makeFunctionReference } from "convex/server";
-import { Effect, Exit, Fiber } from "effect";
-import { onTestFinished, vi } from "vitest";
-import { ConvexQueryError, ConvexReader, readConvexQuery } from "./reader.ts";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
+import type { ConvexReader } from "./reader.ts";
+import { ConvexQueryError, snapshotReader, subscribingReader } from "./reader.ts";
 import { makeTestConvexClient } from "./testing.ts";
 
 const getMessage = makeFunctionReference<"query", { id: string }, string>("messages:get");
 
-const readMessage = (id: string) => readConvexQuery(getMessage, { id });
+function readMessage(reader: ConvexReader, signal = new AbortController().signal) {
+  return reader.query({ args: { id: "a" }, query: getMessage, signal });
+}
 
-describe("ConvexReader.subscribing", () => {
-  it.effect("resolves with the first result", () =>
-    Effect.gen(function* () {
-      const backend = makeTestConvexClient(async (_query, args) => `message ${args.id}`);
-      const message = yield* readMessage("a").pipe(
-        Effect.provideService(ConvexReader, ConvexReader.subscribing(backend.client)),
-      );
-      expect(message).toBe("message a");
-    }),
-  );
+describe("subscribingReader", () => {
+  it("resolves with the first result", async () => {
+    const backend = makeTestConvexClient(async (_query, args) => `message ${args.id}`);
+    expect(await readMessage(subscribingReader(backend.client))).toBe("message a");
+  });
 
   it("keeps the subscription for a moment after the first result", async () => {
     vi.useFakeTimers();
@@ -26,81 +22,76 @@ describe("ConvexReader.subscribing", () => {
       vi.useRealTimers();
     });
     const backend = makeTestConvexClient(async () => "hello");
-    await Effect.runPromise(
-      readMessage("a").pipe(
-        Effect.provideService(ConvexReader, ConvexReader.subscribing(backend.client)),
-      ),
-    );
+    await readMessage(subscribingReader(backend.client));
     expect(backend.subscriptions()).toEqual([{ args: { id: "a" }, name: "messages:get" }]);
     vi.advanceTimersByTime(5000);
     expect(backend.subscriptions()).toEqual([]);
   });
 
-  it.effect("fails with the query's error", () =>
-    Effect.gen(function* () {
-      const backend = makeTestConvexClient(async () => {
-        throw new Error("Baby not found");
-      });
-      const error = yield* readMessage("a").pipe(
-        Effect.provideService(ConvexReader, ConvexReader.subscribing(backend.client)),
-        Effect.flip,
-      );
-      expect(error).toBeInstanceOf(ConvexQueryError);
-      expect(error.functionName).toBe("messages:get");
-      expect(error.message).toBe("Baby not found");
-      expect(backend.subscriptions()).toEqual([]);
-    }),
-  );
+  it("rejects with the query's error", async () => {
+    const backend = makeTestConvexClient(async () => {
+      throw new Error("Baby not found");
+    });
+    const read = readMessage(subscribingReader(backend.client));
+    await expect(read).rejects.toBeInstanceOf(ConvexQueryError);
+    await expect(read).rejects.toMatchObject({
+      functionName: "messages:get",
+      message: "Baby not found",
+    });
+    expect(backend.subscriptions()).toEqual([]);
+  });
 
-  it.effect("unsubscribes when interrupted before a result", () =>
-    Effect.gen(function* () {
-      const backend = makeTestConvexClient(() => new Promise(() => {}));
-      const fiber = yield* readMessage("a").pipe(
-        Effect.provideService(ConvexReader, ConvexReader.subscribing(backend.client)),
-        Effect.forkChild,
-      );
-      yield* Effect.yieldNow;
-      expect(backend.subscriptions()).toHaveLength(1);
-      const exit = yield* Fiber.interrupt(fiber).pipe(Effect.andThen(Fiber.await(fiber)));
-      expect(Exit.hasInterrupts(exit)).toBe(true);
-      expect(backend.subscriptions()).toEqual([]);
-    }),
-  );
+  it("unsubscribes when aborted before a result", async () => {
+    const backend = makeTestConvexClient(() => new Promise(() => {}));
+    const controller = new AbortController();
+    const read = readMessage(subscribingReader(backend.client), controller.signal);
+    expect(backend.subscriptions()).toHaveLength(1);
+
+    const reason = new Error("dropped");
+    controller.abort(reason);
+    await expect(read).rejects.toBe(reason);
+    expect(backend.subscriptions()).toEqual([]);
+  });
+
+  it("never subscribes for a read that starts aborted", async () => {
+    const backend = makeTestConvexClient(async () => "hello");
+    const reason = new Error("dropped");
+    const read = readMessage(subscribingReader(backend.client), AbortSignal.abort(reason));
+    await expect(read).rejects.toBe(reason);
+    expect(backend.subscriptions()).toEqual([]);
+  });
 });
 
-describe("ConvexReader.snapshot", () => {
-  it.effect("reads through consistentQuery", () =>
-    Effect.gen(function* () {
-      const calls: Array<string> = [];
-      const message = yield* readMessage("a").pipe(
-        Effect.provideService(
-          ConvexReader,
-          ConvexReader.snapshot({
-            consistentQuery: async (_query, args) => {
-              calls.push(JSON.stringify(args));
-              return "snapshot";
-            },
-          }),
-        ),
-      );
-      expect(message).toBe("snapshot");
-      expect(calls).toEqual(['{"id":"a"}']);
-    }),
-  );
+describe("snapshotReader", () => {
+  it("reads through consistentQuery", async () => {
+    const calls: Array<string> = [];
+    const reader = snapshotReader({
+      consistentQuery: async (_query, args) => {
+        calls.push(JSON.stringify(args));
+        return "snapshot";
+      },
+    });
+    expect(await readMessage(reader)).toBe("snapshot");
+    expect(calls).toEqual(['{"id":"a"}']);
+  });
 
-  it.effect("fails with a ConvexQueryError naming the function", () =>
-    Effect.gen(function* () {
-      const error = yield* readMessage("a").pipe(
-        Effect.provideService(
-          ConvexReader,
-          ConvexReader.snapshot({
-            consistentQuery: () => Promise.reject(new Error("Unauthenticated")),
-          }),
-        ),
-        Effect.flip,
-      );
-      expect(error.functionName).toBe("messages:get");
-      expect(error.message).toBe("Unauthenticated");
-    }),
-  );
+  it("rejects with a ConvexQueryError naming the function", async () => {
+    const reader = snapshotReader({
+      consistentQuery: () => Promise.reject(new Error("Unauthenticated")),
+    });
+    const read = readMessage(reader);
+    await expect(read).rejects.toBeInstanceOf(ConvexQueryError);
+    await expect(read).rejects.toMatchObject({
+      functionName: "messages:get",
+      message: "Unauthenticated",
+    });
+  });
+
+  it("names the function when the failure has no message", async () => {
+    const reader = snapshotReader({ consistentQuery: () => Promise.reject("offline") });
+    await expect(readMessage(reader)).rejects.toMatchObject({
+      cause: "offline",
+      message: "Convex query `messages:get` failed",
+    });
+  });
 });

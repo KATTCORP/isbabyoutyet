@@ -1,3 +1,4 @@
+import type { FunctionReturnType } from "convex/server";
 import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
 import { api } from "./_generated/api";
@@ -23,13 +24,15 @@ async function setup() {
   return t;
 }
 
+type Profile = NonNullable<FunctionReturnType<typeof api.profile.get>>;
+
 const missingAccount = {
   email: "",
   emailVerified: false,
   name: "",
-} as const;
+} as const satisfies Pick<Profile, "email" | "emailVerified" | "name">;
 
-function getProfile(prefs: { isAdmin: boolean; locale: string; timeZone: string }) {
+function getProfile(prefs: Pick<Profile, "isAdmin" | "locale" | "timeZone">): Profile {
   return {
     ...missingAccount,
     ...prefs,

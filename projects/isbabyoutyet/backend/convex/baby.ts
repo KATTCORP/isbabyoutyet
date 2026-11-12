@@ -4,7 +4,7 @@ import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { FORBIDDEN, isMilestoneNotificationType, isStatusForward } from "../src/types";
-import type { BabyStatus, Milestone, NotifiableStatus } from "../src/types";
+import type { BabyStatus, BabyUpdate, Milestone, NotifiableStatus } from "../src/types";
 import { notificationScheduleDelayMs } from "../src/notificationTiming";
 import { supportedLocaleValidator } from "./i18n";
 import { internalMutationWithTriggers, mutationWithTriggers } from "./triggers";
@@ -39,11 +39,17 @@ function normalizePublicDueDateText(value: string | null | undefined) {
   return normalized || null;
 }
 
+type DueDateDisplay = {
+  dueDate: string | null;
+  mode: DueDateDisplayMode;
+  text: string | null;
+};
+
 function normalizeDueDateDisplay(opts: {
   dueDate: string | null | undefined;
   mode: DueDateDisplayMode | undefined;
   text: string | null | undefined;
-}) {
+}): DueDateDisplay {
   const normalizedText = normalizePublicDueDateText(opts.text);
   const mode = opts.mode ?? (normalizedText ? "message" : "exact");
   const dueDate = opts.dueDate ?? null;
@@ -251,7 +257,7 @@ export const create = mutationWithTriggers({
       excludeTokenIdentifier: caller.tokenIdentifier,
     });
 
-    const babyFields = {
+    const babyId = await ctx.db.insert("baby", {
       birthJourney: args.birthJourney,
       dueDate: dueDateDisplay.dueDate,
       dueDateDisplayMode: dueDateDisplay.mode,
@@ -263,8 +269,7 @@ export const create = mutationWithTriggers({
       subscriptionCount: 0,
       theme: args.theme,
       userId: caller.authUserId,
-    };
-    const babyId = await ctx.db.insert("baby", babyFields);
+    });
     await ctx.scheduler.runAfter(0, internal.pushNotifications.notifyAdminsOfNewBaby, { babyId });
 
     return { babyId, publicId };
@@ -399,12 +404,11 @@ export const updateThumbnail = internalMutationWithTriggers({
     if (args.updateId) {
       const update = await ctx.db.get(args.updateId);
       if (update && (!args.photoId || update.photoId === args.photoId)) {
-        const updateFields = {
+        await ctx.db.patch(args.updateId, {
           blurDataUrl,
           pushImageId: args.pushImageId ?? update.pushImageId ?? null,
           thumbnailId: args.thumbnailId,
-        };
-        await ctx.db.patch(args.updateId, updateFields);
+        });
       }
     }
   },
@@ -533,7 +537,7 @@ export const update = mutationWithTriggers({
   },
   handler: async (ctx, args) => {
     const babyId = args.id;
-    const patch = { ...args.patch };
+    const patch: BabyUpdate = { ...args.patch };
     const { baby, identity } = await requireBabyManager(ctx, babyId);
     if (
       patch.dueDate !== undefined ||

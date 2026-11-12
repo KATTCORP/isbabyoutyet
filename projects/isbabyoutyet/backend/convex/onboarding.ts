@@ -1,17 +1,34 @@
+import type { WithoutSystemFields } from "convex/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import type { OnboardingStepId } from "../src/onboardingSteps";
 import { ONBOARDING_STEP_IDS } from "../src/onboardingSteps";
 import type { AppIdentity } from "./authIdentity";
 import { appIdentity, tokenIdentifierForAuthUserId } from "./authIdentity";
 import { isActive } from "./softDelete";
 import { onboardingStepIdValidator } from "./onboardingValidators";
 
-type OnboardingClientState = Omit<
-  ReturnType<typeof toClientState>,
-  "completedSteps" | "effectiveSteps"
-> & {
+type AutoProgress = {
+  hasBaby: boolean;
+  hasUpdate: boolean;
+  tourBaby: null | { name: string; publicId: string };
+};
+
+/** A signed-in user's stored tour state merged with what their babies already show. */
+type SignedInOnboardingState = AutoProgress & {
+  activeCoachmarkStepId: OnboardingStepId | null;
+  allDone: boolean;
+  checklistDismissed: boolean;
+  completedSteps: Array<OnboardingStepId>;
+  effectiveSteps: Array<OnboardingStepId>;
+  minimized: boolean;
+  restartHintVisible: boolean;
+  welcomeDismissed: boolean;
+};
+
+type OnboardingClientState = Omit<SignedInOnboardingState, "completedSteps" | "effectiveSteps"> & {
   completedSteps: Array<string>;
   effectiveSteps: Array<string>;
 };
@@ -61,13 +78,10 @@ async function getOrCreateOnboarding(ctx: MutationCtx, identity: AppIdentity) {
   return doc;
 }
 
-type AutoProgress = {
-  hasBaby: boolean;
-  hasUpdate: boolean;
-  tourBaby: null | { name: string; publicId: string };
-};
-
-async function computeAutoProgress(ctx: QueryCtx | MutationCtx, identity: AppIdentity) {
+async function computeAutoProgress(
+  ctx: QueryCtx | MutationCtx,
+  identity: AppIdentity,
+): Promise<AutoProgress> {
   const babies = (
     await ctx.db
       .query("baby")
@@ -113,7 +127,10 @@ function mergeEffectiveSteps(opts: {
   return ONBOARDING_STEP_IDS.filter((id) => set.has(id));
 }
 
-function toClientState(doc: Doc<"userOnboarding"> | null, auto: AutoProgress) {
+function toClientState(
+  doc: Doc<"userOnboarding"> | null,
+  auto: AutoProgress,
+): SignedInOnboardingState {
   const completedSteps = doc?.completedSteps ?? [];
   const effectiveSteps = mergeEffectiveSteps({
     completedSteps,
@@ -238,7 +255,7 @@ export const completeStep = mutation({
     const onboardingPatch = {
       completedSteps: [...doc.completedSteps, args.stepId],
       welcomeDismissed: true,
-    };
+    } satisfies Partial<WithoutSystemFields<Doc<"userOnboarding">>>;
     await ctx.db.patch(
       doc._id,
       doc.activeCoachmarkStepId === args.stepId
@@ -304,7 +321,7 @@ export async function skipUserOnboarding(ctx: MutationCtx, userId: string) {
     minimized: true,
     restartHintVisible: false,
     welcomeDismissed: true,
-  };
+  } satisfies Partial<WithoutSystemFields<Doc<"userOnboarding">>>;
 
   if (existing) {
     await ctx.db.patch(existing._id, { ...patch, tokenIdentifier });

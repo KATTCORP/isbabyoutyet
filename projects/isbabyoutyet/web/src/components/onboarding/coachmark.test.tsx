@@ -99,7 +99,14 @@ test("hides the tip while the target has a zero-size rect", async () => {
   const target = document.createElement("button");
   target.setAttribute("data-tour-id", "collapsed-target");
   target.scrollIntoView = vi.fn<() => void>();
-  let rect = { bottom: 40, height: 0, left: 40, right: 40, top: 40, width: 0 };
+  let rect: Pick<DOMRect, "bottom" | "height" | "left" | "right" | "top" | "width"> = {
+    bottom: 40,
+    height: 0,
+    left: 40,
+    right: 40,
+    top: 40,
+    width: 0,
+  };
   Object.defineProperty(target, "getBoundingClientRect", {
     value: () => rect,
   });

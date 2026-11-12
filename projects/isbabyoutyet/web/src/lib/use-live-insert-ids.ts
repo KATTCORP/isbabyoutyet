@@ -36,7 +36,7 @@ function seedLiveInsertSnapshot(items: ReadonlyArray<LiveInsertItem>): LiveInser
 function advanceLiveInsertSnapshot(
   snapshot: LiveInsertSnapshot,
   items: ReadonlyArray<LiveInsertItem>,
-) {
+): LiveInsertSnapshot {
   let seenIds: Set<string> | null = null;
   let liveInsertIds: Set<string> | null = null;
 

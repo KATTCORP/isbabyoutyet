@@ -11,25 +11,31 @@
 import type { SupportedLocale } from "./i18n";
 import { SUPPORTED_LOCALES } from "./i18n";
 
+type DemoLogin = {
+  email: string;
+  name: string;
+  password: string;
+};
+
 export const DEMO_USER = {
   email: "test@example.com",
   name: "Demo Parent",
   password: "password",
-} as const;
+} as const satisfies DemoLogin;
 
 /** Same password as DEMO_USER, but no babies — empty-dashboard / first-run flow. */
 export const DEMO_EMPTY_USER = {
   email: "test+newuser@example.com",
   name: "New Parent",
   password: "password",
-} as const;
+} as const satisfies DemoLogin;
 
 /** Co-parent on Milo (`baby-born`) — manager overlays without owning the page. */
 export const DEMO_COPARENT_USER = {
   email: "test+coparent@example.com",
   name: "Demo Co-parent",
   password: "password",
-} as const;
+} as const satisfies DemoLogin;
 
 export const DEMO_ACCOUNTS = [
   {
@@ -90,6 +96,12 @@ export const MILO_LEGACY_PUBLIC_ID = "milo";
 export const HOMEPAGE_DEMO_OWNER_USER_ID = "homepage-demo";
 export const HOMEPAGE_DEMO_THEME = "sunny-days";
 
+type HomepageDemoBaby = {
+  locale: SupportedLocale;
+  name: string;
+  publicId: string;
+};
+
 /**
  * One public live-demo baby per locale. Same sentinel owner so they never
  * appear on a real dashboard. Re-seeded on every deploy.
@@ -100,10 +112,7 @@ export const HOMEPAGE_DEMO_BABIES = {
   es: { locale: "es", name: "Lucía Navarro", publicId: "lucia-navarro" },
   "pt-BR": { locale: "pt-BR", name: "Helena Costa", publicId: "helena-costa" },
   sv: { locale: "sv", name: "Ella Holm", publicId: "ella-holm" },
-} as const satisfies Record<
-  SupportedLocale,
-  { locale: SupportedLocale; name: string; publicId: string }
->;
+} as const satisfies Record<SupportedLocale, HomepageDemoBaby>;
 
 /**
  * Earlier slug of the en-GB demo (Juniper Hale). The refresh moves that row to
@@ -117,7 +126,7 @@ export const HOMEPAGE_DEMO_BABY = {
   ...HOMEPAGE_DEMO_BABIES["en-GB"],
   ownerUserId: HOMEPAGE_DEMO_OWNER_USER_ID,
   theme: HOMEPAGE_DEMO_THEME,
-} as const;
+} as const satisfies HomepageDemoBaby & { ownerUserId: string; theme: string };
 
 export function homepageDemoBabyFor(locale: SupportedLocale) {
   return HOMEPAGE_DEMO_BABIES[locale];

@@ -1,14 +1,16 @@
-import { createQueryClient, getData, removeAll } from "@raf-query/react";
+import { getData } from "@raf-query/react";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
+import { getFunctionName } from "convex/server";
 import { expect, test, vi } from "vitest";
 import { browserImageQuery, prefetchBrowserImage } from "@/lib/image-prefetch";
 import { stubNoWindowResource } from "@/test/stubJsdomWindow";
+import { stubQueryClientResource } from "@/test/stubQueryClient";
 
+/** The app's client; decoding an image reads nothing from Convex. */
 function queryClientResource(opts: { isServer: boolean } = { isServer: false }) {
-  const queryClient = createQueryClient({ isServer: opts.isServer });
-  return makeResource(queryClient, () => {
-    removeAll(queryClient);
-  });
+  return stubQueryClientResource(async (query) => {
+    throw new Error(`unexpected query ${getFunctionName(query)}`);
+  }, opts);
 }
 
 test("keeps a stable query key scoped by image URL", () => {
@@ -17,7 +19,8 @@ test("keeps a stable query key scoped by image URL", () => {
 });
 
 test("prefetches the image into the query cache in the browser", async () => {
-  using queryClient = queryClientResource();
+  await using stub = queryClientResource();
+  const queryClient = stub.queryClient;
   const url = "https://cdn.example/full.jpg";
 
   const OriginalImage = globalThis.Image;
@@ -51,7 +54,8 @@ test("prefetches the image into the query cache in the browser", async () => {
 
 test("does not construct Image while prefetching on the server", async () => {
   using _window = stubNoWindowResource();
-  using queryClient = queryClientResource({ isServer: true });
+  await using stub = queryClientResource({ isServer: true });
+  const queryClient = stub.queryClient;
   const url = "https://cdn.example/full.jpg";
 
   const OriginalImage = globalThis.Image;
@@ -69,7 +73,8 @@ test("does not construct Image while prefetching on the server", async () => {
 });
 
 test("soft-fails when the image fails to load", async () => {
-  using queryClient = queryClientResource();
+  await using stub = queryClientResource();
+  const queryClient = stub.queryClient;
   const url = "https://cdn.example/missing.jpg";
 
   const OriginalImage = globalThis.Image;

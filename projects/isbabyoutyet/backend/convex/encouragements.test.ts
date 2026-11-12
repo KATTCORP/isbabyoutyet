@@ -1,13 +1,20 @@
+import type { PaginationOptions } from "convex/server";
 import { convexTest } from "convex-test";
+import type { TestConvex } from "convex-test";
 import { expect, test } from "vitest";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { modules, registerComponents, createBabyArgs, createEncouragementArgs } from "./test.setup";
 
-const FIRST_PAGE = { cursor: null, numItems: 10 };
+const FIRST_PAGE: PaginationOptions = { cursor: null, numItems: 10 };
 
-async function setupWithBaby() {
+type BabyHarness = {
+  babyId: Id<"baby">;
+  t: TestConvex<typeof schema>;
+};
+
+async function setupWithBaby(): Promise<BabyHarness> {
   const t = convexTest(schema, modules);
   registerComponents(t);
   const babyId: Id<"baby"> = await t.run(async (ctx) => {

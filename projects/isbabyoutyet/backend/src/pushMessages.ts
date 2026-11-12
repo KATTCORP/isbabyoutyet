@@ -6,6 +6,12 @@ type PushCopy = {
   title: (babyName: string) => string;
 };
 
+/** The text of one notification, ready to send. */
+export type PushMessage = {
+  body: string;
+  title: string;
+};
+
 const copy = {
   "en-GB": {
     born: {
@@ -123,7 +129,7 @@ export function getPushMessage(opts: {
   babyName: string;
   locale: SupportedLocale;
   status: NotifiableStatus;
-}) {
+}): PushMessage {
   const message = copy[opts.locale][opts.status];
   return { body: message.body, title: message.title(opts.babyName) };
 }
@@ -152,7 +158,10 @@ const adminNewBabyCopy = {
 } satisfies Record<SupportedLocale, PushCopy>;
 
 /** Staff push to admins when someone creates a baby page. */
-export function getAdminNewBabyPushMessage(opts: { babyName: string; locale: SupportedLocale }) {
+export function getAdminNewBabyPushMessage(opts: {
+  babyName: string;
+  locale: SupportedLocale;
+}): PushMessage {
   const message = adminNewBabyCopy[opts.locale];
   return { body: message.body, title: message.title(opts.babyName) };
 }
@@ -235,7 +244,7 @@ export function getOwnerPushMessage(opts: {
   event: OwnerMessagePushEvent;
   locale: SupportedLocale;
   message: string;
-}) {
+}): PushMessage {
   const message = ownerCopy[opts.locale][opts.event];
   const snippet = truncateOwnerPushBody(opts.message);
   return {

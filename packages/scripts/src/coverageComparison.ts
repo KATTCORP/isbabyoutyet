@@ -97,7 +97,7 @@ function formatCell(result: MetricResult) {
 function compareWorkspace(
   workspace: string,
   summaries: { baseline: CoverageSummary | undefined; current: CoverageSummary },
-) {
+): WorkspaceResult {
   return {
     metrics: metrics.map((metric) => {
       const current = summaries.current.total[metric].pct;

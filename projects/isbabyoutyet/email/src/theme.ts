@@ -1,6 +1,23 @@
 import { pixelBasedPreset } from "react-email";
 import type { TailwindConfig } from "react-email";
 
+/** Design tokens as CSS values every email client understands. */
+export type EmailTheme = {
+  accent: string;
+  background: string;
+  border: string;
+  card: string;
+  fontFamily: string;
+  foreground: string;
+  mutedForeground: string;
+  popShadow: string;
+  primary: string;
+  primaryForeground: string;
+  primarySoft: string;
+  radiusCard: string;
+  radiusPill: string;
+};
+
 /**
  * Default-theme tokens from `packages/ui` + `projects/isbabyoutyet/web/src/styles/app.css`,
  * converted to hex so email clients that skip `oklch` still match the app.
@@ -19,7 +36,7 @@ export const emailTheme = {
   primarySoft: "#FDE8C8",
   radiusCard: "32px",
   radiusPill: "999px",
-} as const;
+} as const satisfies EmailTheme;
 
 export const emailTailwindConfig = {
   presets: [pixelBasedPreset],

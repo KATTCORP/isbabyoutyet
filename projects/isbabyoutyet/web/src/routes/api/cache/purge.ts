@@ -9,7 +9,7 @@ const purgeRequestSchema = z.object({
 
 const PRIVATE_HEADERS = {
   "Cache-Control": "private, no-store, no-cache, max-age=0, must-revalidate",
-} as const;
+} as const satisfies HeadersInit;
 
 type CachePurgeDeps = {
   deleteByTag: typeof dangerouslyDeleteByTag;

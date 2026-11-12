@@ -12,9 +12,8 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 export const Route = createFileRoute("/baby/$publicId/photo")({
   loader: async (opts) => {
     const queryClient = opts.context.queryClient;
-    const input = { id: opts.params.publicId };
     const [handles, data] = await load(queryClient, {
-      baby: swr(convexQuery(api.baby.getByPublicId), input),
+      baby: swr(convexQuery(api.baby.getByPublicId), { id: opts.params.publicId }),
     });
     if (!data.baby?.photoUrl) {
       throw notFound();

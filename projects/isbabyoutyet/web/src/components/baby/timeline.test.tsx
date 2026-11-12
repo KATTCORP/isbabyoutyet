@@ -31,6 +31,7 @@ import {
   storeTestBlob,
   postTestUpdate,
 } from "@/test/convexTestSeed";
+import type { SeededBaby } from "@/test/convexTestSeed";
 import { renderWithConvexTest } from "@/test/renderWithConvexTest";
 import { prefetchQuery } from "@/test/loadQuery";
 import { renderWithTestRouter } from "@/test/renderWithTestRouter";
@@ -101,6 +102,11 @@ function renderComposerTree(
   );
 }
 
+type ComposerControls = {
+  setBaby: (nextBaby: BabyData) => void;
+  view: ReturnType<typeof render>;
+};
+
 async function renderComposer(
   harness: ConvexTestHarness,
   opts: {
@@ -112,8 +118,8 @@ async function renderComposer(
   let baby: BabyData = opts.baby;
   const locale = opts.locale ?? "en-GB";
   const view = render(renderComposerTree(harness, { baby, babyId: opts.babyId, locale }));
-  const controls = {
-    setBaby(nextBaby: BabyData) {
+  const controls: ComposerControls = {
+    setBaby(nextBaby) {
       baby = nextBaby;
       view.rerender(renderComposerTree(harness, { baby, babyId: opts.babyId, locale }));
     },
@@ -149,7 +155,7 @@ async function renderTimelineFeedFrom(
 
   // As the baby route's loader does on a client navigation.
   await harness.refresh();
-  const visitorTag = await prefetchQuery(harness.queryClient, visitorTagQuery, opts.babyId);
+  const visitorTag = await prefetchQuery(harness.queryClient, visitorTagQuery, opts.publicId);
   // As the baby route's loader reads the feed.
   const [{ timeline }] = await load(harness.queryClient, {
     timeline: swr(timelineQuery, timelineInput({ from: opts.item, publicId: opts.publicId })),
@@ -1067,12 +1073,14 @@ function stubIntersectionObserver() {
   );
 }
 
-function timelineFeedViewTree(opts: {
+type TimelineFeedViewState = {
   fetchNextPage: () => void;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   items: TimelinePageItems;
-}) {
+};
+
+function timelineFeedViewTree(opts: TimelineFeedViewState) {
   return (
     <LocaleProvider locale="en-GB">
       <TimelineFeedView
@@ -1147,7 +1155,7 @@ test("reaching the skeleton fetches the next page once and not again while it lo
   await using harness = await createConvexTestHarness({ identity: null });
   const items = await seedFirstTimelinePage(harness);
   const fetchNextPage = vi.fn<() => void>();
-  const state = {
+  const state: TimelineFeedViewState = {
     fetchNextPage,
     hasNextPage: true,
     isFetchingNextPage: false,
@@ -1179,7 +1187,7 @@ test("the last page removes the skeleton and disconnects its observer", async ()
   await using harness = await createConvexTestHarness({ identity: null });
   const items = await seedFirstTimelinePage(harness);
   const fetchNextPage = vi.fn<() => void>();
-  const state = {
+  const state: TimelineFeedViewState = {
     fetchNextPage,
     hasNextPage: true,
     isFetchingNextPage: false,
@@ -1325,6 +1333,11 @@ const LINKED_INDEX = 30;
 const NEWER_COUNT = 25;
 const LINKED_MESSAGE = `Message ${LINKED_INDEX}`;
 
+type SeededLinkedFeed = {
+  baby: SeededBaby;
+  itemId: TimelinePageItems[number]["_id"];
+};
+
 /**
  * `olderCount` messages below the linked one and `newerCount` above it.
  * Tests that only page newer items keep `olderCount` small: jsdom re-renders
@@ -1333,7 +1346,7 @@ const LINKED_MESSAGE = `Message ${LINKED_INDEX}`;
 async function seedLinkedFeed(
   harness: ConvexTestHarness,
   opts: { newerCount: number; olderCount: number },
-) {
+): Promise<SeededLinkedFeed> {
   const baby = await seedOwnerBaby(harness);
   const newestIndex = LINKED_INDEX + opts.newerCount;
   for (let index = LINKED_INDEX - opts.olderCount; index <= newestIndex; index++) {
@@ -1693,7 +1706,16 @@ test("a link to a removed item keeps its place in the feed, with a notice", asyn
   expect(feed.container.querySelector('[aria-current="true"]')).toBeNull();
 });
 
-async function seedUpdateAndEncouragement(harness: ConvexTestHarness) {
+type SeededUpdateAndEncouragement = {
+  baby: SeededBaby;
+  encouragement: Extract<TimelinePageItems[number], { kind: "encouragement" }>;
+  items: TimelinePageItems;
+  update: Extract<TimelinePageItems[number], { kind: "update" }>;
+};
+
+async function seedUpdateAndEncouragement(
+  harness: ConvexTestHarness,
+): Promise<SeededUpdateAndEncouragement> {
   const baby = await seedOwnerBaby(harness);
   await postTestUpdate(harness, {
     babyId: baby.babyId,

@@ -58,7 +58,7 @@ type UnitSearch = Partial<Record<"unit", TemperatureUnit>>;
  */
 export function unitSearchMiddleware(currentLocale: () => string) {
   return (ctx: { next: (search: UnitSearch) => UnitSearch; search: UnitSearch }) => {
-    const result = { ...ctx.next(ctx.search) };
+    const result = { ...ctx.next(ctx.search) } satisfies UnitSearch;
     const unit = "unit" in result ? result.unit : ctx.search.unit;
     if (unit === undefined || unit === defaultTemperatureUnit(currentLocale())) {
       delete result.unit;

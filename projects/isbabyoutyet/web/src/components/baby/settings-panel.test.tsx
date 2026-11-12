@@ -43,7 +43,7 @@ const absentSettingsProps = {
   onMilestoneRedate: () => undefined,
   onMilestoneRemove: () => undefined,
   profileLocale: "en-GB" as const,
-};
+} satisfies Partial<ComponentProps<typeof SettingsPanel>>;
 
 type GuardedSettingsPanelProps = Omit<ComponentProps<typeof SettingsPanel>, "overlay"> & {
   onOpenChange: (open: boolean) => void;

@@ -2,7 +2,7 @@
 name: no-loader-waterfalls
 description: >-
   Eliminate sequential awaits in TanStack Router loaders and Convex prefetch.
-  Use when adding or changing route loaders, beforeLoad, SSR prefetch, raf-query
+  Use when adding or changing route loaders, route guards, SSR prefetch, raf-query
   load / swr / prefetch, or when the user mentions loader waterfalls, parallel
   prefetch, or blocking loader chains.
 ---
@@ -35,31 +35,39 @@ Build factories inline with `convexQuery(api.x.y)` / `convexPaginatedQuery(api.x
 
 Reference: [`projects/isbabyoutyet/web/src/routes/baby/$publicId/route.tsx`](../../../projects/isbabyoutyet/web/src/routes/baby/$publicId/route.tsx).
 
-## beforeLoad vs loader
+## Guards that read data go in the loader, not `beforeLoad`
+
+`beforeLoad` runs before any loader, root to leaf, one route after the other, on **every** navigation (back button included): each await in one holds back every loader under it. A `beforeLoad` the router waits for is banned (`workspace/no-async-before-load`). Loaders start together.
+
+A **synchronous** `beforeLoad` holds nothing back and is fine: a redirect the URL alone decides (`?tab=` on the admin index), or route context computed on the spot (the sous vide guide's locale). Write it inline, not `async`, returning an object literal or nothing, so the rule can see the router gets no promise.
 
 | Concern | Where |
 |--------|--------|
-| 404, redirect, locale for routing | **`beforeLoad` only** |
-| Prefetch everything the page reads | `loader` (parallel) |
+| 404 or redirect that needs data | the route's `loader`: `throw notFound()` / `throw redirect(…)` after its one `load` |
+| Redirect or context from the URL alone | a synchronous `beforeLoad` |
+| Everything the page reads | the same `load` |
+| What a parent used to hand down in route context (the profile, a flag) | each child's own `load`: the same query in two loaders is one request |
+| The request's token and locale on the server | router creation (`requestConvex`, `visitorLocale` in `router.tsx`), not a route |
 
-Do **not** duplicate `throw notFound()` in the loader when `beforeLoad` already validated the route — that adds a serial dependency on re-checking data the loader prefetched in parallel.
+```typescript
+loader: async (opts) => {
+  const [, data] = await load(opts.context.queryClient, {
+    me: swr(convexQuery(api.profile.get), {}),
+  });
+  if (!data.me) {
+    throw redirect({ replace: true, search: { redirect: opts.location.pathname }, to: "/auth/login" });
+  }
+  return { locale: data.me.locale };
+},
+```
 
-`beforeLoad` may fetch one record for routing, but **must not** be the only way the loader gets IDs for sibling prefetches. The loader passes **route params** (slug, id from URL) directly to every related query.
+The router lets a loader's `redirect()` or `notFound()` win over what the loaders beside it find, whichever settles first. So for a visitor the guard turns away, the child loaders' queries **must answer `null` / `FORBIDDEN` / an empty page, or fail** (`requireAdmin`); none may return another visitor's data and count on the guard. Authorization is the backend's, in every query. The guard is only where the visitor lands.
 
-### beforeLoad blocks every navigation
+A parent that stays mounted re-runs its loader in the background on navigation; with the query cached (`profile.get` is live) the guard waits for nothing in the browser.
 
-`beforeLoad` re-runs serially (root → leaf) on **every** navigation, back button
-included, and the router blocks on each one. On the client path it may only do
-zero-network work (cache hits via `load` + `swr`, local locale detection).
-Never call a `createServerFn` on the client branch of a `beforeLoad` — that
-adds an HTTP round-trip to every navigation and defeats viewport preloading
-(regression history: PR #108 fixed this, PR #112 reintroduced it in the root
-route). Guard with `typeof window === "undefined"` and resolve locally on the
-client, e.g. `getDetectedLocale()` instead of `detectRequestLocale()`.
+❌ Load one record to decide the route, then start the page's queries with what it returned.
 
-❌ Resolve entity in `beforeLoad`, pass `babyId` into loader, then prefetch baby-scoped queries sequentially or gated on that id.
-
-✅ Loader passes `opts.params.publicId` (or equivalent) to all baby-scoped queries at once.
+✅ One `load` with everything the URL names, then check: `opts.params.publicId` goes to every baby-scoped query at once, and a query that needs the record's own id reads it inside its `queryFn` (`visitorTagQuery`).
 
 ## Backend: accept the URL key
 
@@ -118,9 +126,8 @@ Before merging loader work, verify:
 
 - [ ] No `await` chain where step N+1 only needs something available from the URL or static args
 - [ ] All independent prefetches are entries of one `load`
-- [ ] No server-function calls on the client branch of any `beforeLoad`
+- [ ] No `beforeLoad` that awaits or returns a promise: guards that read data throw from the `loader`, and no loader reads data a parent put in route context
 - [ ] Loader tests assert parallel prefetch inputs (e.g. slug passed to every baby query, not only after a prior fetch)
-- [ ] No auth/profile side effects duplicated from root SSR
 - [ ] Browser-only queries set `ssr: false` and load with `prefetch(…)`, never a blocking `swr` / `revalidate`
 
 ## When a waterfall is acceptable

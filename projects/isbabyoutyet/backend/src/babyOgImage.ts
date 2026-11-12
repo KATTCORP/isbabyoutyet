@@ -55,15 +55,18 @@ export function calendarDayKey(opts: { now: number; timeZone: string }) {
   return `${year}${month}${day}`;
 }
 
-export function babyOgImageFileName(opts: {
+/** The three parts of an OG image file name: `{publicId}-{ogImageHash}-{asOfDay}`. */
+export type BabyOgImageFileNameParts = {
   asOfDay: string;
   ogImageHash: string;
   publicId: string;
-}) {
+};
+
+export function babyOgImageFileName(opts: BabyOgImageFileNameParts) {
   return `${opts.publicId}-${opts.ogImageHash}-${opts.asOfDay}`;
 }
 
-export function parseBabyOgImageFileName(fileName: string) {
+export function parseBabyOgImageFileName(fileName: string): BabyOgImageFileNameParts | null {
   const match = /^(.+)-([0-9a-z]+)-(\d{8})$/.exec(fileName);
   if (!match) {
     return null;

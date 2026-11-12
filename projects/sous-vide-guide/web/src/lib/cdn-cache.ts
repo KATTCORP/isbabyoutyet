@@ -12,7 +12,7 @@ const BROWSER_CACHE_CONTROL = "public, max-age=0, must-revalidate";
  */
 const CDN_CACHE_CONTROL = "max-age=86400, stale-while-revalidate=31536000";
 
-type CdnCacheOptions = {
+export type CdnCacheOptions = {
   /** `takeLocaleCacheKey(request).locale`. */
   keyedLocale: string | null;
   /** Locale the page was rendered in. */

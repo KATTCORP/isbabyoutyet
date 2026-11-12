@@ -5,8 +5,21 @@ import { ConvexCli, ConvexCliError } from "./convexCli";
 
 const encoder = new TextEncoder();
 
+interface FakeProcesses {
+  /** Every command spawned so far, oldest first. */
+  readonly commands: Array<ChildProcess.StandardCommand>;
+  /** A `ConvexCli` that spawns the fake processes. */
+  readonly layer: Layer.Layer<ConvexCli>;
+  /** Every chunk the CLI teed to the terminal's stderr. */
+  readonly stderrTee: Array<string | Uint8Array>;
+}
+
 /** A spawner whose every process prints `output` and exits with `output.exitCode`. */
-function fakeProcesses(output: { exitCode: number; stderr: string; stdout: string }) {
+function fakeProcesses(output: {
+  exitCode: number;
+  stderr: string;
+  stdout: string;
+}): FakeProcesses {
   const commands: Array<ChildProcess.StandardCommand> = [];
   const stderrTee: Array<string | Uint8Array> = [];
   const spawner = Layer.succeed(
