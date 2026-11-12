@@ -3,8 +3,7 @@
  * mutation, and the `<form>` that the browser can also post by itself.
  */
 import { useMutation } from "convex/react";
-import type { ReactMutation } from "convex/react";
-import type { FunctionArgs, FunctionReference } from "convex/server";
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import type { ReactNode } from "react";
 import type { DefaultValues, FieldValues } from "react-hook-form";
 import type { z } from "zod";
@@ -13,7 +12,9 @@ import type { UseZodForm } from "@/components/Form";
 import { formPostFailedId, nativeChecks } from "@/lib/form-post";
 import type { FormPost, HiddenInputs, NativeChecks } from "@/lib/form-post";
 import { useI18n } from "@/lib/i18n";
+import { rememberInBrowser } from "@/lib/remembered";
 import { useHydrated } from "@/lib/use-hydrated";
+import { useRestoredFields } from "@/lib/use-restored-fields";
 
 type PublicMutation = FunctionReference<"mutation", "public">;
 
@@ -31,8 +32,11 @@ type UseFormPost<TMutation extends PublicMutation, TFields extends z.ZodObject> 
 > & {
   /** Spread onto a field's input: the browser's own checks, from the schema. */
   native: (name: keyof z.input<TFields> & string) => NativeChecks;
-  /** Calls the form's mutation over the Convex client. */
-  send: ReactMutation<TMutation>;
+  /**
+   * Calls the form's mutation over the Convex client, then has the browser
+   * keep what the form remembers.
+   */
+  send: (args: FunctionArgs<TMutation>) => Promise<FunctionReturnType<TMutation>>;
 };
 
 /**
@@ -50,7 +54,13 @@ export function useFormPost<
     /** The form's server function, declared beside `post`. */
     action: { url: string };
     carried: TCarried;
+    /** What the server knows the fields start as. It is in the page's HTML. */
     defaultValues: DefaultValues<z.input<TFields>>;
+    /**
+     * What only the browser knows they should start as, read once the
+     * page's JS runs. `null` for a form with nothing to restore.
+     */
+    restore: (() => DefaultValues<z.input<TFields>>) | null;
   },
 ): UseFormPost<TMutation, TFields> {
   const { t } = useI18n();
@@ -61,13 +71,24 @@ export function useFormPost<
       post.args({ carried: opts.carried, fields: typed, request: null }),
     ),
   });
+  useRestoredFields({
+    formRef: form.formRef,
+    getValues: form.getValues,
+    read: opts.restore,
+    reset: form.reset,
+  });
+  const mutate = useMutation(post.mutation);
   return {
     action: opts.action,
     carried: opts.carried,
     form,
     id: post.id,
     native: nativeChecks(fields),
-    send: useMutation(post.mutation),
+    send: async (args) => {
+      const result = await mutate(args);
+      rememberInBrowser(post.remembers(args));
+      return result;
+    },
   };
 }
 

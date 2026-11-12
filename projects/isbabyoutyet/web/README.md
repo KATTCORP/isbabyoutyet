@@ -71,13 +71,24 @@ last two in the component
    function, so its type is known before `args` is read), what the page
    sends along in hidden inputs (`carried`), and `args`, which turns those
    into the mutation's arguments. Where the two senders know different things
-   (a header, `localStorage`), `args` decides, with both cases side by side.
+   (a header, a cookie), `args` decides, with both cases side by side.
+   `remembers` says what the browser keeps from a post that worked.
 2. Its server function, which only hands the post to `answerFormPost`. It
    has to be a `createServerFn` of its own, at the top of the module, for the
    compiler to find it.
-3. `useFormPost(post, { action, carried, defaultValues })` in the component.
+3. `useFormPost(post, { action, carried, defaultValues, restore })` in the
+   component. `defaultValues` is what the server knows and goes in the HTML.
+   `restore` reads what only the browser knows (a draft, a remembered name),
+   and runs once the page's JS does. What the visitor typed before that wins
+   over both. The form is not mounted a second time for it.
 4. `<PostForm>` around the fields, with `{...post.native("name")}` on each
    input.
+
+What a browser remembers between posts, like the visitor id and the name on
+the last message, is a cookie ([`remembered.ts`](src/lib/remembered.ts)), so
+both senders can read and write it: the page's JS through `document.cookie`,
+a post without JS through the request and its redirect. `remembers` is the
+one place a form says what to keep.
 
 Three things follow from the page being shared by the CDN:
 
@@ -122,6 +133,9 @@ Vercel's CDN keeps server responses so most visitors never reach the server.
    [`src/lib/personal-cache-key.ts`](src/lib/personal-cache-key.ts) send
    personal requests to their own URL (`?__personal=1`, stripped in
    `server.ts`). A redirect, an error or a write is never shared either.
+   The cookies a visitor's browser remembers posts by
+   ([`remembered.ts`](src/lib/remembered.ts)) are not personal: the server
+   renders nothing from them.
 3. **A shared response lives until it expires or its tag is purged.** A
    deploy starts an empty cache, because Vercel keys it per deployment.
    Browsers ask the CDN every time.

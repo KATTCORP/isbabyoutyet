@@ -16,6 +16,8 @@ import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex
 import { isBoolean } from "@workspace/runtime/guards";
 import { z } from "zod";
 import type { TranslationFunction } from "@/lib/i18n";
+import { rememberedCookie } from "@/lib/remembered";
+import type { Remembered } from "@/lib/remembered";
 
 type PublicMutation = FunctionReference<"mutation", "public">;
 
@@ -51,6 +53,12 @@ export type FormPost<
   mutation: TMutation;
   /** Without JS: the page the form is on, where a failed post goes back to. */
   page: (carried: TCarried) => string;
+  /**
+   * What the visitor's browser keeps from a post that worked, read off the
+   * arguments that were sent. The page's JS writes the cookies itself, and
+   * a post without JS gets them with its redirect.
+   */
+  remembers: (args: FunctionArgs<TMutation>) => ReadonlyArray<Remembered>;
 };
 
 /** Describes a form. Only here to infer the types from the description. */
@@ -154,10 +162,14 @@ export async function formPostResponse<
     return failed;
   }
   try {
-    const result = await input.mutate(
-      post.args({ carried: carried.data, fields: fields.data, request: input.request }),
-    );
-    return seeOther(post.landing({ carried: carried.data, result }));
+    const args = post.args({ carried: carried.data, fields: fields.data, request: input.request });
+    const result = await input.mutate(args);
+    const landing = seeOther(post.landing({ carried: carried.data, result }));
+    const secure = new URL(input.request.url).protocol === "https:";
+    for (const remembered of post.remembers(args)) {
+      landing.headers.append("Set-Cookie", rememberedCookie(remembered, { secure }));
+    }
+    return landing;
   } catch (error) {
     input.report(error instanceof Error ? error : new Error(String(error)));
     return failed;

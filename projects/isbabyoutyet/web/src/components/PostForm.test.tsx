@@ -41,13 +41,18 @@ const notePost = formPost({
   landing: () => "/notes",
   mutation: addNote,
   page: () => "/notes",
+  remembers: () => [],
 });
 
-function NoteForm(props: { onSend: (args: NoteArgs) => Promise<void> }) {
+function NoteForm(props: {
+  onSend: (args: NoteArgs) => Promise<void>;
+  restore: (() => { text: string }) | null;
+}) {
   const post = useFormPost(notePost, {
     action: { url: "/_serverFn/add-note" },
     carried: { author: "ada" },
     defaultValues: { text: "" },
+    restore: props.restore,
   });
   return (
     <PostForm failedMessage="Couldn't save your note" handleSubmit={props.onSend} post={post}>
@@ -75,7 +80,11 @@ async function renderNoteForm(
   harness: ConvexTestHarness,
   onSend: (args: NoteArgs) => Promise<void>,
 ) {
-  return await renderWithConvexTest({ harness, ui: <NoteForm onSend={onSend} />, wrap: null });
+  return await renderWithConvexTest({
+    harness,
+    ui: <NoteForm onSend={onSend} restore={null} />,
+    wrap: null,
+  });
 }
 
 test("the server's HTML is a form the browser can post and check by itself", async () => {
@@ -86,7 +95,7 @@ test("the server's HTML is a form the browser can post and check by itself", asy
       // @ts-expect-error — integration client is not ConvexReactClient
       client={harness.convexClient}
     >
-      <NoteForm onSend={async () => undefined} />
+      <NoteForm onSend={async () => undefined} restore={() => ({ text: "a draft" })} />
     </ConvexProvider>,
   );
   const form = htmlElement(page.querySelector("form"));
@@ -97,6 +106,8 @@ test("the server's HTML is a form the browser can post and check by itself", asy
   expect(htmlInput(form.querySelector('input[name="author"]')).type).toBe("hidden");
   expect(htmlInput(form.querySelector('input[name="author"]')).value).toBe("ada");
   const text = htmlInput(form.querySelector('input[name="text"]'));
+  // What only a browser knows is not in the server's HTML.
+  expect(text.value).toBe("");
   expect(text.required).toBe(true);
   expect(text.maxLength).toBe(20);
   expect(htmlElement(form.querySelector("#note-failed")).textContent).toBe(
@@ -133,4 +144,15 @@ test("with JS, the page sends the arguments the form's description builds", asyn
       text: "hello",
     });
   });
+});
+
+test("once the page's JS runs, the fields start as what only the browser knows", async () => {
+  await using harness = await createConvexTestHarness({ identity: null });
+  await using view = await renderWithConvexTest({
+    harness,
+    ui: <NoteForm onSend={async () => undefined} restore={() => ({ text: "a draft" })} />,
+    wrap: null,
+  });
+
+  expect(htmlInput(view.getByLabelText("Note")).value).toBe("a draft");
 });

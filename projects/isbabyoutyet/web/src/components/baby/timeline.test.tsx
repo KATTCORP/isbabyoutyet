@@ -23,6 +23,7 @@ import { TimelineFeed, TimelineFeedView, UpdateComposer } from "@/components/bab
 import { encouragementPost } from "@/components/baby/encouragement-post";
 import { EncouragementForm } from "@/components/baby/encouragements";
 import { formPostResponse } from "@/lib/form-post";
+import { clearBrowserCookies, setBrowserCookie } from "@/test/browserCookies";
 import { translate } from "@/lib/i18n";
 import { createConvexTestHarness, type ConvexTestHarness } from "@/test/convexTestHarness";
 import {
@@ -61,8 +62,6 @@ const laborStartedBaby: BabyData = {
   ...notYetBaby,
   laborStarted: "2026-08-20T08:00:00.000Z",
 };
-
-const VISITOR_ID_STORAGE_KEY = "encouragement-visitor-id";
 
 async function seedOwnerBaby(harness: ConvexTestHarness) {
   const ownerId = await signUpTestUser(harness, {
@@ -150,10 +149,9 @@ async function renderTimelineFeedFrom(
   harness: ConvexTestHarness,
   opts: RenderTimelineFeedOpts & { item: string | null },
 ) {
+  clearBrowserCookies();
   if (opts.visitorId) {
-    localStorage.setItem(VISITOR_ID_STORAGE_KEY, opts.visitorId);
-  } else {
-    localStorage.removeItem(VISITOR_ID_STORAGE_KEY);
+    setBrowserCookie("visitor-id", opts.visitorId);
   }
 
   // As the baby route's loader does on a client navigation.
@@ -910,10 +908,10 @@ test("EncouragementForm restores a session draft silently", async () => {
   expect(htmlTextArea(view.getByLabelText("Message")).value).toBe("Saved draft text");
 });
 
-test("EncouragementForm prefers a session name draft over committed localStorage", async () => {
+test("EncouragementForm prefers a session name draft over the remembered name", async () => {
   await using harness = await createConvexTestHarness({ identity: null });
   const baby = await seedOwnerBaby(harness);
-  localStorage.setItem("encouragement-author-name", "Committed Name");
+  setBrowserCookie("author-name", "Committed Name");
   sessionStorage.setItem(
     `encouragement-message-draft:${baby.babyId}`,
     JSON.stringify({
@@ -939,8 +937,32 @@ test("EncouragementForm prefers a session name draft over committed localStorage
   expect(htmlInput(view.getByLabelText("Your name")).value).toBe("Draft Name");
 });
 
-test("EncouragementForm prefills the account name when localStorage is empty", async () => {
-  localStorage.removeItem("encouragement-author-name");
+test("EncouragementForm prefills the remembered name over the account's", async () => {
+  clearBrowserCookies();
+  sessionStorage.clear();
+  setBrowserCookie("author-name", "Auntie Jo");
+  await using harness = await createConvexTestHarness({ identity: null });
+  const baby = await seedOwnerBaby(harness);
+
+  await using view = await renderWithConvexTest({
+    harness,
+    ui: (
+      <EncouragementForm
+        accountName="Ada Lovelace"
+        babyId={baby.babyId}
+        babyName={notYetBaby.name}
+        publicId={baby.publicId}
+      />
+    ),
+    wrap: null,
+  });
+
+  expect(htmlInput(view.getByLabelText("Your name")).value).toBe("Auntie Jo");
+  clearBrowserCookies();
+});
+
+test("EncouragementForm prefills the account name when no name is remembered", async () => {
+  clearBrowserCookies();
   sessionStorage.clear();
   await using harness = await createConvexTestHarness({ identity: null });
   const baby = await seedOwnerBaby(harness);
@@ -1039,6 +1061,10 @@ test("EncouragementForm submit reaches the Convex mutation", async () => {
     ),
   ).toBe(true);
   expect(sessionStorage.getItem(`encouragement-message-draft:${baby.babyId}`)).toBeNull();
+  // The first post made the visitor's id up, and the browser keeps it with the name.
+  expect(document.cookie).toMatch(/visitor-id=[\da-f-]{36}/);
+  expect(document.cookie).toContain("author-name=Auntie%20Jo");
+  clearBrowserCookies();
 });
 
 test("an encouragement the browser posts by itself reaches the feed, and lands on the message", async () => {
@@ -1087,6 +1113,13 @@ test("an encouragement the browser posts by itself reaches the feed, and lands o
   expect(response.headers.get("location")).toBe(
     `/baby/${baby.publicId}?item=${sent?._id}#item-${sent?._id}`,
   );
+  // The browser gets the id the message is theirs by, and the name for next time.
+  expect(response.headers.getSetCookie()).toEqual([
+    expect.stringMatching(
+      /^visitor-id=[\da-f-]{36}; Path=\/; Max-Age=31536000; SameSite=Lax; Secure$/,
+    ),
+    "author-name=Auntie%20Jo; Path=/; Max-Age=31536000; SameSite=Lax; Secure",
+  ]);
 });
 
 test("an encouragement posted without JS says what the request tells about its sender", () => {
@@ -1108,8 +1141,26 @@ test("an encouragement posted without JS says what the request tells about its s
     timezone: null,
     userAgent: "Lynx/2.9",
   });
-  // Made up for this one post: no browser holds it, so nobody can edit the message.
+  // A browser without a visitor id gets one made up, for `remembers` to hand back.
   expect(args.visitorId).toMatch(/^[\da-f-]{36}$/);
+  expect(encouragementPost.remembers(args)).toEqual([
+    { name: "visitor-id", value: args.visitorId },
+    { name: "author-name", value: "Auntie Jo" },
+  ]);
+});
+
+test("an encouragement posted without JS is the visitor's own when their browser has an id", () => {
+  const args = encouragementPost.args({
+    // SAFETY: A stand-in id; nothing here reads the baby.
+    carried: { babyId: "baby-id" as Id<"baby">, publicId: "baby-smith" },
+    fields: { authorName: "Auntie Jo", message: "Hello again" },
+    request: new Request("https://isbabyoutyet.test/_serverFn/post", {
+      headers: { cookie: "visitor-id=visitor-from-cookie" },
+      method: "POST",
+    }),
+  });
+
+  expect(args.visitorId).toBe("visitor-from-cookie");
 });
 
 // --- Infinite scroll: the skeleton is the sentinel ---

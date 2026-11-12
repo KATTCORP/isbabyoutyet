@@ -13,9 +13,21 @@ import { z } from "zod";
 import { formPost, postedForm } from "@/lib/form-post";
 import { answerFormPost } from "@/lib/form-post.server";
 import type { TranslationFunction } from "@/lib/i18n";
-import { getVisitorId } from "@/lib/use-visitor-id";
+import { recallInBrowser } from "@/lib/remembered";
+import { peekVisitorId, rememberedVisitorId, visitorIdOfRequest } from "@/lib/use-visitor-id";
 
 const MAX_NAME_LENGTH = 50;
+const AUTHOR_NAME = "author-name";
+/** Where the name lived before it was a cookie. Still read, until the next post moves it. */
+const EARLIER_NAME_STORAGE_KEY = "encouragement-author-name";
+
+/** The name this browser's visitor signed their last message with, or "". */
+export function recallAuthorName() {
+  if (globalThis.window === undefined) {
+    return "";
+  }
+  return recallInBrowser(AUTHOR_NAME) ?? localStorage.getItem(EARLIER_NAME_STORAGE_KEY) ?? "";
+}
 
 // Trim before validating, so whitespace-only input doesn't pass "required"
 function encouragementFields(t: TranslationFunction) {
@@ -44,12 +56,13 @@ type EncouragementSender = Pick<
   "locale" | "timezone" | "userAgent" | "visitorId"
 >;
 
+/** A first post makes the visitor's id up. `remembers` keeps it once the post worked. */
 function senderInBrowser(): EncouragementSender {
   return {
     locale: navigator.language,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     userAgent: navigator.userAgent,
-    visitorId: getVisitorId(),
+    visitorId: peekVisitorId() ?? crypto.randomUUID(),
   };
 }
 
@@ -59,8 +72,7 @@ function senderOfRequest(request: Request): EncouragementSender {
     locale: request.headers.get("accept-language")?.split(",")[0] ?? null,
     timezone: null,
     userAgent: request.headers.get("user-agent"),
-    // Nobody holds this id, so the message is nobody's to edit or delete.
-    visitorId: crypto.randomUUID(),
+    visitorId: visitorIdOfRequest(request) ?? crypto.randomUUID(),
   };
 }
 
@@ -80,6 +92,10 @@ export const encouragementPost = formPost({
     babyFeedItemUrl({ itemId: input.result.timelineItemId, publicId: input.carried.publicId }),
   mutation: api.encouragements.create,
   page: (carried) => babyPageUrl(carried.publicId),
+  remembers: (args) => [
+    rememberedVisitorId(args.visitorId),
+    { name: AUTHOR_NAME, value: args.authorName },
+  ],
 });
 
 /** Where the browser posts the form by itself. */

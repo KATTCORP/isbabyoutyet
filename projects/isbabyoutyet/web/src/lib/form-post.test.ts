@@ -29,6 +29,7 @@ const notePost = formPost({
   landing: (input) => `/notes/${input.result.noteId}`,
   mutation: addNote,
   page: (carried) => `/authors/${carried.author}`,
+  remembers: (args) => [{ name: "note-author", value: args.author }],
 });
 
 function posted(entries: Record<string, string>) {
@@ -76,6 +77,17 @@ test("a posted form runs its mutation and lands on what it made", async () => {
   expect(response.headers.get("location")).toBe("/notes/n1");
 });
 
+test("a post that worked sets what the form remembers, with its redirect", async () => {
+  const [answer] = answering({
+    data: posted({ author: "ada", text: "hello" }),
+    request: browserPost(fromThisSite),
+  });
+
+  expect((await answer).headers.getSetCookie()).toEqual([
+    "note-author=ada; Path=/; Max-Age=31536000; SameSite=Lax; Secure",
+  ]);
+});
+
 test("a post that fails the fields' checks goes back to the form's notice, unsent", async () => {
   const [answer, mutate] = answering({
     data: posted({ author: "ada", text: "   " }),
@@ -86,6 +98,7 @@ test("a post that fails the fields' checks goes back to the form's notice, unsen
   expect(mutate).not.toHaveBeenCalled();
   expect(response.status).toBe(303);
   expect(response.headers.get("location")).toBe("/authors/ada#note-failed");
+  expect(response.headers.getSetCookie()).toEqual([]);
 });
 
 test("a mutation that throws goes back to the notice and is reported", async () => {

@@ -2,7 +2,11 @@
  * The encouragement form. `encouragement-post.ts` says what it sends, with
  * the page's JS and without.
  */
-import { encouragementPost, postEncouragement } from "@/components/baby/encouragement-post";
+import {
+  encouragementPost,
+  postEncouragement,
+  recallAuthorName,
+} from "@/components/baby/encouragement-post";
 import { SubmitButton } from "@/components/Form";
 import { PostForm, useFormPost } from "@/components/PostForm";
 import {
@@ -25,7 +29,6 @@ import {
   clearEncouragementMessageDraft,
 } from "@/lib/encouragement-message-draft";
 import { useEncouragementMessageDraft } from "@/lib/use-encouragement-message-draft";
-import { useClientHydration } from "@/lib/use-client-hydration";
 import { visitorTagQuery } from "@/lib/visitor-tag";
 import { useWatch } from "react-hook-form";
 
@@ -36,49 +39,22 @@ type EncouragementFormProps = {
   publicId: string;
 };
 
-const STORAGE_KEY_NAME = "encouragement-author-name";
-
-function getStoredAuthorName() {
-  if (globalThis.window === undefined) {
-    return "";
-  }
-  return localStorage.getItem(STORAGE_KEY_NAME) ?? "";
-}
-
 export function EncouragementForm(props: EncouragementFormProps) {
-  const hydrated = useClientHydration();
-  const sessionDraft = hydrated ? readEncouragementFormDraft(props.babyId) : null;
-  const storedAuthorName = hydrated ? getStoredAuthorName() : "";
-  return (
-    <EncouragementFormFields
-      babyId={props.babyId}
-      babyName={props.babyName}
-      initialAuthorName={
-        sessionDraft?.hasDraft
-          ? sessionDraft.authorName
-          : storedAuthorName || props.accountName || ""
-      }
-      initialMessage={sessionDraft?.message ?? ""}
-      key={hydrated ? "hydrated" : "server"}
-      publicId={props.publicId}
-    />
-  );
-}
-
-function EncouragementFormFields(
-  props: Omit<EncouragementFormProps, "accountName"> & {
-    initialAuthorName: string;
-    initialMessage: string;
-  },
-) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const post = useFormPost(encouragementPost, {
     action: postEncouragement,
     carried: { babyId: props.babyId, publicId: props.publicId },
-    defaultValues: {
-      authorName: props.initialAuthorName,
-      message: props.initialMessage,
+    defaultValues: { authorName: props.accountName ?? "", message: "" },
+    // A draft left in this tab first, then the name used last time.
+    restore: () => {
+      const draft = readEncouragementFormDraft(props.babyId);
+      return {
+        authorName: draft.hasDraft
+          ? draft.authorName
+          : recallAuthorName() || props.accountName || "",
+        message: draft.message,
+      };
     },
   });
   const form = post.form;
@@ -101,9 +77,6 @@ function EncouragementFormFields(
       <PostForm
         failedMessage={t("Failed to send encouragement")}
         handleSubmit={async (values) => {
-          // Save name to localStorage for next time
-          localStorage.setItem(STORAGE_KEY_NAME, values.authorName);
-
           const promise = post.send(values).then(async (it) => {
             /* v8 ignore next 3 */
             if (import.meta.env.DEV && import.meta.env.MODE !== "test") {
