@@ -7,6 +7,8 @@ that rule.
 
 The TanStack Start SDK (`@sentry/tanstackstart-react`) reports errors and
 traces. Production source maps upload when `SENTRY_AUTH_TOKEN` is set.
+Events are tagged with `VERCEL_ENV` (`production` or `preview`) in the browser
+and on the server, so preview deploys don't count as production.
 
 Web and Convex share that one project. Convex reports uncaught function errors
 through its dashboard integration (Settings → Integrations → Sentry, per

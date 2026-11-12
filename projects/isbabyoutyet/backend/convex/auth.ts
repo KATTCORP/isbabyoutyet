@@ -188,6 +188,16 @@ export const createAuth = (convexCtx: GenericCtx<DataModel>) => {
       convexTokenInAuthResponse(),
     ],
     rateLimit: {
+      // The Convex backend itself fetches these to verify every JWT, all from
+      // one IP, so they would share one `rateLimit` row. Concurrent fetches
+      // (e.g. after a deploy clears Convex's JWKS cache) then conflict on it
+      // until one fails, the endpoint returns 500, and every signed-in
+      // request fails with `InvalidAuthHeader` (PERSONAL-ISBABYOUTYET-C/D/E).
+      // Both are public and read-only.
+      customRules: {
+        "/convex/.well-known/openid-configuration": false,
+        "/convex/jwks": false,
+      },
       enabled: true,
       storage: "database",
     },
