@@ -55,7 +55,6 @@ import { Fragment, use, useId, useRef } from "react";
 import type { DragEvent, HTMLAttributes, ReactElement, ReactNode } from "react";
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/react";
 import type { TargetAndTransition, Transition } from "motion/react";
-import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { z } from "zod";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
@@ -86,6 +85,7 @@ import type { TranslationFunction, TranslationKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n";
 import { useNow } from "@/lib/use-now";
 import { getRelativeTime } from "./utils";
+import { Markdown } from "./markdown";
 import { useIntersectionAction } from "@/lib/use-intersection-action";
 import { useLiveInsertIds } from "@/lib/use-live-insert-ids";
 import { useObjectUrl } from "@/lib/use-object-url";
@@ -1147,8 +1147,8 @@ function UpdateTimelineItem(props: UpdateTimelineItemProps) {
         )}
 
         {update.message && (
-          <div className="mt-2 min-w-0 max-w-none break-words text-sm text-foreground/90 prose prose-sm [overflow-wrap:anywhere] dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-a:text-primary [&_code]:whitespace-pre-wrap [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto">
-            <Streamdown>{update.message}</Streamdown>
+          <div className="mt-2 min-w-0 text-sm text-foreground/90">
+            <Markdown>{update.message}</Markdown>
           </div>
         )}
       </div>
@@ -1350,8 +1350,8 @@ function EncouragementTimelineItem(props: EncouragementTimelineItemProps) {
           )}
         </div>
 
-        <div className="mt-1 min-w-0 max-w-none break-words text-sm text-muted-foreground prose prose-sm [overflow-wrap:anywhere] dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-a:text-primary [&_code]:whitespace-pre-wrap [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto">
-          <Streamdown>{encouragement.message}</Streamdown>
+        <div className="mt-1 min-w-0 text-sm text-muted-foreground">
+          <Markdown>{encouragement.message}</Markdown>
         </div>
       </div>
     </div>

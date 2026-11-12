@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { personalCacheKeyRoutes, takePersonalCacheKey } from "./personal-cache-key";
+import {
+  hasSessionCookie,
+  personalCacheKeyRoutes,
+  takePersonalCacheKey,
+} from "./personal-cache-key";
 
 function request(opts: { cookie: string | null; path: string }) {
   return new Request(`https://example.com${opts.path}`, {
@@ -48,6 +52,22 @@ describe("takePersonalCacheKey", () => {
     expect(taken.personal).toBe(true);
     expect(taken.request.url).toBe("https://example.com/");
   });
+});
+
+describe("hasSessionCookie", () => {
+  test.each(["__Secure-better-auth.session_token=abc", "theme=dark; better-auth.convex_jwt=abc"])(
+    "finds a session in %s",
+    (cookie) => {
+      expect(hasSessionCookie(cookie)).toBe(true);
+    },
+  );
+
+  test.each([null, undefined, "", "PARAGLIDE_LOCALE=sv; __vdpl=dpl_123"])(
+    "finds none in %s",
+    (cookie) => {
+      expect(hasSessionCookie(cookie)).toBe(false);
+    },
+  );
 });
 
 describe("personalCacheKeyRoutes", () => {

@@ -274,8 +274,39 @@ const SEED_BABY_EXTRAS = {
         message: "So exciting!! Love you both.",
         minutesAgo: 60,
       },
+      // Messages are markdown. Between them these cover what a visitor is
+      // likely to write, and what must not get through.
+      {
+        authorName: "Auntie Fran",
+        message:
+          "**So proud of you both.** Take it *one breath at a time*, and ~~try to~~ get some sleep when you can.",
+        minutesAgo: 50,
+      },
+      {
+        authorName: "Neighbour Ali",
+        message:
+          "All sorted at home:\n\n- Fed the cat\n- Watered the plants\n- Brought the bins in\n\nJust think about that baby!",
+        minutesAgo: 40,
+      },
+      {
+        authorName: "Cousin Dev",
+        message:
+          "Made you a [playlist for the ward](https://example.com/calm-labour-mix). The parking map is at https://example.com/hospital-parking if anyone needs it.",
+        minutesAgo: 30,
+      },
+      {
+        authorName: "Grandad Pete",
+        message: "## Go on, team!\n\n> You've got this.\n\nSee you all very soon.",
+        minutesAgo: 20,
+      },
+      {
+        authorName: "Uncle Olu",
+        message:
+          "I typed `<b>good luck</b>` and it didn't go bold: <b>good luck</b>. Sending love anyway <3",
+        minutesAgo: 10,
+      },
     ],
-    hospitalMessage: "Checked in and getting comfy.",
+    hospitalMessage: "Checked in and **getting comfy**.",
     hoursAgo: { laborStarted: 8, wentToHospital: 3 },
     laborStartedMessage: "Contractions got serious. Heading in!",
   },

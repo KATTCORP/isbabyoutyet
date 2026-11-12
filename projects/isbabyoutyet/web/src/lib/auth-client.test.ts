@@ -12,6 +12,7 @@ import {
   getBrowserAuthHeaders,
   SessionConvexReactClient,
   SessionExpiredError,
+  setClientAnonymous,
   setClientToken,
   waitForMe,
 } from "@/lib/auth-client";
@@ -141,6 +142,23 @@ test("setClientToken hands the inline JWT to Convex without a token round trip",
     throw new Error("expected setAuth to receive a token fetcher");
   }
   expect(await fetchToken({ forceRefreshToken: false })).toBe("jwt-from-sign-in");
+});
+
+test("setClientAnonymous answers Convex's token checks without asking the auth server", async () => {
+  await using clients = makeClients();
+  const fetch = vi.spyOn(globalThis, "fetch");
+  await using _fetch = makeResource({}, () => {
+    fetch.mockRestore();
+  });
+
+  // @ts-expect-error — stand-in only implements setAuth
+  setClientAnonymous(clients.convexClient);
+  const fetchToken = clients.setAuth.mock.lastCall?.[0];
+
+  // Convex asks once, then once more with a forced refresh, before it sends anything.
+  expect(await fetchToken?.({ forceRefreshToken: false })).toBeNull();
+  expect(await fetchToken?.({ forceRefreshToken: true })).toBeNull();
+  expect(fetch).not.toHaveBeenCalled();
 });
 
 test("clearClientToken drops the identity on the live socket instead of re-running setAuth", () => {

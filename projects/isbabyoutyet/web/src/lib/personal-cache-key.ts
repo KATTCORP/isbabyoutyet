@@ -15,17 +15,27 @@
 const PERSONAL_CACHE_KEY_PARAM = "__personal";
 
 /**
- * Matches a `Cookie` header with a Better Auth cookie (the session, its
- * cached data, the Convex JWT; `__Secure-` prefixed in production) or
- * Paraglide's language cookie. It errs towards personal: a false match only
- * costs a cache hit.
+ * Matches a `Cookie` header with a Better Auth cookie: the session, its
+ * cached data, the Convex JWT; `__Secure-` prefixed in production. It errs
+ * towards a session: a false match only costs a cache hit and a token check.
  */
-const PERSONAL_COOKIE = String.raw`better-auth\.|PARAGLIDE_LOCALE=`;
+const SESSION_COOKIE = String.raw`better-auth\.`;
+
+/** A session cookie, or Paraglide's language cookie. */
+const PERSONAL_COOKIE = String.raw`${SESSION_COOKIE}|PARAGLIDE_LOCALE=`;
+
+/**
+ * Whether a `Cookie` header could carry a session. Without one the visitor
+ * is anonymous, and nobody needs to ask the auth server.
+ */
+export function hasSessionCookie(cookie: string | null | undefined) {
+  return new RegExp(SESSION_COOKIE).test(cookie ?? "");
+}
 
 /**
  * Pages whose shared copy differs from what a personal visitor gets. A new
- * shared page goes here too. Leaving one out is not a leak: its personal
- * visitors get the anonymous copy until the browser signs them in.
+ * shared page goes here too. Leaving one out is not a leak, but its
+ * signed-in visitors get the anonymous copy and look signed out on it.
  */
 const SHARED_PAGES = "^(/|/auth/login|/auth/signup|/baby/.+|/og|/og/preview)$";
 

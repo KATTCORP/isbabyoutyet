@@ -1,10 +1,24 @@
-import { createServerFn } from "@tanstack/react-start";
+import { createIsomorphicFn, createServerFn } from "@tanstack/react-start";
+import { getRequestHeader } from "@tanstack/react-start/server";
 import { snapshotReader } from "@workspace/convex-query";
 import type { ConvexReader, ConvexSnapshotClient } from "@workspace/convex-query";
 import { authServer } from "@/lib/auth-server";
+import { hasSessionCookie } from "@/lib/personal-cache-key";
+
+/**
+ * Whether the request carries a session cookie. `false` in the browser,
+ * which can't read one.
+ */
+export const requestHasSessionCookie = createIsomorphicFn()
+  .server(() => hasSessionCookie(getRequestHeader("cookie")))
+  .client(() => false);
 
 /** The request's Convex token, from its session cookie. `undefined` when signed out. */
 export const getAuth = createServerFn({ method: "GET" }).handler(async () => {
+  // Minting a token is a round trip to Convex. Most visitors have no session.
+  if (!hasSessionCookie(getRequestHeader("cookie"))) {
+    return undefined;
+  }
   return await authServer.getToken();
 });
 
