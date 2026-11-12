@@ -75,6 +75,36 @@ test("seedBabiesForUser creates one baby per status with timeline content", asyn
   expect(encouragements.every((row) => row.timelineItemId)).toBe(true);
 });
 
+test("hospital demo feed includes encouragements written in markdown", async () => {
+  const t = await setup();
+  const babies = await t.run(async (ctx) => {
+    return await seedBabiesForUser(ctx, "markdown-user");
+  });
+  const atHospital = babies.find((baby) => baby.publicId === "baby-at-hospital");
+  if (!atHospital) {
+    throw new Error("missing hospital baby");
+  }
+
+  const messages = await t.run(async (ctx) => {
+    const encouragements = await ctx.db
+      .query("encouragements")
+      .withIndex("by_babyId", (q) => q.eq("babyId", atHospital.id))
+      .collect();
+    return encouragements.map((row) => row.message);
+  });
+
+  // Emphasis, a list, a link, a heading with a quote, and HTML that must stay text.
+  for (const markdown of [
+    "**So proud",
+    "\n- Fed the cat",
+    "](https://",
+    "## Go on",
+    "<b>good luck</b>",
+  ]) {
+    expect(messages.some((message) => message.includes(markdown))).toBe(true);
+  }
+});
+
 test("born demo feed includes noisy encouragements that stress mobile layout", async () => {
   const t = await setup();
   const babies = await t.run(async (ctx) => {
