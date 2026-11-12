@@ -199,7 +199,7 @@ function subscribe(subscription: Subscription, client: ConvexWatchClient): Watch
 }
 
 /**
- * The feature of the `convex` part: it keeps every Convex entry of its
+ * The feature of the `convex` plugin: it keeps every Convex entry of its
  * client live. While an entry is cached and has data, it is subscribed with
  * `watchQuery` and every result is written into the cache. Entries leave
  * Convex when they leave the cache (`gcTime` after their last reader), so

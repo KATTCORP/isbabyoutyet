@@ -3,9 +3,9 @@ import type { makeQueryClient } from "./query-client";
 
 /**
  * raf-query's builders, bound to the app's client: `queryOptions` takes the
- * options that client's parts declare (`retry`, `refetchOnWindowFocus`, …)
- * and its `queryFn`s get their context (`convex`). Import them from here,
- * not from `@raf-query/react`, whose own `queryOptions` takes neither.
+ * options that client's plugins declare (`retry`, `refetchOnWindowFocus`, …)
+ * and its `queryFn`s get their context (`convex`). Import them from here:
+ * `@raf-query/react` exports no builder of its own.
  */
 export const queryOptions = bindQueryOptions<typeof makeQueryClient>();
 

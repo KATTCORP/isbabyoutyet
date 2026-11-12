@@ -1,6 +1,6 @@
 export { CONVEX_PAGINATED_QUERY_KEY, CONVEX_QUERY_KEY } from "./entries.ts";
 export { watchConvexQuery } from "./live.ts";
-export { convex } from "./part.ts";
+export { convex } from "./plugin.ts";
 export {
   type Convex,
   type ConvexQueryClient,

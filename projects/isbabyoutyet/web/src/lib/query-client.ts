@@ -10,7 +10,7 @@ import { convex, subscribingReader } from "@workspace/convex-query";
  * `recommended()` adds retries and refetching stale queries on focus and
  * reconnect; Convex queries opt out of both (`retry: false`, never stale).
  *
- * Its parts type what the app's queries can set and what their `queryFn`s
+ * Its plugins type what the app's queries can set and what their `queryFn`s
  * get: build factories with the builders in [`raf.ts`](./raf.ts), which are
  * bound to this client.
  */
@@ -22,7 +22,7 @@ export function makeQueryClient(opts: {
 }) {
   return createQueryClient({
     isServer: opts.isServer,
-    parts: [...recommended(), convex({ live: opts.live, reader: opts.reader })],
+    plugins: [...recommended(), convex({ live: opts.live, reader: opts.reader })],
   });
 }
 

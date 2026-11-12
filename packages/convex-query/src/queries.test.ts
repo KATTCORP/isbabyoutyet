@@ -16,7 +16,7 @@ import {
 import type { PaginationOptions, PaginationResult } from "convex/server";
 import { getFunctionName, makeFunctionReference } from "convex/server";
 import { expect, expectTypeOf, test } from "vitest";
-import { convex } from "./part.ts";
+import { convex } from "./plugin.ts";
 import type {
   ConvexPaginatedQueryHandle,
   ConvexQueryHandle,
@@ -35,7 +35,7 @@ function makeQueryClient(client: ConvexWatchClient) {
   return createQueryClient({
     defaults: { gcTime: Infinity },
     isServer: false,
-    parts: [convex({ live: null, reader: subscribingReader(client) })],
+    plugins: [convex({ live: null, reader: subscribingReader(client) })],
   });
 }
 
@@ -153,18 +153,18 @@ test("a factory target reaches entries other calls of the factory created", asyn
   await reloading;
 });
 
-test("a client without the convex part doesn't type-check where it meets a factory", () => {
-  const queryClient = createQueryClient({ parts: [retry()] });
+test("a client without the convex plugin doesn't type-check where it meets a factory", () => {
+  const queryClient = createQueryClient({ plugins: [retry()] });
   const wrong = () => {
     void load(queryClient, {
-      // @ts-expect-error — this client has no `convex` part, so no reader for the queryFn
+      // @ts-expect-error — this client has no `convex` plugin, so no reader for the queryFn
       message: swr(convexQuery(getMessage), { id: "a" }),
     });
     // @ts-expect-error — the verbs check it too
     void invalidateMany(queryClient, convexQuery(getMessage));
   };
   expectTypeOf(wrong).toBeFunction();
-  // `retry` is optional: a client with the part alone runs the factories.
+  // `retry` is optional: a client with the plugin alone runs the factories.
   const withoutRetry = makeQueryClient(makeTestConvexClient(async () => null).client);
   expectTypeOf(invalidateMany(withoutRetry, convexQuery(getMessage))).resolves.toBeVoid();
 });

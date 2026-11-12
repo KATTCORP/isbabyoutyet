@@ -1,6 +1,7 @@
 import { mount } from "@raf-query/core/internal";
 import type { InputOf, LoadEntry, LoadEntryOptions, QueryFactory } from "@raf-query/react";
 import {
+  bindQueryOptions,
   createQueryClient,
   fetchNextPage,
   fetchPreviousPage,
@@ -8,7 +9,6 @@ import {
   getData,
   invalidateOne,
   load,
-  queryOptions,
   removeOne,
   revalidate,
   setData,
@@ -21,13 +21,16 @@ import { isInvalidatedEntry } from "./test-cache.ts";
 import type { ConvexQueryClient } from "./context.ts";
 import type { ConvexWatchClient } from "./reader.ts";
 import { watchConvexQuery } from "./live.ts";
-import { convex } from "./part.ts";
+import { convex } from "./plugin.ts";
 import { CONVEX_PAGINATED_QUERY_KEY, CONVEX_QUERY_KEY } from "./entries.ts";
 import type { PageBefore, PageDirection, PaginationArgs } from "./queries.ts";
 import { convexPaginatedQuery, convexQuery } from "./queries.ts";
 import { subscribingReader } from "./reader.ts";
 import type { TestConvexClient } from "./testing.ts";
 import { makeTestConvexClient } from "./testing.ts";
+
+/** For queries of the tests' own: bound to no plugin, so they run on any client. */
+const queryOptions = bindQueryOptions();
 
 /**
  * Refetch every page now, as `useInfiniteQuery`'s `refetch()` does. Convex
@@ -172,7 +175,7 @@ function setup(): Setup {
   const queryClient = createQueryClient({
     defaults: { gcTime: Infinity },
     isServer: false,
-    parts: [convex({ live: backend.client, reader: subscribingReader(backend.client) })],
+    plugins: [convex({ live: backend.client, reader: subscribingReader(backend.client) })],
   });
   // What `QueryClientProvider` does while mounted.
   const disconnect = mount(queryClient);
@@ -222,7 +225,7 @@ function setup(): Setup {
   };
 }
 
-describe("the convex part's live sync", () => {
+describe("the convex plugin's live sync", () => {
   it("writes every result of a cached query into the cache", async () => {
     const live = setup();
     await live.load(message, { id: "a" });
