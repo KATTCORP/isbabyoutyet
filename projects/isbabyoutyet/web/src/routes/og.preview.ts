@@ -1,5 +1,5 @@
 import { createFileRoute, defaultParseSearch } from "@tanstack/react-router";
-import { withPublicCache } from "@/lib/cachePolicy";
+import { forOneDay, withSharedCache } from "@/lib/cache";
 import { detectLocaleFromRequestHeaders } from "@/lib/locale-request-handler";
 import { createBabyOgImage } from "@/lib/og-image";
 import { previewBabyFromSearch, previewSearchSchema } from "@/lib/preview-baby";
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/og/preview")({
         }
         const locale = detectLocaleFromRequestHeaders();
         const baby = previewBabyFromSearch(parsed.data);
-        return withPublicCache(
+        return withSharedCache(
           await createBabyOgImage({
             name: baby.name,
             ...(baby.dueDateDisplayMode === "exact" && baby.dueDate
@@ -39,7 +39,8 @@ export const Route = createFileRoute("/og/preview")({
             timeZone: baby.timeZone,
             wentToHospital: baby.wentToHospital,
           }),
-          { maxAgeSeconds: 86_400, tags: ["preview"] },
+          // A preview is a week from its due date unless its URL says otherwise.
+          forOneDay("language"),
         );
       },
     },

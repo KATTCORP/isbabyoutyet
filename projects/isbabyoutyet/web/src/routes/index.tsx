@@ -9,7 +9,7 @@ import { Button } from "@workspace/ui/components/button";
 import { GroupChatVersusLink } from "@/components/home/group-chat";
 import { ThemeGallery, ThemeStage, useHomeStage } from "@/components/home/theme-stage";
 import { LanguagePicker } from "@/components/language-picker";
-import { homepageCacheHeaders } from "@/lib/cachePolicy";
+import { sharedCacheHeaders, untilDeploy } from "@/lib/cache";
 import { splitMessageList, translate, useI18n } from "@/lib/i18n";
 import type { TranslationKey } from "@/lib/i18n";
 import { setLocale } from "@/lib/paraglide-setup";
@@ -20,7 +20,7 @@ import { useMeasuredWidth } from "@/lib/use-measured-width";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
-  headers: homepageCacheHeaders,
+  headers: () => sharedCacheHeaders(untilDeploy("language")),
   loader: async (opts) => {
     const [handles] = await load(opts.context.queryClient, {
       me: swr(convexQuery(api.profile.get), {}),

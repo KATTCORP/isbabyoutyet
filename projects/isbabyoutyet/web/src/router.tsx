@@ -31,8 +31,14 @@ export const routerPreloadOptions = {
 type DehydratedRequest = {
   /** The request's cookie JWT, `null` when signed out. */
   authToken: string | null;
-  /** The language the document was rendered in. */
-  locale: SupportedLocale;
+  /**
+   * The visitor's language, when the document was rendered in it. `null` on
+   * a baby's page, which is in the baby's language (`documentLocale`) and
+   * shared between visitors: the browser keeps the language it detects.
+   */
+  locale: SupportedLocale | null;
+  /** When the server rendered the document, in ms (`useNow`). */
+  renderedAt: number;
 };
 
 export function getRouter() {
@@ -69,6 +75,7 @@ export function getRouter() {
     convexClient,
     locale: visitorLocale(),
     queryClient,
+    renderedAt: Date.now(),
   };
 
   const router = createRouter({
@@ -88,13 +95,25 @@ export function getRouter() {
     // paused until then). Anonymous visitors resolve via one `/convex/token` 401.
     dehydrate: async (): Promise<DehydratedRequest> => ({
       authToken: server ? await server.token() : null,
-      locale: context.locale,
+      locale: router.state.matches.some(
+        (match) => match.routeId === "/baby/$publicId" && match.loaderData?.babyDoc,
+      )
+        ? null
+        : context.locale,
+      renderedAt: context.renderedAt,
     }),
     hydrate: (dehydrated) => {
       setClientToken(convexClient, dehydrated.authToken);
-      // Hydrate in the language the server rendered, whatever the browser
-      // would detect. Runs before the router matches its first route.
-      router.update({ context: { ...context, locale: dehydrated.locale } });
+      // Hydrate in the language and at the moment the server rendered,
+      // whatever the browser would detect. Runs before the router matches
+      // its first route.
+      router.update({
+        context: {
+          ...context,
+          locale: dehydrated.locale ?? context.locale,
+          renderedAt: dehydrated.renderedAt,
+        },
+      });
     },
     Wrap: (props) => (
       <ConvexProvider client={convexClient}>

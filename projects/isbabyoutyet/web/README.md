@@ -61,6 +61,57 @@ Use `createConvexTestHarness` with `renderWithConvexTest` /
 `convex-test`. Seed with `seedOwnedBaby`, `signUpTestUser`, or
 `seedBabyWithPhoto`, and switch callers with `harness.withIdentity`.
 
+## Caching
+
+Vercel's CDN keeps server responses so most visitors never reach the server.
+[`src/lib/cache.ts`](src/lib/cache.ts) holds all of it, in three rules:
+
+1. **Private unless shared.** A response is `private, no-store` unless its
+   route shares it: a page with `headers: () => sharedCacheHeaders(…)`, a
+   resource by returning `withSharedCache(response, …)`.
+2. **Shared means anonymous.** A session or language cookie makes a request
+   _personal_: its response is rendered for that visitor and never stored.
+   Vercel will not key its cache on `Cookie` (a response with `Vary: Cookie`
+   is not cached at all), so the CDN routes in
+   [`src/lib/personal-cache-key.ts`](src/lib/personal-cache-key.ts) send
+   personal requests to their own URL (`?__personal=1`, stripped in
+   `server.ts`). A redirect, an error or a write is never shared either.
+3. **A shared response lives until it expires or its tag is purged.** A
+   deploy starts an empty cache, because Vercel keys it per deployment.
+   Browsers ask the CDN every time.
+
+| What                                | Same for                                           | Until                                                     |
+| ----------------------------------- | -------------------------------------------------- | --------------------------------------------------------- |
+| A baby's page and its overlays      | every anonymous visitor                            | its data changes, or its day ends                         |
+| A baby's manifest                   | everyone                                           | its data changes, or its day ends                         |
+| A baby's share image (`/og/baby/…`) | everyone                                           | never: the URL names its content, so browsers keep it too |
+| Homepage, login, signup, `/og`      | anonymous visitors with the same `Accept-Language` | the next deploy                                           |
+| `/og/preview`                       | anonymous visitors with the same `Accept-Language` | a day                                                     |
+| `robots.txt`                        | everyone                                           | the next deploy                                           |
+| `sitemap.xml`                       | everyone                                           | a day                                                     |
+| Everything else                     | nobody                                             |                                                           |
+
+**A baby's data changes:** every shared response about a baby carries the tag
+`baby:<id>`. The Convex triggers in
+[`triggers.ts`](../backend/convex/triggers.ts) purge it on any write to what
+the public page reads (the baby, its feed, its owner's language and time zone),
+through a durable job that calls `/api/cache/purge` here
+([`cacheInvalidation.ts`](../backend/convex/cacheInvalidation.ts)). A mutation
+that writes those tables must be a `mutationWithTriggers`. A migration is not,
+so a page it changes stays as it was until the day ends or the next deploy.
+
+**A baby's day ends:** at midnight in the baby's time zone the countdown
+moves on, and so does the day in the share image's URL.
+
+**Shared HTML must be the same for everyone it is shared with.** A baby page
+is in the baby's language, so nothing in it may come from the visitor's. Text
+that ages ("5 minutes ago", the countdown) reads the clock from
+[`useNow`](src/lib/use-now.tsx): the browser hydrates at the moment the
+server rendered, whenever that was, and then moves to its own clock.
+
+To check a deployment, request a page twice without cookies and look for
+`x-vercel-cache: HIT` on the second response.
+
 ## Deploy (Vercel)
 
 [`vercel.json`](vercel.json) sets the framework, install command, and build

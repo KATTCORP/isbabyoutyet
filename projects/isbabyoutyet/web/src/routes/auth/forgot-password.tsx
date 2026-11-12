@@ -21,7 +21,6 @@ import { BabyIcon, EnvelopeSimpleIcon } from "@phosphor-icons/react";
 import type { TranslationFunction } from "@/lib/i18n";
 import { translate, useI18n } from "@/lib/i18n";
 import { robotsNoIndexMeta } from "@/lib/seo";
-import { authPageCacheHeaders } from "@/lib/cachePolicy";
 
 function forgotPasswordSchema(t: TranslationFunction) {
   return z.object({
@@ -44,7 +43,6 @@ export const Route = createFileRoute("/auth/forgot-password")({
       .optional()
       .transform((value) => (value === undefined ? undefined : ("1" as const))),
   }),
-  headers: authPageCacheHeaders,
   head: (opts) => ({
     meta: [
       {

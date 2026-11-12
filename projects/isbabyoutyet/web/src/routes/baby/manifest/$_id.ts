@@ -3,8 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { translate } from "@/lib/i18n";
-import { withPublicCache } from "@/lib/cachePolicy";
-import { ALL_BABY_PAGES_CACHE_TAG, babyIdCacheTag } from "@isbabyoutyet/backend/src/cacheTags";
+import { babyCache, withSharedCache } from "@/lib/cache";
 
 type WebAppManifestIcon = {
   sizes: string;
@@ -84,16 +83,13 @@ export const Route = createFileRoute("/baby/manifest/$_id")({
           theme_color: themeColor,
         };
 
-        return withPublicCache(
+        return withSharedCache(
           Response.json(manifest, {
             headers: {
               "Content-Type": "application/manifest+json",
             },
           }),
-          {
-            maxAgeSeconds: 86_400,
-            tags: [ALL_BABY_PAGES_CACHE_TAG, babyIdCacheTag(opts.params._id)],
-          },
+          babyCache(baby, "everyone"),
         );
       },
     },

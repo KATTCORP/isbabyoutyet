@@ -11,13 +11,11 @@ import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-r
 import { translate, useI18n, getDetectedLocale } from "@/lib/i18n";
 import { closeOverlayLink, overlayCloseLinkProps } from "@/lib/overlay-nav";
 import { robotsNoIndexMeta } from "@/lib/seo";
-import { previewCacheHeaders } from "@/lib/cachePolicy";
 import { previewBabyFromSearch, previewSearchSchema } from "@/lib/preview-baby";
 
 export const Route = createFileRoute("/preview")({
   component: PreviewPage,
   validateSearch: previewSearchSchema,
-  headers: previewCacheHeaders,
   head: (opts) => {
     const locale = opts.match.context.locale ?? getDetectedLocale();
     return {

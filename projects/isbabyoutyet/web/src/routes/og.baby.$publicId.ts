@@ -6,11 +6,7 @@ import {
   babyOgImagePublicIdFromFileName,
   calendarDayKey,
 } from "@isbabyoutyet/backend/src/babyOgImage";
-import {
-  ALL_BABY_PAGES_CACHE_TAG,
-  babyPublicIdCacheTag,
-} from "@isbabyoutyet/backend/src/cacheTags";
-import { withVersionedImageCache } from "@/lib/cachePolicy";
+import { withImmutableCache } from "@/lib/cache";
 import { createBabyOgImage } from "@/lib/og-image";
 
 export const Route = createFileRoute("/og/baby/$publicId")({
@@ -42,17 +38,10 @@ export const Route = createFileRoute("/og/baby/$publicId")({
           const location = new URL(opts.request.url);
           location.pathname = `/og/baby/${currentFileName}`;
           location.search = "";
-          return new Response(null, {
-            headers: {
-              "Cache-Control": "no-store",
-              Location: location.toString(),
-              "Vercel-CDN-Cache-Control": "private, no-store",
-            },
-            status: 307,
-          });
+          return new Response(null, { headers: { Location: location.toString() }, status: 307 });
         }
 
-        return withVersionedImageCache(
+        return withImmutableCache(
           await createBabyOgImage({
             name: baby.name,
             ...(baby.dueDateDisplayMode === "exact"
@@ -70,7 +59,6 @@ export const Route = createFileRoute("/og/baby/$publicId")({
             timeZone: baby.timeZone,
             wentToHospital: baby.wentToHospital,
           }),
-          [ALL_BABY_PAGES_CACHE_TAG, babyPublicIdCacheTag(baby.publicId)],
         );
       },
     },

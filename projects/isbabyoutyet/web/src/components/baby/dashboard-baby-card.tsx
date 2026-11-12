@@ -6,6 +6,8 @@ import { getCurrentStatus } from "@isbabyoutyet/backend/src/types";
 import type { BabyStatus } from "@isbabyoutyet/backend/src/types";
 import type { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { formatDueDate, getDaysUntilDueDate, getOverdueDays } from "./utils";
+import type { Today } from "./utils";
+import { useNow } from "@/lib/use-now";
 import { useI18n } from "@/lib/i18n";
 
 type DashboardBabyCardBaby = Pick<
@@ -39,6 +41,7 @@ const STATUS_EMOJI = {
 
 function StatusBadge(props: { baby: DashboardBabyCardBaby }) {
   const { t } = useI18n();
+  const now = useNow();
   const currentStatus = getCurrentStatus(props.baby);
 
   switch (currentStatus.type) {
@@ -59,8 +62,9 @@ function StatusBadge(props: { baby: DashboardBabyCardBaby }) {
           </Badge>
         );
       }
-      const overdueDays = getOverdueDays(props.baby.dueDate, props.baby.timeZone);
-      const daysUntilDueDate = getDaysUntilDueDate(props.baby.dueDate, props.baby.timeZone);
+      const today: Today = { now, timeZone: props.baby.timeZone };
+      const overdueDays = getOverdueDays(props.baby.dueDate, today);
+      const daysUntilDueDate = getDaysUntilDueDate(props.baby.dueDate, today);
       if (overdueDays > 0) {
         return (
           <Badge className="rounded-full font-bold">

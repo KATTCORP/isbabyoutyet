@@ -1,20 +1,11 @@
-import { expect, test, vi } from "vitest";
-import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
+import { expect, test } from "vitest";
 import { formatDate, getDaysUntilDueDate } from "./utils";
 
-function useFakeTimersResource(now: Date) {
-  vi.useFakeTimers();
-  vi.setSystemTime(now);
-  return makeResource({}, () => {
-    vi.useRealTimers();
-  });
-}
+test("due-date countdown uses the baby's calendar day", () => {
+  const now = Date.parse("2026-08-21T00:30:00.000Z");
 
-test("due-date countdown uses the baby's calendar day", async () => {
-  await using _timers = useFakeTimersResource(new Date("2026-08-21T00:30:00.000Z"));
-
-  expect(getDaysUntilDueDate("2026-08-21", "Europe/London")).toBe(0);
-  expect(getDaysUntilDueDate("2026-08-21", "America/Los_Angeles")).toBe(1);
+  expect(getDaysUntilDueDate("2026-08-21", { now, timeZone: "Europe/London" })).toBe(0);
+  expect(getDaysUntilDueDate("2026-08-21", { now, timeZone: "America/Los_Angeles" })).toBe(1);
 });
 
 test("milestone timestamps format in the baby's time zone", () => {

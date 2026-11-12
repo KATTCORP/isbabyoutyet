@@ -25,7 +25,7 @@ import { hasDemoLogin } from "@/lib/has-demo-login";
 import type { TranslationFunction } from "@/lib/i18n";
 import { translate, useI18n } from "@/lib/i18n";
 import { robotsNoIndexMeta } from "@/lib/seo";
-import { authPageCacheHeaders } from "@/lib/cachePolicy";
+import { sharedCacheHeaders, untilDeploy } from "@/lib/cache";
 import { babyLoginHomeLink, loginSuccessTarget } from "@/lib/baby-login-redirect";
 
 function loginSchema(t: TranslationFunction) {
@@ -45,7 +45,7 @@ export const Route = createFileRoute("/auth/login")({
   validateSearch: z.object({
     redirect: z.string().optional(),
   }),
-  headers: authPageCacheHeaders,
+  headers: () => sharedCacheHeaders(untilDeploy("language")),
   head: (opts) => ({
     meta: [
       {

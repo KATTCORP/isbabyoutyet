@@ -21,7 +21,6 @@ import { BabyIcon, KeyIcon } from "@phosphor-icons/react";
 import type { TranslationFunction } from "@/lib/i18n";
 import { translate, useI18n } from "@/lib/i18n";
 import { robotsNoIndexMeta } from "@/lib/seo";
-import { authPageCacheHeaders } from "@/lib/cachePolicy";
 
 const searchSchema = z.object({
   error: z.string().optional(),
@@ -45,7 +44,6 @@ type NewPassword = { confirmPassword: string; password: string };
 export const Route = createFileRoute("/auth/reset-password")({
   component: ResetPasswordPage,
   validateSearch: searchSchema,
-  headers: authPageCacheHeaders,
   head: (opts) => ({
     meta: [
       {

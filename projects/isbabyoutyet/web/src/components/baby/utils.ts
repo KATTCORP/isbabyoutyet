@@ -1,4 +1,5 @@
 import { parseISO } from "date-fns";
+import { isString } from "@workspace/runtime/guards";
 import { BABY_BLUE_THEME } from "@isbabyoutyet/backend/src/theme";
 // Inline theme CSS (?raw) so we can inject via route `head.styles`.
 // External `head.links` stylesheets get React 19 `precedence` via TanStack's
@@ -114,12 +115,15 @@ export function formatDate(dateString: string, opts: DateTimeFormatOptions): str
   return formatter.format(date);
 }
 
-export function getRelativeTime(dateString: string, locale: SupportedLocale): string {
-  const date = parseDate(dateString);
-  const now = new Date();
-  const diffInSeconds = Math.floor((date.getTime() - now.getTime()) / 1000);
+/** How long ago (or how far ahead) `date` is from `now`, like "5 minutes ago". */
+export function getRelativeTime(
+  date: number | string,
+  opts: { locale: SupportedLocale; now: number },
+): string {
+  const time = isString(date) ? parseDate(date).getTime() : date;
+  const diffInSeconds = Math.floor((time - opts.now) / 1000);
 
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const rtf = new Intl.RelativeTimeFormat(opts.locale, { numeric: "auto" });
 
   const intervals = [
     { seconds: 31_536_000, unit: "year" as const },
@@ -173,9 +177,11 @@ function datePartsInTimeZone(date: Date, timeZone: string): CalendarDateParts | 
   };
 }
 
-export function getDaysUntilDueDate(dueDate: string, timeZone: string): number {
-  const now = new Date();
-  const current = datePartsInTimeZone(now, timeZone);
+/** The day `now` falls on in a time zone. */
+export type Today = { now: number; timeZone: string };
+
+export function getDaysUntilDueDate(dueDate: string, today: Today): number {
+  const current = datePartsInTimeZone(new Date(today.now), today.timeZone);
   const due = datePartsInTimeZone(parseCalendarDate(dueDate), "UTC");
   if (!current || !due) {
     return 0;
@@ -185,7 +191,7 @@ export function getDaysUntilDueDate(dueDate: string, timeZone: string): number {
   return Math.round((dueDateUtc - currentDate) / (1000 * 60 * 60 * 24));
 }
 
-export function getOverdueDays(dueDate: string, timeZone: string): number {
-  const daysUntil = getDaysUntilDueDate(dueDate, timeZone);
+export function getOverdueDays(dueDate: string, today: Today): number {
+  const daysUntil = getDaysUntilDueDate(dueDate, today);
   return Math.max(0, -daysUntil);
 }

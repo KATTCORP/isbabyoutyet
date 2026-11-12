@@ -29,10 +29,11 @@ import { convexQuery } from "@workspace/convex-query";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { openGraphImageMeta } from "@/lib/seo";
 import { getBabySeo } from "@/lib/seo";
-import { babyRouteCacheHeaders } from "@/lib/cachePolicy";
+import { babyCache, sharedCacheHeaders } from "@/lib/cache";
 import { replaceBabyPublicId } from "@/lib/baby-public-id-href";
 import { babyPageRobotsHeaders, searchRobotsMeta } from "@/lib/robots";
 import { useI18n } from "@/lib/i18n";
+import { m } from "@/paraglide/messages";
 import { BABY_FEED_HASH } from "@isbabyoutyet/backend/src/babyFeedUrl";
 import { useHashScroll } from "@/lib/use-hash-scroll";
 import { timelineInput, timelineQuery } from "@/lib/timeline-feed";
@@ -165,6 +166,12 @@ export const Route = createFileRoute("/baby/$publicId")({
           property: "og:locale",
         },
         {
+          // The root's is in the visitor's language. Nothing in a baby
+          // page's HTML may be, or the CDN could not share it.
+          content: m.app_name({}, { locale: seo.locale }),
+          property: "og:site_name",
+        },
+        {
           content: "website",
           property: "og:type",
         },
@@ -193,13 +200,14 @@ export const Route = createFileRoute("/baby/$publicId")({
         : [],
     };
   },
-  headers: (opts) => ({
-    ...babyRouteCacheHeaders({
-      publicId: opts.params.publicId,
-      routeIds: opts.matches.map((match) => match.routeId),
-    }),
-    ...babyPageRobotsHeaders(opts.params.publicId),
-  }),
+  // Shared for the overlays under this page too. A visitor without a session
+  // gets only what is public there, and one with a session is never shared.
+  headers: (opts) => {
+    const babyDoc = opts.loaderData?.babyDoc;
+    const robots = babyPageRobotsHeaders(opts.params.publicId);
+    // No baby is a 404, which nobody shares.
+    return babyDoc ? { ...sharedCacheHeaders(babyCache(babyDoc, "anonymous")), ...robots } : robots;
+  },
 });
 
 /**

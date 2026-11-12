@@ -74,6 +74,7 @@ import {
 } from "@/components/Form";
 import { getLanguageName, useI18n } from "@/lib/i18n";
 import type { OverlayControl } from "@/lib/overlay-nav";
+import { useNow } from "@/lib/use-now";
 import type { ConvexQueryHandle } from "@workspace/convex-query";
 import type { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { JOURNEY_OPTION_BY_VALUE } from "./journey-options";
@@ -254,6 +255,7 @@ function DeleteBabyPageForm(props: { babyName: string; onDelete: () => void | Pr
  */
 export function SettingsPanel(props: SettingsPanelProps) {
   const { locale, t } = useI18n();
+  const now = useNow();
   const inheritedLocale = props.profileLocale;
   const onDelete = props.onDelete;
   const coParents = props.coParents;
@@ -341,7 +343,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                           locale,
                           timeZone: props.baby.timeZone,
                         })}{" "}
-                        ({getRelativeTime(props.baby.laborStarted, locale)})
+                        ({getRelativeTime(props.baby.laborStarted, { locale, now })})
                       </ItemDescription>
                     </ItemContent>
                     <ItemActions>
@@ -371,7 +373,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                           locale,
                           timeZone: props.baby.timeZone,
                         })}{" "}
-                        ({getRelativeTime(props.baby.wentToHospital, locale)})
+                        ({getRelativeTime(props.baby.wentToHospital, { locale, now })})
                       </ItemDescription>
                     </ItemContent>
                     <ItemActions>
@@ -401,7 +403,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                           locale,
                           timeZone: props.baby.timeZone,
                         })}{" "}
-                        ({getRelativeTime(props.baby.babyBorn, locale)})
+                        ({getRelativeTime(props.baby.babyBorn, { locale, now })})
                       </ItemDescription>
                     </ItemContent>
                     <ItemActions>

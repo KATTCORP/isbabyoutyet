@@ -11,6 +11,8 @@ export type BabyOgImageHashInput = {
   photoId: string | null;
   publicDueDateText: string | null;
   theme: string | null;
+  /** Decides which day the countdown is on. */
+  timeZone: string;
   wentToHospital: string | null;
 };
 
@@ -22,7 +24,7 @@ export type BabyOgImageHashInput = {
 export function babyOgImageHash(baby: BabyOgImageHashInput) {
   return stableHash(
     JSON.stringify([
-      "baby-og-v5",
+      "baby-og-v6",
       baby.name,
       baby.dueDateDisplayMode,
       baby.dueDate,
@@ -35,6 +37,7 @@ export function babyOgImageHash(baby: BabyOgImageHashInput) {
       baby.milestoneVisibility.showLabor,
       baby.milestoneVisibility.showHospital,
       baby.photoId,
+      baby.timeZone,
     ]),
   );
 }

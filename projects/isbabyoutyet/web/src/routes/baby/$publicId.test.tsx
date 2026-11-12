@@ -46,37 +46,27 @@ const shareRouteModule = await import("@/routes/baby/$publicId/share");
 const loginRouteModule = await import("@/routes/baby/$publicId/login");
 const { docToBabyData, managerDocToBabyData } = routeModule;
 
-test("parent route caches public overlays and keeps manager overlays private", () => {
+test("shares a baby's page until its data changes or its day ends, and nothing without a baby", () => {
   // @ts-expect-error — stub opts are the fields headers reads
   const headers: (opts: {
-    matches: Array<{ routeId: string }>;
+    loaderData: { babyDoc: { _id: string; timeZone: string } } | undefined;
     params: { publicId: string };
   }) => Record<string, string> = routeModule.Route.options.headers;
-  const publicHeaders = headers({
-    matches: [{ routeId: "/baby/$publicId" }, { routeId: "/baby/$publicId/share" }],
-    params: { publicId: "alba-willis" },
+  const found = headers({
+    loaderData: { babyDoc: { _id: "j57abc", timeZone: "Europe/London" } },
+    params: { publicId: "sam-smith" },
   });
-  const privateHeaders = headers({
-    matches: [{ routeId: "/baby/$publicId" }, { routeId: "/baby/$publicId/_auth/settings" }],
-    params: { publicId: "alba-willis" },
-  });
-  const loginHeaders = headers({
-    matches: [{ routeId: "/baby/$publicId" }, { routeId: "/baby/$publicId/login" }],
-    params: { publicId: "alba-willis" },
-  });
-  const signupHeaders = headers({
-    matches: [{ routeId: "/baby/$publicId" }, { routeId: "/baby/$publicId/signup" }],
-    params: { publicId: "alba-willis" },
-  });
+  // A 404, or a redirect to the baby's current public id.
+  const missing = headers({ loaderData: undefined, params: { publicId: "sam-smith" } });
 
-  expect(publicHeaders["Cache-Control"]).toContain("public");
-  expect(publicHeaders["Vercel-Cache-Tag"]).toContain("baby-public-id:alba-willis");
-  expect(privateHeaders["Cache-Control"]).toContain("private");
-  expect(privateHeaders["Cache-Control"]).toContain("no-store");
-  expect(loginHeaders["Cache-Control"]).toContain("private");
-  expect(loginHeaders["Cache-Control"]).toContain("no-store");
-  expect(signupHeaders["Cache-Control"]).toContain("private");
-  expect(signupHeaders["Cache-Control"]).toContain("no-store");
+  expect(found).toMatchObject({
+    "Cache-Control": "public, max-age=0, must-revalidate",
+    "Vercel-Cache-Tag": "baby:j57abc",
+    "Vercel-CDN-Cache-Control": expect.stringMatching(/^public, s-maxage=\d+$/),
+    "X-Robots-Tag": "noindex, nofollow",
+  });
+  expect(found).not.toHaveProperty("Vary");
+  expect(missing).toEqual({ "X-Robots-Tag": "noindex, nofollow" });
 });
 
 function useFakeTimersResource(now: Date) {
