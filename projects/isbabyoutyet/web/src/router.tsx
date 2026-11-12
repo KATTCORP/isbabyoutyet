@@ -10,9 +10,9 @@ import { ConvexProvider } from "convex/react";
 import { routeTree } from "./routeTree.gen";
 import { RootErrorComponent } from "./routes/__root";
 import type { RouterContext } from "./routes/__root";
-import { getAuth, requestConvex } from "./lib/request-convex";
+import { getAuth, requestConvex, requestHasSessionCookie } from "./lib/request-convex";
 import { visitorLocale } from "./lib/visitor-locale";
-import { SessionConvexReactClient, setClientToken } from "./lib/auth-client";
+import { SessionConvexReactClient, setClientAnonymous, setClientToken } from "./lib/auth-client";
 import { makeQueryClient } from "./lib/query-client";
 
 /** Router preload policy — tested without constructing the full client graph. */
@@ -39,6 +39,11 @@ type DehydratedRequest = {
   locale: SupportedLocale | null;
   /** When the server rendered the document, in ms (`useNow`). */
   renderedAt: number;
+  /**
+   * Whether the request carried a session cookie. Without one the visitor is
+   * anonymous, and the browser starts that way without asking.
+   */
+  sessionCookie: boolean;
 };
 
 export function getRouter() {
@@ -89,10 +94,12 @@ export function getRouter() {
     defaultErrorComponent: RootErrorComponent,
     defaultOnCatch: reportRouterError,
     scrollRestoration: true,
-    // `setClientToken` is the only `setAuth` owner on the browser client.
-    // SSR ships the request's cookie JWT (`null` when signed out); the client
-    // hands it to Convex before React mounts (`expectAuth` keeps the socket
-    // paused until then). Anonymous visitors resolve via one `/convex/token` 401.
+    // `setClientToken` and `setClientAnonymous` are the only `setAuth` owners
+    // on the browser client. SSR ships the request's cookie JWT (`null` when
+    // signed out); the client hands it to Convex before React mounts
+    // (`expectAuth` keeps the socket paused until then). A visitor whose
+    // request had no session cookie starts anonymous at once. One with a
+    // cookie but no token asks `/convex/token`.
     dehydrate: async (): Promise<DehydratedRequest> => ({
       authToken: server ? await server.token() : null,
       locale: router.state.matches.some(
@@ -101,9 +108,14 @@ export function getRouter() {
         ? null
         : context.locale,
       renderedAt: context.renderedAt,
+      sessionCookie: requestHasSessionCookie(),
     }),
     hydrate: (dehydrated) => {
-      setClientToken(convexClient, dehydrated.authToken);
+      if (dehydrated.authToken === null && !dehydrated.sessionCookie) {
+        setClientAnonymous(convexClient);
+      } else {
+        setClientToken(convexClient, dehydrated.authToken);
+      }
       // Hydrate in the language and at the moment the server rendered,
       // whatever the browser would detect. Runs before the router matches
       // its first route.

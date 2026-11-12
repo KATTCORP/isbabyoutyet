@@ -200,6 +200,16 @@ export function setClientToken(convexReactClient: ConvexReactClient, token: stri
 }
 
 /**
+ * Start as an anonymous visitor at once (router `hydrate`, when the request
+ * carried no session cookie). `setClientToken` with `null` asks
+ * `/convex/token` twice before the socket sends anything, and for a visitor
+ * without a session both answers are known to be 401.
+ */
+export function setClientAnonymous(convexReactClient: ConvexReactClient) {
+  convexReactClient.setAuth(async () => null);
+}
+
+/**
  * Drop the identity on the live socket right away (sign-out).
  *
  * @internal exported for tests

@@ -109,6 +109,12 @@ that ages ("5 minutes ago", the countdown) reads the clock from
 [`useNow`](src/lib/use-now.tsx): the browser hydrates at the moment the
 server rendered, whenever that was, and then moves to its own clock.
 
+**No session cookie, no auth round trip.** A request without one renders
+anonymously without asking Convex for a token, and tells the browser so. The
+browser then opens its live connection as an anonymous visitor at once,
+instead of holding it back for two `/api/auth/convex/token` answers
+(`setClientAnonymous`).
+
 To check a deployment, request a page twice without cookies and look for
 `x-vercel-cache: HIT` on the second response.
 
