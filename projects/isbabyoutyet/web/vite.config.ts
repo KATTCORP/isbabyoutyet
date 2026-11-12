@@ -226,9 +226,8 @@ const config = defineConfig((env) => ({
         // Tests sit beside the routes they cover.
         routeFileIgnorePattern: String.raw`\.test\.tsx?$`,
       },
-      server: {
-        entry: "./src/server.ts",
-      },
+      // The server entry is the default, `src/server.ts`. Entries resolve
+      // from `src`, and one that is not found is skipped without an error.
     }),
     viteReact({ compiler: true }),
     // Lowers client syntax to the browser floor and serves core-js to older browsers.
