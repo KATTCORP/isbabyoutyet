@@ -1,5 +1,5 @@
 import { sentryTanstackStart } from "@sentry/tanstackstart-react/vite";
-import type { PluginOption } from "vite";
+import type { Plugin, PluginOption } from "vite";
 import { personalProjectSlug, SENTRY_ORG_SLUG } from "@workspace/sentry/project";
 
 function present(value: string | undefined) {
@@ -30,6 +30,39 @@ export function sentryDefines(env: Record<string, string | undefined>) {
   return define;
 }
 
+const SENTRY_SDK = "@sentry/tanstackstart-react";
+
+/** As much of Vite's plugin context as {@link resolveSentrySdk} uses. */
+type SdkResolver = {
+  resolve(
+    source: string,
+    importer: string,
+    options: { skipSelf: boolean },
+  ): Promise<{ id: string } | null>;
+};
+
+/**
+ * Sentry's plugin wraps an app's server entry (`src/server.ts`) with an import
+ * of the SDK, which it resolves from the app. The apps depend on this package
+ * and not on the SDK, so under pnpm that import fails the build: resolve it
+ * from here, where the SDK is installed.
+ *
+ * @internal exported for tests
+ */
+export function resolveSentrySdk() {
+  const here = import.meta.filename;
+  return {
+    enforce: "pre",
+    name: "workspace-sentry-resolve-sdk",
+    async resolveId(this: SdkResolver, source: string) {
+      if (source !== SENTRY_SDK) {
+        return null;
+      }
+      return await this.resolve(source, here, { skipSelf: true });
+    },
+  } satisfies Plugin;
+}
+
 /**
  * Release and environment defines, plus source-map upload when `SENTRY_AUTH_TOKEN` is set.
  * Spread this last in the Vite plugin list. Without the token, builds still
@@ -49,6 +82,7 @@ export function sentryVitePlugins(opts: { appName: string }): Array<PluginOption
     return plugins;
   }
   plugins.push(
+    resolveSentrySdk(),
     sentryTanstackStart({
       authToken,
       org: SENTRY_ORG_SLUG,
