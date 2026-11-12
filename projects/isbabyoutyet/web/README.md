@@ -61,9 +61,11 @@ blocked, still loading, or broken. Describe what it sends once, with
 | Arguments  | `args`, with `request: null`             | `args`, with the browser's `request`                                 |
 | Afterwards | `handleSubmit` carries on (toast, reset) | a redirect to `landing`, or back to `page` at the form's notice      |
 
-The encouragement form
-([`encouragements.tsx`](src/components/baby/encouragements.tsx)) is the one to
-copy. A form has four parts, in one file:
+The encouragement form is the one to copy. A form has four parts: the first
+two in a file of their own
+([`encouragement-post.ts`](src/components/baby/encouragement-post.ts)), the
+last two in the component
+([`encouragements.tsx`](src/components/baby/encouragements.tsx)):
 
 1. `formPost({ … })`: the mutation, the `fields` the visitor types (a named
    function, so its type is known before `args` is read), what the page
