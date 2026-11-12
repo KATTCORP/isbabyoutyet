@@ -1147,7 +1147,7 @@ function UpdateTimelineItem(props: UpdateTimelineItemProps) {
         )}
 
         {update.message && (
-          <div className="mt-2 min-w-0 max-w-none break-words text-sm text-foreground/90 prose prose-sm [overflow-wrap:anywhere] dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-a:text-primary [&_code]:whitespace-pre-wrap [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto">
+          <div className="mt-2 min-w-0 text-sm text-foreground/90">
             <Markdown>{update.message}</Markdown>
           </div>
         )}
@@ -1350,7 +1350,7 @@ function EncouragementTimelineItem(props: EncouragementTimelineItemProps) {
           )}
         </div>
 
-        <div className="mt-1 min-w-0 max-w-none break-words text-sm text-muted-foreground prose prose-sm [overflow-wrap:anywhere] dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-a:text-primary [&_code]:whitespace-pre-wrap [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto">
+        <div className="mt-1 min-w-0 text-sm text-muted-foreground">
           <Markdown>{encouragement.message}</Markdown>
         </div>
       </div>
