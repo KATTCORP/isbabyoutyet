@@ -8,6 +8,7 @@ import { getFunctionName } from "convex/server";
 import type { RenderResult } from "@testing-library/react";
 import { fireEvent, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
+import { clearBrowserCookies } from "@/test/browserCookies";
 import { StatusDisplay } from "@/components/baby/status-display";
 import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
@@ -379,8 +380,8 @@ async function runBabyLoader(
 }
 
 test("loader loads the same set for visitors; gated queries come back forbidden", async () => {
-  // Workers share jsdom storage across files; this visitor has never posted.
-  localStorage.removeItem("encouragement-visitor-id");
+  // This visitor has never posted, whatever an earlier test left behind.
+  clearBrowserCookies();
   await using stub = loaderQueryClientResource({
     "baby:getByPublicId": BABY_DOC,
     "baby:getManagerBaby": "forbidden",

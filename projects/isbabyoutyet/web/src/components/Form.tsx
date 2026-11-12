@@ -123,11 +123,22 @@ function FormDiscardDialog(props: DiscardPromptProps) {
   );
 }
 
-export const Form = <TInput extends FieldValues, TContext, TOutput>(props: {
+type FormProps<TInput extends FieldValues, TContext, TOutput> = {
   children: ReactNode;
   form: UseZodForm<TInput, TContext, TOutput>;
   handleSubmit: (values: TOutput) => Promise<void>;
-}) => {
+};
+
+/**
+ * The `<form>` that {@link Form} and `PostForm` share. `native` is for a
+ * form the browser can post by itself: where it posts, and whether the
+ * browser's own checks are off because the schema's have taken over.
+ */
+export const FormShell = <TInput extends FieldValues, TContext, TOutput>(
+  props: FormProps<TInput, TContext, TOutput> & {
+    native: { action: string; noValidate: boolean } | null;
+  },
+) => {
   const { t } = useI18n();
   const formState = useFormState({ control: props.form.control });
   // The guard consumes reactive form state — no imperative submit lock:
@@ -142,7 +153,10 @@ export const Form = <TInput extends FieldValues, TContext, TOutput>(props: {
   return (
     <FormProvider {...rest}>
       <form
+        action={props.native?.action}
         id={id}
+        method={props.native ? "post" : undefined}
+        noValidate={props.native?.noValidate}
         onSubmit={(event) => {
           // Errors propagate through RHF's handleSubmit so `isSubmitSuccessful`
           // reflects the real outcome; the outer catch only reports them.
@@ -166,6 +180,14 @@ export const Form = <TInput extends FieldValues, TContext, TOutput>(props: {
     </FormProvider>
   );
 };
+
+export const Form = <TInput extends FieldValues, TContext, TOutput>(
+  props: FormProps<TInput, TContext, TOutput>,
+) => (
+  <FormShell form={props.form} handleSubmit={props.handleSubmit} native={null}>
+    {props.children}
+  </FormShell>
+);
 
 /** Phosphor icon component, or a single glyph/emoji (e.g. `"🍼"`). */
 type SubmitIcon = Icon | string;

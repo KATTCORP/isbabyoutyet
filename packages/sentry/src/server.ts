@@ -1,4 +1,4 @@
-import { init, wrapFetchWithSentry } from "@sentry/tanstackstart-react";
+import { captureException, init, wrapFetchWithSentry } from "@sentry/tanstackstart-react";
 import { sentryInitOptions, type SentryRuntimeOptions } from "./initOptions.js";
 
 export function initServerSentry(opts: SentryRuntimeOptions) {
@@ -9,4 +9,4 @@ export function initServerSentry(opts: SentryRuntimeOptions) {
   init(options);
 }
 
-export { wrapFetchWithSentry };
+export { captureException, wrapFetchWithSentry };

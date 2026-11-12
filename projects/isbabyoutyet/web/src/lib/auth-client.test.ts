@@ -4,6 +4,7 @@ import { ConvexReactClient } from "convex/react";
 import { getFunctionName } from "convex/server";
 import type { FunctionReference, FunctionReturnType } from "convex/server";
 import { expect, test, vi } from "vitest";
+import { clearBrowserCookies, setBrowserCookie } from "@/test/browserCookies";
 import { makeResource } from "@isbabyoutyet/backend/convex/test.resource";
 import { TIME_ZONE_HINT_HEADER } from "@isbabyoutyet/backend/src/timeZone";
 import { VISITOR_ID_HINT_HEADER } from "@isbabyoutyet/backend/src/visitorId";
@@ -41,7 +42,7 @@ function makeClients() {
 }
 
 test("getBrowserAuthHeaders includes the stored visitor id when present", () => {
-  localStorage.setItem("encouragement-visitor-id", "visitor-from-guestbook");
+  setBrowserCookie("visitor-id", "visitor-from-guestbook");
   try {
     const headers = getBrowserAuthHeaders();
     expect(VISITOR_ID_HINT_HEADER in headers).toBe(true);
@@ -50,12 +51,12 @@ test("getBrowserAuthHeaders includes the stored visitor id when present", () => 
     }
     expect(TIME_ZONE_HINT_HEADER in headers).toBe(true);
   } finally {
-    localStorage.removeItem("encouragement-visitor-id");
+    clearBrowserCookies();
   }
 });
 
 test("getBrowserAuthHeaders omits visitor id when none is stored", () => {
-  localStorage.removeItem("encouragement-visitor-id");
+  clearBrowserCookies();
   const headers = getBrowserAuthHeaders();
   expect(VISITOR_ID_HINT_HEADER in headers).toBe(false);
 });

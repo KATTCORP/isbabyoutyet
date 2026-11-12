@@ -99,7 +99,7 @@ test("visitors can create encouragements and list them", async () => {
 
 test("create persists visitor metadata when provided", async () => {
   const { babyId, t } = await setupWithBaby();
-  const encouragementId = await t.mutation(
+  const { encouragementId } = await t.mutation(
     api.encouragements.create,
     createEncouragementArgs({
       authorName: "Grandma",
@@ -177,7 +177,7 @@ test("create rejects a missing baby, blank name, overlong name, and blank messag
 test("the author can edit their encouragement within the edit window", async () => {
   const { babyId, t } = await setupWithBaby();
 
-  const encouragementId = await t.mutation(
+  const { encouragementId } = await t.mutation(
     api.encouragements.create,
     createEncouragementArgs({
       authorName: "Grandma",
@@ -204,7 +204,7 @@ test("the author can edit their encouragement within the edit window", async () 
 test("editing is refused for the wrong visitor and after the edit window", async () => {
   const { babyId, t } = await setupWithBaby();
 
-  const encouragementId = await t.mutation(
+  const { encouragementId } = await t.mutation(
     api.encouragements.create,
     createEncouragementArgs({
       authorName: "Grandma",
@@ -247,7 +247,7 @@ test("editing is refused for the wrong visitor and after the edit window", async
 test("the baby's owner can remove an encouragement", async () => {
   const { babyId, t } = await setupWithBaby();
 
-  const encouragementId = await t.mutation(
+  const { encouragementId } = await t.mutation(
     api.encouragements.create,
     createEncouragementArgs({
       authorName: "Stranger",
@@ -276,7 +276,7 @@ test("the baby's owner can remove an encouragement", async () => {
 test("removing an encouragement soft-deletes it so it can be recovered later", async () => {
   const { babyId, t } = await setupWithBaby();
 
-  const encouragementId = await t.mutation(
+  const { encouragementId } = await t.mutation(
     api.encouragements.create,
     createEncouragementArgs({
       authorName: "Grandma",
@@ -322,7 +322,7 @@ test("visitor messages notify opted-in owners; deletes retract the push instead 
     userAgent: "Mozilla/5.0",
   });
 
-  const encouragementId = await t.mutation(
+  const { encouragementId } = await t.mutation(
     api.encouragements.create,
     createEncouragementArgs({
       authorName: "Grandma",
@@ -369,7 +369,7 @@ test("a signed-in author stores their user id without changing the typed name", 
   const { babyId, t } = await setupWithBaby();
   const asAlice = t.withIdentity({ subject: "alice" });
 
-  const encouragementId = await asAlice.mutation(
+  const { encouragementId } = await asAlice.mutation(
     api.encouragements.create,
     createEncouragementArgs({
       authorName: "Grandma Alice",
@@ -400,7 +400,7 @@ test("a signed-in author stores their user id without changing the typed name", 
 test("a signed-in author can edit and delete on a new visitor id after claiming", async () => {
   const { babyId, t } = await setupWithBaby();
 
-  const encouragementId = await t.mutation(
+  const { encouragementId } = await t.mutation(
     api.encouragements.create,
     createEncouragementArgs({
       authorName: "Guest Name",
@@ -455,7 +455,7 @@ test("a signed-in author can edit and delete on a new visitor id after claiming"
 test("claiming a visitor id does not steal comments already linked to another user", async () => {
   const { babyId, t } = await setupWithBaby();
 
-  const encouragementId = await t.mutation(
+  const { encouragementId } = await t.mutation(
     api.encouragements.create,
     createEncouragementArgs({
       authorName: "Bob",
@@ -541,7 +541,7 @@ test("a manager posting or deleting a message does not notify owners", async () 
     userAgent: "Mozilla/5.0",
   });
 
-  const managerPostId = await asAlice.mutation(
+  const { encouragementId: managerPostId } = await asAlice.mutation(
     api.encouragements.create,
     createEncouragementArgs({
       authorName: "Alice",
@@ -552,7 +552,7 @@ test("a manager posting or deleting a message does not notify owners", async () 
   );
   await t.finishInProgressScheduledFunctions();
 
-  const encouragementId = await t.mutation(
+  const { encouragementId } = await t.mutation(
     api.encouragements.create,
     createEncouragementArgs({
       authorName: "Stranger",
