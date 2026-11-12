@@ -29,3 +29,11 @@ deployment), tagged `runtime: "convex"`. This package does not capture them.
    `defaultOnCatch: reportRouterError`.
 6. Spread `sentryVitePlugins({ appName })` last in the Vite plugin list.
    `appName` is the directory name, without the `personal-` prefix.
+
+With `SENTRY_AUTH_TOKEN` set, Sentry's plugin wraps the app's `src/server.ts`
+with an import of the SDK. The apps depend on this package and not on the SDK,
+so `sentryVitePlugins` resolves that import from here. A build without the
+token never takes that path: to check a change to the server entry or to this
+package, build once with any value, for example
+`SENTRY_AUTH_TOKEN=x pnpm --filter @isbabyoutyet/web build`. The upload then
+fails with a 401, which does not fail the build.
