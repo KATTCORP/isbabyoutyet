@@ -5,6 +5,7 @@ import type { Doc } from "./_generated/dataModel";
 import { env, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 
+/** When the watchdog first runs: it purges again, and retries from then on. */
 const INITIAL_RETRY_DELAY_MS = 60_000;
 const MAX_RETRY_DELAY_MS = 5 * 60_000;
 
@@ -22,43 +23,38 @@ function retryDelay(attempts: number) {
   return Math.min(INITIAL_RETRY_DELAY_MS * 2 ** Math.min(attempts, 3), MAX_RETRY_DELAY_MS);
 }
 
-function mergeTags(current: ReadonlyArray<string>, incoming: ReadonlyArray<string>) {
-  return Array.from(new Set([...current, ...incoming]));
-}
-
 function isLocalSite(siteUrl: string) {
   const hostname = new URL(siteUrl).hostname;
   return hostname === "localhost" || hostname === "127.0.0.1";
 }
 
 /**
- * Durable outbox enqueue. The job write and its watchdog are committed in the
- * same transaction as the public data change. The watchdog is a scheduled
- * mutation (exactly-once) and keeps launching the idempotent purge action until
- * Vercel acknowledges deletion.
+ * Purges one cache tag from the web app's CDN, durably: the job and its
+ * watchdog commit in the same transaction as the data change. The watchdog
+ * is a scheduled mutation (exactly-once) and keeps launching the idempotent
+ * purge action until Vercel acknowledges the deletion. A tag that already
+ * has a job waiting is purged once more after the one in flight.
+ *
+ * Every job purges twice: at once, and again when the watchdog first runs
+ * (`complete`). A page rendered from the data before the change can reach
+ * the CDN after the first purge, and the second one drops it.
  */
-export async function enqueueCacheInvalidation(
-  ctx: MutationCtx,
-  opts: { key: string; tags: ReadonlyArray<string> },
-) {
+export async function enqueueCachePurge(ctx: MutationCtx, tag: string) {
   const existing = await ctx.db
     .query("cacheInvalidationJobs")
-    .withIndex("by_key", (q) => q.eq("key", opts.key))
+    .withIndex("by_key", (q) => q.eq("key", tag))
     .first();
 
   if (existing) {
-    await ctx.db.patch(existing._id, {
-      tags: mergeTags(existing.tags, opts.tags),
-      version: existing.version + 1,
-    });
+    await ctx.db.patch(existing._id, { version: existing.version + 1 });
     return existing._id;
   }
 
   const jobId = await ctx.db.insert("cacheInvalidationJobs", {
     attempts: 0,
     createdAt: Date.now(),
-    key: opts.key,
-    tags: [...opts.tags],
+    key: tag,
+    tags: [tag],
     version: 1,
   });
   await ctx.scheduler.runAfter(0, internal.cacheInvalidation.purge, { jobId });
@@ -134,6 +130,10 @@ export const complete = internalMutation({
     }
     if (job.version !== args.version) {
       await ctx.scheduler.runAfter(0, internal.cacheInvalidation.purge, { jobId: job._id });
+      return null;
+    }
+    if (job.attempts === 0) {
+      // The first purge. The watchdog runs the second, which ends the job.
       return null;
     }
     await ctx.db.delete(job._id);

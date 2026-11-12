@@ -84,6 +84,8 @@ import { useStoredVisitorId } from "@/lib/use-visitor-id";
 import type { SupportedLocale } from "@isbabyoutyet/backend/src/i18n";
 import type { TranslationFunction, TranslationKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n";
+import { useNow } from "@/lib/use-now";
+import { getRelativeTime } from "./utils";
 import { useIntersectionAction } from "@/lib/use-intersection-action";
 import { useLiveInsertIds } from "@/lib/use-live-insert-ids";
 import { useObjectUrl } from "@/lib/use-object-url";
@@ -174,31 +176,6 @@ const MILESTONE_META = {
 const uploadResponseSchema = z.object({
   storageId: z.string().refine((value): value is Id<"_storage"> => value.length > 0),
 });
-
-function getRelativeTimeFromTimestamp(timestamp: number, locale: SupportedLocale): string {
-  const now = Date.now();
-  const diffInSeconds = Math.floor((timestamp - now) / 1000);
-
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-
-  const intervals = [
-    { seconds: 31_536_000, unit: "year" as const },
-    { seconds: 2_592_000, unit: "month" as const },
-    { seconds: 604_800, unit: "week" as const },
-    { seconds: 86_400, unit: "day" as const },
-    { seconds: 3600, unit: "hour" as const },
-    { seconds: 60, unit: "minute" as const },
-  ];
-
-  for (const { seconds, unit } of intervals) {
-    const interval = Math.floor(Math.abs(diffInSeconds) / seconds);
-    if (interval >= 1) {
-      return rtf.format(diffInSeconds > 0 ? interval : -interval, unit);
-    }
-  }
-
-  return rtf.format(0, "second");
-}
 
 function formatOccurredAt(
   timestamp: number,
@@ -835,7 +812,8 @@ function TimelineItemPermalink(props: {
   title: string;
 }) {
   const { locale, t } = useI18n();
-  const time = getRelativeTimeFromTimestamp(props.postedAt, locale);
+  const now = useNow();
+  const time = getRelativeTime(props.postedAt, { locale, now });
   const reducedMotion = useReducedMotion();
   return (
     <Link

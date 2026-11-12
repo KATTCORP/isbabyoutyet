@@ -8,7 +8,9 @@ import {
   getRelativeTime,
   formatDueDate,
 } from "./utils";
+import type { Today } from "./utils";
 import { useI18n } from "@/lib/i18n";
+import { useNow } from "@/lib/use-now";
 import type { TranslationKey } from "@/lib/i18n";
 import { useBabyPhotoOverlayLinks } from "@/lib/overlay-nav";
 import { BlurImage } from "@/components/blur-image";
@@ -99,6 +101,7 @@ type StatusDisplayProps = {
 
 function LatestUpdateBox(props: { latestUpdate: LatestUpdateMessage | null }) {
   const { locale, t } = useI18n();
+  const now = useNow();
   const latestUpdate = props.latestUpdate;
   if (!latestUpdate?.message) {
     return null;
@@ -116,7 +119,7 @@ function LatestUpdateBox(props: { latestUpdate: LatestUpdateMessage | null }) {
       </p>
       <p className="mt-2 text-xs font-semibold text-muted-foreground">
         {t("Updated {{relative}}", {
-          relative: getRelativeTime(new Date(latestUpdate.postedAt).toISOString(), locale),
+          relative: getRelativeTime(latestUpdate.postedAt, { locale, now }),
         })}
       </p>
     </div>
@@ -147,16 +150,16 @@ const STATUS_META = {
 
 export function StatusDisplay(props: StatusDisplayProps) {
   const { locale, t } = useI18n();
+  const now = useNow();
   const isMessageMode = props.baby.dueDateDisplayMode === "message";
   const publicDueDateText = props.baby.publicDueDateText?.trim() ?? "";
   const exactDueDate = isMessageMode ? null : props.baby.dueDate;
   const showDueDateBox =
     props.currentStatus.type === "not_yet" &&
     (publicDueDateText.length > 0 || exactDueDate !== null);
-  const overdueDays = exactDueDate ? getOverdueDays(exactDueDate, props.baby.timeZone) : 0;
-  const daysUntilDueDate = exactDueDate
-    ? getDaysUntilDueDate(exactDueDate, props.baby.timeZone)
-    : 0;
+  const today: Today = { now, timeZone: props.baby.timeZone };
+  const overdueDays = exactDueDate ? getOverdueDays(exactDueDate, today) : 0;
+  const daysUntilDueDate = exactDueDate ? getDaysUntilDueDate(exactDueDate, today) : 0;
   const meta = STATUS_META[props.currentStatus.type];
   const isBorn = props.currentStatus.type === "born";
   const sublineKey =
@@ -199,7 +202,7 @@ export function StatusDisplay(props: StatusDisplayProps) {
             locale,
             timeZone: props.baby.timeZone,
           })}{" "}
-          ({getRelativeTime(props.currentStatus.date, locale)})
+          ({getRelativeTime(props.currentStatus.date, { locale, now })})
         </p>
       )}
 

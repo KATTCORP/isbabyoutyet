@@ -178,7 +178,7 @@ function babyOgStatusCopy(opts: { baby: BabyOgImageInput; status: BabyStatus }):
       return {
         answer,
         detail: babyStatusDetail({ baby: opts.baby, status: opts.status }),
-        highlight: getOverdueDays(opts.baby.dueDate, timeZone) > 0,
+        highlight: getOverdueDays(opts.baby.dueDate, { now: Date.now(), timeZone }) > 0,
         note: translate(locale, "Due date: {{date}}", {
           date: formatDueDate(opts.baby.dueDate, locale),
         }),

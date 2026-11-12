@@ -25,7 +25,7 @@ test("rejects callers without the deployment-derived bearer token", async () => 
   vi.stubEnv("BETTER_AUTH_SECRET", "test-secret");
   const deleteByTag = vi.fn();
 
-  const response = await handleCachePurge(purgeRequest({ tags: ["baby-id:123"], token: "wrong" }), {
+  const response = await handleCachePurge(purgeRequest({ tags: ["baby:123"], token: "wrong" }), {
     deleteByTag,
   });
 
@@ -41,13 +41,12 @@ test("deletes matching Vercel cache tags in the foreground", async () => {
   const token = await deriveCachePurgeToken("test-secret");
   const deleteByTag = vi.fn();
 
-  const response = await handleCachePurge(
-    purgeRequest({ tags: ["baby-id:123", "baby-public-id:baby-smith"], token }),
-    { deleteByTag },
-  );
+  const response = await handleCachePurge(purgeRequest({ tags: ["baby:123"], token }), {
+    deleteByTag,
+  });
 
   expect(response.status).toBe(200);
-  expect(deleteByTag).toHaveBeenCalledWith(["baby-id:123", "baby-public-id:baby-smith"], {
+  expect(deleteByTag).toHaveBeenCalledWith(["baby:123"], {
     revalidationDeadlineSeconds: 0,
   });
 });

@@ -6,6 +6,7 @@ import { api } from "@isbabyoutyet/backend/convex/_generated/api";
 import { DEFAULT_TIME_ZONE } from "@isbabyoutyet/backend/src/timeZone";
 import { getCurrentStatus } from "@isbabyoutyet/backend/src/types";
 import { getDaysUntilDueDate, getOverdueDays, getThemePrimaryColor } from "@/components/baby/utils";
+import type { Today } from "@/components/baby/utils";
 import { translate } from "@/lib/i18n";
 import { isIndexableBabyPublicId, searchRobotsMeta } from "@/lib/robots";
 import { absoluteUrl, canonicalUrl } from "@/lib/site-url";
@@ -36,8 +37,9 @@ type BabySeoInput = BabySeoBase & BabyDueDateDisplay;
 function babyPageTitle(baby: BabySeoInput) {
   const exactDueDate = baby.dueDateDisplayMode === "exact" ? baby.dueDate : null;
   const timeZone = baby.timeZone ?? DEFAULT_TIME_ZONE;
-  const overdueDays = exactDueDate ? getOverdueDays(exactDueDate, timeZone) : 0;
-  const daysUntilDueDate = exactDueDate ? getDaysUntilDueDate(exactDueDate, timeZone) : 0;
+  const today: Today = { now: Date.now(), timeZone };
+  const overdueDays = exactDueDate ? getOverdueDays(exactDueDate, today) : 0;
+  const daysUntilDueDate = exactDueDate ? getDaysUntilDueDate(exactDueDate, today) : 0;
   const isBorn = !!baby.babyBorn;
   const locale = baby.locale;
 
@@ -135,8 +137,8 @@ export function babyStatusDetail(opts: {
     }
     return babyStatusLabel({ locale, status: opts.status });
   }
-  const timeZone = opts.baby.timeZone ?? DEFAULT_TIME_ZONE;
-  const overdueDays = getOverdueDays(opts.baby.dueDate, timeZone);
+  const today: Today = { now: Date.now(), timeZone: opts.baby.timeZone ?? DEFAULT_TIME_ZONE };
+  const overdueDays = getOverdueDays(opts.baby.dueDate, today);
   if (overdueDays > 0) {
     return translate(
       locale,
@@ -144,7 +146,7 @@ export function babyStatusDetail(opts: {
       { count: overdueDays },
     );
   }
-  const daysUntil = getDaysUntilDueDate(opts.baby.dueDate, timeZone);
+  const daysUntil = getDaysUntilDueDate(opts.baby.dueDate, today);
   return translate(
     locale,
     daysUntil === 1 ? "{{count}} day until due date" : "{{count}} days until due date",

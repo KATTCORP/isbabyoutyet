@@ -5,6 +5,7 @@ import { resolveSupportedLocale } from "../src/i18n";
 import type { SupportedLocale } from "../src/i18n";
 import { resolveTimeZone } from "../src/timeZone";
 import { tokenIdentifierForAuthUserId } from "./authIdentity";
+import { internalMutationWithTriggers } from "./triggers";
 import {
   claimPendingInvitesForAuthUser,
   claimPendingInvitesForAuthUserId,
@@ -83,7 +84,8 @@ export async function claimInvitesForAuthUser(
   await claimPendingInvitesForAuthUserId(ctx, opts.userId);
 }
 
-export const ensureUserProfileForAuthUserMutation = internalMutation({
+// Through triggers: giving a legacy profile its time zone moves its babies' days.
+export const ensureUserProfileForAuthUserMutation = internalMutationWithTriggers({
   args: {
     localeHint: v.union(v.string(), v.null()),
     timeZoneHint: v.union(v.string(), v.null()),

@@ -71,6 +71,7 @@ function ogImageHashForPublicBaby(baby: ExactDueDateBabyDto | MessageDueDateBaby
     publicDueDateText:
       baby.dueDateDisplayMode === "message" ? (baby.publicDueDateText ?? null) : null,
     theme: baby.theme ?? null,
+    timeZone: baby.timeZone,
     wentToHospital: baby.wentToHospital,
   });
 }

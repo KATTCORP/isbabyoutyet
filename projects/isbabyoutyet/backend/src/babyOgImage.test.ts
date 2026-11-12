@@ -20,6 +20,7 @@ const waitingBaby: BabyOgImageHashInput = {
   photoId: null,
   publicDueDateText: null,
   theme: null,
+  timeZone: "Europe/London",
   wentToHospital: null,
 };
 
@@ -35,7 +36,10 @@ test("baby OG image hashes change when the rendered page would change", () => {
     babyBorn: "2026-08-10T10:00:00.000Z",
   });
 
+  const timeZoneHash = babyOgImageHash({ ...waitingBaby, timeZone: "Asia/Tokyo" });
+
   expect(themeHash).not.toBe(babyOgImageHash(waitingBaby));
+  expect(timeZoneHash).not.toBe(babyOgImageHash(waitingBaby));
   expect(photoHash).not.toBe(babyOgImageHash(waitingBaby));
   expect(bornHash).not.toBe(babyOgImageHash(waitingBaby));
   expect(themeHash).not.toBe(photoHash);

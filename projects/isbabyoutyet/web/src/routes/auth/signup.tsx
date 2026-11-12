@@ -22,7 +22,7 @@ import { BabyIcon, UserPlusIcon } from "@phosphor-icons/react";
 import type { TranslationFunction } from "@/lib/i18n";
 import { translate, useI18n } from "@/lib/i18n";
 import { robotsNoIndexMeta } from "@/lib/seo";
-import { authPageCacheHeaders } from "@/lib/cachePolicy";
+import { sharedCacheHeaders, untilDeploy } from "@/lib/cache";
 
 function signupSchema(t: TranslationFunction) {
   return z.object({
@@ -39,7 +39,7 @@ type NewAccount = { email: string; name: string; password: string };
 
 export const Route = createFileRoute("/auth/signup")({
   component: SignupPage,
-  headers: authPageCacheHeaders,
+  headers: () => sharedCacheHeaders(untilDeploy("language")),
   head: (opts) => ({
     meta: [
       {

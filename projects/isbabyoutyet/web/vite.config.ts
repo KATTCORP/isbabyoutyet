@@ -9,6 +9,8 @@ import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import { legacyPolyfills } from "@workspace/browser-support/vite";
 import { sentryVitePlugins } from "@workspace/sentry/vite";
 
+import { personalCacheKeyRoutes } from "./src/lib/personal-cache-key.ts";
+
 /**
  * Base UI (and recharts, etc.) pull in `use-sync-external-store/shim`, a CJS-only
  * module. Vite/Rolldown SSR lowers its `require("react")` to a runtime
@@ -209,6 +211,13 @@ const config = defineConfig((env) => ({
       // undefined and every `/og` image 500s, so ship the whole package to
       // node_modules instead.
       traceDeps: ["harfbuzzjs*"],
+      // Nitro puts these ahead of its own routes. See src/lib/cache.ts.
+      vercel: {
+        config: {
+          routes: personalCacheKeyRoutes(),
+          version: 3,
+        },
+      },
     }),
     patchLeakedReactRequire(),
     tailwindcss(),
@@ -217,9 +226,8 @@ const config = defineConfig((env) => ({
         // Tests sit beside the routes they cover.
         routeFileIgnorePattern: String.raw`\.test\.tsx?$`,
       },
-      server: {
-        entry: "./src/server.ts",
-      },
+      // The server entry is the default, `src/server.ts`. Entries resolve
+      // from `src`, and one that is not found is skipped without an error.
     }),
     viteReact({ compiler: true }),
     // Lowers client syntax to the browser floor and serves core-js to older browsers.

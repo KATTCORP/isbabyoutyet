@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { DEFAULT_LOCALE, resolveSupportedLocale } from "../src/i18n";
 import { DEFAULT_TIME_ZONE, isValidTimeZone, resolveTimeZone } from "../src/timeZone";
@@ -92,7 +92,7 @@ export const updateLocale = mutationWithTriggers({
   returns: profileResultValidator,
 });
 
-export const updateTimeZone = mutation({
+export const updateTimeZone = mutationWithTriggers({
   args: {
     timeZone: v.string(),
   },

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { HOMEPAGE_DEMO_BABIES } from "@isbabyoutyet/backend/src/seedCredentials";
 import { SUPPORTED_LOCALES } from "@isbabyoutyet/backend/src/i18n";
 import { CANONICAL_ORIGIN } from "@/lib/site-url";
-import { withPublicCache } from "@/lib/cachePolicy";
+import { forOneDay, withSharedCache } from "@/lib/cache";
 
 function sitemapXml() {
   const today = new Date().toISOString().slice(0, 10);
@@ -40,13 +40,14 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: () =>
-        withPublicCache(
+        withSharedCache(
           new Response(sitemapXml(), {
             headers: {
               "Content-Type": "application/xml; charset=utf-8",
             },
           }),
-          { maxAgeSeconds: 3600, tags: ["discovery"] },
+          // `lastmod` is today.
+          forOneDay("everyone"),
         ),
     },
   },

@@ -31,8 +31,8 @@ import { DevBar } from "@/components/dev-bar";
 import { TanStackAppDevtools } from "@/components/tanstack-devtools";
 import { m } from "@/paraglide/messages";
 import "@/lib/register-service-worker";
-import { privateCacheHeaders } from "@/lib/cachePolicy";
 import { useDelayedBoolean } from "@/lib/use-delayed-action";
+import { RenderedAtProvider } from "@/lib/use-now";
 
 /** What the router gives every route (`getRouter`). */
 export type RouterContext = {
@@ -40,6 +40,8 @@ export type RouterContext = {
   /** The visitor's language (`visitorLocale`); in the browser, the one the server rendered. */
   locale: SupportedLocale;
   queryClient: AppQueryClient;
+  /** When the document was rendered, in ms; in the browser, when the server rendered it. */
+  renderedAt: number;
 };
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -138,9 +140,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       scripts: legacyPolyfillsHeadScripts(),
     };
   },
-  headers() {
-    return privateCacheHeaders();
-  },
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
 });
@@ -187,9 +186,11 @@ function RootComponent() {
       <IconContext.Provider value={{ weight: "duotone" }}>
         <TooltipProvider>
           <LocaleProvider locale={locale}>
-            <RootDocument locale={locale}>
-              <Outlet />
-            </RootDocument>
+            <RenderedAtProvider renderedAt={context.renderedAt}>
+              <RootDocument locale={locale}>
+                <Outlet />
+              </RootDocument>
+            </RenderedAtProvider>
           </LocaleProvider>
         </TooltipProvider>
       </IconContext.Provider>

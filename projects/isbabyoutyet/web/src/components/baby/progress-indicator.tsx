@@ -2,6 +2,7 @@ import type { BabyData, BabyStatus, Milestone } from "@isbabyoutyet/backend/src/
 import { getMilestonePolicy, MILESTONE_FIELDS } from "@isbabyoutyet/backend/src/types";
 import { getRelativeTime } from "./utils";
 import { useI18n } from "@/lib/i18n";
+import { useNow } from "@/lib/use-now";
 import type { TranslationKey } from "@/lib/i18n";
 import { MILESTONE_LABEL_KEYS } from "./translation-keys";
 
@@ -12,6 +13,7 @@ type ProgressIndicatorProps = {
 
 export function ProgressIndicator(props: ProgressIndicatorProps) {
   const { locale, t } = useI18n();
+  const now = useNow();
   const baby = props.baby;
   const currentStatus = props.currentStatus;
   const milestonePolicy = getMilestonePolicy(baby);
@@ -110,7 +112,7 @@ export function ProgressIndicator(props: ProgressIndicatorProps) {
               </p>
               {step.date && (
                 <p className="mt-1 max-w-full truncate rounded-full bg-muted/60 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                  {getRelativeTime(step.date, locale)}
+                  {getRelativeTime(step.date, { locale, now })}
                 </p>
               )}
             </li>
