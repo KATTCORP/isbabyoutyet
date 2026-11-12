@@ -10,24 +10,37 @@ function present(value: string | undefined) {
 }
 
 /**
- * Release define, plus source-map upload when `SENTRY_AUTH_TOKEN` is set.
+ * `import.meta.env` defines for the browser SDK: the release (commit SHA) and
+ * the Vercel environment (`production` / `preview`). Without the environment,
+ * the browser falls back to Vite's `MODE`, which is `production` for every
+ * build, previews included.
+ *
+ * @internal exported for tests
+ */
+export function sentryDefines(env: Record<string, string | undefined>) {
+  const define: Record<string, string> = {};
+  const release = present(env.SENTRY_RELEASE) ?? present(env.VERCEL_GIT_COMMIT_SHA);
+  if (release !== undefined) {
+    define["import.meta.env.VITE_SENTRY_RELEASE"] = JSON.stringify(release);
+  }
+  const environment = present(env.VERCEL_ENV);
+  if (environment !== undefined) {
+    define["import.meta.env.VITE_SENTRY_ENVIRONMENT"] = JSON.stringify(environment);
+  }
+  return define;
+}
+
+/**
+ * Release and environment defines, plus source-map upload when `SENTRY_AUTH_TOKEN` is set.
  * Spread this last in the Vite plugin list. Without the token, builds still
  * succeed and simply skip the upload.
  */
 export function sentryVitePlugins(opts: { appName: string }): Array<PluginOption> {
-  const release = present(process.env.SENTRY_RELEASE) ?? present(process.env.VERCEL_GIT_COMMIT_SHA);
   const authToken = present(process.env.SENTRY_AUTH_TOKEN);
   const plugins: Array<PluginOption> = [
     {
       config() {
-        if (release === undefined) {
-          return {};
-        }
-        return {
-          define: {
-            "import.meta.env.VITE_SENTRY_RELEASE": JSON.stringify(release),
-          },
-        };
+        return { define: sentryDefines(process.env) };
       },
       name: "workspace-sentry-release",
     },
