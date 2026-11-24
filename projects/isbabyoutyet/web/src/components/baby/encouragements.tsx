@@ -1,4 +1,14 @@
-import { Form, SubmitButton, useZodForm } from "@/components/Form";
+/**
+ * The encouragement form. `encouragement-post.ts` says what it sends, with
+ * the page's JS and without.
+ */
+import {
+  encouragementPost,
+  postEncouragement,
+  recallAuthorName,
+} from "@/components/baby/encouragement-post";
+import { SubmitButton } from "@/components/Form";
+import { PostForm, useFormPost } from "@/components/PostForm";
 import {
   FormControl,
   FormField,
@@ -8,24 +18,17 @@ import {
 } from "@workspace/ui/components/form";
 import { Input } from "@workspace/ui/components/input";
 import { Textarea } from "@workspace/ui/components/textarea";
-import { useMutation } from "convex/react";
 import { invalidateMany } from "@raf-query/react";
 import { useQueryClient } from "@/lib/raf";
-import type { FunctionArgs } from "convex/server";
 import { PaperPlaneTiltIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { z } from "zod";
 import type { Id } from "@isbabyoutyet/backend/convex/_generated/dataModel";
-import { api } from "@isbabyoutyet/backend/convex/_generated/api";
-import type { TranslationFunction } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n";
 import {
   readEncouragementFormDraft,
   clearEncouragementMessageDraft,
 } from "@/lib/encouragement-message-draft";
 import { useEncouragementMessageDraft } from "@/lib/use-encouragement-message-draft";
-import { useClientHydration } from "@/lib/use-client-hydration";
-import { getVisitorId } from "@/lib/use-visitor-id";
 import { visitorTagQuery } from "@/lib/visitor-tag";
 import { useWatch } from "react-hook-form";
 
@@ -33,80 +36,28 @@ type EncouragementFormProps = {
   accountName: string | null;
   babyId: Id<"baby">;
   babyName: string;
+  publicId: string;
 };
 
-const MAX_NAME_LENGTH = 50;
-const STORAGE_KEY_NAME = "encouragement-author-name";
-
-function getStoredAuthorName() {
-  if (globalThis.window === undefined) {
-    return "";
-  }
-  return localStorage.getItem(STORAGE_KEY_NAME) ?? "";
-}
-
-// Trim before validating, so whitespace-only input doesn't pass "required"
-function encouragementSchema(t: TranslationFunction, babyId: Id<"baby">) {
-  return z
-    .object({
-      authorName: z
-        .string()
-        .trim()
-        .min(1, t("Name is required"))
-        .max(
-          MAX_NAME_LENGTH,
-          t("Name must be {{count}} characters or less", { count: MAX_NAME_LENGTH }),
-        ),
-      message: z.string().trim().min(1, t("Message is required")),
-    })
-    .transform((values): FunctionArgs<typeof api.encouragements.create> => ({
-      authorName: values.authorName,
-      babyId,
-      locale: globalThis.navigator !== undefined ? navigator.language : null,
-      message: values.message,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      userAgent: globalThis.navigator !== undefined ? navigator.userAgent : null,
-      visitorId: getVisitorId(),
-    }));
-}
-
 export function EncouragementForm(props: EncouragementFormProps) {
-  const hydrated = useClientHydration();
-  const sessionDraft = hydrated ? readEncouragementFormDraft(props.babyId) : null;
-  const storedAuthorName = hydrated ? getStoredAuthorName() : "";
-  return (
-    <EncouragementFormFields
-      babyId={props.babyId}
-      babyName={props.babyName}
-      initialAuthorName={
-        sessionDraft?.hasDraft
-          ? sessionDraft.authorName
-          : storedAuthorName || props.accountName || ""
-      }
-      initialMessage={sessionDraft?.message ?? ""}
-      key={hydrated ? "hydrated" : "server"}
-    />
-  );
-}
-
-function EncouragementFormFields(
-  props: { babyId: Id<"baby">; babyName: string } & {
-    initialAuthorName: string;
-    initialMessage: string;
-  },
-) {
   const { t } = useI18n();
-  const createEncouragement = useMutation(api.encouragements.create);
   const queryClient = useQueryClient();
-  const schema = encouragementSchema(t, props.babyId);
-
-  const form = useZodForm({
-    defaultValues: {
-      authorName: props.initialAuthorName,
-      message: props.initialMessage,
+  const post = useFormPost(encouragementPost, {
+    action: postEncouragement,
+    carried: { babyId: props.babyId, publicId: props.publicId },
+    defaultValues: { authorName: props.accountName ?? "", message: "" },
+    // A draft left in this tab first, then the name used last time.
+    restore: () => {
+      const draft = readEncouragementFormDraft(props.babyId);
+      return {
+        authorName: draft.hasDraft
+          ? draft.authorName
+          : recallAuthorName() || props.accountName || "",
+        message: draft.message,
+      };
     },
-    schema,
   });
+  const form = post.form;
   const message = useWatch({ control: form.control, name: "message" }) ?? "";
   const authorName = useWatch({ control: form.control, name: "authorName" }) ?? "";
   useEncouragementMessageDraft({ authorName, babyId: props.babyId, message });
@@ -123,13 +74,10 @@ function EncouragementFormFields(
         </p>
       </div>
 
-      <Form
-        form={form}
+      <PostForm
+        failedMessage={t("Failed to send encouragement")}
         handleSubmit={async (values) => {
-          // Save name to localStorage for next time
-          localStorage.setItem(STORAGE_KEY_NAME, values.authorName);
-
-          const promise = createEncouragement(values).then(async (it) => {
+          const promise = post.send(values).then(async (it) => {
             /* v8 ignore next 3 */
             if (import.meta.env.DEV && import.meta.env.MODE !== "test") {
               await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -149,6 +97,7 @@ function EncouragementFormFields(
           clearEncouragementMessageDraft(props.babyId);
           form.reset({ authorName: values.authorName, message: "" });
         }}
+        post={post}
       >
         <div className="space-y-3">
           <FormField
@@ -158,7 +107,7 @@ function EncouragementFormFields(
               <FormItem>
                 <FormLabel>{t("Your name")}</FormLabel>
                 <FormControl>
-                  <Input maxLength={MAX_NAME_LENGTH} placeholder={t("Your name")} {...field} />
+                  <Input {...post.native("authorName")} placeholder={t("Your name")} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -173,6 +122,7 @@ function EncouragementFormFields(
                 <FormLabel>{t("Message")}</FormLabel>
                 <FormControl>
                   <Textarea
+                    {...post.native("message")}
                     className="min-h-24"
                     placeholder={t("Write your message of encouragement...")}
                     {...field}
@@ -192,7 +142,7 @@ function EncouragementFormFields(
             {t("Send Encouragement")}
           </SubmitButton>
         </div>
-      </Form>
+      </PostForm>
     </div>
   );
 }

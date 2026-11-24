@@ -558,7 +558,7 @@ test("encouragements dual-write timeline rows and cascade on delete", async () =
   await using harness = await setup();
   const { asAlice, babyId, t } = harness;
 
-  const encouragementId = await t.mutation(
+  const { encouragementId } = await t.mutation(
     api.encouragements.create,
     createEncouragementArgs({
       authorName: "Uncle Bob",

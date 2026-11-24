@@ -113,7 +113,7 @@ test("owner message notifications page manager subscriptions without marking fam
       "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
   });
 
-  const encouragementId = await t.mutation(
+  const { encouragementId } = await t.mutation(
     api.encouragements.create,
     createEncouragementArgs({
       authorName: "Grandma",
@@ -169,7 +169,7 @@ test("dismissing an owner message push pages the same manager subscriptions", as
     userAgent:
       "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
   });
-  const encouragementId = await t.mutation(
+  const { encouragementId } = await t.mutation(
     api.encouragements.create,
     createEncouragementArgs({
       authorName: "Grandma",

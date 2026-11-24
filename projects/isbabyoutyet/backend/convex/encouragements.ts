@@ -144,7 +144,9 @@ export const create = mutationWithTriggers({
       });
     }
 
-    return encouragementId;
+    // The timeline item is the message's place in the feed, which is what
+    // its permalink names.
+    return { encouragementId, timelineItemId };
   },
 });
 

@@ -33,6 +33,7 @@
         "src/test/renderWithConvexTest.tsx!",
         "src/test/renderMountedFileRoute.tsx!",
         "src/test/routeTestContext.ts!",
+        "src/test/browserCookies.ts!",
         "src/test/browserPush.ts!",
         "src/test/loadQuery.ts!",
         "vite.config.ts!"

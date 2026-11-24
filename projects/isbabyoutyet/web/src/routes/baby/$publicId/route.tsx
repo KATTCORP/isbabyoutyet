@@ -443,6 +443,7 @@ function BabyPageLayout() {
                 accountName={me?.name ?? null}
                 babyId={babyDoc._id}
                 babyName={baby.name}
+                publicId={babyDoc.publicId}
               />
             </section>
 

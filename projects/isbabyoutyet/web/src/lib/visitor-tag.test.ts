@@ -6,19 +6,15 @@ import { visitorTag } from "@isbabyoutyet/backend/src/visitorId";
 import { stubNoWindowResource } from "@/test/stubJsdomWindow";
 import { stubQueryClientResource } from "@/test/stubQueryClient";
 import { visitorTagQuery } from "./visitor-tag";
+import { clearBrowserCookies, setBrowserCookie } from "@/test/browserCookies";
 import { fetchQueryData, prefetchQuery } from "@/test/loadQuery";
 
-const VISITOR_ID_STORAGE_KEY = "encouragement-visitor-id";
-
 function storedVisitorIdResource(visitorId: string | null) {
-  if (visitorId === null) {
-    localStorage.removeItem(VISITOR_ID_STORAGE_KEY);
-  } else {
-    localStorage.setItem(VISITOR_ID_STORAGE_KEY, visitorId);
+  clearBrowserCookies();
+  if (visitorId !== null) {
+    setBrowserCookie("visitor-id", visitorId);
   }
-  return makeResource({}, () => {
-    localStorage.removeItem(VISITOR_ID_STORAGE_KEY);
-  });
+  return makeResource({}, clearBrowserCookies);
 }
 
 const rejectConvexQueries: Parameters<typeof stubQueryClientResource>[0] = async (query) => {

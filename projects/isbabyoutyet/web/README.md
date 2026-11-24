@@ -48,6 +48,63 @@ finishes and skip the guard. Controls that persist immediately (language
 select, notification switches) are not forms. Library internals are in
 [`packages/form-guard`](../../../packages/form-guard/README.md).
 
+### Forms without JS (`@/lib/form-post`)
+
+A form on a public page should still work while the page's JS is not running:
+blocked, still loading, or broken. Describe what it sends once, with
+`formPost`, and both ways of sending it read that description:
+
+|            | With JS                                  | Without JS                                                           |
+| ---------- | ---------------------------------------- | -------------------------------------------------------------------- |
+| Sent by    | `post.send`, over the Convex client      | the browser, to the form's server function                           |
+| Checked by | `fields`, as the visitor types           | `required` / `maxLength` read off `fields`, then `fields` on arrival |
+| Arguments  | `args`, with `request: null`             | `args`, with the browser's `request`                                 |
+| Afterwards | `handleSubmit` carries on (toast, reset) | a redirect to `landing`, or back to `page` at the form's notice      |
+
+The encouragement form is the one to copy. A form has four parts: the first
+two in a file of their own
+([`encouragement-post.ts`](src/components/baby/encouragement-post.ts)), the
+last two in the component
+([`encouragements.tsx`](src/components/baby/encouragements.tsx)):
+
+1. `formPost({ … })`: the mutation, the `fields` the visitor types (a named
+   function, so its type is known before `args` is read), what the page
+   sends along in hidden inputs (`carried`), and `args`, which turns those
+   into the mutation's arguments. Where the two senders know different things
+   (a header, a cookie), `args` decides, with both cases side by side.
+   `remembers` says what the browser keeps from a post that worked.
+2. Its server function, which only hands the post to `answerFormPost`. It
+   has to be a `createServerFn` of its own, at the top of the module, for the
+   compiler to find it.
+3. `useFormPost(post, { action, carried, defaultValues, restore })` in the
+   component. `defaultValues` is what the server knows and goes in the HTML.
+   `restore` reads what only the browser knows (a draft, a remembered name),
+   and runs once the page's JS does. What the visitor typed before that wins
+   over both. The form is not mounted a second time for it.
+4. `<PostForm>` around the fields, with `{...post.native("name")}` on each
+   input.
+
+What a browser remembers between posts, like the visitor id and the name on
+the last message, is a cookie ([`remembered.ts`](src/lib/remembered.ts)), so
+both senders can read and write it: the page's JS through `document.cookie`,
+a post without JS through the request and its redirect. `remembers` is the
+one place a form says what to keep.
+
+Three things follow from the page being shared by the CDN:
+
+- **`landing` is a URL the CDN has no copy of**, like a new item's permalink.
+  The redirect arrives before the purge does, and a shared copy would not
+  have what the visitor just did.
+- **A failed post shows the form's notice with `:target`.** The notice is
+  always in the HTML and the redirect only adds `#<id>-failed`, so nothing is
+  rendered for one visitor. What the visitor typed is not kept.
+- **The server function takes posts from this site only.** It runs the
+  mutation with the visitor's session.
+
+Test the path without JS in jsdom: render the form, read its `FormData`, and
+give that to `formPostResponse` with the harness's mutation. A field that is
+renamed in one place and not the other fails there.
+
 ## i18n
 
 UI copy uses English literals as catalog keys: `useI18n().t("…")`, with base
@@ -76,6 +133,9 @@ Vercel's CDN keeps server responses so most visitors never reach the server.
    [`src/lib/personal-cache-key.ts`](src/lib/personal-cache-key.ts) send
    personal requests to their own URL (`?__personal=1`, stripped in
    `server.ts`). A redirect, an error or a write is never shared either.
+   The cookies a visitor's browser remembers posts by
+   ([`remembered.ts`](src/lib/remembered.ts)) are not personal: the server
+   renders nothing from them.
 3. **A shared response lives until it expires or its tag is purged.** A
    deploy starts an empty cache, because Vercel keys it per deployment.
    Browsers ask the CDN every time.
